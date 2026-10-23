@@ -1,14 +1,14 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
-import { renderWorkspaceFrame } from '../../src/ui/components/workspace-frame';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderWorkspaceFrame } from '../../src/ui/components/shared/workspace-frame';
 import { renderContentWorkspace } from '../../src/ui/runtime-editor/codex/workspace';
-import { renderCharacterWorkspace } from '../../src/ui/components/character-workspace';
-import { renderPanelTabsRegion } from '../../src/ui/components/tabs';
-import { renderCollectionModalBody } from '../../src/ui/components/collection-modal';
-import type { PanelState } from '../../src/ui/components/app-shell';
+import { renderCharacterWorkspace } from '../../src/ui/components/character/character-workspace';
+import { renderPanelTabsRegion } from '../../src/ui/components/shared/tabs';
+import { renderCollectionModalBody } from '../../src/ui/components/inventory/collection-modal';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
 
 describe('WorkspaceFrame', () => {
   it('内容工具复用布局输出但不引入游戏主题宿主或额外 surface', () => {

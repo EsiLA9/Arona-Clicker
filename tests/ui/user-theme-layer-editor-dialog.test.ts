@@ -6,11 +6,11 @@
 // 这些断言必须是行为级（点击后看结果），字符串断言不能替代。
 // ============================================================
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { createUIContext } from '../../src/ui/context';
-import { describeThemeLayer, renderLayerEditorForm, renderLayerManagerList } from '../../src/ui/components/user-theme-layer-manager';
+import { UIController } from '../../src/ui/controller/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { describeThemeLayer, renderLayerEditorForm, renderLayerManagerList } from '../../src/ui/components/settings/user-theme-layer-manager';
 
 const OFFICE = 'base:init:schale_office';
 const USER_THEME = 'base:enhancement:user-theme-editor';

@@ -1,6 +1,7 @@
 # Unit 0312-U18：合法数据包完整纵向验收
 
-状态：ready / 未执行；阶段P3。前置：0312-U17实际完成Receipt与测试。
+状态：waived by user — 用户于2026-10-22明确要求跳过本Unit验收；未执行测试、浏览器操作或截图，也没有U18 Receipt。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,8 +13,8 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 示例 | src/arona-clicker/content/gameplay-b-effect-program-example.ts；docs/examples/gameplay-b-effect-program-e1.md | 同一份真实内容贯穿验收 |
-| 现有链 | tests/ui/gameplay-b-map-vertical-slice.test.ts；tests/engine/gameplay-b-map-source-transactions.test.ts；src/arona-clicker/runtime-game-instance.ts：commitMapEncounterRound | 设施/准备页/Controller/Runtime/库存 |
+| 示例 | src/arona-clicker/content/gameplay-b/gameplay-b-effect-program-example.ts；docs/examples/gameplay-b-effect-program-e1.md | 同一份真实内容贯穿验收 |
+| 现有链 | tests/ui/gameplay-b-map-vertical-slice.test.ts；tests/engine/gameplay-b-map-source-transactions.test.ts；src/arona-clicker/runtime/runtime-game-instance.ts：commitMapEncounterRound | 设施/准备页/Controller/Runtime/库存 |
 | 合同 | OLD/EQ/NEW映射表与U01–U17实际Receipt | 最终联合行为覆盖 |
 
 ## Context Budget

@@ -3,7 +3,7 @@
 // 覆盖：贴底跟随 / 历史翻阅保持 / 图片异步加载 / 按宿主锚点恢复 / 多宿主隔离
 // ============================================================
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ScrollManager } from '../../src/ui/scroll';
+import { ScrollManager } from '../../src/ui/interaction/scroll';
 import { FlowScroll, type FlowScrollHost } from '../../src/ui/flow/flow-scroll';
 
 interface FakeObserver {

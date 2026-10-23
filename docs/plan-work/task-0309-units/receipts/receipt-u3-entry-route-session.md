@@ -14,7 +14,7 @@
 | --- | --- | --- | --- |
 | 定向测试 | 未执行 | 未执行 | 本轮执行约束未要求运行测试；未修改测试文件。 |
 | 全项目类型检查 | `npx tsc --noEmit` | 失败 | 路由自身错误已修复；余下 10 条错误仅在未修改的 `tests/data/area-map-registry.test.ts`，依赖尚不存在的 `Registry.validateAreaMapRefs` / `Registry.areaMaps`。 |
-| 本 Unit 源码类型检查 | 临时配置继承仓库 `tsconfig.json`，只以 `src/ui/controller.ts`、`src/ui/workspace/workspace-router.ts` 为入口运行 `npx tsc --noEmit --project <temp-config>` | 通过 | 临时配置已清理；不包含测试文件。 |
+| 本 Unit 源码类型检查 | 临时配置继承仓库 `tsconfig.json`，只以 `src/ui/controller/controller.ts`、`src/ui/workspace/workspace-router.ts` 为入口运行 `npx tsc --noEmit --project <temp-config>` | 通过 | 临时配置已清理；不包含测试文件。 |
 | 差异检查 | `git --no-pager diff --check`（本 Unit 源码） | 通过 | |
 | GALHCG | 上述三路径 changed 复核 | 完成 | 无维护授权，未写图。 |
 

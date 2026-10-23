@@ -3,7 +3,7 @@
 // 购买/热插拔/不可撤回 语义
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const CREDIT = 'base:resource:credit';

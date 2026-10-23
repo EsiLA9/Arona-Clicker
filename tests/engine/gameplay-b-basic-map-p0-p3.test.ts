@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
-import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
-import { createRegistryMapContentResolver } from '../../src/arona-clicker/services/registry-map-content-resolver';
-import type { MapRun, MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map-run';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
+import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
+import { createRegistryMapContentResolver } from '../../src/arona-clicker/services/map/registry-map-content-resolver';
+import type { MapRun, MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map/map-run';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { baseDatapack } from '../../src/data/test-datapack';
 
@@ -258,7 +258,7 @@ describe('Gameplay B basic map P0—P3', () => {
             name: 'Strike',
             eligibleCharacterIds: [],
             target: { kind: 'partyCharacter', preference: 'stableOrder' },
-            hpEffects: [{ amount: -1 }],
+            effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] },
           },
         ],
         nodes: [

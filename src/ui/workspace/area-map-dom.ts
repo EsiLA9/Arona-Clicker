@@ -1,7 +1,7 @@
-import type { UIContext } from '../context';
-import type { PanelState } from '../components/app-shell';
+import type { UIContext } from '../runtime/context';
+import type { PanelState } from '../components/shared/app-shell';
 import type { AreaMapSession } from './area-map-session';
-import { renderAreaMapDetail, renderAreaMapEdges, renderAreaMapNode, renderAreaMapWorkspace, areaMapTravelLabel } from '../components/area-map-workspace';
+import { renderAreaMapDetail, renderAreaMapEdges, renderAreaMapNode, renderAreaMapWorkspace, areaMapTravelLabel } from '../components/map/area-map-workspace';
 
 interface Overlays {
   dismissBeforeRootMutation(scope: ParentNode): void;

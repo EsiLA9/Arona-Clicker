@@ -1,12 +1,13 @@
 # Unit 0312-U12B：混合来源状态链与完整回执验收
 
-状态：ready / 2026-10-22负责人放行。[[docs/plan-work/task-0312-units/receipts/task-0312-u12a-receipt]]已实际交付：32项定向、tsc/architecture/docs/空白通过，根核对Receipt及当前接口；A明确未完成项在本页继续，未接入Owner恢复。继承 [[docs/plan-work/task-0312-units/task-0312-u12-trace-validation]] 全部剩余验收；完成B才构成U12完成并解除U13依赖。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 B增量基线为A validator584行、测试143行，父Run可信身份已通过必填context.runId输入。预算按B相对该实际基线的新增/删除计量，不把同一未提交文件的A内容再次计入。完整B剩余校验估算调整为validator净增250–400、测试150–250、Receipt60–80，总460–730，上限1000，文件白名单不变。
 
 ## Allowed Files与预算
 
-- `src/arona-clicker/services/map-effect-receipt-validator.ts`：修正source集合并补混合legacy/program相位链、账户资源链及完整Scope/投影，估净增170–240行。
+- `src/arona-clicker/services/map/map-effect-receipt-validator.ts`：修正source集合并补混合legacy/program相位链、账户资源链及完整Scope/投影，估净增170–240行。
 - `tests/engine/gameplay-b-effect-receipt.test.ts`：新增真实混合来源正例与独立篡改负例，估净增100–170行。
 - 新增实际Receipt：docs/plan-work/task-0312-units/receipts/task-0312-u12b-receipt.md；估60–80行。
 

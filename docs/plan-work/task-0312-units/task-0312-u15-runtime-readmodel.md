@@ -1,6 +1,7 @@
 # Unit 0312-U15：Runtime查询投影Preview与真实回执
 
-状态：ready / 未执行；阶段P3。前置：0312-U14实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,9 +13,9 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/runtime-game-instance.ts：getMapEncounterView/getMapEncounterWorkspaceView/previewMapEncounterSources及actionView/recentCommit/commitPreview装配 | 现有action/source/receipt投影截断点 |
-| 源码 | src/arona-clicker/contracts/runtime.ts：MapWorkspaceActionView/CommitPreviewView/RecentCommitView；src/arona-clicker/contracts/map-run.ts：MapRunEncounterSourceOption | 现有数据边界 |
-| 依赖 | src/arona-clicker/services/map-effect-summary.ts；src/arona-clicker/contracts/map-effects.ts | 只读声明摘要与Owner实际计划 |
+| 源码 | src/arona-clicker/runtime/runtime-game-instance.ts：getMapEncounterView/getMapEncounterWorkspaceView/previewMapEncounterSources及actionView/recentCommit/commitPreview装配 | 现有action/source/receipt投影截断点 |
+| 源码 | src/arona-clicker/contracts/runtime/runtime.ts：MapWorkspaceActionView/CommitPreviewView/RecentCommitView；src/arona-clicker/contracts/map/map-run.ts：MapRunEncounterSourceOption | 现有数据边界 |
+| 依赖 | src/arona-clicker/services/map/map-effect-summary.ts；src/arona-clicker/contracts/map/map-effects.ts | 只读声明摘要与Owner实际计划 |
 
 ## Context Budget
 
@@ -41,10 +42,10 @@
 
 ## Allowed Files
 
-- `src/arona-clicker/contracts/runtime.ts`
-- `src/arona-clicker/contracts/map-run.ts`
-- `src/arona-clicker/runtime-game-instance.ts`
-- 新增（执行时才创建）：tests/engine/gameplay-b-effect-projection.test.ts
+- `src/arona-clicker/contracts/runtime/runtime.ts`
+- `src/arona-clicker/contracts/map/map-run.ts`
+- `src/arona-clicker/runtime/runtime-game-instance.ts`
+- `tests/engine/gameplay-b-effect-projection.test.ts`：U14已创建，U15扩充真实Runtime投影用例并保留其原声明摘要用例。
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u15-receipt.md
 
 路径为精确写入白名单，标“新增”的当前不创建；不能因Read Set包含某文件就修改它。其它Unit、E0归档、Draft语义、顶层协议、无关测试均不在白名单。源码路径名由本Task冻结；若需改路径先由负责人更新范围。

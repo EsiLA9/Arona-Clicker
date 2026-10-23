@@ -9,9 +9,9 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` §“页面状态与主操作” / P3 / 验收 | 准备页管理操作边界 |
-| 源码 | `src/ui/controller-actions-operation.ts:openMapRestartConfirmation/openMapAbandonConfirmation/getActiveMapRunForRoute` | 复用确认、重核和原有 map route 语义 |
-| 源码 | `src/ui/components/map-entry-workspace.ts:renderPrimaryAction` | 在 resume 模式增加低强调管理区与焦点 key |
-| 契约 | `src/arona-clicker/contracts/runtime.ts:GameCommands.restartMap/abandonMap` | 既有 Run 命令 |
+| 源码 | `src/ui/controller/controller-actions-operation.ts:openMapRestartConfirmation/openMapAbandonConfirmation/getActiveMapRunForRoute` | 复用确认、重核和原有 map route 语义 |
+| 源码 | `src/ui/components/map/map-entry-workspace.ts:renderPrimaryAction` | 在 resume 模式增加低强调管理区与焦点 key |
+| 契约 | `src/arona-clicker/contracts/runtime/runtime.ts:GameCommands.restartMap/abandonMap` | 既有 Run 命令 |
 
 ## Context Budget
 
@@ -35,9 +35,9 @@
 
 | 事实 | 依据（路径 / 符号） | 备注 |
 | --- | --- | --- |
-| 当前 Map Workspace 已使用 `restartMap` / `abandonMap` 的显式确认 | `src/ui/controller-actions-operation.ts:openMapRestartConfirmation/openMapAbandonConfirmation` | 扩展共用入口以支持 map-entry route |
+| 当前 Map Workspace 已使用 `restartMap` / `abandonMap` 的显式确认 | `src/ui/controller/controller-actions-operation.ts:openMapRestartConfirmation/openMapAbandonConfirmation` | 扩展共用入口以支持 map-entry route |
 | restart 返回新 Run 并继续进入 map route；abandon 当前返回原游戏位置 | 同上 | map-entry abandon 应局部返回 fresh 准备页 |
-| `getActiveMapRunForRoute` 当前只接受 route kind map | `src/ui/controller-actions-operation.ts:getActiveMapRunForRoute` | map-entry 需严格核对相同 mapId、runId 与来源 |
+| `getActiveMapRunForRoute` 当前只接受 route kind map | `src/ui/controller/controller-actions-operation.ts:getActiveMapRunForRoute` | map-entry 需严格核对相同 mapId、runId 与来源 |
 
 ## Constraints
 
@@ -49,8 +49,8 @@
 
 ## Allowed Files
 
-- `src/ui/controller-actions-operation.ts`
-- `src/ui/components/map-entry-workspace.ts`
+- `src/ui/controller/controller-actions-operation.ts`
+- `src/ui/components/map/map-entry-workspace.ts`
 - `src/ui/css/map-entry-workspace.css`
 
 ## Explicit Non-goals

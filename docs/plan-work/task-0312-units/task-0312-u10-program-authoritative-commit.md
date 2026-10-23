@@ -1,6 +1,7 @@
 # Unit 0312-U10：新Effect程序接权威Planner与原子Commit
 
-状态：已拆为 U10A → U10B；阶段P2。U08/U09已完成并由负责人复核。U10整体完成须两份子Unit Receipt及原全部验收通过。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ### 2026-10-22 实际接线核对与拆分
 
@@ -22,9 +23,9 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-run-service.ts：resolveEncounterCommitPlan/previewEncounterCommit/prepareEncounterRoundCommit/canInstall/install | 唯一权威执行/安装 |
-| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map-effect-planner.ts；src/arona-clicker/services/map-encounter-locals.ts；src/arona-clicker/contracts/map-run.ts | 共享指令/locals/trace |
-| 外部事务 | src/arona-clicker/runtime-game-instance.ts：commitMapEncounterRound；source-transactions现有测试 | 不改两Owner连续安装合同 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：resolveEncounterCommitPlan/previewEncounterCommit/prepareEncounterRoundCommit/canInstall/install | 唯一权威执行/安装 |
+| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map/map-effect-planner.ts；src/arona-clicker/services/map/map-encounter-locals.ts；src/arona-clicker/contracts/map/map-run.ts | 共享指令/locals/trace |
+| 外部事务 | src/arona-clicker/runtime/runtime-game-instance.ts：commitMapEncounterRound；source-transactions现有测试 | 不改两Owner连续安装合同 |
 | 合同 | Draft0312 §11.2、NEW01–NEW04、EQ01–EQ05 | 只采用E1-COMPAT-1 |
 
 ## Context Budget
@@ -66,8 +67,8 @@ Preview与Commit同用resolveEncounterCommitPlan；安装后状态从detached pl
 
 ## Allowed Files
 
-- `src/arona-clicker/services/map-run-service.ts`
-- 新增（执行时才创建）：src/arona-clicker/services/map-effect-planner.ts
+- `src/arona-clicker/services/map/map-run-service.ts`
+- 新增（执行时才创建）：src/arona-clicker/services/map/map-effect-planner.ts
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-program.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u10-receipt.md
 

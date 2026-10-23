@@ -19,7 +19,7 @@ import type {
 } from '../../data-services/authoring/content-policy';
 import type { RevealTarget } from '../../engine/contracts/reveal';
 import type { Condition, ConditionGroup, Effect } from '../../engine/types/expression';
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 import type { RuntimeEditorProblemInput } from './form';
 import { readConditionEditor, readEffectEditor, renderConditionEditor, renderConditionEditorList, renderEffectEditor } from './dsl-editors';
 

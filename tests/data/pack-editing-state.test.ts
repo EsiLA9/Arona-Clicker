@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { PackManager, PackManagerError, type StoredPack } from '../../src/data-services/datapack/pack-manager';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 function pack(id = 'demo@1.0.0', value = 'original'): StoredPack {

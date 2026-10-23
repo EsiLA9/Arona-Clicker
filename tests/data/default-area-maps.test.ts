@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { baseDatapackSource } from '../../src/arona-clicker/content/base-datapack-source';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 describe('默认内容的 Init 区域图', () => {
   test('发布包与内容源一致，每个 Area 均有同 Init 的完整地图入口', () => {

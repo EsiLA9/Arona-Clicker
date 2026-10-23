@@ -2,7 +2,7 @@
 // ui/runtime-editor/debug.ts — 调试编辑态播种
 // ============================================================
 
-import type { UIController } from '../controller';
+import type { UIController } from '../controller/controller';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
 import { IS_DEBUG_EDITING } from './config';
 import { createRuntimeDatapackEditorState, hydrateRuntimeEditor, restoreRuntimeEditorSnapshot } from './state';

@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
-import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
-import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
-import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
+import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation/operation-content-resolver';
+import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/operation/student-operation-profile';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation/operation-skill';
 import type { OperationCardPoolDef, OperationStrategyProfileDef, OperationEventContentDef, OperationLocationDef } from '../../src/data-services/contracts/operation';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { CharacterVariantDef } from '../../src/arona-clicker/types/character';
 import { Character } from '../../src/arona-clicker/types/ids';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { createOperationEntry } from '../../src/arona-clicker/services/operation-entry-service';
-import { OperationAdmissionError, OperationParticipantAdmission } from '../../src/arona-clicker/services/operation-participant-admission';
-import { createRegistryOperationContentResolver } from '../../src/arona-clicker/services/registry-operation-content-resolver';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { createOperationEntry } from '../../src/arona-clicker/services/operation/operation-entry-service';
+import { OperationAdmissionError, OperationParticipantAdmission } from '../../src/arona-clicker/services/operation/operation-participant-admission';
+import { createRegistryOperationContentResolver } from '../../src/arona-clicker/services/operation/registry-operation-content-resolver';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const EVENT_ID = 'test:operation:admission';

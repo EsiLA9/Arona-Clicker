@@ -3,16 +3,16 @@ import {
   OPERATION_NO_ELIGIBLE_ACTION_REASON_ID,
   OPERATION_WAIT_ACTION_ID,
   type OperationEventDef,
-} from '../../src/arona-clicker/contracts/operation';
-import type { OperationAdmission } from '../../src/arona-clicker/contracts/operation-participant';
-import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation-action';
-import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
-import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
+} from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationAdmission } from '../../src/arona-clicker/contracts/operation/operation-participant';
+import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation/operation-skill';
+import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/operation/student-operation-profile';
 import { Character } from '../../src/arona-clicker/types/ids';
-import { validateOperationActionContent } from '../../src/arona-clicker/services/operation-action-content-validation';
-import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
-import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { resolveOperationRunStart } from '../../src/arona-clicker/services/student-operation-profile-resolver';
+import { validateOperationActionContent } from '../../src/arona-clicker/services/operation/operation-action-content-validation';
+import { validateOperationEventDef } from '../../src/arona-clicker/services/operation/operation-definition-validation';
+import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { resolveOperationRunStart } from '../../src/arona-clicker/services/operation/student-operation-profile-resolver';
 
 const ACTOR_IDS = ['test:actor:a', 'test:actor:b', 'test:actor:c', 'test:actor:blocked', 'test:actor:enemy'] as const;
 

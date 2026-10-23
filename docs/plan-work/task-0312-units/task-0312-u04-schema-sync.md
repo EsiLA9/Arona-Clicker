@@ -1,6 +1,7 @@
 # Unit 0312-U04：生成Schema与作者协议同步
 
-状态：ready / 未执行；阶段P1。前置：0312-U03实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 

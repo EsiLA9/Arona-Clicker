@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { OPERATION_NO_ELIGIBLE_ACTION_REASON_ID, OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation';
-import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation-content-resolver';
-import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/student-operation-profile';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
-import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
+import { OPERATION_NO_ELIGIBLE_ACTION_REASON_ID, OPERATION_WAIT_ACTION_ID, type OperationEventDef } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationContentResolver, OperationResolvedContent } from '../../src/arona-clicker/contracts/operation/operation-content-resolver';
+import type { StudentOperationProfileDef } from '../../src/arona-clicker/contracts/operation/student-operation-profile';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation/operation-skill';
 import {
   OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE,
   OPERATION_WAIT_REASON_NO_LEGAL_TARGET,
-} from '../../src/arona-clicker/contracts/operation-beat';
+} from '../../src/arona-clicker/contracts/operation/operation-beat';
 import { Character } from '../../src/arona-clicker/types/ids';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { OperationRuntimeError } from '../../src/arona-clicker/services/operation-runtime-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { OperationRuntimeError } from '../../src/arona-clicker/services/operation/operation-runtime-service';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const EVENT_ID = 'test:operation:integration';

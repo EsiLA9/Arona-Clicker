@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/game-instance.test.ts — 集成测试
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Expr, cond, and, value } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';

@@ -1,4 +1,4 @@
-import type { UIController } from '../controller';
+import type { UIController } from '../controller/controller';
 import type { UIBehaviorId } from './ui-update-types';
 import type { UISurfaceToken } from './ui-surface';
 import { displayName } from '../../engine/core/display-name';

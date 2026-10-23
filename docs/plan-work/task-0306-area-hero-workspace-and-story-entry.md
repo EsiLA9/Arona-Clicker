@@ -42,16 +42,16 @@
 
 | 已核实事实 | 源码／符号依据 | 对本 Task 的影响 |
 | --- | --- | --- |
-| 游戏工作区由左、中、右三栏组合，共用 Frame | `src/ui/workspace/workspace-renderer.ts`：`renderGameWorkspace`；`src/ui/components/workspace-frame.ts` | 新工作区复用骨架与宿主规则，不复制一套三栏框架 |
+| 游戏工作区由左、中、右三栏组合，共用 Frame | `src/ui/workspace/workspace-renderer.ts`：`renderGameWorkspace`；`src/ui/components/shared/workspace-frame.ts` | 新工作区复用骨架与宿主规则，不复制一套三栏框架 |
 | 当前路由没有区域 Workspace；返回位置是单层，不是历史栈 | `src/ui/workspace/workspace-router.ts`：`WorkspaceRoute`、`WorkspaceNavigationState`、`WorkspaceLocation` | 新页面需要明确 route 身份、返回点和 active Area 变化时的处理 |
-| 正常界面 hero 来自当前 Area／表现查询；本体没有进入工作区动作 | `src/ui/components/rail.ts`：`renderAreaTab` | 增加可访问点击入口；名称、说明继续来自既有查询 |
-| 正常左栏的通讯录／故事按钮是 Workspace 路由入口，主体固定显示区域导航 | `src/ui/components/rail.ts`：`LEFT_TABS`、`renderLeftPanel` | “故事”职责变更须覆盖真实路由和动作，不能只改按钮文案 |
-| 右栏设施按当前 Area 过滤，并组合设施功能入口 | `src/ui/components/right-panels.ts`：`renderRightPanel`；`src/ui/components/production.ts`：`renderProductionNodes` | 区域工作区右栏需有自己的职责；返回正常界面应恢复原位置 |
-| 现有故事导航同时提供首次“进入故事”和“重读”动作 | `src/ui/components/rail.ts`：`resolveItemsAt`；`src/ui/components/story-workspace.ts`：`renderStoryWorkspace` | 重播职责收敛涉及条目筛选和启动路径迁移 |
-| 故事视图以 `type: passive / active` 表达类型；回复状态另有 idle／advance／choice 等 | `src/arona-clicker/contracts/results.ts`：`StoryView`、`SendState` | 不能把 SendState 当作完整故事类型门控；重播身份和流 owner 还需继续核对 |
-| UI 节奏 gate、故事入口确认 gate 与学生流 owner 分别存在 | `src/ui/components/app-shell.ts`：`PanelState`、`StoryGateState`、`SendGatePhase`；`src/ui/controller-actions-story.ts` | 门控应保护实际当前流，不只检查一个全局字段 |
-| Map 的 hero 展示 Node 信息并带地图／重开／放弃操作 | `src/ui/components/map-workspace.ts`：`renderMapWorkspace` 内 hero 标记 | 不按共享 CSS class 将新点击和提示小标装到 Map 页面 |
-| 区域 hero 渐变已有主题派生入口 | `src/ui/css/story-nav.css`：`.area-hero`；`src/ui/controller-theme.ts`；`src/ui/theme-tree.ts` | 继承当前主题，不引入独立配色与整页视觉重塑 |
+| 正常界面 hero 来自当前 Area／表现查询；本体没有进入工作区动作 | `src/ui/components/shared/rail.ts`：`renderAreaTab` | 增加可访问点击入口；名称、说明继续来自既有查询 |
+| 正常左栏的通讯录／故事按钮是 Workspace 路由入口，主体固定显示区域导航 | `src/ui/components/shared/rail.ts`：`LEFT_TABS`、`renderLeftPanel` | “故事”职责变更须覆盖真实路由和动作，不能只改按钮文案 |
+| 右栏设施按当前 Area 过滤，并组合设施功能入口 | `src/ui/components/shared/right-panels.ts`：`renderRightPanel`；`src/ui/components/shared/production.ts`：`renderProductionNodes` | 区域工作区右栏需有自己的职责；返回正常界面应恢复原位置 |
+| 现有故事导航同时提供首次“进入故事”和“重读”动作 | `src/ui/components/shared/rail.ts`：`resolveItemsAt`；`src/ui/components/story/story-workspace.ts`：`renderStoryWorkspace` | 重播职责收敛涉及条目筛选和启动路径迁移 |
+| 故事视图以 `type: passive / active` 表达类型；回复状态另有 idle／advance／choice 等 | `src/arona-clicker/contracts/runtime/results.ts`：`StoryView`、`SendState` | 不能把 SendState 当作完整故事类型门控；重播身份和流 owner 还需继续核对 |
+| UI 节奏 gate、故事入口确认 gate 与学生流 owner 分别存在 | `src/ui/components/shared/app-shell.ts`：`PanelState`、`StoryGateState`、`SendGatePhase`；`src/ui/controller/controller-actions-story.ts` | 门控应保护实际当前流，不只检查一个全局字段 |
+| Map 的 hero 展示 Node 信息并带地图／重开／放弃操作 | `src/ui/components/map/map-workspace.ts`：`renderMapWorkspace` 内 hero 标记 | 不按共享 CSS class 将新点击和提示小标装到 Map 页面 |
+| 区域 hero 渐变已有主题派生入口 | `src/ui/css/story-nav.css`：`.area-hero`；`src/ui/controller/controller-theme.ts`；`src/ui/presentation/theme-tree.ts` | 继承当前主题，不引入独立配色与整页视觉重塑 |
 
 上述是交接时的局部事实，执行前须重新读取当前文件。工作区已有其他任务的未提交修改，尤其 `controller.ts`、`controller-panels.ts`、`controller-actions-inventory.ts`、`production.ts`、`ui-style/patterns.md`；不得回滚或覆盖其工作。
 
@@ -59,7 +59,7 @@
 
 先从 [[docs/ai/context-packs/ui-presentation]] 按子题读取。结构和交互施工使用 `frontend-design` skill，遵守 [[docs/ai/frontend-design-project-overlay]]、[[ui-style/00-index]]，按需读 foundations／patterns。
 
-首轮源码只需上表落点，以及 `src/ui/controller-actions-story.ts`、`src/ui/controller-panels.ts`、`src/ui/controller.ts` 的相关导航／故事方法。按 [[docs/ai/galhcg-project-map]] 主动定位未知的 Story 查询、启动、重播、排队和当前流 owner 实现；不顺序通读整个 Runtime。
+首轮源码只需上表落点，以及 `src/ui/controller/controller-actions-story.ts`、`src/ui/controller/controller-panels.ts`、`src/ui/controller/controller.ts` 的相关导航／故事方法。按 [[docs/ai/galhcg-project-map]] 主动定位未知的 Story 查询、启动、重播、排队和当前流 owner 实现；不顺序通读整个 Runtime。
 
 - 读取与状态写入边界：[[docs/docs-829/06-wiki/50-ui/read-model-context]]、[[docs/docs-829/06-wiki/50-ui/controller-commands]]。
 - 路由与更新：[[docs/docs-829/06-wiki/50-ui/workspace-routing]]、[[docs/docs-829/06-wiki/50-ui/refresh-update]]。

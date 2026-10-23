@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import type { RuntimeWorldDraft } from '../../src/arona-clicker/contracts/runtime-content';
+import type { RuntimeWorldDraft } from '../../src/arona-clicker/contracts/runtime/runtime-content';
 import { Registry } from '../../src/data-services/registry/registry';
-import { RuntimeWorldContentCoordinator } from '../../src/arona-clicker/services/runtime-world-content-coordinator';
+import { RuntimeWorldContentCoordinator } from '../../src/arona-clicker/services/world/runtime-world-content-coordinator';
 
 class CountingRuntime extends AronaClickerRuntime {
   reloadCount = 0;

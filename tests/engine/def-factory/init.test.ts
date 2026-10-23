@@ -8,7 +8,7 @@ import { init, InitBuilder } from '../../../src/arona-clicker/content/def-factor
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { InitDef } from '../../../src/data-services/contracts/world';
 import type { TriggerDef } from '../../../src/engine/types';
-import { baseInits } from '../../../src/arona-clicker/content/inits';
+import { baseInits } from '../../../src/arona-clicker/content/world/inits';
 
 const CREDIT = Resource.Credit;
 

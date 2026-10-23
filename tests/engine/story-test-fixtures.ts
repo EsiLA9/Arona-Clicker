@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/story-test-fixtures.ts — story 系列测试共享数据与工具
 // （非 .test.ts，不会被 vitest 收集）
 // ============================================================
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { StoryEntryDef, ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
 import { and } from '../../src/engine/types';

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import { renderChatEntry } from '../../src/ui/components/story';
+import { renderChatEntry } from '../../src/ui/components/story/story';
 import type { FlowContent } from '../../src/ui/flow/flow-entry';
-import type { UIContext } from '../../src/ui/context';
+import type { UIContext } from '../../src/ui/runtime/context';
 
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const context = { escapeHtml, formatNumber: String } as unknown as UIContext;

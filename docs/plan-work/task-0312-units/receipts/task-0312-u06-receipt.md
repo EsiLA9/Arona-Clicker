@@ -3,11 +3,11 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U06 实施与指定验证完成，交负责人审查；不代表 E1 产品整体完成。 |
-| 实际修改 | 新增 `src/arona-clicker/contracts/map-effects.ts`、`src/arona-clicker/services/map-effect-planner.ts`、`tests/engine/gameplay-b-effect-planner.test.ts` 与本 Receipt。 |
+| 实际修改 | 新增 `src/arona-clicker/contracts/map/map-effects.ts`、`src/arona-clicker/services/map/map-effect-planner.ts`、`tests/engine/gameplay-b-effect-planner.test.ts` 与本 Receipt。 |
 | 实际行数 | 合同 113 行、planner 167 行、定向测试 168 行、本 Receipt 34 行，合计482行。此前负责人已登记540–730行估算并批准最多1000行，本次未越额度。 |
 | 未完成内容 | 无 U06 内剩余项。Planner 尚未接入 MapRun 权威完整轮计划；由 U07/U10 按 Receipt 接线。 |
 | 范围外变更 | 未修改 Task、Unit、U04/U05 文件、生成 Schema 或 Git 状态。保留工作树中并行 U04 的 schema/script/test 修改及 U05 文件；本 Receipt 与 U06 产物只属于本Unit白名单。未提交 Git。 |
-| GALHCG 影响闭环 | 只读身份确认 `project_id=acprogram` 且根路径匹配。对 `src/arona-clicker/services/map-effect-planner.ts` 做定向 path 查询命中当前磁盘文件；未改图、refresh 或写 freshness。直接影响范围累积至 U19 统一只读复核。 |
+| GALHCG 影响闭环 | 只读身份确认 `project_id=acprogram` 且根路径匹配。对 `src/arona-clicker/services/map/map-effect-planner.ts` 做定向 path 查询命中当前磁盘文件；未改图、refresh 或写 freshness。直接影响范围累积至 U19 统一只读复核。 |
 
 ## 实际接口与语义
 

@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef, OperationActorDef } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation-action';
-import { getOperationTargetActorIds, OperationTargetSelectionError, selectOperationTarget } from '../../src/arona-clicker/services/operation-target-selection';
-import { OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY } from '../../src/arona-clicker/contracts/operation-beat';
+import type { OperationEventDef, OperationActorDef } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import { getOperationTargetActorIds, OperationTargetSelectionError, selectOperationTarget } from '../../src/arona-clicker/services/operation/operation-target-selection';
+import { OPERATION_WAIT_REASON_GROUP_TARGET_SCENE_ONLY } from '../../src/arona-clicker/contracts/operation/operation-beat';
 
 function actor(
   id: string,

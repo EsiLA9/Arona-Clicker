@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { UIController } from '../../src/ui/controller';
-import { bindEvents } from '../../src/ui/controller-events';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { UIController } from '../../src/ui/controller/controller';
+import { bindEvents } from '../../src/ui/controller/controller-events';
 import { loadAreaMapDemoPack } from '../../src/ui/development/area-map-demo-pack';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
 

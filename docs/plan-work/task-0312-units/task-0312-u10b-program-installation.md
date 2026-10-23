@@ -1,6 +1,7 @@
 # Unit 0312-U10B：新程序公开安装与事务验收
 
-状态：ready / 2026-10-22负责人放行。前置 [[docs/plan-work/task-0312-units/receipts/task-0312-u10a-receipt]] 已完成；根复跑program8与旧金样13共21项全绿，独立只读审查通过。继承 [[docs/plan-work/task-0312-units/task-0312-u10-program-authoritative-commit]] 原合同、Read Set、Stop Conditions及全部总验收要求。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 实际接口核对：U10A已在`MapRunEncounterCommitPlan`及typed Preview/Receipt预留版本、`effectScope`、`programVisits`、`plannedLocals`、`effectTrace`，Receipt装配代码已存在但被`encounterHasProgramActions`安装保护拦住。B仍需去掉该保护和Preview pending诊断、将下一轮`createEncounterSnapshot`的`currentEncounter.locals`改为本轮`plan.plannedLocals`（旧图保留原兼容），并验深复制/冻结、prepared token重放与GameInstance库存连续安装。实际资源trace op为`resourceSettlement`，纯核的resourceChange意图不再输出为实际trace。U10A保守净改动875行，低于上限；B仍按530–885行估算和1000行额度施工。
 
@@ -8,7 +9,7 @@
 
 允许文件：
 
-- `src/arona-clicker/services/map-run-service.ts`：净增40–100行，Receipt、locals与detached nextRun安装接线，移除U10A Commit保护。
+- `src/arona-clicker/services/map/map-run-service.ts`：净增40–100行，Receipt、locals与detached nextRun安装接线，移除U10A Commit保护。
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-program-commit.test.ts；350–550行，公开GameInstance Commit、原子失败、幂等和跨Owner库存。
 - `tests/engine/gameplay-b-effect-card-prepare.test.ts`：修改过渡门测试为实际新program Commit正例，净增0–25行。
 - `tests/engine/gameplay-b-effect-program.test.ts`：仅更新U10A临时安装保护相关的canCommit/诊断/公开Commit断言，净增0–20行，不改已验收的费用、预算及效果期望。

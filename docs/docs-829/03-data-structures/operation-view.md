@@ -1,6 +1,6 @@
 # OperationView — Gameplay B 只读投影
 
-> 本文说明 Gameplay B EventRun 面向 UI 的独立只读快照；精确字段以 `src/arona-clicker/contracts/operation-view.ts` 为准。
+> 本文说明 Gameplay B EventRun 面向 UI 的独立只读快照；精确字段以 `src/arona-clicker/contracts/operation/operation-view.ts` 为准。
 
 ## 归属与边界
 
@@ -29,6 +29,6 @@ Operation route 持有 `runId`，由 Workspace Renderer 在进入或重建 route
 
 学生卡同时是统一的角色持牌锚点（`data-operation-actor-hand`）。UI adapter `projectOperationActorHand()` 将战斗候选、已分配的场景行动和 SceneDraft 中的玩家实体牌规整为 `OperationActorHandCardView`（身份、牌种/来源、owner、锁定/选中状态、执行者候选、合法目标和费用）；组件再按来源绘制牌面。战斗 CharacterHand 行动牌由只读 Action options 与当前计划在角色锚点附近呈现；非战斗 SceneAction 和已分配执行者的 PlayerSceneCard 则从当前 View 加上 UI 内存中的可撤销 SceneDraft 投影到该角色牌槽。未分配或就地激活的 SceneAction / PlayerSceneCard 留在公共场景区/手牌区。`performerPolicy` 可指定必须学生、禁止学生（就地激活）或 `optional-student`（就地激活/学生执行二选一）；Actorless Actor Target 由绝对 ID/type filters 限定。Scene 批次的 `required` 项是玩家可选项，不再要求每名学生/全局必须选满；每名学生至多选一项、Global 至多选一项，零选等价跳过当前批次。fixed 牌仍自动加入且不可取消。PlayerCost 按固定项与实际加入项汇总，只要不超过余额即可提交，余额剩余保留。`select` 显示可手动选择的当前目标集合，目标 ID 保存在草稿并由 Runtime 再验证；`all-eligible` 显示自动作用于当前全部合法目标的说明和 View 候选，不开放单体目标拖放，也不从空数组猜目标模式。目标死亡或换位会改变 View 候选；过期手选由 Runtime 整批拒绝。卡牌关系线按出牌与目标的几何方位连接左右/上下边，卡片重叠时连接到目标最靠近卡牌的一侧；hover/focus 与拖放共享算法，只更新现有 SVG path。
 
-实现与当前测试覆盖：`src/arona-clicker/contracts/operation-view.ts`、`src/arona-clicker/services/operation-view-projector.ts`、`src/ui/workspace/workspace-renderer.ts`、`src/ui/components/operation-workspace.ts`；`tests/engine/operation-view-projector.test.ts` 覆盖 View 投影，`tests/engine/gameplay-b-event-runtime-integration.test.ts` 覆盖运行时集成，`tests/ui/operation-workspace.test.ts` 覆盖工作区渲染冒烟，`tests/ui/operation-card-relation.test.ts` 覆盖卡牌关系线几何。当前没有与已退役的 Controller / CardInspector UI 集成测试等价的 UI 回归用例。
+实现与当前测试覆盖：`src/arona-clicker/contracts/operation/operation-view.ts`、`src/arona-clicker/services/operation/operation-view-projector.ts`、`src/ui/workspace/workspace-renderer.ts`、`src/ui/components/operation/operation-workspace.ts`；`tests/engine/operation-view-projector.test.ts` 覆盖 View 投影，`tests/engine/gameplay-b-event-runtime-integration.test.ts` 覆盖运行时集成，`tests/ui/operation-workspace.test.ts` 覆盖工作区渲染冒烟，`tests/ui/operation-card-relation.test.ts` 覆盖卡牌关系线几何。当前没有与已退役的 Controller / CardInspector UI 集成测试等价的 UI 回归用例。
 
 相关机制：[[operation-runtime]]；UI 路由：[[docs/docs-829/06-wiki/50-ui/workspace-routing]]。

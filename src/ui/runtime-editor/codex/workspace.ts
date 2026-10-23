@@ -1,4 +1,4 @@
-import { renderWorkspaceLayout } from '../../components/workspace-frame';
+import { renderWorkspaceLayout } from '../../components/shared/workspace-frame';
 
 export interface ContentWorkspaceSlots {
   readonly navigation: string;

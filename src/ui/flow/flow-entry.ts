@@ -5,7 +5,7 @@
 // ============================================================
 
 import type { Talklet } from '../../data-services/contracts/story';
-import type { ChatEntry } from '../components/story';
+import type { ChatEntry } from '../components/story/story';
 import type { MapCardHostLayout, MapLocationRef } from '../cards/card-host';
 
 /** 单条流的上限：与既有聊天流一致，先执行回收再裁剪。 */

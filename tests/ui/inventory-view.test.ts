@@ -3,7 +3,7 @@ import type { ItemDef } from '../../src/data-services/contracts/item';
 import {
   createInventoryWorkspaceState,
   deriveInventoryRows,
-} from '../../src/ui/inventory-view';
+} from '../../src/ui/utilities/inventory-view';
 
 const item = (id: string, name: string, type: ItemDef['type'], rarity: ItemDef['rarity'], maxStack = 10): ItemDef => ({
   id,

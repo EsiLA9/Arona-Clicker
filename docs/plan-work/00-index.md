@@ -8,8 +8,23 @@
 
 ## 当前推进
 
+- [[docs/plan-work/task-0322-story-node-model-and-playback-plan]]：proposed；用户已确认开发期全量替换、允许破坏旧语义；改为唯一Story.nodes/四节点/编译与播放，第一方内容、Builder、夹具和Editor全量改写，旧作者协议/索引/表单/存档解释退役，不保留双格式兼容；尚未实施。
 
-- [[docs/plan-work/draft-0312-gameplay-b-card-and-effect-primitives]]：E0-contract-approved；[[docs/plan-work/task-0312-gameplay-b-effect-program-v1]] 已按E0最终批准和行为金样更新为正式E1施工Task，拆分19个依赖明确的产品Unit（均未执行）。只实现E1-COMPAT-1；独立敏捷AG-1合同已批，等待E1产品验收，不提前施工E2–E5。
+- [[docs/plan-work/report-0321-story-talklet-capability-investigation]]：investigation；Story–Talklet 大整改与后续 Story 编辑工具的现状调查，含运行时、定位/ID/演出、Flow/地图/卡牌、作者/校验四篇分册；区分已接线能力与基建，供上层 chat 推演，尚未批准整改设计或实施。
+
+- [[docs/plan-work/task-0314-map-scene-completion-hover]]：proposed；在 `map-workspace__hero-progress` 悬停查看当前活动的结束条件，复用既有 Tooltip 与 MapRun ReadModel；已核对条件、战斗、休整、手动遭遇和商店规则，尚未实施。
+
+
+- [[docs/plan-work/draft-0312-gameplay-b-card-and-effect-primitives]]：E0-contract-approved；E1-COMPAT-1 与 AG-1 合同已批准，Task 0320 按最新请求纳入 AG-1 实施；E2 确定性集合／Value 子片见 Task 0316，E3 静态 Tag／候选池见 Task 0317；E4 已完成 burn／regen、Shield/damage、Status ID 全清、部分层数消费、类别全清、Revive、回合限时 damageReduction、healApplied/damageApplied、自然到期 Trigger、单次受击保护与 Party MapRun Status 跨 Encounter 生命周期，其他 Modifier／Trigger 仍见 Task 0320；E5 Prepared Tag 连携首片见 Task 0319，U25 实际 HP 门槛、U28 Fact Edge 与 U29 单体击杀回馈见 Task 0320；其他 E5/P6 范围仍由 Task 0320 跟踪。
+
+- [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]]：active（P1 AG-1、P2 U08–U14、P3 U15 完成；U16–U30、U17 CardRef Modifier 窄首片、U18 Shield/damage、U19 部分层数消费、U20 类别净化、U21 Revive、U22 回合限时伤害减免、U23/U24 行为 Trigger、U25 实际 HP 变化门槛、U26 Status 到期回馈、U27 单次受击保护、U28 Fact Edge 门控、U29 单体击杀回馈、U30 MapRun Status 与 U14g 试玩台操作参数均已实现。U30 样例 3/3、Runtime integration 8/8、Map Registry 186/186、兼容回归 9 文件 206/206、类型检查通过；U07/U14/U17–U30 屏幕需求单已交付，不标记人工验收通过。后续仍需裁定 E4 其他 Modifier/Trigger 与 E5/P6 剩余范围。排除 E1 U18 和 Task 0316–0319 已完成切片；U15 裁定之外的 Prepared/成长/临时/动态 Tag/跨 Map 来源仍延期或另待合同。
+  - U28 已交付 AG-1 MapRun Counter/Flag 路线门控；当前 Facts 判定统一用于 Runtime 移动与 Workspace 显示，自动化 241/241。U28 屏幕验收记录单已交付，尚未人工通过。
+  - U29 已交付 Party 直接单体击杀后的来源 Actor 资源回馈；Trigger Receipt v3 保留 Enemy 击败目标与 Party 奖励领取者，并支持同次 Status 自然到期回馈恢复。11 个定向测试文件 218/218、类型与架构检查通过；合同、作者样例、Receipt 与屏幕需求单已交付，人工屏幕验收待执行。
+
+- [[docs/plan-work/task-0317-gameplay-b-static-tags-and-candidate-pools]]：completed；Gameplay B MapRun 静态 Action Tag、Map-local 候选池和抽 Hand 前多来源合并已实现；不复用旧 Operation CardPool。
+
+- [[docs/plan-work/task-0318-gameplay-b-encounter-statuses]]：completed（2026-10-22）；实现单位持有的 Encounter-local burn / regen、成功 Round 边界触发、状态保存恢复、回执重放、只读 UI 展示与可进入作者样例；实屏／浏览器验收按用户指示豁免，不接 AC Tick / EventBus / Affector。
+- [[docs/plan-work/task-0319-gameplay-b-prepared-tag-combo]]：completed（2026-10-22）；实现冻结 Party Prepared Tag 数量条件、受限连携追加与 Receipt／Save-Resume 重算，并加入可进入的正式 DataPack 示例；相对 CardRef 及其他 E5 剩余子题统一由 Task 0320 跟踪。
 
 - [[docs/plan-work/draft-0311-gameplay-b-maprun-engine-integration-investigation]]：draft；当前检出只读调查完成，覆盖 MapRun 本体、外部引擎接线、测试证据与后续分期；完整结论见 [[docs/plan-work/report-0311-gameplay-b-maprun-engine-integration-investigation]]，玩法合同与实施 Task 待后续裁定。
 
@@ -19,10 +34,18 @@
 - [[docs/plan-work/task-0306-area-hero-workspace-and-story-entry]]：proposed，等待其他模型执行；正常游戏 area-hero 进入区域 Workspace，中／右栏联动，统一信息概览、区域故事、主动故事与事项提醒入口，原“故事”收敛为历史重播；进入门控与右上角提示小标的细则在 P0 核实并裁定。
 - [[docs/plan-work/task-0308-active-story-area-delivery]]：implementation complete；FollowUp 与 9 个仅依赖故事目录开放的 ActiveStoryEntry 投递到当前 Area，故事页仅保留已完成历史；本次扩展通过类型检查，行为测试未重跑，宽屏体验待确认。
 
+## 本轮完成（2026-10-22）
+
+- [[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]]：completed；8 张内置 Map 与 E1 示例迁移到 `effectProgram`，Map Action 旧数组从合同、Registry、Runtime、Receipt、UI 和生成 Schema 移除；Shop Offer `effects` 保留。其后 E2 确定性集合／Value 子片由 Task 0316 实现。
+- [[docs/plan-work/task-0316-gameplay-b-effect-collections-and-values]]：completed；确定性 TargetSet damage/heal、受限安全整数 Value、每目标repeat、Owner HP 安装、严格 Receipt 重放与保存恢复；E2R 随机抽选、任意语句体 forTargets、资源余额 Value／条件未实现。
+
+## 2026-10-22 阶段结项（验收豁免）
+
+- [[docs/plan-work/task-0312-gameplay-b-effect-program-v1]]：按用户明确指示关闭阶段施工流；U01–U17 有实施 Receipt，U19 文档收尾完成。U18 纵向与宽屏浏览器验收已豁免，未运行 U18 测试、未操作浏览器、无截图；因此此状态不等于 E1 产品完整验收或发布通过。当前 Action 作者合同与旧数组退役结果见 [[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]]；AG-1 后由用户明确要求纳入 Task 0320，仍不代表 U18 验收通过。
 
 ## 本轮归档（2026-10-21）
 
-- [[docs/plan-work/archive/task-0313-gameplay-b-e0-contract-freeze-and-admission]]：E0文档交付complete；U1–U5现状核证/合同回写/敏捷设计/行为用例/准入完成，当前基线78项通过；用户2026-10-21“全部按推荐”批准§9.2全部八项；E1合同准入通过，敏捷等待E1前置实现，尚未实现产品。
+- [[docs/plan-work/archive/task-0313-gameplay-b-e0-contract-freeze-and-admission]]：E0文档交付complete；U1–U5现状核证/合同回写/敏捷设计/行为用例/准入完成，当前基线78项通过；用户2026-10-21“全部按推荐”批准§9.2全部八项；E1合同准入通过。该Task记录的“敏捷等待E1前置实现”已由后续用户指示取代，AG-1实施统一见 Task 0320。
 
 - [[docs/plan-work/archive/task-0310-area-map-navigation-service-v1]]：completed；独立 areaMaps 装载与脱敏查询、共享旅行准入、三栏浏览/历史/相机、显式移动与生命周期已实现并通过宽屏浏览器验收；新增 49 项测试通过，最终跨域回归另有 5 个并行 Story 断言失败，见最终 Receipt。
 

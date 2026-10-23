@@ -7,7 +7,7 @@ import {
   THEME_SHOWCASE_SPOTS,
   THEME_SHOWCASE_VARIANTS,
 } from '../../src/arona-clicker/content/theme-showcase';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 describe('主题系统展示 Init', () => {
   test('无需求可进入，并首次进入赠送展示内容与主题编辑权限', () => {

@@ -6,14 +6,17 @@ import {
   gameplayBMapDatapack,
   gameplayBForkedRouteDefinition,
   gameplayBScostTrainingDefinition,
-} from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+} from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { mapLocationObjectKey } from '../../src/ui/cards/card-host';
+import { GAMEPLAY_B_REVIVE_EXAMPLE_MAP_ID } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-revive-example';
+import { GAMEPLAY_B_STATUS_EXPIRY_REWARD_EXAMPLE_MAP_ID } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-status-expiry-reward-example';
 import { Resource } from '../../src/arona-clicker/types/ids';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import { UIController } from '../../src/ui/controller';
-import { createUIContext } from '../../src/ui/context';
-import { renderMapWorkspace } from '../../src/ui/components/map-workspace';
+import { UIController } from '../../src/ui/controller/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderMapWorkspace } from '../../src/ui/components/map/map-workspace';
+import { mapCardEffectModifierPreviewLabel } from '../../src/ui/flow/map-flow-model';
 import { mapObjectKey } from '../../src/ui/workspace/map-relation-presentation';
 import {
   createWorkspaceNavigation,
@@ -42,6 +45,30 @@ describe('Gameplay B Map Workspace', () => {
         ...spot,
         functionalities: (spot.functionalities ?? []).map(functionality => functionality.kind === 'mapEntry'
           ? { ...functionality, mapId: 'gameplay-b:map:autonomous-target-battle' }
+          : functionality),
+      })),
+    };
+  }
+
+  function reviveExampleDatapack(): Datapack {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: (spot.functionalities ?? []).map(functionality => functionality.kind === 'mapEntry'
+          ? { ...functionality, mapId: GAMEPLAY_B_REVIVE_EXAMPLE_MAP_ID }
+          : functionality),
+      })),
+    };
+  }
+
+  function statusExpiryRewardDatapack(): Datapack {
+    return {
+      ...gameplayBMapDatapack,
+      spots: gameplayBMapDatapack.spots.map(spot => ({
+        ...spot,
+        functionalities: (spot.functionalities ?? []).map(functionality => functionality.kind === 'mapEntry'
+          ? { ...functionality, mapId: GAMEPLAY_B_STATUS_EXPIRY_REWARD_EXAMPLE_MAP_ID }
           : functionality),
       })),
     };
@@ -86,7 +113,7 @@ describe('Gameplay B Map Workspace', () => {
     };
   }
 
-  function battleWorkspaceDatapack(options: { readonly partyHp?: number; readonly enemyDamage?: number; readonly emptyParty?: boolean; readonly playerCost?: number } = {}): Datapack {
+  function battleWorkspaceDatapack(options: { readonly partyHp?: number; readonly enemyDamage?: number; readonly emptyParty?: boolean; readonly playerCost?: number; readonly executionContractId?: 'E1-COMPAT-1' | 'AG-1'; readonly partyActionAdditionalTarget?: 'partyCharacter' | 'enemy'; readonly abilityAdditionalTarget?: 'partyCharacter' | 'enemy' } = {}): Datapack {
     const source = mapFixture();
     const encounterNode = source.nodes.find(node => node.encounter);
     if (!encounterNode?.encounter) throw new Error('Sample Map has no Encounter Node');
@@ -98,21 +125,24 @@ describe('Gameplay B Map Workspace', () => {
       name: '攻击 Enemy',
       eligibleCharacterIds: ['shiroko', 'serika'],
       target: { kind: 'enemy' },
-      hpEffects: [{ amount: -2 }],
+      ...(options.partyActionAdditionalTarget === undefined ? {} : { additionalTarget: options.partyActionAdditionalTarget }),
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 2 }] },
       },
       {
         id: 'workspace-battle-hit-2',
         name: '攻击 Enemy 2',
         eligibleCharacterIds: ['shiroko', 'serika'],
         target: { kind: 'enemy' },
-        hpEffects: [{ amount: -1 }],
+      ...(options.partyActionAdditionalTarget === undefined ? {} : { additionalTarget: options.partyActionAdditionalTarget }),
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] },
       },
       {
         id: 'workspace-battle-hit-3',
         name: '攻击 Enemy 3',
         eligibleCharacterIds: ['shiroko', 'serika'],
         target: { kind: 'enemy' },
-        hpEffects: [{ amount: -1 }],
+      ...(options.partyActionAdditionalTarget === undefined ? {} : { additionalTarget: options.partyActionAdditionalTarget }),
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] },
       },
     ];
     const playerCommand: GameplayMapActionDef = {
@@ -120,21 +150,23 @@ describe('Gameplay B Map Workspace', () => {
       name: '手牌外指令',
       eligibleCharacterIds: ['shiroko', 'serika'],
       target: { kind: 'enemy' },
-      hpEffects: [{ amount: -1 }],
+      ...(options.partyActionAdditionalTarget === undefined ? {} : { additionalTarget: options.partyActionAdditionalTarget }),
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] },
     };
     const ability: GameplayMapActionDef = {
       id: 'workspace-battle-ability',
       name: '地图 Ability',
       eligibleCharacterIds: [],
       target: { kind: 'enemy' },
-      hpEffects: [{ amount: -3 }],
+      ...(options.abilityAdditionalTarget === undefined ? {} : { additionalTarget: options.abilityAdditionalTarget }),
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 3 }] },
     };
     const itemAction: GameplayMapActionDef = {
       id: 'workspace-battle-item-action',
       name: '急救道具',
       eligibleCharacterIds: [],
       target: { kind: 'partyCharacter' },
-      hpEffects: [{ amount: 2 }],
+      effectProgram: { resolve: [{ op: 'heal', target: 'primary', amount: 2 }] },
     };
     const enemyAction: GameplayMapActionDef = {
       id: 'workspace-enemy-hit',
@@ -142,7 +174,7 @@ describe('Gameplay B Map Workspace', () => {
       eligibleCharacterIds: [],
       target: { kind: 'partyCharacter' },
       tendencyRole: 'attack',
-      hpEffects: [{ amount: -(options.enemyDamage ?? 1) }],
+      effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: options.enemyDamage ?? 1 }] },
     };
     const items = [{
       id: 'gameplay-b:item:workspace-kit',
@@ -159,6 +191,7 @@ describe('Gameplay B Map Workspace', () => {
     const map: GameplayMapDef = {
       ...source,
       resumeVersion: source.resumeVersion + 4,
+      ...(options.executionContractId === undefined ? {} : { executionContractId: options.executionContractId }),
       initialPlayerCost: options.playerCost ?? 3,
       initialPartyHp: source.initialPartyHp.map(member => ({
         ...member,
@@ -191,6 +224,42 @@ describe('Gameplay B Map Workspace', () => {
     };
   }
 
+  function statusBattleWorkspaceDatapack(consumeBurn = false, cleanseHarmful = false): Datapack {
+    const datapack = battleWorkspaceDatapack();
+    const source = mapFixture(datapack);
+    const statusMap: GameplayMapDef = {
+      ...source,
+      resumeVersion: source.resumeVersion + (cleanseHarmful ? 2 : 1),
+      ...(consumeBurn || cleanseHarmful ? { executionContractId: 'AG-1' as const } : {}),
+      statuses: [
+        { id: 'burn', name: '灼烧', kind: 'burn', hpPerStack: 1, maxStacks: 3,
+          ...(cleanseHarmful ? { category: 'harmful' as const } : {}) },
+        { id: 'regen', name: '再生', kind: 'regen', hpPerStack: 1, maxStacks: 3,
+          ...(cleanseHarmful ? { category: 'beneficial' as const } : {}) },
+      ],
+      actions: (source.actions ?? []).map(action => {
+        if (action.id === 'workspace-enemy-hit') return {
+          ...action,
+          effectProgram: { resolve: [
+            ...(action.effectProgram?.resolve ?? []),
+            { op: 'statusApply' as const, target: 'primary' as const, statusId: 'regen', stacks: 1, durationRounds: 2 },
+          ] },
+        };
+        if (action.target.kind === 'enemy' && action.eligibleCharacterIds.length > 0) return {
+          ...action,
+          effectProgram: { resolve: [
+            ...(action.effectProgram?.resolve ?? []),
+            { op: 'statusApply' as const, target: 'primary' as const, statusId: 'burn', stacks: 1, durationRounds: 2 },
+            ...(consumeBurn ? [{ op: 'statusConsume' as const, target: 'primary' as const, statusId: 'burn', stacks: 1 }] : []),
+            ...(cleanseHarmful ? [{ op: 'statusRemoveCategory' as const, target: 'primary' as const, category: 'harmful' as const }] : []),
+          ] },
+        };
+        return action;
+      }),
+    };
+    return { ...datapack, maps: datapack.maps?.map(candidate => candidate.id === source.id ? statusMap : candidate) };
+  }
+
   function acquireMapParty(map: ReturnType<typeof mapFixture>): void {
     if (!game) throw new Error('Game runtime has not been initialized');
     for (const characterId of map.partyCharacterIds) {
@@ -208,9 +277,9 @@ describe('Gameplay B Map Workspace', () => {
       initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'sCost', value: 5 })),
       actions: [
         ...['plan-a', 'plan-b'].map(id => ({ id, name: `筹划 ${id}`, eligibleCharacterIds: ['shiroko'],
-          target: { kind: 'card' as const, side: 'ally' as const }, cardEffects: [{ kind: 'scostDiscount' as const, amount: 1 }] })),
+          target: { kind: 'card' as const, side: 'ally' as const }, effectProgram: { prepare: [{ op: 'discountSCost' as const, amount: 1 }] } })),
         ...['shot-a', 'shot-b', 'shot-c', 'shot-d'].map(id => ({ id, name: `射击 ${id}`, eligibleCharacterIds: ['serika'],
-          target: { kind: 'enemy' as const }, costs: [{ scope: 'actor' as const, resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -1 }] })),
+          target: { kind: 'enemy' as const }, costs: [{ scope: 'actor' as const, resourceId: 'sCost', amount: 2 }], effectProgram: { resolve: [{ op: 'damage' as const, target: 'primary' as const, amount: 1 }] } })),
       ],
       nodes: source.nodes.map(node => !node.encounter ? node : { ...node, encounter: {
         title: '卡牌作用演练', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20 }],
@@ -219,6 +288,49 @@ describe('Gameplay B Map Workspace', () => {
       } }),
     };
     return { ...gameplayBMapDatapack, maps: gameplayBMapDatapack.maps!.map(row => row.id === source.id ? map : row) };
+  }
+
+  function cardModifierWorkspaceDatapack(options: {
+    readonly sourceAgility?: number;
+    readonly targetAgility?: number;
+    readonly targetPartyAgility?: number;
+    readonly reverseParty?: boolean;
+    readonly thirdOwner?: boolean;
+    readonly targetCount?: number;
+    readonly sourceCount?: number;
+  } = {}): typeof gameplayBMapDatapack {
+    const source = mapFixture();
+    const targetRows = Array.from({ length: options.targetCount ?? 1 }, (_, index) => ({
+      id: `modifier-target-${index}`, owner: 'serika',
+    }));
+    if (options.thirdOwner) targetRows.push({ id: 'modifier-target-third', owner: 'hoshino' });
+    const sourceIds = Array.from({ length: options.sourceCount ?? 1 }, (_, index) => `modifier-source-${index}`);
+    const actions: GameplayMapActionDef[] = [
+      ...sourceIds.map(id => ({ id, name: `修正 ${id}`, eligibleCharacterIds: ['shiroko'],
+        agility: { base: options.sourceAgility ?? 8, max: 10 }, target: { kind: 'card' as const, side: 'ally' as const },
+        effectProgram: { resolve: [{ op: 'cardEffectModifier' as const, path: 'resolve[0].amount' as const,
+          operation: 'add' as const, delta: 2 }] } })),
+      ...targetRows.map(({ id, owner }) => ({ id, name: `攻击 ${id}`, eligibleCharacterIds: [owner],
+        agility: { base: options.targetAgility ?? 8, max: 10 }, target: { kind: 'enemy' as const },
+        effectProgram: { resolve: [{ op: 'damage' as const, target: 'primary' as const, amount: 3 }] } })),
+    ];
+    const partyCharacterIds = options.thirdOwner ? ['shiroko', 'serika', 'hoshino']
+      : options.reverseParty ? ['serika', 'shiroko'] : ['shiroko', 'serika'];
+    const map: GameplayMapDef = { ...source, resumeVersion: source.resumeVersion + 30, executionContractId: 'AG-1',
+      partyCharacterIds, partyAgility: options.targetPartyAgility ? [{ characterId: 'serika', agility: options.targetPartyAgility }] : [],
+      initialPartyHp: options.thirdOwner
+        ? [...source.initialPartyHp, { characterId: 'hoshino', initialHp: 10, maxHp: 10 }]
+        : options.reverseParty ? [...source.initialPartyHp].reverse() : source.initialPartyHp,
+      actions, nodes: source.nodes.map(node => !node.encounter ? node : { ...node, encounter: {
+        title: 'CardRef 修正演练', enemies: [{ id: 'robot', initialHp: 20, maxHp: 20 }],
+        participants: [
+          { characterId: 'shiroko', actions: sourceIds.map(actionId => ({ actionId, tendencyWeight: 1 })) },
+          { characterId: 'serika', actions: targetRows.filter(row => row.owner === 'serika').map(row => ({ actionId: row.id, tendencyWeight: 1 })) },
+          ...(options.thirdOwner ? [{ characterId: 'hoshino', actions: targetRows.filter(row => row.owner === 'hoshino')
+            .map(row => ({ actionId: row.id, tendencyWeight: 1 })) }] : []),
+        ],
+      } }) };
+    return { ...gameplayBMapDatapack, maps: gameplayBMapDatapack.maps?.map(row => row.id === source.id ? map : row) };
   }
 
   function activeWorkspaceView(runId: string) {
@@ -318,6 +430,285 @@ describe('Gameplay B Map Workspace', () => {
     document.body.innerHTML = '';
   });
 
+  test('hovering the hero progress badge opens the current Encounter end-condition Tooltip', () => {
+    vi.useFakeTimers();
+    try {
+      const { root } = mount();
+      const map = mapFixture();
+      const runId = enterEncounter(root, map);
+      const anchor = root.querySelector<HTMLElement>('.map-workspace__hero-progress');
+
+      expect(anchor).not.toBeNull();
+      expect(anchor?.classList.contains('hover-wrap')).toBe(true);
+      expect(anchor?.dataset.tooltip).toBe(`map-scene-end:${runId}`);
+      expect(anchor?.dataset.mapRegionKey).toContain(`hero-progress:${activeWorkspaceView(runId).run.currentNodeId}:`);
+
+      controller!.popovers.bind();
+      anchor!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: 400, clientY: 180 }));
+      vi.advanceTimersByTime(80);
+
+      const tooltip = document.querySelector<HTMLElement>('#floating-tooltip');
+      expect(tooltip?.classList.contains('is-open')).toBe(true);
+      expect(tooltip?.textContent).toContain('场景结束条件');
+      expect(tooltip?.textContent).toContain('现场调查');
+      expect(tooltip?.textContent).toContain('完成调查');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('shows AG-1 Preview and recent Commit rows in the Owner execution sequence order', () => {
+    const datapack = battleWorkspaceDatapack({ executionContractId: 'AG-1' });
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const runId = enterEncounter(root, map);
+    let preview = activeWorkspaceView(runId).actionPreview!;
+    for (const row of preview.preparedActions) {
+      if (!row.targetSelectionRequired) continue;
+      const targetEnemyId = row.legalTargetEnemyIds[0];
+      if (!targetEnemyId) throw new Error(`No legal target was projected for ${row.characterId}`);
+      root.querySelector<HTMLButtonElement>(
+        `[data-map-target-enemy][data-character-id="${row.characterId}"][data-target-enemy-id="${targetEnemyId}"]`,
+      )!.click();
+    }
+    preview = activeWorkspaceView(runId).actionPreview!;
+    const sequence = preview.commitPreview.executionSequence;
+    expect(preview.commitPreview.executionContractId).toBe('AG-1');
+    expect(sequence?.length).toBeGreaterThan(0);
+    const previewSummary = root.querySelector<HTMLElement>('.map-workspace__execution-sequence');
+    expect(previewSummary?.getAttribute('aria-label')).toBe('AG-1 执行顺序预览');
+    const previewText = previewSummary?.textContent ?? '';
+    expect(previewText).toContain('执行 1：');
+    for (const row of sequence ?? []) {
+      expect(previewText).toContain(row.actionName);
+      expect(previewText).toContain(row.skipReason ? '跳过' : row.resourceChanges.length + row.hpChanges.length > 0
+        ? row.hpChanges.length > 0 ? 'HP' : 'PlayerCost'
+        : '没有 HP 或资源变化');
+    }
+    const previewActionPositions = (sequence ?? []).map(row => previewText.indexOf(row.actionName));
+    expect(previewActionPositions).toEqual([...previewActionPositions].sort((a, b) => a - b));
+
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    const receipt = activeWorkspaceView(runId).actionPreview?.recentCommit;
+    expect(receipt?.executionContractId).toBe('AG-1');
+    expect(receipt?.executionSequence?.map(row => row.executionIndex)).toEqual(sequence?.map(row => row.executionIndex));
+    const feedEntry = root.querySelector<HTMLElement>('[data-map-recent-commit]');
+    const feedText = feedEntry?.textContent ?? '';
+    expect(feedText).toContain('执行 1：');
+    const feedPositions = (receipt?.executionSequence ?? []).map(row => feedText.indexOf(`执行 ${row.executionIndex + 1}：`));
+    expect(feedPositions.every(position => position >= 0)).toBe(true);
+    expect(feedPositions).toEqual([...feedPositions].sort((a, b) => a - b));
+  });
+
+  test('shows active Status values from the ReadModel and keeps keyed rows through round-end updates', () => {
+    const datapack = statusBattleWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const runId = enterEncounter(root, map);
+    const workspace = root.querySelector('[data-map-workspace-region]');
+    const frame = root.querySelector('[data-workspace-frame="map"]');
+    const partyScroll = root.querySelector('[data-map-region-key="party-scroll"]');
+    const contextScroll = root.querySelector('[data-map-region-key="context-scroll"]');
+    const partyMember = root.querySelector('[data-map-region-key="party-member:shiroko"]');
+    const enemyUnit = root.querySelector('[data-map-enemy-hp="wolf"]');
+    partyScroll!.scrollTop = 21;
+    contextScroll!.scrollTop = 34;
+
+    const commit = root.querySelector<HTMLButtonElement>('[data-map-commit]')!;
+    commit.focus();
+    commit.click();
+
+    const committedView = activeWorkspaceView(runId);
+    const enemyBurn = committedView.currentEncounter!.enemies.find(enemy => enemy.enemyId === 'wolf')!.statuses!
+      .find(status => status.statusId === 'burn')!;
+    const partyRegen = committedView.currentEncounter!.partyHp.find(member => member.characterId === 'shiroko')!.statuses!
+      .find(status => status.statusId === 'regen')!;
+    expect(enemyBurn).toMatchObject({ name: '灼烧', stacks: 1, remainingRounds: 2 });
+    expect(partyRegen).toMatchObject({ name: '再生', stacks: 1, remainingRounds: 2 });
+
+    const enemyStatusHost = root.querySelector<HTMLElement>('[data-map-region-key="unit-statuses:enemy:wolf"]')!;
+    const partyStatusHost = root.querySelector<HTMLElement>('[data-map-region-key="unit-statuses:partyCharacter:shiroko"]')!;
+    const enemyStatusRow = [...enemyStatusHost.querySelectorAll<HTMLElement>('[data-map-region-key^="status:"]')]
+      .find(row => row.dataset.mapRegionKey === `status:${enemyBurn.key}`)!;
+    const partyStatusRow = [...partyStatusHost.querySelectorAll<HTMLElement>('[data-map-region-key^="status:"]')]
+      .find(row => row.dataset.mapRegionKey === `status:${partyRegen.key}`)!;
+    expect(enemyStatusRow.textContent).toBe('灼烧 · 1层 · 剩余2轮');
+    expect(partyStatusRow.textContent).toBe('再生 · 1层 · 剩余2轮');
+    expect(root.querySelector('[data-map-commit]')).toBe(commit);
+    expect(document.activeElement).toBe(commit);
+
+    commit.click();
+
+    const nextView = activeWorkspaceView(runId);
+    const nextEnemyBurn = nextView.currentEncounter!.enemies.find(enemy => enemy.enemyId === 'wolf')!.statuses!
+      .find(status => status.key === enemyBurn.key)!;
+    const nextPartyRegen = nextView.currentEncounter!.partyHp.find(member => member.characterId === 'shiroko')!.statuses!
+      .find(status => status.key === partyRegen.key)!;
+    expect(nextEnemyBurn.remainingRounds).toBe(1);
+    expect(nextPartyRegen.remainingRounds).toBe(1);
+    expect(enemyStatusRow.isConnected).toBe(true);
+    expect(partyStatusRow.isConnected).toBe(true);
+    expect(root.querySelector('[data-map-region-key="unit-statuses:enemy:wolf"]')).toBe(enemyStatusHost);
+    expect(root.querySelector('[data-map-region-key="unit-statuses:partyCharacter:shiroko"]')).toBe(partyStatusHost);
+    expect(enemyStatusRow.textContent).toBe(`${nextEnemyBurn.name} · ${nextEnemyBurn.stacks}层 · 剩余1轮`);
+    expect(partyStatusRow.textContent).toBe(`${nextPartyRegen.name} · ${nextPartyRegen.stacks}层 · 剩余1轮`);
+    expect(root.querySelector('[data-map-workspace-region]')).toBe(workspace);
+    expect(root.querySelector('[data-workspace-frame="map"]')).toBe(frame);
+    expect(root.querySelector('[data-map-region-key="party-scroll"]')).toBe(partyScroll);
+    expect(root.querySelector('[data-map-region-key="context-scroll"]')).toBe(contextScroll);
+    expect(root.querySelector('[data-map-region-key="party-member:shiroko"]')).toBe(partyMember);
+    expect(root.querySelector('[data-map-enemy-hp="wolf"]')).toBe(enemyUnit);
+    expect(partyScroll!.scrollTop).toBe(21);
+    expect(contextScroll!.scrollTop).toBe(34);
+    expect(root.querySelector('[data-map-commit]')).toBe(commit);
+    expect(document.activeElement).toBe(commit);
+  });
+
+  test('projects the detached Status consumption receipt into the recent Commit feed', () => {
+    const datapack = statusBattleWorkspaceDatapack(true);
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const preview = activeWorkspaceView(runId).actionPreview!;
+    for (const row of preview.preparedActions) {
+      if (!row.targetSelectionRequired) continue;
+      const targetEnemyId = row.legalTargetEnemyIds[0];
+      if (!targetEnemyId) continue;
+      root.querySelector<HTMLButtonElement>(
+        `[data-map-target-enemy][data-character-id="${row.characterId}"][data-target-enemy-id="${targetEnemyId}"]`,
+      )?.click();
+    }
+
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    const recentCommit = activeWorkspaceView(runId).actionPreview?.recentCommit;
+    expect(recentCommit?.statusReceiptVersion).toBe(3);
+    expect(recentCommit?.statusConsumeTrace?.length).toBeGreaterThan(0);
+    const trace = recentCommit!.statusConsumeTrace![0]!;
+    expect(trace).toMatchObject({ op: 'statusConsume', statusId: 'burn', requestedStacks: 1, consumedStacks: 1, unmetStacks: 0 });
+    expect(Object.isFrozen(recentCommit!.statusConsumeTrace)).toBe(true);
+    expect(Object.isFrozen(trace.changes)).toBe(true);
+    expect(Object.isFrozen(trace.changes[0]?.statusBefore)).toBe(true);
+    const feedText = root.querySelector<HTMLElement>('[data-map-recent-commit]')?.textContent ?? '';
+    expect(feedText).toContain('Status burn');
+    expect(feedText).toContain('请求 1层 / 已消费 1层 / 缺额 0层');
+    expect(feedText).toContain('1 → 0层');
+  });
+
+  test('projects and freezes the Status category removal receipt in the recent Commit feed', () => {
+    const datapack = statusBattleWorkspaceDatapack(false, true);
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const preview = activeWorkspaceView(runId).actionPreview!;
+    for (const row of preview.preparedActions) {
+      if (!row.targetSelectionRequired) continue;
+      const targetEnemyId = row.legalTargetEnemyIds[0];
+      if (!targetEnemyId) continue;
+      root.querySelector<HTMLButtonElement>(
+        `[data-map-target-enemy][data-character-id="${row.characterId}"][data-target-enemy-id="${targetEnemyId}"]`,
+      )?.click();
+    }
+
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    const recentCommit = activeWorkspaceView(runId).actionPreview?.recentCommit;
+    expect(recentCommit?.statusReceiptVersion).toBe(4);
+    expect(recentCommit?.statusCategoryRemoveTrace?.length).toBeGreaterThan(0);
+    const trace = recentCommit!.statusCategoryRemoveTrace![0]!;
+    expect(trace).toMatchObject({ op: 'statusRemoveCategory', category: 'harmful', removed: expect.arrayContaining([
+      expect.objectContaining({ status: expect.objectContaining({ statusId: 'burn' }) }),
+    ]) });
+    expect(Object.isFrozen(recentCommit!.statusCategoryRemoveTrace)).toBe(true);
+    expect(Object.isFrozen(trace.removed)).toBe(true);
+    expect(Object.isFrozen(trace.removed[0]?.status)).toBe(true);
+    expect(Object.isFrozen(trace.removed[0]?.status.holder)).toBe(true);
+    const feedText = root.querySelector<HTMLElement>('[data-map-recent-commit]')?.textContent ?? '';
+    expect(feedText).toContain('harmful 类 Status');
+    expect(feedText).toContain('移除实例 Status burn（1层');
+  });
+
+  test('projects the frozen Status expiry Trigger v2 through ReadModel into Flow without a fake Action source', () => {
+    const datapack = statusExpiryRewardDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const runId = enterEncounter(root, map);
+    root.querySelector<HTMLButtonElement>('[data-map-ability-draft][data-action-id="apply-regen"]')!.click();
+    root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target][data-action-id="apply-regen"][data-target-character-id="serika"]',
+    )!.click();
+
+    const commit = root.querySelector<HTMLButtonElement>('[data-map-commit]')!;
+    commit.click();
+    expect(activeWorkspaceView(runId).actionPreview?.recentCommit).not.toHaveProperty('statusExpiryTriggerTrace');
+    commit.click();
+    expect(activeWorkspaceView(runId).actionPreview?.recentCommit).not.toHaveProperty('statusExpiryTriggerTrace');
+    commit.click();
+
+    const receipt = activeWorkspaceView(runId).actionPreview?.recentCommit;
+    expect(receipt).toMatchObject({
+      triggerReceiptVersion: 2,
+      triggerTrace: [],
+      executionSequence: [],
+      statusExpiryTriggerTrace: [{
+        queueIndex: 1, event: 'statusExpired', statusTraceIndex: 0,
+        status: { holder: { kind: 'partyCharacter', id: 'serika' }, statusId: 'patient-regen', remainingRounds: 1 },
+        holder: { kind: 'partyCharacter', id: 'serika' }, resourceId: 'focus', balanceBefore: 0, balanceAfter: 1,
+      }],
+    });
+    const trace = receipt!.statusExpiryTriggerTrace![0]!;
+    expect(Object.isFrozen(receipt!.statusExpiryTriggerTrace)).toBe(true);
+    expect(Object.isFrozen(trace)).toBe(true);
+    expect(Object.isFrozen(trace.status)).toBe(true);
+    expect(Object.isFrozen(trace.status.holder)).toBe(true);
+    expect(Object.isFrozen(trace.status.source)).toBe(true);
+    const feedText = root.querySelector<HTMLElement>('[data-map-recent-commit]')?.textContent ?? '';
+    expect(feedText).toContain('Status 到期回馈 1');
+    expect(feedText).toContain('patient-regen');
+    expect(feedText).toContain('持有者 黑见芹香');
+    expect(feedText).toContain('来源 Ability · apply-regen');
+    expect(feedText).toContain('1 轮');
+    expect(feedText).toContain('focus +1（0 → 1）');
+    expect(feedText).not.toContain('执行 1：Ability');
+    expect(feedText).not.toContain('statusExpired');
+  });
+
+  test('does not add keyed Status subregions to a Map without Status definitions', () => {
+    const datapack = battleWorkspaceDatapack();
+    const { root } = mount(datapack);
+    enterEncounter(root, mapFixture(datapack));
+
+    expect(root.querySelector('[data-map-region-key^="unit-statuses:"]')).toBeNull();
+  });
+
+  test('shows positive Encounter Shield separately from HP and omits zero Shield', () => {
+    const datapack = statusBattleWorkspaceDatapack();
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const view = activeWorkspaceView(runId);
+    const encounter = view.currentEncounter!;
+    const partyCharacterId = encounter.partyHp[0]!.characterId;
+    const enemyId = encounter.enemies[0]!.enemyId;
+    const withShield = {
+      ...view,
+      currentEncounter: {
+        ...encounter,
+        partyHp: encounter.partyHp.map((member, index) => ({ ...member, shield: index === 0 ? 3 : 0,
+          ...(index === 0 ? { statuses: [{ key: 'defense-ward', statusId: 'ward', name: '防御姿态', stacks: 2,
+            remainingRounds: 3, damageReductionPerStack: 2 }] } : {}) })),
+        enemies: encounter.enemies.map(enemy => ({ ...enemy, shield: 0 })),
+      },
+    };
+    root.innerHTML = renderMapWorkspace(createUIContext(game!), runId, withShield);
+
+    const partyShield = root.querySelector<HTMLElement>(
+      `[data-map-region-key="party-face:${partyCharacterId}"] .map-workspace__unit-stat--shield`,
+    );
+    expect(partyShield?.getAttribute('aria-label')).toBe('Shield 3');
+    expect(partyShield?.textContent).toContain('3');
+    expect(root.querySelector('[data-map-region-key="status:defense-ward"]')?.textContent)
+      .toBe('防御姿态 · 2层 · 减伤 2/层（共 4） · 剩余3轮');
+    expect(root.querySelector(
+      `[data-map-region-key="enemy-face:${enemyId}"] .map-workspace__unit-stat--shield`,
+    )).toBeNull();
+  });
+
   test('selects and drags a real card target without lines or Swap, then explicitly commits the discount', async () => {
     const datapack = cardWorkspaceDatapack();
     const { root } = mount(datapack);
@@ -328,7 +719,7 @@ describe('Gameplay B Map Workspace', () => {
     const confirm = vi.spyOn(controller!.commands, 'setMapPreparedCardTarget');
     const commit = vi.spyOn(controller!.commands, 'commitMapEncounterRound');
     const initial = activeWorkspaceView(runId);
-    expect(root.textContent).toContain('受用卡牌本轮 sCost 减免 1');
+    expect(root.textContent).toContain('声明：受用卡牌 sCost −1');
     expect(root.querySelector('[data-map-party-member="serika"] .map-workspace__unit-stat--scost strong')?.textContent).toBe('5');
     expect(root.querySelector('[data-map-player-command]')?.hasAttribute('data-map-object-key')).toBe(false);
     const source = root.querySelector<HTMLButtonElement>('[data-map-hand-stack-toggle][data-character-id="shiroko"]')!;
@@ -373,6 +764,104 @@ describe('Gameplay B Map Workspace', () => {
     expect(activeWorkspaceView(runId).run.actorResources.find(row => row.characterId === 'serika' && row.resourceId === 'sCost')?.value).toBe(4);
     expect(activeWorkspaceView(runId).run.activeEncounter!.round).toBe(2);
     vi.restoreAllMocks();
+  });
+
+  test.each([
+    ['same agility follows Party declaration order', { sourceAgility: 8, targetAgility: 8 }, true],
+    ['target with higher final agility precedes the source and is hidden', { sourceAgility: 8, targetAgility: 8, targetPartyAgility: 1 }, false],
+    ['target with lower final agility follows the source and is offered', { sourceAgility: 8, targetAgility: 7 }, true],
+    ['same agility target declared earlier is hidden', { sourceAgility: 8, targetAgility: 8, reverseParty: true }, false],
+  ] as const)('filters modifier target Cards by AG-1 order: %s', (_label, options, offered) => {
+    const datapack = cardModifierWorkspaceDatapack(options);
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const view = activeWorkspaceView(runId);
+    const source = view.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')!;
+    const target = view.cards.find(card => card.owner.kind === 'partyCharacter' && card.owner.id === 'serika'
+      && card.prepared)!;
+    expect(source.cardEffectModifierPreviews?.some(row => mapObjectKey(row.targetCardRef) === mapObjectKey(target.ref)) ?? false)
+      .toBe(offered);
+    const choices = [...root.querySelectorAll<HTMLButtonElement>('[data-map-card-target]')];
+    expect(choices.some(button => button.dataset.mapObjectKey === mapObjectKey(target.ref))).toBe(offered);
+    if (offered) {
+      expect(choices).toHaveLength(1);
+      expect(choices[0]?.querySelectorAll('small')).toHaveLength(2);
+      expect(choices[0]?.querySelectorAll('small')[1]?.textContent).toBe('伤害 +2');
+    } else {
+      expect(choices).toHaveLength(0);
+    }
+  });
+
+  test.each([
+    ['modifier source', 'shiroko'],
+    ['modifier target', 'serika'],
+  ] as const)('uses the actual PlayerCommand CardRef for a %s', (label, characterId) => {
+    void label;
+    const datapack = cardModifierWorkspaceDatapack({ sourceCount: 4, targetCount: 4 });
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const before = activeWorkspaceView(runId);
+    const option = before.actionPreview!.playerCommandOptions.find(row => row.characterId === characterId);
+    if (!option) throw new Error(`Expected a hand-out PlayerCommand for ${characterId}`);
+    root.querySelector<HTMLButtonElement>(`[data-map-player-command][data-character-id="${characterId}"][data-action-id="${option.action.actionId}"]`)!.click();
+    const current = activeWorkspaceView(runId);
+    const ref = characterId === 'shiroko'
+      ? current.cards.find(card => card.owner.kind === 'partyCharacter' && card.owner.id === 'serika' && card.prepared)?.ref
+      : current.cards.find(card => card.owner.kind === 'partyCharacter' && card.owner.id === 'serika'
+        && card.zone === 'playerCommand' && card.prepared)?.ref;
+    expect(ref).toBeDefined();
+    if (characterId === 'shiroko') {
+      const commandCard = current.cards.find(card => card.owner.kind === 'partyCharacter'
+        && card.owner.id === 'shiroko' && card.zone === 'playerCommand' && card.prepared);
+      expect(commandCard).toBeDefined();
+      expect(commandCard?.logicalIndex).toBe(current.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')!.hand.length);
+    }
+    if (characterId === 'serika') {
+      expect(ref?.id.startsWith('["playerCommand","partyCharacter","serika",')).toBe(true);
+      expect(current.cards.find(card => mapObjectKey(card.ref) === mapObjectKey(ref!))?.logicalIndex)
+        .toBe(current.actionPreview!.preparedActions.find(row => row.characterId === 'serika')!.hand.length);
+    }
+    expect(current.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')?.cardEffectModifierPreviews)
+      .toContainEqual(expect.objectContaining({ targetCardRef: ref }));
+    const choice = [...root.querySelectorAll<HTMLButtonElement>('[data-map-card-target]')]
+      .find(button => button.dataset.mapObjectKey === mapObjectKey(ref!));
+    expect(choice).toBeDefined();
+    expect(choice?.textContent).toContain('伤害 +2');
+  });
+
+  test('does not rebind a selected CardRef when the target Prepared Action changes', () => {
+    const datapack = cardModifierWorkspaceDatapack({ targetCount: 2, thirdOwner: true });
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const initial = activeWorkspaceView(runId);
+    const target = initial.cards.find(card => card.owner.kind === 'partyCharacter' && card.owner.id === 'serika' && card.prepared)!;
+    const frame = root.querySelector('[data-workspace-frame="map"]');
+    const targetButton = [...root.querySelectorAll<HTMLButtonElement>('[data-map-card-target]')]
+      .find(button => button.dataset.mapObjectKey === mapObjectKey(target.ref))!;
+    targetButton.click();
+    const selected = activeWorkspaceView(runId);
+    expect(selected.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')?.targetCard).toEqual(target.ref);
+    expect(selected.run.activeEncounter!.targetSelections.find(row => row.characterId === 'shiroko')?.targetCard).toEqual(target.ref);
+    expect(root.querySelector('[data-workspace-frame="map"]')).toBe(frame);
+    expect(targetButton.isConnected).toBe(true);
+    const serika = selected.actionPreview!.preparedActions.find(row => row.characterId === 'serika')!;
+    const replacement = serika.hand.find(action => action.actionId !== serika.preparedAction?.actionId);
+    if (!replacement) throw new Error('Expected another Serika Hand card');
+    const encounter = selected.run.activeEncounter!;
+    expect(() => game!.swapMapPreparedAction(runId, 'serika', replacement.actionId, {
+      nodeId: encounter.nodeId, activityId: encounter.activityId, round: encounter.round, draftVersion: encounter.draftVersion,
+    })).toThrow(/Card target selection is not legal/);
+    const after = activeWorkspaceView(runId);
+    expect(after.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')?.targetCard).toEqual(target.ref);
+    expect(after.actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')?.cardEffectModifierPreviews)
+      .toContainEqual(expect.objectContaining({ targetCardRef: target.ref }));
+    expect([...root.querySelectorAll('[data-map-card-target]')]
+      .some(button => (button as HTMLElement).dataset.mapObjectKey === mapObjectKey(target.ref))).toBe(true);
+  });
+
+  test('formats CardRef modifier preview signs with the operation label', () => {
+    expect(mapCardEffectModifierPreviewLabel({ op: 'heal', delta: 2 })).toBe('治疗 +2');
+    expect(mapCardEffectModifierPreviewLabel({ op: 'damage', delta: -1 })).toBe('伤害 −1');
   });
 
   test('the shipped cooperation sample offers real card targets and settles a chosen discount', () => {
@@ -1046,7 +1535,7 @@ describe('Gameplay B Map Workspace', () => {
     const abilityName = '<script>alert(2)</script>';
     const itemName = '<svg onload=alert(3)>';
     const projectedAction = {
-      actionId: 'html-action', name: actionName, targetKind: 'none' as const, costs: [], hpEffects: [],
+      actionId: 'html-action', name: actionName, targetKind: 'none' as const, costs: [],
     };
     const recentCommit = {
       requestId: 'html-receipt', commandVersion: 0, resultingCommitVersion: 1,
@@ -1095,6 +1584,105 @@ describe('Gameplay B Map Workspace', () => {
     expect(commandButton?.textContent).toContain('需要 1 PlayerCost');
   });
 
+  test('selects Party and Ability additional targets through separate workspace groups without replacing primary targets', () => {
+    const datapack = battleWorkspaceDatapack({ executionContractId: 'AG-1',
+      partyActionAdditionalTarget: 'partyCharacter', abilityAdditionalTarget: 'partyCharacter' });
+    const { root } = mount(datapack);
+    const runId = enterEncounter(root, mapFixture(datapack));
+    const primaryEnemy = root.querySelector<HTMLButtonElement>(
+      '[data-map-target-enemy][data-character-id="shiroko"][data-target-enemy-id="wolf-2"]',
+    )!;
+    primaryEnemy.click();
+
+    const partyPicker = root.querySelector<HTMLElement>(
+      '[data-map-region-key="additional-targets:shiroko"][role="group"]',
+    );
+    expect(partyPicker?.getAttribute('aria-label')).toContain('额外目标');
+    const partySecondary = root.querySelector<HTMLButtonElement>(
+      '[data-map-target-additional][data-character-id="shiroko"][data-target-character-id="serika"]',
+    )!;
+    const partyScroll = root.querySelector('[data-map-region-key="party-scroll"][data-scroll-owner="content-region"]');
+    const feed = root.querySelector('[data-map-region-key="talk-feed"][data-scroll-owner="content-region"]');
+    const partyMember = root.querySelector('[data-map-region-key="party-member:serika"]');
+    const partyFocusKey = partySecondary.dataset.mapFocusKey;
+    partySecondary.focus();
+    partySecondary.click();
+
+    expect(game!.mapRun.getSnapshot()?.activeEncounter?.targetSelections).toContainEqual({
+      characterId: 'shiroko', targetEnemyId: 'wolf-2', additionalTargetCharacterId: 'serika',
+    });
+    const selectedParty = activeWorkspaceView(runId).actionPreview!.preparedActions.find(row => row.characterId === 'shiroko')!;
+    expect(selectedParty).toMatchObject({ targetEnemyId: 'wolf-2', additionalTargetKind: 'partyCharacter',
+      additionalTargetCharacterId: 'serika', additionalTargetSelectionRequired: false });
+    expect(root.querySelector<HTMLButtonElement>(
+      '[data-map-target-enemy][data-character-id="shiroko"][data-target-enemy-id="wolf-2"]',
+    )?.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector<HTMLButtonElement>(
+      '[data-map-target-additional][data-character-id="shiroko"][data-target-character-id="serika"]',
+    )?.getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(partySecondary);
+    expect((document.activeElement as HTMLElement).dataset.mapFocusKey).toBe(partyFocusKey);
+    expect(root.querySelector('[data-map-region-key="party-scroll"][data-scroll-owner="content-region"]')).toBe(partyScroll);
+    expect(root.querySelector('[data-map-region-key="talk-feed"][data-scroll-owner="content-region"]')).toBe(feed);
+    expect(root.querySelector('[data-map-region-key="party-member:serika"]')).toBe(partyMember);
+    expect(activeWorkspaceView(runId).actionPreview?.commitPreview.canCommit).toBe(false);
+
+    const serikaSecondary = root.querySelector<HTMLButtonElement>(
+      '[data-map-target-additional][data-character-id="serika"][data-target-character-id="shiroko"]',
+    )!;
+    serikaSecondary.click();
+    expect(game!.mapRun.getSnapshot()?.activeEncounter?.targetSelections).toContainEqual({
+      characterId: 'serika', targetEnemyId: 'wolf', additionalTargetCharacterId: 'shiroko',
+    });
+    expect(activeWorkspaceView(runId).actionPreview?.commitPreview.canCommit).toBe(true);
+    expect(root.querySelector('[data-map-commit]')).not.toBeNull();
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('本轮可提交');
+
+    const abilityChoice = root.querySelector<HTMLButtonElement>('[data-map-ability-draft]')!;
+    abilityChoice.click();
+    root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target][data-action-id="workspace-battle-ability"][data-target-enemy-id="wolf-2"]',
+    )!.click();
+    const abilitySecondary = root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target-additional][data-target-character-id="serika"]',
+    )!;
+    abilitySecondary.focus();
+    abilitySecondary.click();
+    expect(game!.mapRun.getSnapshot()?.activeEncounter?.abilityDraft).toMatchObject({
+      actionId: 'workspace-battle-ability',
+      target: { kind: 'enemy', enemyId: 'wolf-2' },
+      additionalTarget: { kind: 'partyCharacter', characterId: 'serika' },
+    });
+    expect(activeWorkspaceView(runId).sourcePreview).toMatchObject({
+      selectedAbilityTarget: { kind: 'enemy', enemyId: 'wolf-2' },
+      selectedAbilityAdditionalTarget: { kind: 'partyCharacter', characterId: 'serika' },
+    });
+    expect(root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target-additional][data-target-character-id="serika"]',
+    )?.getAttribute('aria-pressed')).toBe('true');
+    expect(activeWorkspaceView(runId).actionPreview?.commitPreview.canCommit).toBe(true);
+    expect(root.querySelector('[data-map-commit]')).not.toBeNull();
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('本轮可提交');
+
+    const clearAbilityAdditional = root.querySelector<HTMLButtonElement>('[data-map-ability-target-additional-clear]')!;
+    clearAbilityAdditional.focus();
+    clearAbilityAdditional.click();
+    expect(game!.mapRun.getSnapshot()?.activeEncounter?.abilityDraft).toMatchObject({
+      target: { kind: 'enemy', enemyId: 'wolf-2' }, additionalTarget: null,
+    });
+    expect(activeWorkspaceView(runId).actionPreview?.commitPreview.canCommit).toBe(false);
+    expect(root.querySelector('[data-map-commit]')).toBeNull();
+    const abilitySecondaryAfterClear = root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target-additional][data-target-character-id="serika"]',
+    )!;
+    expect((document.activeElement as HTMLElement | null)?.hasAttribute('data-map-ability-target-additional')).toBe(true);
+    expect(document.activeElement?.closest('[data-map-region-key="ability-additional-targets:workspace-battle-ability"]'))
+      .not.toBeNull();
+    abilitySecondaryAfterClear.click();
+    expect(activeWorkspaceView(runId).actionPreview?.commitPreview.canCommit).toBe(true);
+    expect(root.querySelector('[data-map-commit]')).not.toBeNull();
+  });
+
   test('renders battle HP, routes Enemy targets, keeps Ability and Item drafts separate, and shows the round result', () => {
     const datapack = battleWorkspaceDatapack();
     const { root } = mount(datapack);
@@ -1119,8 +1707,8 @@ describe('Gameplay B Map Workspace', () => {
 
     expect(view.currentEncounter?.partyHp).toHaveLength(2);
     expect(view.currentEncounter?.enemies).toEqual([
-      { enemyId: 'wolf', currentHp: 20, maxHp: 24 },
-      { enemyId: 'wolf-2', currentHp: 20, maxHp: 24 },
+      { enemyId: 'wolf', currentHp: 20, maxHp: 24, shield: 0 },
+      { enemyId: 'wolf-2', currentHp: 20, maxHp: 24, shield: 0 },
     ]);
     expect(root.querySelectorAll('[data-workspace-column="left"] .map-workspace__unit-face')).toHaveLength(2);
     expect(root.querySelector('[data-map-region-key="party-face:shiroko"]')).not.toBeNull();
@@ -1279,6 +1867,34 @@ describe('Gameplay B Map Workspace', () => {
     } finally {
       viewSpy.mockRestore();
     }
+  });
+
+  test('labels downed Party members in the Revive target picker and completes the revive from Workspace', () => {
+    const datapack = reviveExampleDatapack();
+    const { root } = mount(datapack);
+    const map = mapFixture(datapack);
+    const runId = enterEncounter(root, map);
+
+    // Let the first round's fast Enemy source down Serika without selecting the Ability.
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    expect(activeWorkspaceView(runId).run.partyHp.find(row => row.characterId === 'serika')?.currentHp).toBe(0);
+
+    const ability = root.querySelector<HTMLButtonElement>('[data-map-ability-draft][data-action-id="revive-serika"]');
+    expect(ability).not.toBeNull();
+    ability!.click();
+    const target = root.querySelector<HTMLButtonElement>(
+      '[data-map-ability-target][data-action-id="revive-serika"][data-target-character-id="serika"]',
+    );
+    expect(target?.textContent).toContain('（倒地）');
+    target!.click();
+    expect(activeWorkspaceView(runId).sourcePreview?.selectedAbilityTarget)
+      .toEqual({ kind: 'partyCharacter', characterId: 'serika' });
+    root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
+    const completed = activeWorkspaceView(runId);
+    expect(completed.run.partyHp.find(row => row.characterId === 'serika')?.currentHp).toBe(3);
+    expect(completed.actionPreview?.recentCommit?.effectTrace).toContainEqual(expect.objectContaining({
+      op: 'revive', identity: { kind: 'partyCharacter', id: 'serika' }, beforeHp: 0, afterHp: 3,
+    }));
   });
 
   test('edits real Enemy targets by unit click and card drag without Commit or replacing the three columns', async () => {

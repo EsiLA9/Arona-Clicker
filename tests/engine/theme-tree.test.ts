@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
   resolveTheme,
   themeContributionFromThemeDef,
-} from '../../src/arona-clicker/services/color-system';
+} from '../../src/arona-clicker/services/progression/color-system';
 import type { ColorGroupId } from '../../src/engine/types';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 

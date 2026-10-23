@@ -10,8 +10,8 @@
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` 的 route 生命周期验收 | 要求来源／Area 失效后恢复 returnTo，并保留仍有效 Run |
 | 测试 | `tests/ui/gameplay-b-basic-map-p0-p3.test.ts` 的 `bootToSpot` / `bootMap` | 复用真实设施入口、Story 解锁和页面宿主 |
-| 源码 | `src/ui/controller.ts:isMapEntrySourceAvailable/render/returnFromMapEntry` | 确认 Area 改变后的恢复分支 |
-| 源码 | `src/arona-clicker/runtime-commands.ts:travelToArea` | 使用现有 Area 旅行动作制造失效 |
+| 源码 | `src/ui/controller/controller.ts:isMapEntrySourceAvailable/render/returnFromMapEntry` | 确认 Area 改变后的恢复分支 |
+| 源码 | `src/arona-clicker/runtime/runtime-commands.ts:travelToArea` | 使用现有 Area 旅行动作制造失效 |
 
 ## Constraints
 

@@ -1,6 +1,7 @@
 # Unit 0312-U17：可装载的作者示例与五张验收卡
 
-状态：ready / 未执行；阶段P3。前置：0312-U04实际完成Receipt与测试、0312-U13实际完成Receipt与测试、0312-U16实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,7 +13,7 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/content/gameplay-b-map-datapack.ts：gameplayBMapDatapack.spots/maps；def-factory/spot | 正式可选bundle与设施入口 |
+| 源码 | src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts：gameplayBMapDatapack.spots/maps；def-factory/spot | 正式可选bundle与设施入口 |
 | 合同 | Task本文示例A/B/C/E/F；Draft0312 §11；E0行为金样E1部分 | 作者可直接参考 |
 | 装载 | src/data-services/contracts/datapack.ts；registry-map-content-resolver.ts；现有Registry样例测试 | 必须走合法加载/引用链 |
 
@@ -41,9 +42,10 @@ gameplay-b bundle当前提供八张Map及设施mapEntry；可追加独立例图�
 
 ## Allowed Files
 
-- 新增（执行时才创建）：src/arona-clicker/content/gameplay-b-effect-program-example.ts
-- `src/arona-clicker/content/gameplay-b-map-datapack.ts`
+- 新增（执行时才创建）：src/arona-clicker/content/gameplay-b/gameplay-b-effect-program-example.ts
+- `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts`
 - 新增（执行时才创建）：tests/data/gameplay-b-effect-example.test.ts
+- `tests/data/gameplay-b-effect-registry.test.ts`：负责人核实U03临时“not implemented”门禁断言尚未随U10/U11接通更新。本Unit仅更新该末尾用例：非法未声明Flag仍拒绝且零写；合法condition completion允许规划/提交，不改其它Registry/OLD期望。预计增量≤20行，纳入原预算。
 - 新增（执行时才创建）：docs/examples/gameplay-b-effect-program-e1.md
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u17-receipt.md
 

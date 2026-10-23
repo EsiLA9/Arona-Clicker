@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addGradientStop, convertGradientType, isGradientStopPosition, parseGradient, removeGradientStop, serializeGradient, updateGradient } from '../../src/ui/theme-layer-value';
+import { addGradientStop, convertGradientType, isGradientStopPosition, parseGradient, removeGradientStop, serializeGradient, updateGradient } from '../../src/ui/presentation/theme-layer-value';
 
 describe('theme layer CSS value parser', () => {
   it('保留线性渐变方向、多个色标与位置', () => {

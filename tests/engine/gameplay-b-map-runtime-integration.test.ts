@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-commands';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
+import { gameplayBMapRunStatusExampleMap } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-maprun-status-example';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef } from '../../src/data-services/contracts/gameplay-map';
-import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/gameplay-b-action-preview-resolver';
+import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/map/gameplay-b-action-preview-resolver';
 
 describe('Gameplay B MapRun GameInstance integration', () => {
   const games: GameInstance[] = [];
@@ -146,6 +147,53 @@ describe('Gameplay B MapRun GameInstance integration', () => {
     expect(game.mapRun.getSnapshot()).toBeNull();
   });
 
+  test('projects a MapRun-lifetime Status into the later Encounter read model without copying its Owner', () => {
+    const game = createGame();
+    const commands = createGameCommands(game);
+    const map = game.registry.maps.get(gameplayBMapRunStatusExampleMap.id);
+    if (!map) throw new Error('MapRun Status example was not registered');
+    acquireMapParty(game);
+    const started = commands.startMap(map.id);
+    commands.moveMap(started.runId, 'practice');
+    const origin = game.mapRun.getSnapshot()!;
+    const encounter = origin.activeEncounter!;
+    const inShop = commands.commitMapEncounterRound({
+      runId: started.runId,
+      requestId: 'maprun-status-readmodel-origin',
+      expectedCommitVersion: origin.commitVersion,
+      draft: {
+        nodeId: encounter.nodeId,
+        activityId: encounter.activityId,
+        round: encounter.round,
+        draftVersion: encounter.draftVersion,
+      },
+    });
+    expect(inShop.activeActivity).toMatchObject({ kind: 'shop', activityId: 'supply-stop' });
+    expect(game.mapRun.getCurrentEncounter()).toBeNull();
+
+    const shop = inShop.activeActivity!;
+    const laterEncounter = commands.leaveMapShop(started.runId, {
+      nodeId: shop.nodeId,
+      activityId: shop.activityId,
+      draftVersion: shop.shopDraftVersion,
+    });
+    expect(laterEncounter.mapRunStatuses).toEqual([expect.objectContaining({
+      statusId: 'travelling-cover', remainingRounds: 3,
+    })]);
+    expect(laterEncounter.activeEncounter?.statuses ?? []).toEqual([]);
+    const readModel = game.mapRun.getCurrentEncounter();
+    expect(readModel?.partyHp.find(row => row.characterId === 'shiroko')?.statuses).toEqual([expect.objectContaining({
+      statusId: 'travelling-cover',
+      name: '同行掩护',
+      stacks: 1,
+      remainingRounds: 3,
+      damageReductionPerStack: 2,
+    })]);
+    expect(Object.isFrozen(readModel?.partyHp[0]?.statuses)).toBe(true);
+    expect(game.mapRun.getSnapshot()?.mapRunStatuses).toHaveLength(1);
+    expect(game.mapRun.getSnapshot()?.activeEncounter?.statuses ?? []).toEqual([]);
+  });
+
   test('projects fresh, blocked, unavailable and same-Run preparation views without writing state', () => {
     const game = createGame();
     const commands = createGameCommands(game);
@@ -272,6 +320,102 @@ describe('Gameplay B MapRun GameInstance integration', () => {
       { enemyId: '训练靶', action: { actionId: enemyAction.id, name: enemyAction.name }, targetCharacterId: 'shiroko' },
       { enemyId: '机动靶', action: { actionId: enemyAction.id }, targetCharacterId: 'shiroko' },
     ]);
+  });
+
+  test('projects the Owner AG-1 sequence as detached Preview and Recent Commit ReadModel data', () => {
+    const sourceMap = gameplayBMapDatapack.maps?.[0];
+    if (!sourceMap) throw new Error('Gameplay B sample Map is missing');
+    const cardSource: GameplayMapActionDef = {
+      id: 'readmodel-card-source', name: '卡牌筹备', eligibleCharacterIds: ['shiroko'],
+      target: { kind: 'card', side: 'ally' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] },
+    };
+    const cardTarget: GameplayMapActionDef = {
+      id: 'readmodel-card-target', name: '可受用卡牌', eligibleCharacterIds: ['serika'],
+      target: { kind: 'none' }, costs: [{ scope: 'actor', resourceId: 'sCost', amount: 1 }],
+    };
+    const datapack: Datapack = {
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(map => map.id === sourceMap.id
+        ? {
+          ...map, resumeVersion: 5, executionContractId: 'AG-1' as const,
+          initialActorResources: ['shiroko', 'serika'].map(characterId => ({ characterId, resourceId: 'sCost', value: 2 })),
+          actions: [...(map.actions ?? []), cardSource, cardTarget],
+          nodes: map.nodes.map(node => !node.encounter ? node : ({
+            ...node,
+            encounter: {
+              ...node.encounter,
+              participants: (node.encounter.participants ?? []).map(participant => participant.characterId === 'shiroko'
+                ? { ...participant, actions: [{ actionId: cardSource.id, tendencyWeight: 1 }] }
+                : participant.characterId === 'serika'
+                  ? { ...participant, actions: [{ actionId: cardTarget.id, tendencyWeight: 1 }] }
+                  : participant),
+            },
+          })),
+        }
+        : map) ?? [],
+    };
+    const game = createGame(datapack);
+    const commands = createGameCommands(game);
+    acquireMapParty(game);
+    const started = commands.startMap(sourceMap.id);
+    const map = game.registry.maps.get(sourceMap.id);
+    if (!map) throw new Error('AG-1 sample Map did not load');
+    const encounterEdge = map.edges.find(edge => edge.fromNodeId === started.currentNodeId
+      && map.nodes.find(node => node.id === edge.toNodeId)?.encounter);
+    if (!encounterEdge) throw new Error('AG-1 sample Map has no Encounter edge');
+    const entered = commands.moveMap(started.runId, encounterEdge.toNodeId);
+    const previewView = game.mapRun.getWorkspaceView(started.runId);
+    if (previewView?.kind !== 'active' || !previewView.actionPreview) throw new Error('AG-1 Runtime Preview is missing');
+    const previewSequence = previewView.actionPreview.commitPreview.executionSequence;
+    expect(previewView.actionPreview.commitPreview.executionContractId).toBe('AG-1');
+    expect(previewSequence).toBeDefined();
+    if (!previewSequence) throw new Error('AG-1 Preview sequence is missing');
+    expect(previewSequence.map(row => row.executionIndex)).toEqual(previewSequence.map((_, index) => index));
+    expect(previewSequence.every(row => row.actionName.length > 0 && row.sourceId !== null)).toBe(true);
+    expect(Object.isFrozen(previewSequence)).toBe(true);
+    expect(Object.isFrozen(previewSequence[0])).toBe(true);
+    expect(Object.isFrozen(previewSequence[0]?.resourceChanges)).toBe(true);
+    const cardTargetRow = previewSequence.find(row => row.target.kind === 'card');
+    expect(cardTargetRow?.cardRef).not.toBeNull();
+    if (!cardTargetRow || cardTargetRow.target.kind !== 'card' || !cardTargetRow.target.cardRef || !cardTargetRow.cardRef) {
+      throw new Error('AG-1 card targeting sequence was not projected');
+    }
+    const previewTargetCardRef = cardTargetRow.target.cardRef;
+    const currentTargetCard = previewView.cards.find(card => card.ref.id === previewTargetCardRef.id);
+    expect(currentTargetCard).toBeDefined();
+    expect(cardTargetRow.target.cardRef).not.toBe(currentTargetCard?.ref);
+    expect(cardTargetRow.target.cardRef.scope).not.toBe(currentTargetCard?.ref.scope);
+    expect(Object.isFrozen(cardTargetRow.cardRef)).toBe(true);
+    expect(Object.isFrozen(cardTargetRow.cardRef.scope)).toBe(true);
+    expect(Object.isFrozen(cardTargetRow.target.cardRef)).toBe(true);
+    expect(Object.isFrozen(cardTargetRow.target.cardRef.scope)).toBe(true);
+
+    commands.commitMapEncounterRound({
+      runId: started.runId,
+      requestId: 'ag1-readmodel-sequence',
+      expectedCommitVersion: entered.commitVersion,
+      draft: previewView.actionPreview.draft,
+    });
+    const ownerReceipt = game.mapRun.getSnapshot()?.activeEncounter?.lastCommit;
+    const recentView = game.mapRun.getWorkspaceView(started.runId);
+    if (recentView?.kind !== 'active' || !recentView.actionPreview?.recentCommit) throw new Error('AG-1 Recent Commit View is missing');
+    const recentSequence = recentView.actionPreview.recentCommit.executionSequence;
+    expect(recentSequence?.map(({ sourceId: _sourceId, actionName: _actionName, ...entry }) => entry))
+      .toEqual(ownerReceipt?.executionSequence);
+    expect(recentSequence).not.toBe(ownerReceipt?.executionSequence);
+    expect(recentSequence?.map(row => row.executionIndex)).toEqual(recentSequence?.map((_, index) => index));
+    expect(Object.isFrozen(recentSequence)).toBe(true);
+    expect(Object.isFrozen(recentSequence?.[0]?.target)).toBe(true);
+    const ownerCardTarget = ownerReceipt?.executionSequence?.find(row => row.target.kind === 'card');
+    const recentCardTarget = recentSequence?.find(row => row.target.kind === 'card');
+    expect(recentCardTarget?.cardRef).not.toBe(ownerCardTarget?.cardRef);
+    if (!recentCardTarget || !ownerCardTarget || recentCardTarget.target.kind !== 'card' || ownerCardTarget.target.kind !== 'card') {
+      throw new Error('AG-1 recent card target was not projected');
+    }
+    expect(recentCardTarget.target.cardRef).not.toBe(ownerCardTarget.target.cardRef);
+    expect(recentCardTarget.target.cardRef?.scope).not.toBe(ownerCardTarget.target.cardRef?.scope);
+    expect(Object.isFrozen(recentCardTarget.cardRef?.scope)).toBe(true);
+    expect(Object.isFrozen(recentCardTarget.target.cardRef?.scope)).toBe(true);
   });
 
   test('resumes on load, ignores legacy saves without MapRun, and clears its owner on init, reset, and dispose', () => {

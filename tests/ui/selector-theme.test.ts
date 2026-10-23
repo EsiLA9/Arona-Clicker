@@ -1,14 +1,14 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
+import { createUIContext } from '../../src/ui/runtime/context';
 import {
   mergeSelectorBackgrounds,
   projectSelectorTheme,
   selectorFallbackPrimary,
-} from '../../src/ui/selector-theme';
-import { renderSelectorPage } from '../../src/ui/components/selector-page';
+} from '../../src/ui/presentation/selector-theme';
+import { renderSelectorPage } from '../../src/ui/components/navigation/selector-page';
 
 const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';

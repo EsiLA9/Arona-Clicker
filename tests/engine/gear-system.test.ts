@@ -5,10 +5,10 @@
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GearDef } from '../../src/arona-clicker/types/character';
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { baseGears } from '../../src/arona-clicker/content/gears';
+import { baseGears } from '../../src/arona-clicker/content/progression/gears';
 
 const BP1 = 'test:item:bp-t1';
 const BP2 = 'test:item:bp-t2';

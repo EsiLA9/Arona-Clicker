@@ -18,7 +18,7 @@
 
 ## Effect：把声明交给合适的写入者
 
-`EffectEngine.applyEffects()` 会先用当前状态求值表达式型 value。随后，它让宿主注入的 Runtime handler 处理该 handler 认识的临时表现操作；其余状态效果交给 `StateMutationPort`。Engine 不直接选择产品 UI，也不绕过宿主 Mutation 自行写产品状态。产品组合中的 handler 示例见 `src/arona-clicker/runtime-wiring.ts` 对 `themeEffectRequested`、`storyEffectRequested` 和 `chatFlowEffectRequested` 等事件的处理。
+`EffectEngine.applyEffects()` 会先用当前状态求值表达式型 value。随后，它让宿主注入的 Runtime handler 处理该 handler 认识的临时表现操作；其余状态效果交给 `StateMutationPort`。Engine 不直接选择产品 UI，也不绕过宿主 Mutation 自行写产品状态。产品组合中的 handler 示例见 `src/arona-clicker/runtime/runtime-wiring.ts` 对 `themeEffectRequested`、`storyEffectRequested` 和 `chatFlowEffectRequested` 等事件的处理。
 
 ## Affector：有条件的持续规则
 

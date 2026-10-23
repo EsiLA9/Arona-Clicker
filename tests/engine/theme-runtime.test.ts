@@ -1,8 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import { RuntimeThemeManager, type ThemeOrderScope } from '../../src/engine/core/theme-runtime';
-import { ColorSystem } from '../../src/arona-clicker/services/color-system';
-import { withPreviewLayer } from '../../src/arona-clicker/services/user-theme-layer-service';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { ColorSystem } from '../../src/arona-clicker/services/progression/color-system';
+import { withPreviewLayer } from '../../src/arona-clicker/services/presentation/user-theme-layer-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const OFFICE = 'base:init:office';

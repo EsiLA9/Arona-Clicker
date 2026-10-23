@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import type { EntityPresentationService } from '../../src/arona-clicker/services/entity-presentation-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { EntityPresentationService } from '../../src/arona-clicker/services/presentation/entity-presentation-service';
 
 const datapack = (withPresentation = true): Datapack => ({
   name: 'presentation-runtime-test',

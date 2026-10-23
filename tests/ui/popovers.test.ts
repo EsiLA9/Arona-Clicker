@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { PopoverManager } from '../../src/ui/popovers';
+import { PopoverManager } from '../../src/ui/interaction/popovers';
 
 describe('PopoverManager 刷新范围', () => {
   afterEach(() => {

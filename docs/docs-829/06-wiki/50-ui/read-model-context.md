@@ -4,9 +4,9 @@
 
 ## 两个读模型
 
-`GameReadModel` 定义于 `src/arona-clicker/contracts/runtime.ts`：它包含 `getView()`、可用的目录 / 世界 / 服务查询接口，以及故事和成就等专用投影查询。`getView()` 返回 `GameView`，在 `src/arona-clicker/runtime-game-instance.ts` 通过 `buildGameView()` 生成面向界面的快照；它不返回 PlayerState 本身。
+`GameReadModel` 定义于 `src/arona-clicker/contracts/runtime/runtime.ts`：它包含 `getView()`、可用的目录 / 世界 / 服务查询接口，以及故事和成就等专用投影查询。`getView()` 返回 `GameView`，在 `src/arona-clicker/runtime/runtime-game-instance.ts` 通过 `buildGameView()` 生成面向界面的快照；它不返回 PlayerState 本身。
 
-`UIContext` 是更靠近组件的渲染输入，定义于 `src/ui/context.ts`。`createUIContext(game, background, presentation)` 读取一次 `game.getView()`，并附上 Registry / World 查询、名称格式化、HTML 转义、主题背景、Presentation 宿主状态及实体表现查询。组件可从 `ctx.view` 取这次渲染使用的 GameView，从 `ctx.game` 使用契约暴露的查询方法。对话、Operation 等需要窄投影的区域可以调用专用查询，不必复制进全局 GameView。
+`UIContext` 是更靠近组件的渲染输入，定义于 `src/ui/runtime/context.ts`。`createUIContext(game, background, presentation)` 读取一次 `game.getView()`，并附上 Registry / World 查询、名称格式化、HTML 转义、主题背景、Presentation 宿主状态及实体表现查询。组件可从 `ctx.view` 取这次渲染使用的 GameView，从 `ctx.game` 使用契约暴露的查询方法。对话、Operation 等需要窄投影的区域可以调用专用查询，不必复制进全局 GameView。
 
 ## “只读”的实际含义
 

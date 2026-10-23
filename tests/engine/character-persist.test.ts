@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/character-persist.test.ts — Character 容器三层归属（PS 组）
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 

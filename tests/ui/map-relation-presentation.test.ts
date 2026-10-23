@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import type { MapActionRelation, MapRelationScope } from '../../src/arona-clicker/contracts/map-relations';
+import type { MapActionRelation, MapRelationScope } from '../../src/arona-clicker/contracts/map/map-relations';
 import { mapObjectKey, mapUnitKey, presentMapRelations } from '../../src/ui/workspace/map-relation-presentation';
 
 const scope: MapRelationScope = { runId: 'run', mapId: 'map', nodeId: 'node', activityId: null, round: 1 };
@@ -9,7 +9,7 @@ const relation: MapActionRelation = {
   key: 'relation', scope, draft: { nodeId: 'node', round: 1, draftVersion: 2 },
   phase: 'preparation', visibility: 'public', source: { kind: 'preparedAction', id: 'a', actionId: 'shoot', performer: unit('a') },
   selectedTarget: unit('b'), targetState: 'determined', selectionMode: 'selectable', candidates: [unit('a'), unit('b'), unit('c')],
-  canSelectTarget: true, canReplaceAction: true, effectRecipients: [],
+  canSelectTarget: true, canReplaceAction: true,
 };
 
 function mounted() {
@@ -37,8 +37,7 @@ describe('Map relation visual roles', () => {
       root.append(node);
       return node;
     });
-    const cardRelation: MapActionRelation = { ...relation, selectedTarget: target, candidates: [target, next],
-      effectRecipients: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: target }] };
+    const cardRelation: MapActionRelation = { ...relation, selectedTarget: target, candidates: [target, next] };
     presentMapRelations(root, [cardRelation], true);
     expect(copies.slice(0, 2).every(node => node.dataset.mapRoleRecipient === '接收')).toBe(true);
     expect(copies[2].dataset.mapRoleCandidate).toBe('候选');
@@ -88,7 +87,6 @@ describe('Map relation visual roles', () => {
     const { root } = mounted();
     presentMapRelations(root, [{ ...relation, source: { kind: 'enemy', id: 'enemy', actionId: null, performer: null },
       selectedTarget: null, targetState: 'unknown', candidates: [], selectionMode: 'rule',
-      effectRecipients: [{ kind: 'hp', resourceId: null, amount: -2, recipient: unit('b') }],
     }], true);
     expect(root.querySelector('[data-map-role-recipient], [data-map-role-candidate]')).toBeNull();
     expect(mapUnitKey({ ...scope, round: 2 }, 'partyCharacter', 'a')).not.toBe(mapUnitKey(scope, 'partyCharacter', 'a'));

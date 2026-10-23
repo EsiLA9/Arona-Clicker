@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { bindInventoryActions } from '../../src/ui/controller-actions-inventory';
+import { UIController } from '../../src/ui/controller/controller';
+import { bindInventoryActions } from '../../src/ui/controller/controller-actions-inventory';
 
 const SPOT = 'base:spot:abydos_cafe';
 

@@ -22,4 +22,4 @@ Roster、碎片、卡池计数是否按 Init 隔离，由 Registry 的 character
 
 当前对应测试包括 `tests/engine/gacha-service.test.ts` 与 `tests/engine/cultivate-system.test.ts`。本说明按源码记录实现，不声明测试已在本次文档工作中运行。
 
-主要实现入口：`src/arona-clicker/services/gacha-service.ts`、`cultivate-system.ts` 与 `src/arona-clicker/state/state-mutation-service.ts`。玩家角色字段和跨 Init 归属见 [[docs/docs-829/03-data-structures/player-state]]；用户可见的角色获取/成长路线见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]]。
+主要实现入口：`src/arona-clicker/services/economy/gacha-service.ts`、`cultivate-system.ts` 与 `src/arona-clicker/state/state-mutation-service.ts`。玩家角色字段和跨 Init 归属见 [[docs/docs-829/03-data-structures/player-state]]；用户可见的角色获取/成长路线见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]]。

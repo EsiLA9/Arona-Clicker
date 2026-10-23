@@ -7,7 +7,7 @@ import {
   type OperationEventDef,
   type OperationTeamState,
   type OperationStudentProfileSnapshot,
-} from '../../src/arona-clicker/contracts/operation';
+} from '../../src/arona-clicker/contracts/operation/operation';
 import {
   OPERATION_WAIT_REASON_INSUFFICIENT_RESOURCE,
   OPERATION_WAIT_REASON_NO_CANDIDATE_ACTION,
@@ -15,9 +15,9 @@ import {
   OPERATION_WAIT_REASON_NO_LEGAL_TARGET,
   type OperationPreparationContent,
   type OperationPreparationSnapshot,
-} from '../../src/arona-clicker/contracts/operation-beat';
-import type { OperationActionDef, OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation-action';
-import { OperationPlanPreparationError, prepareOperationBeat } from '../../src/arona-clicker/services/operation-plan-preparation';
+} from '../../src/arona-clicker/contracts/operation/operation-beat';
+import type { OperationActionDef, OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import { OperationPlanPreparationError, prepareOperationBeat } from '../../src/arona-clicker/services/operation/operation-plan-preparation';
 
 function actor(
   id: string,

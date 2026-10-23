@@ -12,7 +12,7 @@ import {
   themeTreeFromThemeDef,
   type ThemeVarName,
   type ThemeTree,
-} from '../../src/ui/theme-tree';
+} from '../../src/ui/presentation/theme-tree';
 import { THEME_LIGHTNESS_THRESHOLD, readableOnColor } from '../../src/engine/core/color';
 import type { ColorGroupId } from '../../src/engine/types';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';

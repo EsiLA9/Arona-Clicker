@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import type { MapRunEncounterCommitCommand, MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map-run';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { MapRunEncounterCommitCommand, MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map/map-run';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayEncounterDef, GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';

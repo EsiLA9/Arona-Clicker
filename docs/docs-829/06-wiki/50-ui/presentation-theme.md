@@ -32,11 +32,11 @@ Runtime 主题 / 实体状态 / Registry 定义 / 图片资源
 
 外部 Init 选择页继续通过 `projectSelectorTheme()` 独立投影聚焦 Init 的主题，不改写普通游戏页的选中主题。页面背景只绘制在外层画布；内容宿主使用局部图层或主题面板基底，不会复制外层图片。
 
-主题的**内容编辑**和玩家**选择当前主题**是两条不同路径。`ThemeContentEditorService` 编辑 Datapack 中的一般主题定义：草稿 / 预览不写入运行状态，保存回写指定的 editing Pack 并由 PackManager 持久化；它不是玩家 UserTheme 的存储入口。实现见 `src/arona-clicker/services/theme-content-editor-service.ts`，预览、保存和内容冲突测试见 `tests/engine/theme-content-editor-service.test.ts`。
+主题的**内容编辑**和玩家**选择当前主题**是两条不同路径。`ThemeContentEditorService` 编辑 Datapack 中的一般主题定义：草稿 / 预览不写入运行状态，保存回写指定的 editing Pack 并由 PackManager 持久化；它不是玩家 UserTheme 的存储入口。实现见 `src/arona-clicker/services/presentation/theme-content-editor-service.ts`，预览、保存和内容冲突测试见 `tests/engine/theme-content-editor-service.test.ts`。
 
 ## 代码与测试
 
-代码路径：`src/ui/controller-theme.ts` 组合当前运行时视图，`src/ui/theme-cascade-service.ts` 解析语义颜色作用域与宿主背景基底，`src/ui/presentation-service.ts` 构建表现读取视图并渲染宿主，`src/ui/context.ts` 为组件提供查询。实体表现数据查询来自 Runtime 的只读 `entityPresentation` 端口。主题 / 表现的定义字段及同步边界见 [[docs/docs-829/05-conventions/schema-sync]] 与 [[docs/docs-829/03-data-structures/datapack-contracts]]。
+代码路径：`src/ui/controller/controller-theme.ts` 组合当前运行时视图，`src/ui/presentation/theme-cascade-service.ts` 解析语义颜色作用域与宿主背景基底，`src/ui/presentation/presentation-service.ts` 构建表现读取视图并渲染宿主，`src/ui/runtime/context.ts` 为组件提供查询。实体表现数据查询来自 Runtime 的只读 `entityPresentation` 端口。主题 / 表现的定义字段及同步边界见 [[docs/docs-829/05-conventions/schema-sync]] 与 [[docs/docs-829/03-data-structures/datapack-contracts]]。
 
 `tests/ui/presentation-service.test.ts` 覆盖图层顺序、资源 / 地址校验、属性转义和宿主状态；`tests/ui/context.test.ts` 覆盖状态回退、合成背景文字颜色和父子宿主边界；`tests/ui/controller-theme-cleanup.test.ts` 覆盖主题 CSS 变量清理。测试验证解析行为，不代表真实浏览器中的全部视觉结果。
 

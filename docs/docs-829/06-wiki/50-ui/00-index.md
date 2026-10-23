@@ -11,12 +11,12 @@
 
 | 读者的问题 | 页面 | 主要代码 / 测试入口 |
 | --- | --- | --- |
-| 输入怎样触发游戏操作？ | [[docs/docs-829/06-wiki/50-ui/controller-commands]] | `src/ui/controller-actions-*`、`runtime-commands.ts`；`tests/ui/controller-events.test.ts` |
-| 组件怎样读取游戏信息？ | [[docs/docs-829/06-wiki/50-ui/read-model-context]] | `src/arona-clicker/contracts/runtime.ts`、`src/ui/context.ts`；`tests/ui/controller-init-select.test.ts` |
+| 输入怎样触发游戏操作？ | [[docs/docs-829/06-wiki/50-ui/controller-commands]] | `src/ui/controller/controller-actions-*`、`runtime-commands.ts`；`tests/ui/controller-events.test.ts` |
+| 组件怎样读取游戏信息？ | [[docs/docs-829/06-wiki/50-ui/read-model-context]] | `src/arona-clicker/contracts/runtime/runtime.ts`、`src/ui/runtime/context.ts`；`tests/ui/controller-init-select.test.ts` |
 | 当前页面与返回位置由谁决定？ | [[docs/docs-829/06-wiki/50-ui/workspace-routing]] | `src/ui/workspace/workspace-router.ts`；`tests/ui/workspace-router.test.ts` |
 | 怎样避免无关 DOM 重建？ | [[docs/docs-829/06-wiki/50-ui/refresh-update]] | `src/ui/update/`；`tests/ui/ui-update-dispatcher.test.ts` |
-| 背景、主题和实体表现从哪来？ | [[docs/docs-829/06-wiki/50-ui/presentation-theme]] | `src/ui/presentation-service.ts`、`controller-theme.ts`；`tests/ui/presentation-service.test.ts` |
-| 新页面继承什么风格、组件与内容入口？ | [[ui-style/00-index]] | `src/ui/css/variables.css`、`src/ui/css/cards.css`、`src/ui/components/workspace-frame.ts`、`src/ui/components/tabs.ts` |
+| 背景、主题和实体表现从哪来？ | [[docs/docs-829/06-wiki/50-ui/presentation-theme]] | `src/ui/presentation/presentation-service.ts`、`controller-theme.ts`；`tests/ui/presentation-service.test.ts` |
+| 新页面继承什么风格、组件与内容入口？ | [[ui-style/00-index]] | `src/ui/css/variables.css`、`src/ui/css/cards.css`、`src/ui/components/shared/workspace-frame.ts`、`src/ui/components/shared/tabs.ts` |
 
 ## 总览：两条方向不同的路径
 
@@ -30,4 +30,4 @@
 
 ## UI 代码入口
 
-`src/ui/main.ts` 在应用 Runtime 和 Datapack 装载后创建 `UIController` 并挂载界面。`src/ui/controller.ts` 创建 `GameCommands`、绑定事件并安排渲染；`src/ui/components/` 通过 `UIContext` 生成界面结构。职责速览见 [[docs/docs-829/02-modules/ui]]；Runtime 与 Engine 的启动装配见 [[docs/docs-829/06-wiki/10-application-runtime/startup-and-composition]]。
+`src/ui/main.ts` 在应用 Runtime 和 Datapack 装载后创建 `UIController` 并挂载界面。`src/ui/controller/controller.ts` 创建 `GameCommands`、绑定事件并安排渲染；`src/ui/components/` 通过 `UIContext` 生成界面结构。职责速览见 [[docs/docs-829/02-modules/ui]]；Runtime 与 Engine 的启动装配见 [[docs/docs-829/06-wiki/10-application-runtime/startup-and-composition]]。

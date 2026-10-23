@@ -4,17 +4,17 @@
 //   清流与会话重置取消 / 跨流门控 / 持久化过滤 / 门控链与点击加速 / 门控态按钮渲染
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ChatStream, DEFAULT_RHYTHM_SECONDS, ACCELERATE_SECONDS } from '../../src/ui/chat-stream';
-import type { PanelState } from '../../src/ui/components/app-shell';
-import type { ChatEntry } from '../../src/ui/components/story';
-import { renderChatHistory } from '../../src/ui/components/story';
-import { renderSendButton } from '../../src/ui/components/center-panel';
-import type { UIContext } from '../../src/ui/context';
-import type { GameInstance, SaveData } from '../../src/arona-clicker/runtime-game-instance';
-import type { StoryView } from '../../src/arona-clicker/contracts/results';
+import { ChatStream, DEFAULT_RHYTHM_SECONDS, ACCELERATE_SECONDS } from '../../src/ui/presentation/chat-stream';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
+import type { ChatEntry } from '../../src/ui/components/story/story';
+import { renderChatHistory } from '../../src/ui/components/story/story';
+import { renderSendButton } from '../../src/ui/components/shared/center-panel';
+import type { UIContext } from '../../src/ui/runtime/context';
+import type { GameInstance, SaveData } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 import type { Talklet } from '../../src/data-services/contracts/story';
 import { talklet } from '../../src/arona-clicker/content/def-factory';
-import { withHistories } from '../../src/ui/controller-core';
+import { withHistories } from '../../src/ui/controller/controller-core';
 
 function makePanelState(): PanelState {
   return {

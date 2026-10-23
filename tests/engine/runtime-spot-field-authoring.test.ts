@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
-import type { RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime-content';
+import type { RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime/runtime-content';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { MISSING_DEF_TIME } from '../../src/data-services';
 

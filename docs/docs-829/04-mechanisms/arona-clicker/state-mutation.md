@@ -35,6 +35,6 @@ UI / Engine effect → 领域业务命令 → 校验与计划 → mutation port
 ## 代码入口
 
 - `src/arona-clicker/state/state-mutation-service.ts`
-- `src/arona-clicker/contracts/mutation.ts`
+- `src/arona-clicker/contracts/runtime/mutation.ts`
 - `src/engine/contracts/mutation.ts`
 - `src/engine/system/tick-system.ts`

@@ -12,7 +12,7 @@ Spot 定义创建、替换和删除会单独维护 Spot 反向索引。`tests/en
 
 `StatsService` 记录资源、物品、Spot、故事、Init、Area 和 Tick 等累计 / 会话统计，并通过统计 DSL（受限的统计查询表达式）供条件读取。ConditionSystem 的统计读取器在 Runtime 装配时注入；因此静态依赖是接口，运行时调用才到具体 StatsService。
 
-`TagStatService` 按实体类别维护“当前收集了多少个带此标签的实体”索引。它订阅 Init、Area、Spot 等获得或状态变化，按需发出 `tagCollectedChanged`；依赖 `tagCount` / 标签条件的查询方据此定向重估。切换或恢复状态时索引也可重建，重建本身不必发出收集变化事件。实现和条件接线见 `src/engine/stats/tag-stats.ts`、`src/arona-clicker/runtime-wiring.ts`；测试见 `tests/engine/stats.test.ts`、`tag-stats.test.ts`。
+`TagStatService` 按实体类别维护“当前收集了多少个带此标签的实体”索引。它订阅 Init、Area、Spot 等获得或状态变化，按需发出 `tagCollectedChanged`；依赖 `tagCount` / 标签条件的查询方据此定向重估。切换或恢复状态时索引也可重建，重建本身不必发出收集变化事件。实现和条件接线见 `src/engine/stats/tag-stats.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`；测试见 `tests/engine/stats.test.ts`、`tag-stats.test.ts`。
 
 ## Extra：结构化的扩展数据
 

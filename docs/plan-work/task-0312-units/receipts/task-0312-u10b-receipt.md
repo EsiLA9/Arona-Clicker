@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U10B实现与所列验收完成，交负责人审阅；本轮未提交Git。 |
-| 实际修改 | `src/arona-clicker/services/map-run-service.ts`；新增 `tests/engine/gameplay-b-effect-program-commit.test.ts`；更新 `tests/engine/gameplay-b-effect-card-prepare.test.ts` 与 `tests/engine/gameplay-b-effect-program.test.ts`；新增本Receipt。 |
+| 实际修改 | `src/arona-clicker/services/map/map-run-service.ts`；新增 `tests/engine/gameplay-b-effect-program-commit.test.ts`；更新 `tests/engine/gameplay-b-effect-card-prepare.test.ts` 与 `tests/engine/gameplay-b-effect-program.test.ts`；新增本Receipt。 |
 | 行数预算 | 新公开Commit测试626行，含矩阵与Owner事务场景；按U10B估算约710行净改动（含服务接线、既有测试调整和Receipt），低于1000行上限。 |
 | 未完成内容 | 无U10B未完成项。Runtime UI ReadModel的完整程序字段展示仍属U15；U11/U12按父Task依赖等待负责人审阅本Receipt。 |
 | 范围外变更 | 无；未改Runtime Owner、fixture、纯核、Schema、其它Unit或计划文档；保留共享工作树中的并行改动。 |

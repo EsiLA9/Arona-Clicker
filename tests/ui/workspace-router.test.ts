@@ -13,7 +13,7 @@ import {
   workspaceRouteKey,
   type WorkspaceLocation,
 } from '../../src/ui/workspace/workspace-router';
-import type { PanelState } from '../../src/ui/components/app-shell';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
 import { surfaceKeyOf, UISurfaceRuntime } from '../../src/ui/update/ui-surface';
 
 const gameLocation: WorkspaceLocation = {

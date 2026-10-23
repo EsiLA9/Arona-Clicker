@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { Expr } from '../../src/engine/def-factory/expr';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 
 const ITEM = 'base:item:ticket';

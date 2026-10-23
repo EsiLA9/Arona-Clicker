@@ -1,6 +1,6 @@
 import type { RuntimeAreaDraft, RuntimeAreaTopologyDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft } from '../../arona-clicker/contracts';
-import type { RuntimeSpotDraftSnapshot } from '../../arona-clicker/contracts/runtime';
-import type { RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotRevealTriggerDraft } from '../../arona-clicker/contracts/runtime-content';
+import type { RuntimeSpotDraftSnapshot } from '../../arona-clicker/contracts/runtime/runtime';
+import type { RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotRevealTriggerDraft } from '../../arona-clicker/contracts/runtime/runtime-content';
 import {
   createDraftLayer,
   resolveDefinition,

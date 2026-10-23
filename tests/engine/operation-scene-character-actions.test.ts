@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef, OperationRunStartInput, OperationStudentProfileSnapshot } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
-import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { operationCharacterSceneHandWordAt } from '../../src/arona-clicker/services/operation-tactical-rng';
+import type { OperationEventDef, OperationRunStartInput, OperationStudentProfileSnapshot } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import { OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { operationCharacterSceneHandWordAt } from '../../src/arona-clicker/services/operation/operation-tactical-rng';
 
 const ACTOR_A = 'scene-test:actor:a';
 const ACTOR_B = 'scene-test:actor:b';

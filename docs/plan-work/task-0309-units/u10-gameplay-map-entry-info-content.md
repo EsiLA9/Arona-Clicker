@@ -9,7 +9,7 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` 的“信息优先级与来源” | 限定摘要 / 提示语义，避免虚构奖励或剧透 |
-| 源码 | `src/arona-clicker/content/gameplay-b-map-datapack.ts` 的八个 GameplayMapDef | 按各地图实际规则编写内容 |
+| 源码 | `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts` 的八个 GameplayMapDef | 按各地图实际规则编写内容 |
 | 测试 | `tests/ui/gameplay-b-basic-map-p0-p3.test.ts` 的准备页打开用例 | 验证准备页展示作者内容且仍只读 |
 | 契约 | `src/data-services/contracts/gameplay-map.ts` 的 `entryInfo` | 字段形状与纯文本边界 |
 
@@ -21,7 +21,7 @@
 
 ## Allowed Files
 
-- `src/arona-clicker/content/gameplay-b-map-datapack.ts`
+- `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts`
 - `tests/ui/gameplay-b-basic-map-p0-p3.test.ts`
 
 ## Explicit Non-goals

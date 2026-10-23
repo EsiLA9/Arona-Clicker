@@ -2,7 +2,7 @@
 // character-memory.test.ts — A2：跨世界线记忆骨架（max* 单调）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 

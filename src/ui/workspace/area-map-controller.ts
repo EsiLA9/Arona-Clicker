@@ -1,15 +1,15 @@
-import type { UIController } from '../controller';
+import type { UIController } from '../controller/controller';
 import type { AreaMapSession } from './area-map-session';
 import { createAreaMapSession, fitAreaMap, openAreaMap, previousAreaMap, reconcileAreaMap } from './area-map-session';
 import { createWorkspaceNavigation, normalizeWorkspaceRoute } from './workspace-router';
 import { getForegroundInteractionStatus } from './foreground-interaction';
-import { createUIContext } from '../context';
+import { createUIContext } from '../runtime/context';
 import { applyAreaMapCamera, reconcileAreaMapDOM } from './area-map-dom';
 import { bindAreaMapCamera } from './area-map-camera';
-import { areaMapReason } from '../components/area-map-workspace';
-import { renderLeftPanel } from '../components/rail';
-import { bindInventoryActions } from '../controller-actions-inventory';
-import { bindEntityPresentationActions } from '../controller-actions-presentation';
+import { areaMapReason } from '../components/map/area-map-workspace';
+import { renderLeftPanel } from '../components/shared/rail';
+import { bindInventoryActions } from '../controller/controller-actions-inventory';
+import { bindEntityPresentationActions } from '../controller/controller-actions-presentation';
 
 export const AREA_MAP_REGION = 'workspace.area-map';
 let sequence = 0;

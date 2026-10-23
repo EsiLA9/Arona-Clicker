@@ -1,10 +1,12 @@
 # Unit 0312-U19：当前机制沉淀与敏捷任务接续准入
 
-状态：ready / 未执行；阶段P3。前置：0312-U18实际完成Receipt与测试。
+状态：completed — U19 文档收尾已按 [[docs/plan-work/task-0312-units/receipts/task-0312-u19-receipt]] 完成；其前置 U18 按用户指示豁免，没有实机或完整纵向验收证据。
 
-## Goal
+本文件的 Unit 计划记录原定工作范围；实际修改、未执行项与结果以 Receipt 为准。由于 U18 被豁免，本 Unit 的原计划目标“E1验收完成可解除AG前置”并未达成。该前置关系是本 Unit 编写时的旧路由；用户后来明确要求将 AG-1 实施并入 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]]，不重开 U18。当前 Map Action 合同与旧数组迁移以 [[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 为准。
 
-当前机制、作者指南、Task/索引和实际证据一致；E1验收完成可解除AG的前置实现依赖，后续范围仍独立。
+## Goal（原计划；后续路由已更新）
+
+原计划要求机制、作者指南、Task/索引和实际证据一致，并以E1验收完成作为AG的前置解除条件。U18后来按用户指示豁免；再后续用户明确要求将已批准的AG-1实施纳入Task 0320，因此这里不再作为当前施工路由。
 
 ## Must Read / Read Set
 
@@ -14,7 +16,7 @@
 | --- | --- | --- |
 | 实际结果 | U01–U18 Receipt/测试/浏览器证据及U17作者指南 | 只能宣称已实现部分 |
 | 规范 | docs/ai/goal-workflow.md；docs/docs-829/05-conventions/doc-maintenance.md；docs/ai/galhcg-project-map.md | 当前事实/计划/归档和只读收尾 |
-| 已批后续 | Draft0312 §13 AG-1；Task0313 §9.3/§10 | E1完成只解除前置，不等于AG已实现 |
+| 已批后续（历史路由） | Draft0312 §13 AG-1；Task0313 §9.3/§10 | 原计划为E1完成后再实施；现行实施路由见Task 0320，E1豁免仍不等于产品验收通过 |
 
 ## Context Budget
 
@@ -30,7 +32,7 @@
 
 ## Confirmed Facts
 
-E1与AG-1都是已批准但不同执行合同；E0通过不等于产品实现，本Task验收后才解除AG实现前置。 本轮仅核实源码，未在此规划轮运行本Unit测试；前置新增模块属于待施工产物。
+E1与AG-1是不同执行合同；E0通过不等于产品实现。本Unit编写时规划为E1验收后才解除AG实现前置；该先后已被用户后续指示取代，AG-1现由Task 0320实施。 本轮仅核实源码，未在此规划轮运行本Unit测试；前置新增模块属于待施工产物。
 
 ## Constraints
 

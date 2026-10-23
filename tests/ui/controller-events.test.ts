@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { entityKeyOf } from '../../src/arona-clicker/services/color-system';
-import { UIController } from '../../src/ui/controller';
-import { bindEvents } from '../../src/ui/controller-events';
+import { entityKeyOf } from '../../src/arona-clicker/services/progression/color-system';
+import { UIController } from '../../src/ui/controller/controller';
+import { bindEvents } from '../../src/ui/controller/controller-events';
 
 describe('UI Controller Area 事件刷新', () => {
   let game: GameInstance;

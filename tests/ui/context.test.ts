@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { createUIContext } from '../../src/ui/context';
-import { buildPresentationView, renderPresentationHostBackground } from '../../src/ui/presentation-service';
-import { renderPanelTabsRegion } from '../../src/ui/components/tabs';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { buildPresentationView, renderPresentationHostBackground } from '../../src/ui/presentation/presentation-service';
+import { renderPanelTabsRegion } from '../../src/ui/components/shared/tabs';
 
 const game = { world: {}, registry: {}, getView: () => ({}) } as never;
 const pics = {

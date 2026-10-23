@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
+import type { GameplayMapEffectStatementDef } from '../../src/data-services/contracts/gameplay-map-effects';
 import {
   commitCommand,
   createLegacyGoldenOwner,
@@ -10,6 +11,12 @@ import {
 } from './gameplay-b-effect-test-fixtures';
 
 const games: ReturnType<typeof createLegacyGoldenRuntime>[] = [];
+
+const damage = (amount: number): GameplayMapEffectStatementDef => ({ op: 'damage', target: 'primary', amount });
+const heal = (amount: number): GameplayMapEffectStatementDef => ({ op: 'heal', target: 'primary', amount });
+const teamResourceChange = (resourceId: string, delta: number): GameplayMapEffectStatementDef => ({
+  op: 'resourceChange', account: 'sourceTeam', resourceId, delta,
+});
 
 function owner(map: GameplayMapDef, itemCount = 0) {
   const created = createLegacyGoldenOwner(map, itemCount);
@@ -27,17 +34,17 @@ afterEach(() => {
   for (const game of games.splice(0)) game.dispose();
 });
 
-describe('Gameplay B legacy effect goldens', () => {
-  test('OLD01: Owner Hand, two pure Previews, old payment/effect order, receipt, Save/Load, and replay', () => {
+describe('Gameplay B migrated effect Program goldens', () => {
+  test('OLD01: Owner Hand, pure Previews, ordered Program, receipt, Save/Load, and replay', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-old01',
       playerCost: 2,
       teamResources: [{ resourceId: 'ammo', value: 1 }],
       actions: [
         { id: 'shot', name: 'Shot', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' },
-          costs: [{ scope: 'team', resourceId: 'ammo', amount: 1 }], hpEffects: [{ amount: -3 }] },
+          costs: [{ scope: 'team', resourceId: 'ammo', amount: 1 }], effectProgram: { resolve: [damage(3)] } },
         { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter', preference: 'stableOrder' },
-          hpEffects: [{ amount: -1 }] },
+          effectProgram: { resolve: [damage(1)] } },
       ],
       participants: [{ characterId: 'shiroko', actions: [{ actionId: 'shot', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [] }],
@@ -93,13 +100,14 @@ describe('Gameplay B legacy effect goldens', () => {
     const party = ['shiroko', 'serika', 'hoshino'];
     const actions: GameplayMapActionDef[] = [
       { id: 'shot', name: 'Shot', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' },
-        costs: [{ scope: 'actor', resourceId: 'sCost', amount: 2 }], hpEffects: [{ amount: -2 }] },
+        costs: [{ scope: 'actor', resourceId: 'sCost', amount: 2 }], effectProgram: { resolve: [damage(2)] } },
       ...['serika', 'hoshino'].map((characterId, index) => ({
         id: `discount-${index + 1}`, name: 'Discount', eligibleCharacterIds: [characterId],
-        target: { kind: 'card' as const, side: 'ally' as const }, cardEffects: [{ kind: 'scostDiscount' as const, amount: index + 1 }],
+        target: { kind: 'card' as const, side: 'ally' as const },
+        effectProgram: { prepare: [{ op: 'discountSCost' as const, amount: index + 1 }] },
       })),
-      { id: 'ability-hit', name: 'Ability Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
-      { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter', preference: 'stableOrder' }, hpEffects: [{ amount: -2 }] },
+      { id: 'ability-hit', name: 'Ability Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(1)] } },
+      { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter', preference: 'stableOrder' }, effectProgram: { resolve: [damage(2)] } },
     ];
     const map = legacyGoldenMap({
       id: 'test:map:legacy-eq02', partyCharacterIds: party, partyHp: { serika: 2 }, playerCost: 4,
@@ -144,9 +152,9 @@ describe('Gameplay B legacy effect goldens', () => {
       actorResources: ['shiroko', 'serika'].map(characterId => ({ characterId, resourceId: 'ammo', value: 1 })),
       actions: [
         { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' },
-          costs: [{ scope: 'actor', resourceId: 'ammo', amount: 1 }], hpEffects: [{ amount: -3 }] },
+          costs: [{ scope: 'actor', resourceId: 'ammo', amount: 1 }], effectProgram: { resolve: [damage(3)] } },
         { id: 'follow', name: 'Follow', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
-          costs: [{ scope: 'actor', resourceId: 'ammo', amount: 1 }], hpEffects: [{ amount: -3 }] },
+          costs: [{ scope: 'actor', resourceId: 'ammo', amount: 1 }], effectProgram: { resolve: [damage(3)] } },
       ],
       participants: [
         { characterId: 'shiroko', actions: [{ actionId: 'kill', tendencyWeight: 1 }] },
@@ -168,13 +176,14 @@ describe('Gameplay B legacy effect goldens', () => {
     });
   });
 
-  test('EQ04: natural noLegalTarget skip waives Action cost and effects', () => {
+  test('EQ04: natural noLegalTarget skip waives Action cost and ordered Program effects', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-eq04-natural', teamResources: [{ resourceId: 'supplies', value: 1 }],
       actions: [
-        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -3 }] },
+        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(3)] } },
         { id: 'miss', name: 'Miss', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
-          costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }], effects: [{ scope: 'team', resourceId: 'supplies', amount: 1 }], hpEffects: [{ amount: -1 }] },
+          costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
+          effectProgram: { resolve: [damage(1), teamResourceChange('supplies', 1)] } },
       ],
       participants: [
         { characterId: 'shiroko', actions: [{ actionId: 'kill', tendencyWeight: 1 }] },
@@ -196,11 +205,11 @@ describe('Gameplay B legacy effect goldens', () => {
       id: 'test:map:legacy-eq04-command', playerCost: 1,
       teamResources: [{ resourceId: 'supplies', value: 1 }],
       actions: [
-        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -3 }] },
+        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(3)] } },
         { id: 'natural', name: 'Natural', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
           costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }] },
         ...commandActions.map(id => ({ id, name: id, eligibleCharacterIds: ['serika'], target: { kind: 'enemy' as const },
-          costs: [{ scope: 'team' as const, resourceId: 'supplies', amount: 1 }], hpEffects: [{ amount: -1 }] })),
+          costs: [{ scope: 'team' as const, resourceId: 'supplies', amount: 1 }], effectProgram: { resolve: [damage(1)] } })),
       ],
       participants: [
         { characterId: 'shiroko', actions: [{ actionId: 'kill', tendencyWeight: 1 }] },
@@ -227,12 +236,12 @@ describe('Gameplay B legacy effect goldens', () => {
     { skip: 'defeated', id: 'e1', initialFuel: 1, drain: false },
   ] as const)('EQ04: Enemy $skip is an independent free source skip', ({ skip, id, initialFuel, drain }) => {
     const actions: GameplayMapActionDef[] = [
-      { id: 'party-kill', name: 'Party Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -5 }] },
+      { id: 'party-kill', name: 'Party Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(5)] } },
       { id: 'enemy-cost', name: 'Enemy Cost', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
         costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }] },
       ...(!drain ? [{ id: 'enemy-free', name: 'Enemy Free', eligibleCharacterIds: [], target: { kind: 'partyCharacter' as const } }] : []),
       ...(drain ? [{ id: 'enemy-drain', name: 'Enemy Drain', eligibleCharacterIds: [], target: { kind: 'none' as const },
-        effects: [{ scope: 'team' as const, resourceId: 'fuel', amount: -1 }] }] : []),
+        effectProgram: { resolve: [teamResourceChange('fuel', -1)] } }] : []),
     ];
     const map = legacyGoldenMap({
       id: `test:map:legacy-eq04-enemy-${skip}`, teamResources: [{ resourceId: 'unused', value: 0 }],
@@ -272,7 +281,7 @@ describe('Gameplay B legacy effect goldens', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-eq04-round-ended', partyCharacterIds: ['shiroko'], partyHp: { shiroko: 1 },
       actions: [{ id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
-        costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }], hpEffects: [{ amount: -2 }] }],
+        costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }], effectProgram: { resolve: [damage(2)] } }],
       participants: [{ characterId: 'shiroko', actions: [] }],
       enemyTeamResources: [{ resourceId: 'fuel', value: 2 }],
       enemies: [
@@ -298,7 +307,8 @@ describe('Gameplay B legacy effect goldens', () => {
       id: 'test:map:legacy-enemy-no-card-target',
       actions: [
         { id: 'enemy-card', name: 'Enemy Card', eligibleCharacterIds: [], target: { kind: 'card', side: 'self' },
-          costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }], cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+          costs: [{ scope: 'team', resourceId: 'fuel', amount: 1 }],
+          effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] } },
       ],
       participants: [{ characterId: 'shiroko', actions: [] }, { characterId: 'serika', actions: [] }],
       enemyTeamResources: [{ resourceId: 'fuel', value: 1 }],
@@ -314,14 +324,14 @@ describe('Gameplay B legacy effect goldens', () => {
     expect(committed.activeEncounter?.enemyTeamResources).toEqual([{ resourceId: 'fuel', value: 1 }]);
   });
 
-  test('OLD source order: Ability and Item still charge after a party kill; Item debit and request replay are atomic', () => {
+  test('Program source order: Ability and Item still charge after a party kill; Item debit and request replay are atomic', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-source-order', playerCost: 1,
       actions: [
-        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -5 }] },
-        { id: 'ability-hit', name: 'Ability Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
-        { id: 'item-hit', name: 'Item Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
-        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+        { id: 'kill', name: 'Kill', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(5)] } },
+        { id: 'ability-hit', name: 'Ability Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(1)] } },
+        { id: 'item-hit', name: 'Item Hit', eligibleCharacterIds: [], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(1)] } },
+        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, effectProgram: { resolve: [damage(1)] } },
       ],
       participants: [{ characterId: 'shiroko', actions: [{ actionId: 'kill', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [] }],
@@ -359,18 +369,18 @@ describe('Gameplay B legacy effect goldens', () => {
     expect(restored.state.inventory[LEGACY_GOLDEN_ITEM_ID]).toBeUndefined();
   });
 
-  test('OLD source phases are party Action, Ability, Item, then Enemy with clamped HP deltas', () => {
+  test('Program sources resolve Party Action, Ability, Item, then Enemy with clamped HP deltas', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-source-phases', playerCost: 1,
       actions: [
         { id: 'party-hit-self', name: 'Party Hit Self', eligibleCharacterIds: ['shiroko'],
-          target: { kind: 'partyCharacter', preference: 'stableOrder' }, hpEffects: [{ amount: -1 }] },
+          target: { kind: 'partyCharacter', preference: 'stableOrder' }, effectProgram: { resolve: [damage(1)] } },
         { id: 'ability-heal', name: 'Ability Heal', eligibleCharacterIds: [],
-          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: 3 }] },
+          target: { kind: 'partyCharacter' }, effectProgram: { resolve: [heal(3)] } },
         { id: 'item-hit', name: 'Item Hit', eligibleCharacterIds: [],
-          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -2 }] },
+          target: { kind: 'partyCharacter' }, effectProgram: { resolve: [damage(2)] } },
         { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [],
-          target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+          target: { kind: 'partyCharacter' }, effectProgram: { resolve: [damage(1)] } },
       ],
       participants: [{ characterId: 'shiroko', actions: [{ actionId: 'party-hit-self', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [] }],
@@ -398,12 +408,12 @@ describe('Gameplay B legacy effect goldens', () => {
     ]);
   });
 
-  test('OLD save continuation: a restored active MapRun can Commit the next real Owner round', () => {
+  test('Program save continuation: a restored active MapRun can Commit the next real Owner round', () => {
     const map = legacyGoldenMap({
       id: 'test:map:legacy-save-continue',
       actions: [
-        { id: 'wait-hit', name: 'Wait Hit', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }] },
-        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
+        { id: 'wait-hit', name: 'Wait Hit', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' }, effectProgram: { resolve: [damage(1)] } },
+        { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, effectProgram: { resolve: [damage(1)] } },
       ],
       participants: [{ characterId: 'shiroko', actions: [{ actionId: 'wait-hit', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [] }],

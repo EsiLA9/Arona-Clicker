@@ -2,12 +2,12 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { createAppRuntime } from '../../src/app/runtime-bootstrap';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
 import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../src/data-services/contracts/operation';
-import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { createUIContext } from '../../src/ui/context';
-import { renderOperationWorkspace } from '../../src/ui/components/operation-workspace';
+import { OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderOperationWorkspace } from '../../src/ui/components/operation/operation-workspace';
 
 const ACTOR_ID = 'test:actor:operation-workspace';
 const ACTION_ID = 'test:action:operation-workspace';

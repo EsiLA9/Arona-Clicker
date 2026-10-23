@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { SPOT_CONTENT_POLICY } from '../../src/data-services/authoring/content-policy';
-import type { UIContext } from '../../src/ui/context';
+import type { UIContext } from '../../src/ui/runtime/context';
 import {
   createRuntimeDatapackEditorState,
   markRuntimeEditorApplied,
@@ -39,7 +39,7 @@ import {
 import { conditionTargetEditorOf, renderConditionTargetFields } from '../../src/ui/runtime-editor/condition-target-editors';
 import { renderRuntimeSpotForm } from '../../src/ui/runtime-editor/view';
 import type { ConditionGroup } from '../../src/engine/types/expression';
-import type { PanelState } from '../../src/ui/components/app-shell';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
 
 const AREA = 'base:area:main';
 

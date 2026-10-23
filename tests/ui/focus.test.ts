@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import { captureFocusWithin, restoreFocusWithin } from '../../src/ui/focus';
+import { captureFocusWithin, restoreFocusWithin } from '../../src/ui/interaction/focus';
 
 describe('focus continuity helpers', () => {
   test('captures and restores focus by a unique control identity', () => {

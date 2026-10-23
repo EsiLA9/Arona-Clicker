@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SelectorSceneBackground } from '../../src/ui/selector-scene-background';
+import { SelectorSceneBackground } from '../../src/ui/presentation/selector-scene-background';
 
 describe('选择页背景无空档交接', () => {
   let scene: SelectorSceneBackground;

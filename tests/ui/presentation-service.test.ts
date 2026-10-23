@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildPresentationView, renderPresentationRegion } from '../../src/ui/presentation-service';
-import { DEFAULT_PANEL_OPACITY } from '../../src/ui/presentation-config';
+import { buildPresentationView, renderPresentationRegion } from '../../src/ui/presentation/presentation-service';
+import { DEFAULT_PANEL_OPACITY } from '../../src/ui/presentation/presentation-config';
 
 const pics = {
   urlOf: (ref: string) => ref === 'hoshino' ? '/assets/hoshino.png' : ref === 'triangle' ? 'data:image/svg+xml;base64,triangle' : undefined,

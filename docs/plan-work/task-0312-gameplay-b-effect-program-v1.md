@@ -1,6 +1,30 @@
 # Task 0312：Gameplay B Effect Program E1 正式施工
 
-状态：ready-for-implementation — E0合同及人类批准已核实，19个有依赖的产品Unit已定义；全部Unit尚未执行。本次只更新施工规划，不授权把“计划完成”写成“产品已实现”。
+状态：phase-closed-by-user-waiver / 用户于2026-10-22明确要求“跳过验收，完成该阶段任务”。U01–U17均有对应实施 Receipt，U19文档收尾已完成；U18纵向与宽屏实机验收按用户指示跳过，因此没有U18测试、浏览器或截图证据，也不宣称E1产品验收通过。AG-1合同已批准；其实施按用户后续明确要求并入 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]]，不重开U18验收。
+
+## Task 0315 转移后的现行状态（2026-10-22）
+
+0312 的 E1 阶段施工记录已按用户指示关闭；U18 宽屏与完整纵向验收被豁免，因此这不等于 E1 产品验收或发布通过。后续 Task 0315 已完成：八张内置 Map 与作者示例已迁至 `effectProgram`，Map Action 的 `effects` / `hpEffects` / `cardEffects` 合同、Registry 成功路径、兼容执行与生成 Schema 字段均已移除；`damage` / `heal` 成为当前 HP 原语，Shop Offer 的 `effects` 独立保留。逐 Action 映射与验证见 [[docs/plan-work/task-0315-units/receipts/task-0315-u04-receipt]]、[[docs/plan-work/task-0315-units/receipts/task-0315-u10-receipt]]。
+
+U12C、U13–U17 与 U19 均有实际完成 Receipt；U18 按用户指示未执行。0312 当前没有待续 Unit；较早的“下一步从 U12C 开始”交接已被实际施工和 Task 0315 迁移结果取代。当前作者合同以 [[docs/docs-829/03-data-structures/datapack-contracts]] 和 [[docs/examples/gameplay-b-effect-program-e1]] 为准；本 Task 与 Unit 正文保留阶段施工时的历史合同，不再作为旧 Action 数组的作者指引。
+
+## 历史施工基线（2026-10-22 交接前；已由后续施工取代）
+
+以下检查点只记录当时停工时的状态，不是当前接续指令。实际结项状态见本 Task §9 与各 Receipt。
+
+此前用户要求“在合适的节点停下”，上轮Luna工作线均已收口；本轮用户明确要求接续直到E1完成，恢复U12B施工及独立审查，并只读核对后续接线。以下为恢复时基线，后文依赖图/基线及Unit表保留规划语境，最新进展以实际Receipt为准。
+
+| 范围 | 实际状态与续作入口 |
+| --- | --- |
+| U01–U11 | 已完成局部验收；U10实际拆为A纯规划/B公开安装，U11含条件完成与终局prepare转换种子确定性修复。各Unit实际Receipt为证据，不表示完整E1已交付。 |
+| U12A | 已交付基础校验与32项测试；已知混合状态链等缺口转U12B，不能作为完整恢复能力。 |
+| U12B | **中断、未验收**。已收敛可编译草稿与原32项基线；缺真实mixed Owner正反例、E1 prepare作用边界、同步错分支与完整末值验证。先读 [[docs/plan-work/task-0312-units/receipts/task-0312-u12b-receipt]] 及 [[docs/plan-work/task-0312-units/task-0312-u12b-mixed-trace-chains]]，完成后才可放行U13。 |
+| U14 | 已独立完成声明摘要/关系投影，旧effectRecipients保持；不依赖Save恢复的纯声明路径已据源码调整为并行。见 [[docs/plan-work/task-0312-units/receipts/task-0312-u14-receipt]]。Runtime/UI展示仍未接入。 |
+| U13、U15–U19 | 尚未开工。U13等待U12B完整验收；U15等待U13与U14；其后按原范围完成UI、真实例图、完整纵向验收与统一文档/GALHCG只读收尾。此行记录当时基线，已由后续实施与用户指示取代。 |
+
+负责人最终收口复验：5 files / 67 tests全部通过（receipt基础32、声明投影3、旧关系7、生命周期12、旧效果金样13），全局`tsc --noEmit`和architecture通过；文档/空白于本节写入后复核。通过这些检查不意味着U12B缺失的混合校验已通过。
+
+当前外部HEAD为`36f1b10`，本轮未创建Git提交；保留既有外部提交与未跟踪`.workbuddy/`。无新增用户玩法决策，继续仍按已批准E1-COMPAT-1；下一轮从U12B Receipt中的精确函数与待测矩阵恢复，不重做已验收Unit。
 
 本文回答：如何把已批准E1-COMPAT-1落成合法Datapack可装载、可准备、可Preview/Commit、可保存恢复且可由作者参考的产品能力。
 
@@ -12,10 +36,10 @@
 
 - **E1交付**：有限顺序/when/else、HP/局内Actor与Team资源、Encounter Counter/Flag、已有CardRef sCost减费、non-battle condition完成；五个真实作者样例A/B/C/E/F，完整保存与界面反馈。
 - **非目标**：Scheduler/敏捷字段/AG支付与折扣、TargetSet/随机/通用Value、Card Tag/CardPool、Status/Shield/复活、成长Adapter、跨Owner奖励/Story写回、全局Action模板、任意Datapack TS Handler。
-- 已完成0309准备页直接复用。E1验收后才解除独立AG Runtime的实现前置；不同时改同一planner/restore。
+- 已完成0309准备页直接复用。原计划曾将E1验收作为独立AG Runtime的实现前置；该先后关系已由用户后续指示更新，AG-1现由Task 0320实施。这里保留历史施工范围，不作为现行路由。
 - 本Task延续0312编号，无平行产品Task。Draft保留设计理由，本文只保留施工所需合同摘要、接线边界、Unit与验收。
 
-## 2. 原Task审阅结果
+## 2. 原Task审阅结果（施工前历史记录）
 
 | 处理（包含创建轮已由E0修订项） | 原0312内容 | 正式施工Task处理 |
 | --- | --- | --- |
@@ -28,7 +52,7 @@
 
 原创建轮167项及E0四文件78项均为各自历史基线，不是本轮或新功能实测。历史设计/核验记录仍在Draft §12和归档0313，本文不重复维护平行合同。
 
-## 3. 已核实源码落点与主要风险
+## 3. 开工时源码基线与主要风险（历史记录）
 
 本轮基线HEAD `dff0061`，源码未出现effectProgram/locals/executionContractId接线；工作树已有E0文档、协作协议及其它测试改动，均保留。以下符号已回当前文件核对，开工按实际工作树重核差异。
 
@@ -36,19 +60,21 @@
 | --- | --- | --- |
 | Action旧数组与manual completion | `src/data-services/contracts/gameplay-map.ts` | 类型、Registry和Schema一起交付，不能只扩interface |
 | 作者引用/字段白名单 | `src/data-services/registry/registry-validate.ts`：validateMapActionContent/validateEncounter | 逐node/activity/source验证所有分支；resourceId是局内字符串键，不查AC Resource替代余额 |
-| 只读数据包映射 | `src/arona-clicker/services/registry-map-content-resolver.ts`：createRegistryMapContentResolver | 真实Registry→Owner输入；自定义resolver仍不能绕过运行时校验 |
-| 权威计划 | `src/arona-clicker/services/map-run-service.ts`：resolveEncounterCommitPlan | 保持C0–C6旧调度；只抽单source效果核，外层管支付/目标/终局 |
-| 准备资格/真实卡 | `src/arona-clicker/services/gameplay-b-action-preview-resolver.ts` card分支；`src/arona-clicker/services/map-card-effects.ts` | 两处还强制旧cardEffects；复用真实CardRef，不能只改Registry |
+| 只读数据包映射 | `src/arona-clicker/services/map/registry-map-content-resolver.ts`：createRegistryMapContentResolver | 真实Registry→Owner输入；自定义resolver仍不能绕过运行时校验 |
+| 权威计划 | `src/arona-clicker/services/map/map-run-service.ts`：resolveEncounterCommitPlan | 保持C0–C6旧调度；只抽单source效果核，外层管支付/目标/终局 |
+| 准备资格/真实卡 | `src/arona-clicker/services/map/gameplay-b-action-preview-resolver.ts` card分支；`src/arona-clicker/services/map/map-card-effects.ts` | 两处还强制旧cardEffects；复用真实CardRef，不能只改Registry |
 | 局内状态与转换 | MapRunService.createEncounterSnapshot/snapshotOf/advanceCompletedActivity/prepareEncounterRoundCommit | 每轮重建Hand时locals保留；新Encounter重置；定向验证转换准备的种子纯度 |
-| 准备/安装与Item | MapRunService.prepare/canInstall/install；`src/arona-clicker/runtime-game-instance.ts`：commitMapEncounterRound | 只安装完整detached plan，双Owner重核连续安装后才发布库存事件 |
+| 准备/安装与Item | MapRunService.prepare/canInstall/install；`src/arona-clicker/runtime/runtime-game-instance.ts`：commitMapEncounterRound | 只安装完整detached plan，双Owner重核连续安装后才发布库存事件 |
 | 严格恢复 | MapRunService.restoreEncounterCommitReceipt/restoreEncounterSnapshot/restoreRunState/restoreSaveSnapshot | 新trace不能只信布尔；旧数组恢复不被强加新字段 |
-| Save封装 | `src/arona-clicker/runtime-save-codec.ts`：buildSaveData，SaveData.mapRun | 现有JSON透传能带新嵌套数据，不预设必须改顶层save版本或复制新Owner |
-| 展示 | `src/arona-clicker/services/map-relation-projector.ts`、runtime-game-instance action/source/recentCommit查询、map-workspace、map-flow-model | 多处只枚举旧数组，声明条件分支与Owner实际结果必须分开 |
-| 正式可选包 | `src/arona-clicker/content/gameplay-b-map-datapack.ts` | 追加一个独立例图和设施入口，不批量迁移旧八张图 |
+| Save封装 | `src/arona-clicker/runtime/runtime-save-codec.ts`：buildSaveData，SaveData.mapRun | 现有JSON透传能带新嵌套数据，不预设必须改顶层save版本或复制新Owner |
+| 展示 | `src/arona-clicker/services/map/map-relation-projector.ts`、runtime-game-instance action/source/recentCommit查询、map-workspace、map-flow-model | 多处只枚举旧数组，声明条件分支与Owner实际结果必须分开 |
+| 正式可选包 | `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts` | 追加一个独立例图和设施入口，不批量迁移旧八张图 |
 
 主要结构风险：相位改写伪装等价、预算在每source重新计数、浅拷贝locals、旧restore硬编码效果数组、UI把条件分支都显示为必然、跨activity prepare随机分配/重复安装。分别由U07/U10/U08/U12–13/U14–16/U11验证，不以全仓审计替代定向证据。
 
-## 4. 不可更改的E1实施合同
+## 4. E1-COMPAT-1 原施工合同（历史记录）
+
+本节记录 0312 实施期的兼容合同和旧相位。后续迁移已改变旧字段准入规则，并新增正数量的 `damage` / `heal` 节点；E1 `hpChange` 仍留在当前 Program AST 中。当前 Action 只使用 `effectProgram`，旧 Action 数组会被 Registry 拒绝。费用、目标、CardRef、Owner、Receipt 与阶段规则按 Task 0315 矩阵及当前数据契约核对。
 
 精确正文见Draft §11.1–11.3；下表是Unit必须满足的核对项，不另立玩法方案。
 
@@ -124,11 +150,11 @@ flowchart LR
 | [[docs/plan-work/task-0312-units/task-0312-u11-completion-and-transition]] | U10 | 条件完成真实推进一次且整轮后才判，Battle/manual/rounds无回归；跨activity准备和失败事务无新增可见随机漂移。 |
 | [[docs/plan-work/task-0312-units/task-0312-u12-trace-validation]] | U10 | 对U10真实产生的E1 trace正例与独立篡改反例全绿，有界校验规则与不能证明的历史边界明确。 |
 | [[docs/plan-work/task-0312-units/task-0312-u13-save-resume-owner]] | U11、U12 | 公开Save/Load含locals/trace可严格恢复并继续，新旧内容兼容边界明确且无迁移；恢复失败零安装，幂等和库存事件次数正确。 |
-| [[docs/plan-work/task-0312-units/task-0312-u14-declared-effect-projection]] | U05、U13 | 新program不会从关系/卡面摘要消失，conditional不会被误报为确定结算，查询无状态或RNG变化。 |
-| [[docs/plan-work/task-0312-units/task-0312-u15-runtime-readmodel]] | U14 | 卡/来源/Preview/最近Receipt全链不丢新效果或locals，view脱离Owner且反复读取零写；不产生第二次规划安装。 |
+| [[docs/plan-work/task-0312-units/task-0312-u14-declared-effect-projection]] | U05、U10、U11 | 新program不会从关系/卡面摘要消失，conditional不会被误报为确定结算，查询无状态或RNG变化。 |
+| [[docs/plan-work/task-0312-units/task-0312-u15-runtime-readmodel]] | U13、U14 | 卡/来源/Preview/最近Receipt全链不丢新效果或locals，view脱离Owner且反复读取零写；不产生第二次规划安装。 |
 | [[docs/plan-work/task-0312-units/task-0312-u16-workspace-and-flow]] | U15 | 现有组件正确展示新声明/实际结果/进度且不计算Effect；局部刷新、scroll/稳定节点和popover范围有DOM断言。 |
-| [[docs/plan-work/task-0312-units/task-0312-u17-author-example-datapack]] | U04、U13、U16 | 作者能定位并复制一份真实装载且有设施入口的例图；五类卡均具合法来源/目标/资源和明确操作步骤，无旧内容批量迁移。 |
-| [[docs/plan-work/task-0312-units/task-0312-u18-vertical-slice-and-acceptance]] | U17 | 真实合法Datapack完整链路及宽屏交互有实际证据，OLD/EQ/NEW结果全绿、失败原子/幂等/恢复成立；尚未运行项不得标通过。 |
+| [[docs/plan-work/task-0312-units/task-0312-u17-author-example-datapack]] | U04、U10、U11 | 作者能定位并复制一份真实装载且有设施入口的例图；五类卡均具合法来源/目标/资源和明确操作步骤，无旧内容批量迁移。纯内容可并行。 |
+| [[docs/plan-work/task-0312-units/task-0312-u18-vertical-slice-and-acceptance]] | U13、U16、U17 | 真实合法Datapack完整链路及宽屏交互有实际证据，OLD/EQ/NEW结果全绿、失败原子/幂等/恢复成立；尚未运行项不得标通过。 |
 | [[docs/plan-work/task-0312-units/task-0312-u19-documentation-and-handoff]] | U18 | 当前机制、作者指南、Task/索引和实际证据一致；E1验收完成可解除AG的前置实现依赖，后续范围仍独立。 |
 
 ### 执行/Receipt纪律
@@ -176,19 +202,21 @@ U16以现有patchMapDOM、region刷新及popover生命周期能力为边界。�
 
 既有定向回归：gameplay-b-map-run、map-cards、map-source-transactions、map-save-resume、map-runtime-integration、map-relations、Map Registry及UI Workspace/Flow/vertical-slice。各Unit给准确命令。字段变动按阶段跑类型/Schema同步/架构检查；最终U18合并一次相应定向套件，没有直接证据不扩大为全仓回归。
 
-## 7. 真实内容与总完成定义
+## 7. 原定真实内容与总验收定义（U18 已豁免）
+
+本节记录原定验收门槛，不是当前完成声明。U18 的纵向集成与真实宽屏验收按用户指示未执行；DOM 自动化证据不替代浏览器证据。作者示例已按 Task 0315 迁移，当前版本不再保留旧 Action 格式对照。
 
 五张卡必须来自U17同一合法例图（可用不同activity），不是裸VM测试数据：
 
 | 作者样例 | 可观察结果 |
 | --- | --- |
-| A 射击 | 费用1，主目标HP−3；旧/新表达对照 |
+| A 射击 | 费用1，使用当前 `damage` 原语对主目标造成3点伤害 |
 | B 掩护射击 | 主目标HP−2，自己弹药+1；起始费用不足仍不能靠奖励支付 |
 | C 条件包扎 | 4/10先判断再治疗3且Team+1，5/10治疗不奖励；把guard放heal后则读新HP |
 | E 临时强化 | 对当前合法CardRef固定sCost折扣，作用到真实执行卡，过期/移除引用拒绝 |
 | F 交涉/休息 | trust初0/max3，跨轮增长，2时Save后继续恰好完成；多人+1饱和不废轮，后续本轮付费奖励完整结算 |
 
-完整验收路径：base+gameplay-b例图加载→Registry/Schema/引用校验→设施mapEntry→0309准备页→Owner真实Hand/准备/主目标→两次Preview零写→Commit→实际Receipt→Save/Resume→继续／condition达标→活动推进与出口。宽屏鼠标与DOM局部刷新皆有证据。
+原定完整验收路径：base+gameplay-b例图加载→Registry/Schema/引用校验→设施mapEntry→0309准备页→Owner真实Hand/准备/主目标→两次Preview零写→Commit→实际Receipt→Save/Resume→继续／condition达标→活动推进与出口。U18 未执行，因此没有完整纵向或真实宽屏鼠标验收证据；已完成的 DOM 自动化只证明对应自动行为。
 
 - [ ] U01–U19实际Receipt可追踪；未运行测试/浏览器或未实现Unit不得计完成。
 - [ ] OLD/EQ无需篡改旧期望通过，新E1功能按批准规则通过，AG没有提前实现或混入通过结论。
@@ -200,7 +228,7 @@ U16以现有patchMapDOM、region刷新及popover生命周期能力为边界。�
 - [ ] 自动化DOM测试与真实浏览器实测分开记录环境、操作、结果和未完成项；模拟交互或截图不替代浏览器实操证据。
 - [ ] 新旧定向回归、类型、架构、Schema同步与宽屏纵向验收实际完成；现行文档与索引再标产品complete。
 
-## 8. 验证、当前交付与接续
+## 8. 创建轮验证与施工计划（历史记录）
 
 本轮仅修改本Task、创建19份Unit、维护索引；不写产品/测试/数据包/生成Schema，不执行任何E1 Unit，不预造Receipt。当前合同准入与范围准入成立，U01可作为未来产品施工起点；其它Unit须等表中前置Receipt和测试通过。
 
@@ -212,13 +240,24 @@ GALHCG只读收尾覆盖本Task、19份Unit及索引共21路径：前20路径均
 
 未来关键生命周期/原子性/兼容性按 [[docs/docs-829/05-conventions/testing]] 作严格结构审查。U19合并直接路径统一GALHCG changed只读核查，完整读分页owner/Evidence；查询不授权改图、refresh或写freshness。提交只选择所属白名单文件，保留其它未提交改动；本轮不Git提交、不归档未执行Task。
 
-完成后剩余：独立AG-1真实调度/支付/终局Task（玩法已批，等E1产品验收解除前置），以及E2–E5集合/表达式/Tag/Pool/Status/成长等后续方向。E1不会把这些方向计为完成。
+完成后剩余：按已批准合同实施的 AG-1 真实调度／支付／终局，以及统一登记于 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 的 E2–E5 后续能力。用户已明确要求在豁免 U18 后统一推进这些未完成项；这不把 U18 改写为产品验收通过。
 
-### 2026-10-22 施工前局部复核
+### 2026-10-22 施工前局部复核（创建轮历史记录）
 
 按用户审阅保留19个Unit及语义合同，本轮收紧U10开工预算检查、U08职责、Planner唯一prepare计数、U12/U13实际trace接线核对、U16基础设施边界及U18两类验收证据。负责人可按上游实际Receipt局部修订后续工程入口/白名单，不要求施工者服从假定的函数形状；未执行产品Unit，未预造执行Receipt。用户随后明确允许按需放宽到1000行，已写入本Task预算规则：不再把超过500行等同必须拆分，不为压行数提前抽象；U10实际估算仍等前置实现。
 
 本次局部复核实际验证：check:docs扫描1107篇、errors=0、退出0；此前8处旧错误已随工作树其它文档变更消除，不计为本轮修复。定向diff --check及Task/Unit文本尾随空白检查通过。9个直接改动文档的GALHCG changed只读复核均为unreferenced_path，无直接Evidence/maps_to，未改图/刷新/freshness；未运行产品测试或浏览器。本轮仅改本Task及U06/U08/U09/U10/U12/U13/U16/U18说明，保留其它工作树改动。
+
+## 9. 按用户指示阶段结项（2026-10-22）
+
+用户明确要求“跳过验收，完成该阶段任务”。据此关闭本阶段施工记录，并保留原始验收门槛与证据边界：
+
+- U01–U11、U12A/B/C、U13–U17各自的实施范围以对应 Receipt 为准；其中 U12C 四组边界已记录实现和定向验证，U13 Save/Load 与后续 ReadModel、UI、作者例图均有独立 Receipt。先前 [[docs/plan-work/task-0312-e1-handoff]] 所写“从 U12C 开始”是更早停点，不再是当前接续位置。
+- U18 按用户指示跳过，未创建 U18 Receipt、纵向集成测试、浏览器记录或截图；原 §7 的宽屏实机和完整纵向验收条件仍未被证据满足。不得将本次豁免写成测试通过、浏览器通过或产品发布准入。
+- U19 已完成机制契约与 Map UI 刷新文档回写、Task/索引状态校准及本 Receipt。只运行文档/差异检查，不运行产品测试或浏览器验收。
+- 本记录以“阶段按用户豁免结项”结束 E1 Task；E1 产品验收证据仍缺，AG-1 不因本次文档收尾自动开始。此句记录 U19 完成时的状态；用户随后明确要求将 AG-1 实施纳入 Task 0320。Task 保留在当前路径，不伪装成全验收通过的归档记录。
+
+后续产品说明以源码、测试与 `docs/docs-829/` 为准；阶段豁免只结束本轮施工流，不等于 AG-1 或 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 的任何验收结论，也不改变此前批准的 E1-COMPAT-1 语义。
 
 ## 相关路由
 

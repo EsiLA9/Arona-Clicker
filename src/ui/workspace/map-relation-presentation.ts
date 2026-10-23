@@ -1,4 +1,4 @@
-import type { MapActionRelation, MapRelationScope, MapTargetRef, MapUnitRef } from '../../arona-clicker/contracts/map-relations';
+import type { MapActionRelation, MapRelationScope, MapTargetRef, MapUnitRef } from '../../arona-clicker/contracts/map/map-relations';
 
 /** Visual copies share this key; it never creates an additional domain object. */
 export function mapUnitKey(scope: MapRelationScope, kind: MapUnitRef['kind'], id: string): string {

@@ -10,7 +10,7 @@ import {
   buildScopedThemeCompatibilityVars,
   deriveSurfaceColor,
   deriveBackgroundGradient,
-} from '../../src/ui/theme-palette';
+} from '../../src/ui/presentation/theme-palette';
 
 describe('theme-palette：主题色列表与语义节点解析', () => {
   test('颜色列表最多保留六个，并过滤空值', () => {

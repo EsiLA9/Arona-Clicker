@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { Registry } from '../../src/data-services/registry/registry';
-import { RuntimeContentCoordinator, type RuntimeSpotInput } from '../../src/arona-clicker/services/runtime-content-coordinator';
+import { RuntimeContentCoordinator, type RuntimeSpotInput } from '../../src/arona-clicker/services/runtime/runtime-content-coordinator';
 
 const AREA = 'base:area:main';
 const MOD = 'draft-mod';

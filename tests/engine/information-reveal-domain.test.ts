@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
-import { deriveDesiredInformationWatches, queryInformationReveal } from '../../src/arona-clicker/services/information-reveal-domain';
+import { deriveDesiredInformationWatches, queryInformationReveal } from '../../src/arona-clicker/services/world/information-reveal-domain';
 
 const gate = (target: string, key: string) => ({ reveal: target as 'name', condition: { target: 'resource' as const, key, comparator: '>=' as const, value: 1 } });
 const fixture = () => {

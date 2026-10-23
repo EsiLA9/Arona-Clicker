@@ -4,10 +4,10 @@
 // 孤儿 entry 默认根池、环防护、无池退化平铺。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { PassivePoolSystem } from '../../src/arona-clicker/services/passive-pool-system';
+import { PassivePoolSystem } from '../../src/arona-clicker/services/economy/passive-pool-system';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { ActiveStoryEntry, PassiveStoryEntry, StoryEntryDef } from '../../src/data-services/contracts/story-entry';

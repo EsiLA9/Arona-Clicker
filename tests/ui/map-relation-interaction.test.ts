@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { MapActionRelation, MapRelationScope, MapTargetRef } from '../../src/arona-clicker/contracts/map-relations';
+import type { MapActionRelation, MapRelationScope, MapTargetRef } from '../../src/arona-clicker/contracts/map/map-relations';
 import {
   MapRelationInteraction,
   type MapLocationCommitResult,
@@ -16,7 +16,7 @@ function relation(id: string, target: string): MapActionRelation {
   return { key: id, scope, draft: { nodeId: 'node', round: 1, draftVersion: 0 }, phase: 'preparation', visibility: 'public',
     source: { kind: 'preparedAction', id, actionId: id, performer: { scope, kind: 'partyCharacter', id } },
     selectedTarget: { scope, kind: 'enemy', id: target }, targetState: 'determined', selectionMode: 'selectable',
-    candidates: ['robot', 'robot-b'].map(id => ({ scope, kind: 'enemy' as const, id })), canSelectTarget: true, canReplaceAction: true, effectRecipients: [],
+    candidates: ['robot', 'robot-b'].map(id => ({ scope, kind: 'enemy' as const, id })), canSelectTarget: true, canReplaceAction: true,
   };
 }
 

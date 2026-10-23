@@ -18,7 +18,7 @@ Engine 是一组可组合的通用引擎能力：它计算声明式数值、响�
 
 `src/engine/index.ts` 是 Engine 的聚合导出入口。`contracts/` 是可供实现依赖的窄接口，`types/` 是声明和事件的数据形状；目录和 `import` 表示静态依赖方向，运行时调用顺序要看 Runtime 组合和对应方法，数据在系统间的传递则要看参数与返回值。EventBus 只派发通知；它不会替 Trigger 解释事件或替状态服务提交写入。
 
-Arona Clicker 的具体组合见 `src/arona-clicker/runtime-wiring.ts` 中的 `wireGameInstance()`。模块卡介绍 Engine 的职责边界：[[docs/docs-829/02-modules/engine]]；接口清单：[[docs/docs-829/03-data-structures/engine-contracts]]；Effect / Trigger 的领域规则：[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]。
+Arona Clicker 的具体组合见 `src/arona-clicker/runtime/runtime-wiring.ts` 中的 `wireGameInstance()`。模块卡介绍 Engine 的职责边界：[[docs/docs-829/02-modules/engine]]；接口清单：[[docs/docs-829/03-data-structures/engine-contracts]]；Effect / Trigger 的领域规则：[[1-项目/ACProgram/docs/docs-829/04-mechanisms/engine/effect-trigger]]。
 
 ## 代表性测试
 

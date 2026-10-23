@@ -1,12 +1,12 @@
 import { describe, expect, test, vi } from 'vitest';
-import type { OperationEventDef, OperationRunStartInput, OperationStateDelta } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation-action';
-import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
-import type { OperationContentResolver } from '../../src/arona-clicker/contracts/operation-content-resolver';
-import { validateOperationEventDef } from '../../src/arona-clicker/services/operation-definition-validation';
-import { validateOperationActionDef } from '../../src/arona-clicker/services/operation-tactical-definition-validation';
-import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { createOperationEntry } from '../../src/arona-clicker/services/operation-entry-service';
+import type { OperationEventDef, OperationRunStartInput, OperationStateDelta } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef, OperationActionEffectDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation/operation-skill';
+import type { OperationContentResolver } from '../../src/arona-clicker/contracts/operation/operation-content-resolver';
+import { validateOperationEventDef } from '../../src/arona-clicker/services/operation/operation-definition-validation';
+import { validateOperationActionDef } from '../../src/arona-clicker/services/operation/operation-tactical-definition-validation';
+import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { createOperationEntry } from '../../src/arona-clicker/services/operation/operation-entry-service';
 
 function eventDef(): OperationEventDef {
   return {

@@ -18,7 +18,7 @@ Engine 负责可复用的计算和响应能力；产品 Runtime 提供游戏定�
 
 ## Arona Clicker 怎样装配
 
-`src/arona-clicker/runtime-wiring.ts` 的 `wireGameInstance()` 是产品侧组合根（负责创建并连接对象的入口）：先创建 EventBus、Registry、查询和 Mutation 服务，再创建 Effect / Affector / GameNum / Tick / Trigger / Visibility 等 Engine 系统，并把它们需要的端口注入进去。此处是运行时对象的装配顺序，不应直接当成玩家每次操作的调用顺序。
+`src/arona-clicker/runtime/runtime-wiring.ts` 的 `wireGameInstance()` 是产品侧组合根（负责创建并连接对象的入口）：先创建 EventBus、Registry、查询和 Mutation 服务，再创建 Effect / Affector / GameNum / Tick / Trigger / Visibility 等 Engine 系统，并把它们需要的端口注入进去。此处是运行时对象的装配顺序，不应直接当成玩家每次操作的调用顺序。
 
 常见写入方向是：产品服务验证操作 → `StateMutationService` 应用状态变化 → 发布描述变化的 `GameEvent` → 订阅者更新索引、标脏或触发规则。查询方向则是 Engine 通过只读端口读取状态、内容索引或 Stats。UI 的具体读写边界见 [[docs/docs-829/06-wiki/50-ui/00-index]]；状态写入规则见 [[docs/docs-829/04-mechanisms/state-mutation]]。
 

@@ -1,5 +1,5 @@
 import type { GameReadModel } from '../../arona-clicker/contracts';
-import type { PanelState } from '../components/app-shell';
+import type { PanelState } from '../components/shared/app-shell';
 
 export type ForegroundIntent = 'openAreaOverview' | 'openAreaMap' | 'attemptAreaTravel';
 export type ForegroundStatus = { allowed: true } | { allowed: false; reason: 'StoryBlocked' | 'ChoicePending' | 'ConfirmationPending' | 'Busy' };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Registry } from '../../src/data-services/registry/registry';

@@ -5,7 +5,7 @@
 ## 概念层
 
 ```text
-应用启动与组合根（src/app、src/arona-clicker/runtime*.ts）
+应用启动与组合根（src/app、src/arona-clicker/runtime/runtime*.ts）
 ├─ 内容与数据服务（src/arona-clicker/content、src/data-services）
 ├─ 通用引擎（src/engine）
 ├─ 产品领域与运行状态（src/arona-clicker/services、state、read-model）
@@ -36,8 +36,8 @@ src/ui/main.ts
 | Registry | 提供定义表、引用检查与关系查询 | `src/data-services/registry/registry.ts` |
 | Engine | 提供求值、事件、效果、统计、可见性和 Tick 等通用机制 | `src/engine/` |
 | PlayerState | 保存产品运行进度及持久归属 | `src/arona-clicker/types/state.ts` |
-| GameView / GameReadModel | 将状态和派生结果组织成只读查询 | `src/arona-clicker/read-model/`、`src/arona-clicker/contracts/runtime.ts` |
-| UIContext | 为组件组合只读数据和表现查询 | `src/ui/context.ts` |
+| GameView / GameReadModel | 将状态和派生结果组织成只读查询 | `src/arona-clicker/read-model/`、`src/arona-clicker/contracts/runtime/runtime.ts` |
+| UIContext | 为组件组合只读数据和表现查询 | `src/ui/runtime/context.ts` |
 
 ## 下一步
 

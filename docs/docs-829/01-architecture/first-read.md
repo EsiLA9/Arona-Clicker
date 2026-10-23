@@ -58,7 +58,7 @@ flowchart TD
 | Gameplay B 当前战斗、干预和路线 | Operation Runtime 管理的局内 `EventRun`，由只读 `OperationView` 查询 | [[docs/docs-829/03-data-structures/operation-view]] |
 | 组件要用的主题、图片或组合格式 | UIContext 等展示查询；它们不是玩家状态写入入口 | [[docs/docs-829/06-wiki/50-ui/read-model-context]] |
 
-存档和重置由 Runtime 生命周期入口协调。`GameInstance.save()` 收集 PlayerState 与各自负责的存档片段，`load()` 和 `reset()` 重建或清理对应运行态；不要因某份数据被存档就推断它属于 PlayerState。入口见 `src/arona-clicker/runtime-game-instance.ts` 的 `save()`、`load()`、`reset()`，字段归属见上述结构页。
+存档和重置由 Runtime 生命周期入口协调。`GameInstance.save()` 收集 PlayerState 与各自负责的存档片段，`load()` 和 `reset()` 重建或清理对应运行态；不要因某份数据被存档就推断它属于 PlayerState。入口见 `src/arona-clicker/runtime/runtime-game-instance.ts` 的 `save()`、`load()`、`reset()`，字段归属见上述结构页。
 
 ## 建议阅读顺序
 

@@ -23,17 +23,17 @@ Runtime 重载时清 Registry 与机制缓存、重建状态和系统，再加�
 ## 哪些包会启用
 
 - 正式 base 包是必需的，不能从启用集移除。
-- Gameplay B Carousel 内容由独立 bundle `gameplay-b@1.0.0` 提供；13 地点 Strategy Park 测试样例由 `gameplay-b-strategy-park@1.0.0` 提供。新安装时两包默认启用，但各自保存的用户选择（例如明确停用）优先。
+- Gameplay B 当前由独立 Map-only bundle `gameplay-b@1.0.0` 提供；新安装时默认启用，但已保存的用户选择（例如明确停用）优先。旧 Carousel / Strategy Park Operation 内容不再随第一方包装载，Strategy Park bundle 已退役。
 - 开发目录发现的普通态包只有在其来源唯一且没有相同 `modName` 冲突时才可能自动启用；已有停用选择会保留。
 - 启用集无效时，Runtime 会逐个检查可选包；能安全排除的包会停用并保留在包库，再应用剩余启用集。无法恢复时仍向启动层报告失败。
 
-这些策略可从 `src/arona-clicker/runtime.ts` 的构造、`restorePackManager()` 与 `applyEnabledPacks()`，以及 `src/data-services/datapack/pack-manager.ts` 的构造和 `reconcileDevelopmentPacks()` 核对。
+这些策略可从 `src/arona-clicker/runtime/runtime.ts` 的构造、`restorePackManager()` 与 `applyEnabledPacks()`，以及 `src/data-services/datapack/pack-manager.ts` 的构造和 `reconcileDevelopmentPacks()` 核对。
 
 ## 代码与测试
 
 - 包选择和应用计划：`src/data-services/datapack/pack-manager.ts`。
-- 产品 Runtime 回调、校验和失败恢复：`src/arona-clicker/runtime.ts` 的 `applyEnabledPacks()`、`createPackApplyTarget()`。
-- Registry 装载：`src/arona-clicker/runtime-game-instance.ts` 的 `init()`。
+- 产品 Runtime 回调、校验和失败恢复：`src/arona-clicker/runtime/runtime.ts` 的 `applyEnabledPacks()`、`createPackApplyTarget()`。
+- Registry 装载：`src/arona-clicker/runtime/runtime-game-instance.ts` 的 `init()`。
 - 测试：`tests/data/pack-manager.test.ts` 核对首次默认包、保留停用选择、开发包唯一性与快照；`tests/engine/arona-runtime-pack.test.ts` 核对默认包装载、Lobby 状态和坏包自动停用。
 
 解析包文件格式与 Registry 正文分别见 [[docs/docs-829/06-wiki/20-data-services/00-index]]、[[docs/docs-829/03-data-structures/registry]]；启动入口见 [[docs/docs-829/06-wiki/10-application-runtime/startup-and-composition]]。

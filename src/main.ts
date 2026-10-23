@@ -5,7 +5,7 @@
 import { SaveSystem } from './data-services/persistence/storage';
 import { JsonPackSnapshotStore, LocalStorageAdapter } from './data-services';
 import { DEFAULT_INIT_ID, createAppRuntime, loadDefaultDatapack } from './app/runtime-bootstrap';
-import type { SaveData } from './arona-clicker/contracts/save-data';
+import type { SaveData } from './arona-clicker/contracts/runtime/save-data';
 
 // 创建游戏实例。开发模式下开启详细日志（verbose），便于排障导出。
 const game = createAppRuntime({

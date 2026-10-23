@@ -18,7 +18,7 @@ visitedAreas 继续仅记录真实抵达。普通相邻区域可以首次进入�
 
 AreaTravelGraph 的普通边使用邻接索引，交通网络使用隐式成员组。一次查询批次只遍历一次已探索图，网络成员组最多展开一次，不创建两两完全连接，也不对每个地图节点重复寻路。
 
-源码入口：src/arona-clicker/services/area-travel-routes.ts、services/init-service.ts、runtime-game-instance.ts。
+源码入口：src/arona-clicker/services/world/area-travel-routes.ts、services/init-service.ts、runtime-game-instance.ts。
 
 ## 交通服务与发现信息
 

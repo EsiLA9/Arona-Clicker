@@ -1,6 +1,7 @@
 # Unit 0312-U11：非战斗条件完成与活动转换安全
 
-状态：ready / 未执行；阶段P2。前置：0312-U10A及U10B实际完成Receipt与测试；只有纯规划U10A不构成放行。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 2026-10-22负责人放行：U10A/U10B实际Receipt、独立源码/行为用例审查已通过；根复跑B新程序10项+旧金样13项共23项全绿。U10B报告6 files/90 tests、tsc/architecture/docs/空白均通过。实际接口为`plan.plannedLocals`、`programVisits`、`effectTrace`，新program公开安装已接通，仅condition过渡门仍保留。Read Set追加两份U10实际Receipt、U06 `map-effect-planner.ts`及U05规范化器，供复用既有条件语义；不得自行改这两个文件或建立第二效果执行器。
 
@@ -18,7 +19,7 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-run-service.ts：resolveEncounterCommitPlan terminal/createEncounterSnapshot/advanceCompletedActivity/completeEncounter/prepareEncounterRoundCommit | 整轮后完成与转换调用 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：resolveEncounterCommitPlan terminal/createEncounterSnapshot/advanceCompletedActivity/completeEncounter/prepareEncounterRoundCommit | 整轮后完成与转换调用 |
 | 合同 | Draft0312 D05/§11.2；NEW05及F交涉样例 | condition整轮后检查 |
 | E0 | U1关于initializeEncounterSeed的事实门槛 | 只验证直接转换路径 |
 
@@ -47,7 +48,7 @@
 
 ## Allowed Files
 
-- `src/arona-clicker/services/map-run-service.ts`
+- `src/arona-clicker/services/map/map-run-service.ts`
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-lifecycle.test.ts
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-program.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u11-receipt.md

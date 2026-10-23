@@ -1,6 +1,11 @@
 # Unit 0312-U14：声明摘要与关系投影识别新程序
 
-状态：ready / 未执行；阶段P3。前置：0312-U05实际完成Receipt与测试、0312-U13实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
+
+实际独立性核对：当前`projectMapRelations`只读取已批准workspace的run/currentEncounter/actionPreview/sourcePreview与Map Action声明；摘要只消费U05规范化定义和map-effects/map-relations类型，不调用Save、restore、Receipt校验或Owner安装。U13仅接恢复路径，不影响本Unit声明语义，且两者写白名单无交叉，因此将原先U13顺序等待改为并行；全部U13验收保留。U15必须等待U13及本Unit两者完成。
+
+预算登记：新summary helper约120–220行、map-relations类型40–70、relation projector40–80、真实projection测试150–220、Receipt40–60，合计390–650；负责人按既有授权记录上限1000，白名单仍4代码/测试加Receipt。先复述实际方案与估算，若超1000或需改UI/runtime/其它测试先报根，不因并行擅自扩展。
 
 ## Goal
 
@@ -12,8 +17,8 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-relation-projector.ts：projectMapRelations/append；src/arona-clicker/contracts/map-relations.ts：MapEffectRecipient | 现有投影只枚举旧数组 |
-| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/contracts/map-effects.ts | 声明和实际结果分开 |
+| 源码 | src/arona-clicker/services/map/map-relation-projector.ts：projectMapRelations/append；src/arona-clicker/contracts/map/map-relations.ts：MapEffectRecipient | 现有投影只枚举旧数组 |
+| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/contracts/map/map-effects.ts | 声明和实际结果分开 |
 | 规范 | docs/docs-829/06-wiki/50-ui/read-model-context.md | UI纯读边界 |
 
 ## Context Budget
@@ -41,9 +46,9 @@ projectMapRelations从hpEffects/effects/cardEffects生成声明受用者，不�
 
 ## Allowed Files
 
-- 新增（执行时才创建）：src/arona-clicker/services/map-effect-summary.ts
-- `src/arona-clicker/contracts/map-relations.ts`
-- `src/arona-clicker/services/map-relation-projector.ts`
+- 新增（执行时才创建）：src/arona-clicker/services/map/map-effect-summary.ts
+- `src/arona-clicker/contracts/map/map-relations.ts`
+- `src/arona-clicker/services/map/map-relation-projector.ts`
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-projection.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u14-receipt.md
 

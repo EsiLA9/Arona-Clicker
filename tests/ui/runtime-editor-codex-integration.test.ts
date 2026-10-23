@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
-import { UIController } from '../../src/ui/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { UIController } from '../../src/ui/controller/controller';
 import { openRuntimeEditorPanel, openRuntimeEditorLauncher, syncRuntimeEditorPanel } from '../../src/ui/runtime-editor/actions';
 import { getRuntimeEditorCodexView, renderRuntimeEditorCodex } from '../../src/ui/runtime-editor/view';
 import { createCodexShellState, codexEntryKey, reduceCodexShellState, renderCodexDetailPane } from '../../src/ui/runtime-editor/codex';
@@ -13,7 +13,7 @@ import type {
   RuntimeContentBrowserView,
   RuntimeContentReferenceDiagnostic,
 } from '../../src/data-services/contracts/runtime-content-browser';
-import type { UIContext } from '../../src/ui/context';
+import type { UIContext } from '../../src/ui/runtime/context';
 
 describe('RuntimeEditor 超级图鉴集成', () => {
   let game: GameInstance;

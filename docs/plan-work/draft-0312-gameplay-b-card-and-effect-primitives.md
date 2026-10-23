@@ -1,10 +1,18 @@
 # Draft 0312：Gameplay B 卡牌行为与局内效果原语
 
-状态：E0-contract-approved — 用户于2026-10-21回复“全部按推荐”，批准Task0313决策表P1–P8；E1-COMPAT-1及AG-1的本轮玩法合同已冻结。E2–E5仍是后续设计，产品功能未实现。
+状态：E0-contract-approved — 用户于2026-10-21回复“全部按推荐”，批准Task0313决策表P1–P8；本文保留经批准的设计与当时实现基线。实现状态已由 Task 0312 / Task 0315 后续推进。
 
 本文回答：数据包作者如何用少量概念写出战斗、支援、休息、交涉与探索行为，并沿现有 MapRun 结算逐步扩展。
 
 需求来源：用户于 2026-10-21 提供的《AronaClicker · Gameplay B 卡牌与游戏内效果原语设计需求》（完整附件，共二十节）。本文覆盖其 A—G 交付；首期实施交接见 [[docs/plan-work/task-0312-gameplay-b-effect-program-v1]]。Report 0311 只作调查入口，当前事实以本轮检出源码为准，不读取归档来推断实现。
+
+## 实现状态与当前路由（2026-10-23）
+
+本文是设计与裁定来源，不是当前作者字段清单。Task 0312 的 E1 实施阶段已按用户要求豁免 U18 验收并关闭施工流；后续 [[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 已将八张内置 Map 与作者示例迁至 `effectProgram`，并移除 Map Action 旧 `effects` / `hpEffects` / `cardEffects` 合同和兼容执行路径。Task 0315 为迁移内容加入语义明确的 `damage` / `heal` 原语；E1 AST 仍保留签名 `hpChange` 节点，它不是旧 Action 数组。Task 0316 实现确定性 TargetSet damage/heal、有限整数 Value 和每目标 repeat；Task 0317 完成静态 Action Tag、Map-local 候选池及 MapRun 多来源候选合并；Task 0318 已完成 Encounter-local burn / regen 首片；E5 Prepared Tag 连携首片已由 [[docs/plan-work/task-0319-gameplay-b-prepared-tag-combo]] 完成。Task 0320 已完成 U14 additionalTarget、U15 MapRun Fact 门控静态候选池、U16 Status ID 清除、U17 CardRef Modifier 窄首片、U18 Shield/damage、U19 部分层数消费、U20 类别净化、U21 Revive、U22 回合限时伤害减免、U23/U24 healApplied/damageApplied 回馈、U25 实际 HP 变化门槛、U26 Status 自然到期回馈、U27 单次受击保护、U28 MapRun Fact Edge 门控、U29 单体击杀回馈和 U30 MapRun-lifetime Party Status。U23/U24/U25 使用独立 Trigger Receipt v1，U26 使用独立 Trigger Receipt v2，U27 使用独立 Status Receipt v6，U29 使用独立 Trigger Receipt v3 并保持旧 v1/v2 路径。U14 自动化定向测试433/433、U15定向测试325/325、U23/U24 15文件462/462、U25 16文件466/466、U26 12文件350/350通过。U14 宽屏实屏验收因当前正式 Map 没有可触发 additionalTarget 按钮的 Action，需求单记录为未能验证，不等于通过。U07/U14/U17–U30 屏幕验收未标记人工通过；具体剩余 E4/E5/P6 范围见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]]。Task 0316–0319 已完成部分不重做。当前 Map Action 作者合同以 [[docs/docs-829/03-data-structures/datapack-contracts]] 和 [[docs/examples/gameplay-b-effect-program-e1]] 为准，Tag／候选池示例见 [[docs/examples/gameplay-b-card-tags-and-pools]] 与 [[docs/examples/gameplay-b-maprun-fact-gated-pools]]，状态示例见 [[docs/examples/gameplay-b-statuses]]、[[docs/examples/gameplay-b-damage-reduction]]、[[docs/examples/gameplay-b-damage-protection]]、[[docs/examples/gameplay-b-status-expiry-reward]]、[[docs/examples/gameplay-b-maprun-status]]；U23/U24 样例见 [[docs/examples/gameplay-b-heal-applied-resource]] 与 [[docs/examples/gameplay-b-damage-applied-resource]]、[[docs/examples/gameplay-b-actual-amount-threshold]]；U29 击杀回馈见 [[docs/examples/gameplay-b-enemy-defeated-reward]]；逐 Action 迁移依据见 [[docs/plan-work/task-0315-units/receipts/task-0315-u04-receipt]]。Shop Offer `effects` 仍是独立合同。U18 豁免不等于 E1 产品验收通过。
+
+U28 延续把 MapRun Counter / Flag 用作 AG-1 地图 Edge 的单项路线门槛：候选池继续读取 Encounter 入场快照，移动路线读取当前已安装事实；合同、作者示例、回执与屏幕记录单见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U28-e5-maprun-fact-edge-gates]]、[[docs/examples/gameplay-b-maprun-fact-gated-pools]]、[[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/receipts/U28-receipt]] 和 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U28-screen-acceptance-report]]。
+
+U29 为 Draft §3「击杀奖励」冻结并实现窄 `enemyDefeated`：仅 Party Actor 来源的直接 primary Damage 命中使 Enemy HP 从正数降至零时触发，资源回馈给来源 Actor。TargetSet、`forTargets`、Status tick、已倒地目标和非致死结果不触发。独立 Trigger Receipt v3 区分击败目标与奖励领取者，并可与 Status 自然到期 Trace 同次重放；旧 Trigger Receipt v1/v2 不变。合同、演练和屏幕需求单见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U29-e5-single-hit-defeat-reward-contract]]、[[docs/examples/gameplay-b-enemy-defeated-reward]] 与 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U29-screen-acceptance-report]]。
 
 ## 1. 先说明玩家和作者得到什么
 
@@ -14,11 +22,11 @@
 
 概念只保留必要区别：Action 是行为；Target 是需要确认的对象；Cost 是先检查的支付；Condition 是是否执行；Effect 是发生的变化；EndCondition 是何时结束遭遇。持续 Status、Modifier 与触发时机留到后期，不把所有玩法都压成一个万能数值效果。
 
-## 2. 本轮事实基线与已完成前置
+## 2. 调查时事实基线与已完成前置（2026-10-21；历史记录）
 
 调查基线：2026-10-21，HEAD `dff0061`（before MapRun primitive），开始调查时工作树无改动。Report 0311 中关于准备页未完成和旧 UI 入口测试失败的描述是历史工作树快照，本轮不继承这些结论。
 
-| 当前事实 | 实际依据 | 设计影响 |
+| 调查时事实 | 当时实际依据 | 对原设计的影响 |
 | --- | --- | --- |
 | 0309 已完成，入口为 map-entry 再显式开始／继续 | 当前 Task 0309 状态 complete；`tests/ui/gameplay-b-map-vertical-slice.test.ts` 已使用 data-map-entry-open、start、leave 和 resume | 不把完成 0309 列为前置，不重做准备页 |
 | Action 只有固定整数 costs、资源 effects、hpEffects、cardEffects | `src/data-services/contracts/gameplay-map.ts` 的 GameplayMapActionDef | 需求中的 actorResourceEffects/teamResourceEffects 不是当前作者字段名；资源是 effects 的 scope/recipient 分支 |
@@ -38,18 +46,20 @@
 
 本轮实测：卡牌、Save/Resume、Source transactions、Map Registry 四文件 **167/167 通过**。这不是所有 Runtime／UI 测试或浏览器验收通过的声明。
 
-## 3. 行为样例库：先看实际能做什么
+## 3. 行为样例库：原始设计场景与缺口（非当前功能清单）
 
-表中“原”表示当前窄合同已有；“E1”等表示下文推荐阶段。每行按“行动者／目标；结果；费用与条件；缺口”展开。数字仅为设计演示，不是平衡批准。通常费用可以是零或作者声明的固定 Actor／Team 资源；PlayerCommand／Ability 的 PlayerCost 沿既有来源规则。
+本节的“原／当前与缺口”以 2026-10-21 调查时的窄合同为基线，目的是保留原始设计问题，不表示当前功能。已实现范围看当前机制文档和示例；当前迁移结果看 Task 0315。
+
+表中“原”表示调查时已有；“E1”等表示当时推荐阶段。每行按“行动者／目标；结果；费用与条件；缺口”展开。数字仅为设计演示，不是平衡批准。通常费用可以是零或作者声明的固定 Actor／Team 资源；PlayerCommand／Ability 的 PlayerCost 沿既有来源规则。
 
 ### A. 普通战斗
 
 | 玩家看到的行为 | 谁／目标、效果、费用／条件 | 当前与最小缺口 |
 | --- | --- | --- |
 | 单发射击 | 角色→选定敌人；HP−3；可付弹药1，目标存活 | 原 HP/Cost 可做；独立 damage 类别 E2 |
-| 连续射击 | 角色→同一敌人两次各−2；付弹药2，固定两击 | 原多个 hpEffects 可顺序作用同一对象；通用有界 repeat 后续，不需要立刻加循环 |
+| 连续射击 | 角色→同一敌人两次各−2；付弹药2，固定两击 | Task0316 已支持单条 damage/heal 对每个目标 repeat 0–8；repeat 不是任意语句体循环 |
 | 随机散射 | 角色→不同敌人3名各−1；付弹药1，合法候选不足取实际人数 | 缺目标集合与确定性无放回抽样，E2 |
-| 双目标打击 | 角色→合法敌人2名各−2；付能量1，排序稳定 | 缺 TargetSet，E2 |
+| 双目标打击 | 角色→合法敌人2名各−2；付能量1，排序稳定 | Task0316 已支持显式 `limit: 2` 的确定性 TargetSet damage；随机抽选另属 E2R |
 | 压制前排／绕袭后排 | 角色→声明排位中的存活敌人；−2；付弹药1 | 缺领域排位，不读 UI 上下位置，E5 |
 | 补刀 | 角色→最低 HP 比率敌人；−3；可零费用 | 原 preference=lowestHpRatio 可做；“最低绝对 HP”是另一种偏好，E2 单列 |
 | 邻近波及 | 角色→主目标及其逻辑邻居；主−3、邻−1；付能量2 | 缺逻辑邻接及逐目标系数，E5 |
@@ -57,7 +67,7 @@
 | 蓄力射击 | 角色→敌人；固定额外付弹药2改成−5；需费用够 | 固定配方原可做；可选额外支付／按支付量增强 E5，不借 when 偷扣费 |
 | 整备射击 | 角色→敌人−2并自己弹药+1；正常固定费用 | 两类变化原能共存；作者可控完整顺序与条件 E1 |
 | 掩护后鼓舞 | 角色→敌人−2、指定队友资源+1；固定费用 | 当前一个主目标不能同时另选队友；E1 可自己／己方 Team，任意第二队友／全队 E2 |
-| 击杀奖励 | 角色→敌人，实际由此次伤害击败才弹药+1 | 缺“本来源造成击杀”的实际结果条件；不能仅看 HP=0 冒领奖励，E5 |
+| 击杀奖励 | 角色→敌人，实际由此次伤害击败才弹药+1 | U29 的 `enemyDefeated` 只承认 Party 来源对 Enemy primary 的直接致死命中，奖励写给来源 Actor 并进入 FIFO/32 次预算；Trigger Receipt v3 独立保存收款人并从 scheduler 起点重放；不把 Status tick 或 TargetSet 击杀算入 |
 
 ### B. 爆破、范围与复杂攻击
 
@@ -79,27 +89,27 @@
 | 单体包扎 | 角色→一名存活友方+3 HP；付医疗1 | 原可做，截到 cap、不复活 |
 | 群体急救 | 角色→所有受伤且存活友方各+2；付医疗2 | 缺集合及受伤过滤，E2 |
 | 自动急救 | 角色→最低 HP 比率友方+3；付医疗1 | 原 preference 可做；是否玩家覆盖沿现有目标规则 |
-| 按缺血恢复 | 角色→友方，恢复缺失HP的一半并向下取整；付医疗1 | 缺受限 Value，E2 |
-| 加盾 | 角色→友方，提供3护盾；付能量1 | 缺独立 Shield 受损规则，E4，不能当额外 HP |
-| 单项净化 | 角色→友方，清除一类指定状态；付医疗1 | 缺 Status/Remove，E4 |
-| 类别净化 | 角色→友方，清除 harmful 类状态；付医疗2 | 缺状态分类及集合清理，E4 |
+| 按缺血恢复 | 角色→友方，恢复缺失HP的一半并向下取整；付医疗1 | 当前 TargetSet + missingHP / divFloor 可表达；普通 heal 仍不复活 |
+| 加盾 | 角色→友方，提供3护盾；付能量1 | AG-1 Shield/damage pipeline 已由 Task 0320 U18 实现；独立额度与 HP 分账 |
+| 单项净化 | 角色→友方，清除一类指定状态；付医疗1 | Task 0320 U16/U19 已提供按精确 Status ID 全清与部分层数消费；目标与清理范围见其合同 |
+| 类别净化 | 角色→友方，清除 harmful 类状态；付医疗2 | Task 0320 U20 已提供显式 harmful/beneficial 分类与类别全清；未分类状态不匹配 |
 | 以血换血 | 角色→另一友方；自身扣2 HP后对方+3；自身须能支付 | HP Cost 与普通 damage 不同，需防止自伤后非法执行／免费复活，E5；不塞进 E1 免费成本 |
 | 有效治疗奖励 | 角色→友方治疗，实际恢复>0才物资+1 | 缺 actualHealed 结果条件，E5；E1 可明确检查治疗前受伤，二者不等价 |
-| 按人数治疗 | 角色→友方，按存活队友数+HP；付医疗1 | 缺合法人数 Value，E2 |
-| 复苏 | 角色→倒地友方恢复指定 HP；付特殊资源2 | 缺 revive 资格／行动重新激活规则，E4／E5 单独裁定，普通 heal 继续不能复活 |
+| 按人数治疗 | 角色→友方，按集合存活人数增加治疗量；付医疗1 | 当前 Value 的 targetCount 可在 damage/heal 集合内读取所选成员人数 |
+| 复苏 | 角色→倒地友方恢复指定 HP；付特殊资源2 | Task 0320 U21 已交付 AG-1 `revive` 与显式倒地 Party primary；普通 heal 仍不能复活，演练见 [[docs/examples/gameplay-b-revive]]；样例费用由各 Map Action 字段声明 |
 
 ### D. 防御与持续效果
 
 | 行为 | 谁／目标、效果、费用／条件 | 当前与缺口 |
 | --- | --- | --- |
-| 本次减伤 | 角色防御／受击者；此次伤害减2 | 缺 damage 计算点 Modifier，E4 |
-| 两轮防御提高 | 角色→友方，防御修正保留2轮；付防御资源1 | 缺 Status、时长、修正链，E4 |
-| 下次攻击保护 | 角色→友方，下一次实际受伤减3并消费保护 | 缺一次性触发消费，E4 |
-| 每轮恢复 | 角色→友方，之后2个 roundEnd 各+1 HP | 缺显式 Round hook，E4；不接 AC 每秒 Tick |
-| 受伤反击 | 状态持有者→伤害来源，实际受伤后反击1 | 缺受限事件与递归预算，E4 后段 |
-| 接受治疗获资源 | 被治疗者在实际恢复后能量+1 | 缺治疗事件和实际结果，E4 后段／E5 |
-| 灼烧 | 角色→敌人，2轮末各受1伤害；付火种1 | 缺 Status 和回合触发，E4 |
-| 叠层／到期 | 重施燃烧加层；到期触发一次伤害 | 缺重施／来源／到期政策，E4 分片，不默认无限叠层 |
+| 本次减伤 | 角色防御／受击者；此次伤害减2 | Task 0320 U22 已提供固定 damageReduction Status；在 Shield 前按每次 hit 减免，Origin 视为 Encounter/MapRun 生命周期规则 |
+| 两轮防御提高 | 角色→友方，防御修正保留2轮；付防御资源1 | U22 已提供 damageReduction Status 与回合时限；MapRun 跨遭遇寿命另见 U30 |
+| 下次攻击保护 | 角色→友方，下一次实际受伤减3并消费保护 | U27 `damageProtection` 已实现：拦截整次正向 hit 并消费一层；它不是固定减 3 |
+| 每轮恢复 | 角色→友方，之后2个 roundEnd 各+1 HP | Task 0318 `regen` 已支持固定 HP roundEnd；状态规则不接 AC 每秒 Tick |
+| 受伤反击 | 状态持有者→伤害来源，实际受伤后反击1 | Status holder 的实际受伤事件与有限反击效果仍未实现，归 Task 0320 E4 后段裁定 |
+| 接受治疗获资源 | 被治疗者在实际恢复后能量+1 | U23 `healApplied` 已给来源 Actor 回馈；将资源给受治 holder 的 Status 事件仍未实现 |
+| 灼烧 | 角色→敌人，2轮末各受1伤害；付火种1 | Task 0318 已实现 Encounter-local burn 与 roundEnd；MapRun 来源/寿命按 U30 显式选择 |
+| 叠层／到期 | 重施燃烧加层；到期触发一次伤害 | Task 0318 已定义同来源重施与层数上限；U26 已实现自然到期 holder 资源回馈，状态到期伤害仍未纳入 |
 | 消耗层数 | 角色→敌人，消费燃烧层换伤害 | 缺层数原子消费与结果 Value，E4 后段／E5 |
 
 ### E. 资源与队伍协作
@@ -124,8 +134,8 @@
 | 增减卡牌效果 | 来源→治疗卡 heal+2 或 damage−1 | 缺静态效果身份、匹配域、修正层，E5 |
 | 下一张增强 | 来源→之后执行的第一个合格来源，额外+2 | 缺实际执行容器及消费时点，E5；不是 UI 相邻 |
 | 左右相邻卡 | 来源→同一指定领域 Hand 容器的前／后元素 | logicalIndex 只有基础排序；缺明确相对选择合同，E5 |
-| 同单位其他牌 | 来源→相同 Owner 的其他真实 Hand 卡 | CardCatalog 已有身份，缺集合选择／修正规则，E3/E5 |
-| 按标签附加 | 治疗类／爆破类卡满足匹配后追加 | 缺静态 Action Tag，E3；Tag 不自动执行效果 |
+| 同单位其他牌 | 来源→相同 Owner 的其他真实 Hand 卡 | CardCatalog 已有身份，缺集合选择／修正规则，E5 |
+| 按标签附加 | 治疗类／爆破类卡满足匹配后追加 | 静态 Action Tag 已由 Task 0317 实现；缺 Prepared 来源筛选与追加规则，E5；Tag 本身不执行效果 |
 | 按已准备数量 | 来源→自身或Team，按准备来源数获得收益 | 缺 prepared 只读集合／Value，E2 基础数量或 E5 复杂组合 |
 | 交换执行顺序 | 来源→两个已准备来源，交换域内次序 | 高级能力；改变费用和先手规则，E5 单独评估，不进 V1 |
 | 复制效果 | 来源→另一张真实卡，复制白名单 resolve 片段 | 缺复制范围／递归／来源身份，E5，只评估，不授权任意 program 引用 |
@@ -158,7 +168,7 @@
 | 改环境变量 | 角色使 lightOn=true／temperature改变 | Encounter Flag/Counter E1；有独立环境实体与数值修正 E5 |
 | 环境增强行动 | lightOn时额外progress+1 | E1 读本 Encounter Flag；环境外部对象／复杂数值 E5 |
 | 一次性机关 | 未触发Flag时给收益并设已触发 | E1 同程序guard；跨 Node一次性机关需 MapRun Fact E2/E5 |
-| 解锁后续路线 | MapRun Fact 成立让 Edge 合法 | 现有 teamResourceAtLeast Edge 有基础；新增 MapRun Fact/Edge规则 E5，不让效果直接越权改 Node |
+| 解锁后续路线 | MapRun Fact 成立让 Edge 合法 | U28 已支持 AG-1 Map 的单项 Counter 比较 / Flag 等值路线 gate；每次移动读取当前 Facts，不让效果直接越权改 Node |
 | 特殊条件提前结束 | non-battle counter达标结束；战斗目标条件完成 | non-battle E1；Battle 的 failure/victory/objective 优先级 E2/E5 |
 | 地图完成请求奖励／Story | Result 请求资源、好感、Area或Story入口 | GameInstance 结果事务 E5；局内Effect不直接写主世界 |
 
@@ -171,21 +181,21 @@
 | hpChange(unit,delta) | 有符号变更单位HP，读cap，0HP不复活 | 原hpEffects，E1统一表达 | 截界／0HP／实际delta |
 | damage(unit,amount,type?) | 扣HP，未来经盾／减伤 | 底层有HP减少，独立语义E2 | 非负量、护盾次序、不当成heal负数 |
 | heal(unit,amount) | 恢复存活单位，返回实际恢复 | 底层有HP增加，独立语义E2 | cap、满血0、禁止复活 |
-| revive(unit,amount) | 专门复活倒地友方 | 未实现，E4/E5 | 合法目标、行动资格何时恢复 |
+| revive(unit,amount) | 专门复活倒地友方 | Task 0320 U21 已实现 AG-1 倒地 Party primary 复苏与实际 Receipt/Restore 回放；E1/legacy 不变 | 合法目标限 Party；后序 Prepared 来源在原队列位置重验，已 skip 来源不回插 |
 | resourceChange(account,key,delta) | Actor／Team局内余额增减 | 原effects，E1 | 帐户、声明、负余额／溢出 |
 | Counter.add(id,delta) | 有界整数进度；可读比较 | 未实现，Encounter E1／MapRun后续 | 声明初始值、范围、生命周期 |
 | Flag.set(id,bool) | 设置／清除布尔事实 | 未实现，Encounter E1／MapRun后续 | 声明、false不是任意删除键 |
-| Status.add/remove/consume | 层数、时长、分类净化 | 未实现，E4 | 重施来源、上限、层数消费 |
-| Shield.add | 先吸收伤害的独立额度 | 未实现，E4 | 不与HP混用，消耗及到期 |
+| Status.add/remove/consume/category | 层数、时长、按 ID 消费／清除、按显式类别全清及单次伤害保护 | `burn` / `regen` 的 `statusApply` 与 roundEnd 已由 Task 0318 实现；Task 0320 U16/U19/U20/U27 已实现 AG-1 按 ID 全清、部分层数消费、类别净化与 `damageProtection`；U23/U24 为 primary 实际 Heal/Damage 增加局内资源 Trigger，U26 支持自然到期 holder 资源回馈；U30 已实现 Party MapRun-lifetime Status；其它 Status 持有事件、Modifier 与 Trigger 仍在 Task 0320 | 来源、重施、上限、结算顺序及清理 |
+| Shield.add | 先吸收伤害的独立额度 | Task 0320 U18 已实现 AG-1 Shield 账本及 damage→Shield→HP 次序 | 不与HP混用，消耗及到期 |
 | Modifier | 修改伤害／治疗／费用等指定计算 | 仅sCost窄例，E4/E5 | 加乘顺序、上下限、冲突 |
 | prepare.discountSCost(card,n) | 当前实际卡Actor sCost成本减少 | 原scostDiscount，E1保留 | CardRef、来源时机、叠加截0，不动PlayerCost |
-| Card effect modifier | 某真实卡指定效果加值 | 未实现，E5 | 效果静态path、回合清理、不能改已执行来源 |
+| Card effect modifier | 某真实卡指定效果加值 | U17 已实现唯一顶层 damage/heal amount 的 signed delta 首片；其它路径和位置待合同 | 效果静态path、回合清理、不能改已执行来源 |
 | Position.move/swap | 领域阵位／邻接改变 | 未实现，E5 | 容器／位置身份，不读DOM |
 | RunItem.add/remove | 本局临时物品，不是AC背包 | 未实现，E5 | 数量／权限／支付与回执 |
 | Environment value | 环境变量或局内对象属性 | Counter/Flag可做基础，独立环境E5 | scope不越出Owner，影响明确 |
 | sequence／when | 顺序／条件组合，不是状态实体 | 未实现，E1 | 顺序、读取通道、节点预算 |
-| forTargets／repeat | 对有限集合／有限次数执行 | 未实现，E2；连锁E5 | 快照集合、去重、全展开预算 |
-| TargetSet／Value | 选择存活群体、按缺血／人数算量 | 未实现，E2 | 顺序、空集、整数、随机合同 |
+| forTargets／repeat | 对有限集合／有限次数执行 | U12 实现确定性、有限嵌套语句体循环与 loopTarget 词法身份；Task0316 的单条 damage/heal repeat 保持独立 | 快照集合、去重、展开预算和 Trace 由 Task0320 U12 Receipt 记录；连锁仍属E5 |
+| TargetSet／Value | 选择存活群体、按缺血／人数算量 | 确定性及随机 TargetSet、有限 HP/Counter/Round/count Value、来源起点 Actor/Team 资源余额 Value/条件已实现 | 随机流与 Hand RNG 分离；额度与来源时点见 Task0320 U08/U12/U13 Receipts |
 | Action资格／Cost | 谁可用、可付什么 | 资格及固定资源Cost已有，扩展E2/E5 | 入场／准备／提交重验；Cost不藏在普通effect |
 | EndCondition | 何时结束Encounter | 目前Battle清场／全灭、Rest轮数／manual；non-battle条件E1 | 优先级、只读判断、整轮一次收敛 |
 | 外部 Result Request | 终局请求AC奖励／解锁 | 未实现，E5 | 双Owner原子性、请求幂等、发布时机 |
@@ -228,7 +238,7 @@ E1以兼容旧费用为工程边界，不把支付重写列为E1必选问题。�
 - E1 无集合，最多单个unit／card；self仅有实体行动者可用，Ability/Item 无actor时禁止source单位／actor费用，Team受用方由来源适配明确，不因enemy/party同ID串帐户。
 - 普通数值使用安全整数，hpChange/resourceChange/counterAdd 为非零有符号整数，折扣为正整数，布尔为真bool。聚合用安全计算（必要时BigInt），不接受小数、NaN、Infinity、任意路径和eval；HP截0..cap，余额不足拒绝。Counter按已批准D03饱和到声明界限，严格拒绝为未采用备选；安全整数算术溢出始终拒绝，折扣仅截原始成本。
 - D08工程默认：单program静态节点64、深度4、prepare叶子8，Encounter Counter/Flag共64，整轮新程序访问4096；精确计数见§11。额度不是玩法审批项，不追溯套用旧数组而破坏兼容。
-- E2建议集合最多32目标、repeat最多8、展开总数最多1024（同时受整轮4096约束）；所有预算同时算，不允许“每层都合法、乘起来爆炸”。无静态 program引用和递归；未来引入共享片段须检测引用环。
+- Task0316已采用并实现：TargetSet最多32目标、repeat最多8、每来源展开最多1024（同时受整轮4096 visits约束）；所有预算同时算，不允许“每层都合法、乘起来爆炸”。当前没有静态 program引用和递归；未来引入共享片段须检测引用环。
 
 ### 5.5 Counter/Flag 与结束条件
 
@@ -238,37 +248,49 @@ D03已批准Counter饱和，例trust=2/max3连续两次+1，实际变化为+1、
 
 non-battle completion 增加 condition 分支，使用同一受限局内条件；与固定rounds/manual互斥，Battle暂不接此新分支。全部己方来源和费用／资源合法完成后检查一次，达标沿 advanceCompletedActivity 推进，不由 effect直接finish。全队倒地仍优先失败；不在program执行到一半时截断其他已付费行动。这样交涉／休息确实可达标结束，不仅“卡面说增加信任”。
 
-## 6. 后续目标集合、Value 与 Card 合同
+## 6. E2 集合、Value 与后续 Card 合同
 
-### E2：集合与表达式
+### E2：集合与表达式（当前确定性子片由 Task 0316 实现）
 
-主目标在准备时保存；效果集合在执行到该语句时从独立规划状态求值，**一次解析、固定列表**。友方按Run.party，敌方按Encounter声明顺序；HP排序以整数交叉相乘比较比例，同值保留领域顺序；筛选后去重。空的合法集合视作无效果并记录0受用方，外来非法明确引用则失败；复活之前集合默认只含存活单位。
+主目标在准备时保存；效果集合在执行到该语句时从独立规划状态求值，**一次解析、固定列表**。Task0316 的 damage/heal TargetSet 使用 Party roster / Encounter Enemy 定义顺序；HP排序以整数交叉相乘比较比例，同值保留领域顺序；过滤后去重。最多32名，显式 limit 在过滤／排序后截取；省略 limit 且候选超32则拒绝。默认 living，`all` 可显式含倒地单位；合法空集合无效果并记录0受用方。每名目标依次完成其 repeat 命中，后续命中读取已更新 HP。主目标和集合身份分别处理，集合不会替换 CardRef 或 Action target。
 
-随机N名无放回，候选不足取实际人数；连续打同一个目标用有界repeat，不靠“随机允许重复”混淆。E2如不冻结RNG可先只做稳定全集，将随机选择留为E2后片。新增确定性效果流必须由Owner持有算法／种子／游标并进入checkpoint，与Hand流分离；不以UI刷新次数或requestId当随机种子。Preview只克隆流，Commit成功才装游标；失败／重试不多消耗。跨Encounter新seed分配的现有Math.random路径需专项确认，不把初始种子机制扩散为解释器随机入口。
+E2 后续合同现已由 Task 0320 冻结并实施：随机 TargetSet 无放回，候选不足时按实际人数执行；独立于 Hand RNG 的 Effect RNG 由 MapRun Owner 持有，Preview 克隆游标、成功 Commit 安装，Save/Resume 与 AG-1 Restore 可重放。有限语句体 `forTargets` 支持有界嵌套与词法 loopTarget 身份；资源余额 Value／条件读取来源开始时扣费后的 Owner 工作余额，不能读取自身尚未结算的奖励；`additionalTarget` 要显式选择一个非 CardRef 的领域单位，追加目标侧资源写入进入同一 detached 账本。具体边界及 Receipt 证据见 Task 0320 的 U08–U14 Receipts；U14 屏幕验收需求单见其 U14-screen-acceptance-report。
 
-Value分期支持常量、source/target HP/cap/missingHP、Actor/Team余额、Counter、Round、集合人数，再加add/sub/mul/div/min/max/clamp/abs；没有属性名字符串访问。建议内部整数及有理中间值，除法明确floor（向负无穷，例−3/2→−2），除0／越安全界／非有限值拒绝，数量不得为负；不是自动四舍五入或静默截成0。所有运算本身也计深度／节点预算。
+当前Value支持常量、source/primary/target HP/cap/missingHP、Counter、Round、目标集合人数及add/sub/mul/divFloor/min/max/clamp/abs；不含Actor/Team资源余额，也没有属性名字符串访问。所有中间值为安全整数；除法向负无穷取整（例−3/2→−2），除0、越界拒绝，作为伤害／治疗量时不得为负。Value节点和深度分别受界限。资源余额Value／资源条件须先冻结费用政策，否则源资格、资源状态和费用扣除相互依赖，形成循环求解。
 
 damage/heal作者语义分离，内部共享HP账本；此时尚无盾则damage直接减HP，heal不复活。复活和真实护盾另排。已倒地目标纳入revive集合须显式过滤，普通医疗不自动选择。
 
-### E3/E5：Card Tag、Pool、相对卡与修正
+### E3：静态 Action Tag 与候选池（Task 0317 已实现）
 
-- Action、Candidate、Hand、Prepared、CardRef、Ability/Item来源和UICard继续各有职责。CardPool只组织候选及权重，在 drawGameplayBHands 前组装；不成为第二份Hand或永久库存。
-- 静态Tag优先复用 `src/engine/core/tag.ts` 的跨包 TagRef（如 `gameplay-b:action/explosive`）及验证工具，不能假造 `mod:tag:xxx` 三段实体。是否要求Registry tags声明、裸Tag默认namespace在E3冻结；Tag只分类／匹配，explosive不会自动范围伤害。
-- Pool推荐先Map-local有序声明、共享有限引用，再讨论顶层可跨包表；多来源相同action按身份合并，来源顺序稳定，权重累加／优先覆盖是显式待裁定。建议保留来源诊断再累加、只做一次合法性过滤和Tendency调整；上限溢出拒绝。保留现有抽牌无重复行为与Owner RNG。
-- CardRef按run/map/node/activity/round/id重验，不用actionId或DOM ID代替；同源不同视觉卡共享引用，不额外造领域副本。未选中Command offer无CardRef，敌方意图占位与其真实Hand对象分开处理。
-- “左右相邻”须写清领域容器：推荐**同Owner的当前Hand按logicalIndex排序**，排除自身、PlayerCommand附加区与enemyIntent占位；若设计要“本轮全队执行序列相邻”，必须另用一种selector，不能同名兼任。单位前后排另建领域位置合同。
-- 费用准备只改未扣除的指定费用计算；常量折扣相加截0，互相常量折扣不形成递归求值。依赖修改后费用的条件折扣、效果依赖效果、复制自身等循环V1拒绝。
-- 后续伤害／治疗修正依effectPath和类型作用于尚未执行来源；同层加法后乘法再clamp为推荐，需另冻结；来源／目标离开本轮即清除，不反改Receipt或已结算来源。交换顺序、复制、生成／移除Card均仅E5评估，必须先确认费用、身份和终止预算。
+- Action、Candidate、Hand、Prepared、CardRef、Ability/Item来源和UICard继续各有职责。候选池只组织候选及权重，在现有 Hand 抽取前展开；不成为第二份Hand或永久库存，也不复用旧 Operation `CardPool`。
+- Action 用完整跨包 `TagRef` 声明静态 `tags`；候选池 Tag 查询沿用 `src/engine/core/tag.ts` 的同 namespace 层级前缀匹配。TagDef 只补充展示／层级信息，不是 Action Tag 引用的前置条件；裸路径没有默认 namespace。Tag 只分类与匹配，`explosive` 不会自动触发范围伤害。
+- `GameplayMapDef.candidatePools` 是 Map-local 有序定义，入口可按 Action、Tag 或嵌套 Pool 提供候选。Character／Enemy 保留直接 `actions` 并新增有序 `candidatePoolIds`；先展开直接候选，再按 pool、entry、Map Action 定义顺序展开 Tag。相同 Action 合并为一个候选、权重累加并固定首次出现位置；展开后权重超出安全整数范围拒绝。合并后仅执行一次既有资格／费用／目标筛选、Tendency 调整与 Owner RNG 无放回抽取。具体闭合合同和示例见 [[docs/plan-work/task-0317-gameplay-b-static-tags-and-candidate-pools]] 与 [[docs/examples/gameplay-b-card-tags-and-pools]]。
+- E3 只提供静态候选来源。动态 Tag、Prepared 来源选择／修正、成长注入和跨 Map Pool 留到后续子题；这些都不是旧 Operation 同名能力的自动接线，后续统一由 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 跟踪。
+
+### E5：高级组合与 Adapter
+
+- Prepared Tag 连携首片已由 [[docs/plan-work/task-0319-gameplay-b-prepared-tag-combo]] 实现：`preparedTagCount` 读取每轮开始冻结的 Party 实际准备来源 Tag 集合。每名 Party Character 只贡献一个有效准备 Action；已选 PlayerCommand 算入，Wait、未选候选、Ability／Item、Enemy Intent 与 UI 重复展示不计。完整 TagRef 按既有同 namespace 层级前缀规则匹配，每个来源最多计一次。
+- H 连携样例先执行基础伤害，再在 `when(preparedTagCount >= 2)` 分支追加 1 点普通 `damage`。该分支仍在当前有限 Effect Program 内顺序执行，不产生事件回调、递归或额外结算队列；Receipt 按提交的 Party settlements 和 Map Action Tag 独立重算快照。
+- 相对 CardRef 仍是待裁定子题。旧提议曾以同 Owner Hand 的 previous／next 作为目标，再复用 `discountSCost`；但当前每名 Owner 每轮只准备一个行动，邻接目标通常没有当前轮的受用来源，因而这一组合不能保证玩家可观察的费用变化。不能将其登记为已实现，也不保留 Task 0319 相对 CardRef 路由。未来需先定义明确的受用时点与效果，再冻结相对选择、合法性重验和 Receipt 证据。
+- 效果 Modifier、交换顺序、复制／生成／移除 Card、战术位置、临时 Item、成长快照和外部 Result Adapter 仍待裁定与实施，统一由 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 跟踪。伤害／治疗修正拟按 effectPath 与类型应用于尚未执行来源；同层加法后乘法再 clamp 仍待冻结。来源或目标离开本轮时清除，不反改已结算来源或 Receipt；循环和无界复制必须拒绝。
+- U25 已为既有 `healApplied`/`damageApplied` 资源 Trigger 实现 `minimumActualAmount`：按最终实际 HP 变化比较，低于门槛不入队、不记 Trigger Trace、不占预算；不构成击杀归属、累计命中或通用结果条件。合同与演练见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U25-e5-actual-amount-trigger-threshold-contract]] 和 [[docs/examples/gameplay-b-actual-amount-threshold]]。
+- U28 已为 directed Edge 增加单项 AG-1 MapRun Counter / Flag 门控；路线读取当前 MapRun 状态，候选池仍保留 Encounter 入场快照语义。合同和示例见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U28-e5-maprun-fact-edge-gates]] 与 [[docs/examples/gameplay-b-maprun-fact-gated-pools]]。
 
 ## 7. E4 持续状态、修正和触发的最小方向
 
+首片已由 [[docs/plan-work/task-0318-gameplay-b-encounter-statuses]] 冻结并实现为单位持有、Encounter-local 的 `burn` / `regen`，通过 Map `statuses` 与 Action `statusApply` 声明；新状态从施加后的下一轮 roundEnd 首次触发，状态结算、回执重放、存档恢复与只读显示已接通。Task 0320 的 U16/U19/U20 已依次实现 AG-1 按精确 ID 全清、指定层数消费与按显式 `harmful`/`beneficial` 类别全清；Status Receipt v2/v3/v4 按 Map 作者语义独立于 scheduler 版本重放，E1/legacy v1 路径保持。类别不会从 Status `kind` 或 UI 样式推导，未分类实例不匹配类别净化。Task 0320 U21 已实现 AG-1 `revive`、倒地 Party primary 选择与后序来源资格回放。U22 新增 `damageReduction` Status：每层固定减免 AG-1 damage request，在 Shield 吸收前按目标/每次 hit 应用；轮末只推进 duration、不改 HP。含该状态定义的 Map 使用 Status Receipt v5；U18 Shield 顺序、E1/legacy 路径保持。U23/U24 增加有限同来源 `healApplied`/`damageApplied` 队列：仅 primary HP 实际增减触发，primary Actor 获得 MapRun 资源回馈；Shield 全吸收或最终 HP 不变时不触发，两类事件共用 32 次 Commit 预算和独立 Trigger Receipt v1。U26 为自然 roundEnd 最后 tick 增加 holder 资源回馈；按 Status Trace 排在 Action Trigger 后并共用预算，以独立 Trigger Receipt v2 重算恢复，不伪造 Action 来源。U27 已实现 `damageProtection`：正向 AG-1 damage hit 消耗一层并在 damageReduction/Shield 前拦截，Status Receipt v6 与保存恢复重放接通。Task 0320 U30 已为 Party 增加显式 MapRun-lifetime Status：Root Owner 跨 Encounter/Shop 保存恢复，Status Receipt 与 scheduler v7 重算；其他 Status 持有事件与 Modifier 仍由 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 跟踪。作者字段和演练见 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/examples/gameplay-b-statuses]]、[[docs/examples/gameplay-b-revive]]、[[docs/examples/gameplay-b-damage-reduction]]、[[docs/examples/gameplay-b-damage-protection]]、[[docs/examples/gameplay-b-status-expiry-reward]]、[[docs/examples/gameplay-b-maprun-status]]、[[docs/examples/gameplay-b-heal-applied-resource]] 与 [[docs/examples/gameplay-b-damage-applied-resource]]。
+
 一次性Effect发生即结束；Status是持有者身上的层数／剩余轮数；Modifier只参与明确计算点；TriggeredEffect在明确时机安排有限程序。可以由同一个MapRun计划器处理，不需要四个新引擎。
 
-推荐首片只支持单位、Encounter-local、roundEnd的burn与regen，duration以**成功Commit后的Round边界**计，不按AC Tick或离开页面的时间计。round N施加的状态首次何时触发有两种合理规则：同轮末立即触发或N+1轮末开始；推荐后者（避免最后出手的状态少一轮／玩家难以预估），但须E4裁定并给实际两轮样例，不能现在当已实现事实。
+Task 0320 U25 将结果门控限于现有实际 Heal/Damage 事件的 `minimumActualAmount`；比较在 HP cap、DamageReduction 与 Shield 结算后完成。U26 已为自然 roundEnd 最后一次 Status tick 实现窄 `onExpire` holder 资源回馈；其他 Status 持有事件仍未实现，U25 不把 Action Trigger 扩展为 Status 订阅。
 
-推荐同定义同来源重施刷新持续时长、层数加到声明上限；不同来源分别计来源身份，再对同一计算点按稳定键排序。也允许某Status明确声明replace/max/independent，不能隐式无限叠。净化按白名单Status或公开类别，消耗层数和收益同一事务；到期先判最后一次触发再清除还是先清除必须逐种时机冻结。
+Task 0320 U30 为 `GameplayMapStatusDef` 增加可选 `lifetime: 'mapRun'`。此寿命仅允许 AG-1 的 Party Action 直接来源创建 Party holder 实例；状态唯一存放于 `MapRun.mapRunStatuses`，活动 Encounter 通过只读投影合并本地状态读取。Shop、节点与 Activity 转场不扣时长；每个成功的非终局 Encounter roundEnd 最多 tick 一次。Status Receipt v7 和 scheduler v7 重算 Origin、双 Owner 分区、tick Trace 与最终根状态，旧 Status v1–v6 / scheduler v5–v6 保持原格式。样例及合同见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U30-e4-maprun-status-contract]]、[[docs/examples/gameplay-b-maprun-status]]。
 
-跨Encounter默认清，MapRun持续状态后续显式声明；保存层数／remainingRounds／source／触发消费位及规则版本。护盾不是HP，减伤链须明确damage前、盾先后以及实际伤害0是否触发。
+Task 0318 已完成首片：只支持单位级、Encounter-local、roundEnd 的 burn 与 regen；duration 以**成功 Commit 后的 Round 边界**计，不按 AC Tick 或离开页面的时间计。Round N 施加的新状态从 N+1 的 roundEnd 首次触发；同状态同来源重施刷新时长并按定义上限加层，不同来源分别持有。状态应用与 tick 进入 MapRun 同一 detached 回合计划，失败不安装部分 HP／状态。普通来源已结束 Encounter 时跳过 Status tick；否则 tick 后检查失败优先的终态。实际 Encounter／Run 终局时清除活动状态；tick 后才终局的 Receipt 保留结算后的历史状态列表供重放，普通来源先终局的 Receipt 则以空状态列表和空 tick trace 表示跳过。数值、倒地目标和稳定顺序依据见 [[docs/plan-work/task-0318-gameplay-b-encounter-statuses]]。实屏／浏览器验收按用户指示豁免，组件行为验证已完成。
+
+首片只验证状态时间与 HP 的确定性闭环；Shield 已由 U18 完成，净化／层数消费由 U16/U19/U20 完成，U22 另完成回合限时 damageReduction，U26 完成自然到期资源回馈，U27 完成单次受击保护与 Status v6 Restore。MapRun-lifetime Party Status 已由 U30 实现；其他 Status holder 反应触发与 Modifier 仍由 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 统一跟踪。到期顺序按 Status 单独定义，不能由通用 AC Affector 或 Tick 推断。
+
+Encounter-lifetime Status 默认随 Encounter 清理；U30 允许 Map 显式声明 `lifetime: 'mapRun'`，并将 owner、来源、时长和跨 Encounter 时钟写入 Save/Receipt。护盾不是HP，减伤链须明确damage前、盾先后以及实际伤害0是否触发。
 
 反击／受治回馈后片只开放 damageApplied/healApplied 等闭合事件；事件记录先排入同一个计划队列，来源不可重入同一链。建议链深4、单Commit追加32次，超预算拒绝整个计划；不能让发布AC EventBus回调在安装中继续写Run。失败时Status／资源／HP／游标全不变。更复杂onExpire和连锁到E4后段／E5。
 
@@ -306,7 +328,7 @@ damage/heal作者语义分离，内部共享HP账本；此时尚无盾则damage�
 
 ### D 范围爆破（真实集合，E2）
 
-卡面：“对所有存活敌人各造成2点爆破伤害。”角色使用，无需额外逐个点目标，付炸药1；解析一次allLivingEnemies稳定列表，逐个damage2。TargetSet／damage类别待建。测试：已倒地排除、声明顺序稳定、候选空集0受用、非数字／超集合预算拒绝；不依UI排列。
+卡面：“对所有存活敌人各造成2点爆破伤害。”角色使用，无需额外逐个点目标，付炸药1；解析一次稳定的存活敌人集合，逐个damage2。确定性 TargetSet 与 damage/heal 已由 Task0316 支持；测试覆盖倒地过滤、声明顺序／比例排序稳定、候选空集、数值边界和超预算拒绝，不依 UI 排列。资源费用仍用既有 Cost 合同。
 
 ### E 临时强化（真实CardRef与费用阶段，E1保留／E5扩展）
 
@@ -320,9 +342,9 @@ damage/heal作者语义分离，内部共享HP账本；此时尚无盾则damage�
 
 卡面：“附加2轮燃烧；另一张引爆卡消耗燃烧层数并造成额外伤害。”角色→存活敌人；前者付火种1，Status.add；后者付弹药1，原子消费层数并damage(2＋层数×2)。不属于E1。测试：重施来源、N+1触发、消费后层数、Save时长、零层行为、失败不半消费、不得Tick推进。
 
-### H 连携攻击（未来，E3＋E5）
+### H 连携攻击（未来，E5）
 
-卡面：“若本轮准备了至少两张爆破卡，追加一次支援攻击。”角色→主目标敌人，演示费用为自身coordination1；读冻结的prepared来源Tag集合，排除Wait／UI副本，普通伤害2之后按已批准时点追加伤害1。需Tag、准备集合与有界追加，不把Candidate数量当Card数量。测试：同牌多展示只算一次、未选Command不算、修改草稿版本使旧Preview过期、追加链终止、已执行来源不被回改。
+卡面：“若本轮准备了至少两张爆破卡，追加一次支援攻击。”Task 0319 已交付 Party-only `preparedTagCount`：从每名角色本轮实际有效 `preparedActionId` 冻结一次，已选 PlayerCommand 计入，Wait／未选命令／Ability／Item／Enemy Intent／UI副本不计；每个来源按完整 TagRef 只计一次。程序先普通伤害2，再由 `when(count >= 2)` 顺序追加1点普通伤害；不创建递归追加链。测试覆盖层级 Tag 匹配、每角色只计一次、命令替换自然准备、单张不触发、回执按 Party settlement 重算及篡改拒绝。完整语义见 [[docs/plan-work/task-0319-gameplay-b-prepared-tag-combo]]。
 
 以下只是**拟定作者表达**的两个短例，不是当前可直接导入JSON；外层仍需现有Action资格、target和costs，资源在初始声明中以0或正值声明。
 
@@ -343,15 +365,17 @@ damage/heal作者语义分离，内部共享HP账本；此时尚无盾则damage�
 | 阶段 | 目标／最小作者样例 | 依赖与主要位置 | 非目标／测试与完成条件／遗留 |
 | --- | --- | --- | --- |
 | E0 合同审阅 | 核实B/C/F和旧卡，形成费用、通道、目标、预算、敏捷推荐与决策表 | Task0313 U1–U5；本Draft＋Task0312 | 文档完成可早于玩法批准；只设计，不把E0完成当产品准入 |
-| E1 基础程序 | 顺序、when/else、HP/资源、Encounter Counter/Flag、non-battle结束；A/B/C/E/F | E0；gameplay-map、map-run-service、map-card-effects、Registry、ReadModel、Save | 不做集合/随机/Status/Pool；旧卡等价、Preview零写入、失败原子、存续、实际Datapack＋一次非战斗闭环通过；剩余E2—E5 |
-| E2 集合与Value | 全体受伤治疗／范围爆破D、missingHP/人数、显式damage/heal | E1；Target resolver、pure planner、有限表达验证、来源投影 | 不做战术空间／连锁；稳定集合／空集／数值边界通过；资源条件须先解费用政策；随机可拆后片单独RNG验收 |
-| E3 静态Tag与Pool | 两个来源共同提供同一候选、一次资格过滤／权重／抽取；Tag不自动爆破 | E1的只读来源合同，技术上可独立于E2；Hand resolver前组装、Registry | 不造新Hand/Inventory；验证去重、权重溢出、相同seed、Pool环／未知引用；动态Tag和成长注入留后续 |
-| E4 状态与修正 | 先burn/regen，再shield/净化，再受伤反应G | E2伤害语义／有界状态；Encounter snapshot、planner、Save | 不接主世界Tick；边界轮次、重施／到期、链预算、失败回滚、恢复一致通过；跨Encounter与高级触发后片 |
-| E5 高级组合／Adapter | H、相对Card、战术排位、结果条件、临时Item、成长快照／外部结果 | 按子题分别依赖E2/E3/E4，不用单个巨型Task；GameInstance边界和各Owner | 每个子题另立Task；最小卡＋实际DataPack证明，不预建统一脚本／万能事务；未冻结公式继续留Draft |
+| E1 基础程序 | 顺序、when/else、HP/资源、Encounter Counter/Flag、non-battle结束；A/B/C/E/F | E0；gameplay-map、map-run-service、map-card-effects、Registry、ReadModel、Save | 不做集合/随机/Status/Pool；Task 0312 的 U18 浏览器验收已豁免，故施工流关闭不代表产品验收通过；AG-1 与 E2–E5 尚未完成能力统一见 Task 0320 |
+| E2 集合与Value | 确定性/随机集合damage/heal、受限Value、repeat与语句体循环 | Task0316、U12–U14 已实现，含资源余额条件、MapRun Facts、显式additionalTarget与 Receipt/Save/Restore | U14 运行态自动化433/433通过；实屏限制与剩余项见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] |
+| E3 静态Tag与Pool | 多来源候选合并、Fact 门控静态 Map-local Pool；Tag不自动爆破 | Task 0317 已实现静态来源；U15 已实现 MapRun Fact gate、Encounter 输入快照与 scheduler v5 Restore 重放 | Prepared筛选、成长／临时注入、动态Tag和跨 Map Pool 按 U15 明确延期/不纳入裁定，见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] |
+| E4 状态与修正 | 首片 burn/regen 的 Encounter-local 状态与 roundEnd 结算；Task 0320 U16/U19/U20/U21/U22/U23/U24/U26/U27 已完成 AG-1 Status 清除/消费/净化、Revive、伤害减免、一次性保护与 Heal/Damage 资源触发；Shield/damage pipeline 见 U18 | Task 0318 已完成 Status Apply 合同与回合边界；Task 0320 U16/U19/U20/U21/U22/U23/U24/U26/U27 分别增加 ID 清除、层数消费、类别净化、`revive`、damageReduction、闭合实际 HP 事件、自然到期 holder 回馈与 damageProtection；Status v6 Restore 重算并拒绝篡改，E1/legacy v1 路径保持 | 已完成 burn/regen、Shield/damage、Status ID 清除、层数消费、类别净化、Revive、damageReduction、damageProtection、primary Heal/Damage 回馈与自然到期 holder 回馈；U30 已实现 Party MapRun Status 跨 Encounter 寿命；其他 Status 事件与 Modifier 仍由 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]] 跟踪；不代表 E4 整体完成 |
+| E5 高级组合／Adapter | H、相对Card、战术排位、结果条件、临时Item、成长快照／外部结果 | Prepared Tag 连携首片由 Task 0319 完成；U17 CardRef 修正、U25 实际 HP 门槛、U28 Fact Edge 门控与 U29 单体击杀回馈由 Task 0320 完成；其它范围仍在统一 Task 裁定 | Task 0319 与 U17/U25/U28/U29 均不代表 E5 整体完成；统一 Task 继续冻结、实施或明确延期剩余合同并以真实 DataPack 证明；不预建统一脚本／万能事务 |
 
-只有 E1 形成首个正式格式的**待审 Task 草案**；不为未冻结高级方向建立完整实施Task，也不把E1全部内容塞一个Patch Unit。E0没有完成前，执行模型不能把本文候选op当已批准功能开工。
+AG-1 与 E2–E5 的未完成范围仍由 Task 0320 统一跟踪；U14/U15 与 U16–U27 的已实施首片不代表 E2–E5 整体完成，其他候选能力仍须依 Task 逐项冻结、实现或明确延期。E1 实施流另见 Task 0312；U18 验收豁免不由 Task 0320 重开。执行方不能把本文候选 op 直接当成已批准功能开工。
 
 ## 11. E0裁定记录：推荐优先，玩法与工程分开
+
+本节保留 E1 最初批准的语义合同；后续 Task 0315 已更新 HP 原语与旧 Action 字段准入。需要实现现状时，以本文件开头的“实现状态与当前路由”以及当前数据契约为准，不把历史施工兼容路径当成当前合同。
 
 来源：Task0313 A01–A06及U1源码证据；2026-10-21用户本轮要求“对每个待批问题，优先给出一个推荐默认方案及其可观察结果”“不要把纯粹的内部实现细节全部升级为用户审批事项”。批准记录：用户于2026-10-21在本会话回复**“全部按推荐”**，对应上一答复及Task0313 §9.2决策表P1–P8全部推荐；覆盖D01/D03/D05、D09/D10/D11的Actorless补足及D02-AG/D02-DISCOUNT/D04-AG/D05-AG。以下这些条目的推荐现为已确认合同，备选仅留作未采用方案的审阅记录。此批准不扩展E2–E5或代表产品已实现。原Unit中要求每项都列2–3方案的写法，以本轮用户要求为准。工程默认是执行方在已授权设计范围内的技术裁定，仍须后续产品Unit实现和验证。
 
@@ -390,12 +414,12 @@ D01推荐允许else、拒绝资源条件属于首期能力合同；它们不会�
 - **D06资源和上下文**：resourceId是MapRun局内键，不要求同名AC Resource存在。程序引用的sourceActor/primaryActor/sourceTeam余额必须由相应Map初始条目或Encounter Enemy初始条目声明，初值0有效；Actor资源键按现有规则对参与Actor物化，Team按阵营分池；安装必须遍历完整物化余额。Counter/Flag同Encounter共享名字域；资源有独立域，可同拼写但不得串账户。Action在Encounter A/B共用，而B漏trust→Registry定位B/Action/effectPath，不以A声明代偿。遍历所有可能引用source，包括未选中分支；Actorless保留无任何额外Action cost、仅unit主目标的资格限制，禁止source HP/sourceActor/self/card target；新program允许合法unit主目标的primary/primaryActor及来源party Team，逐上下文静态校验；新prepare替代旧cardEffects时同步card target有效性校验。Map-local Action仍不跨Map共享，未来跨Map复用必须声明依赖并逐上下文绑定，不在E1增加全局模板。
 - **D07 trace最小字段**：programReceiptVersion、executionContractId；每个访问记录sourceKey/actionId、effectPath、语句种类、受用身份；变化记实际delta及必要before/after（Flag为bool），guard记结果及实际读到的白名单HP/cap/local值；0变化也留记录。费用/HP继续现有settlement投影，trace与分组互校，不能重复施加。仅保留最近成功轮，不保存全世界/函数/编译缓存。requestId、commandVersion/resultingCommitVersion、draftVersion及Scope仍沿当前幂等合同。
 - **D07恢复能力**：从当前定义核合法path/op/常量/声明/分支、guard读数与计算、同字段before→after连续性、实际delta方向/截界、费用和库存最多一次；同Encounter尚存在时，对可核字段的末值与checkpoint互校。已退出Encounter仅能核前一轮摘要内部一致性与定义，不能从下一Encounter快照证明前一轮所有真实历史，也不声称防住协同伪造的完整历史。损坏path/局部链/规则或格式版本/缺locals/Scope拒绝；内容不兼容提高resumeVersion，save codec版本按产品改动同步，不写旧档迁移器。terminal result当前不落存档，不借E1新增历史Owner。
-- **D08计数**：program静态64 = prepare叶子+resolve语句（含when本体）+条件树每个谓词/逻辑节点；then与else全计，数组容器不计。resolve根深度1，进入when子列表+1；条件树根1，每嵌套逻辑+1，两种深度各≤4；prepare另≤8。locals是counters+flags声明总数≤64。动态4096累计整轮所有新program来源：每访问一条语句、一个条件节点、一个prepare叶子计1；短路条件未访问节点不计，未执行分支/skip source的resolve不计；预处理只计一次。旧数组规范化仍用原有内容校验，不把新64/4096追溯限制到旧图。预算耗尽整个detached plan拒绝，不保存截断trace，不装HP/locals/费用/库存/RNG；E2的32目标/8重复/1024展开仅后续建议。
-- **D12先后**：工程推荐E0→E1-COMPAT-1→独立AG-1，后者复用已验收的原语、trace、局内状态和Owner接线；允许并行讨论，不同时改同一planner/restore。用户若选AG先做，需重审E1金样与接线顺序，当前不生成新产品Task编号。
+- **D08计数**：program静态64 = prepare叶子+resolve语句（含when本体）+条件树每个谓词/逻辑节点；then与else全计，数组容器不计。resolve根深度1，进入when子列表+1；条件树根1，每嵌套逻辑+1，两种深度各≤4；prepare另≤8。locals是counters+flags声明总数≤64。动态4096累计整轮所有新program来源：每访问一条语句、一个条件节点、一个prepare叶子计1；短路条件未访问节点不计，未执行分支/skip source的resolve不计；预处理只计一次。旧数组规范化仍用原有内容校验，不把新64/4096追溯限制到旧图。预算耗尽整个detached plan拒绝，不保存截断trace，不装HP/locals/费用/库存/RNG；Task0316另对每来源最多1024 E2展开单位、每集合最多32目标、每条 damage/heal 最多 repeat8。
+- **D12先后**：工程推荐E0→E1-COMPAT-1→独立AG-1，后者复用已验收的原语、trace、局内状态和Owner接线；允许并行讨论，不同时改同一planner/restore。用户后续明确要求排除E1 U18并统一推进其余未完成项，因此AG-1已并入Task 0320；只更新实施路由，不重裁合同或表示U18验收通过。
 
 ### 11.4 后续范围
 
-Status首触发时点、Pool多来源合并、外部成长公式/Adapter仍属E3–E5，不阻塞本轮E1准入。A01–A06是Task0313已记录的人类规则，不重新开放统一排序、卡牌上限或是否改变抽牌概率。
+AG-1已批准合同的实现，以及Status触发后片、动态候选、外部成长公式／Adapter和Prepared Card组合等E2–E5剩余能力统一见 [[docs/plan-work/task-0320-gameplay-b-ag1-e2-e5-unified-closure]]，不阻塞E1准入。E3静态Pool多来源合并已由Task0317冻结并实现。A01–A06是Task0313已记录的人类规则，不重新开放统一排序、卡牌上限或是否改变抽牌概率。
 
 ## 12. 验证、风险与创建轮历史记录
 
@@ -411,7 +435,7 @@ Status首触发时点、Pool多来源合并、外部成长公式/Adapter仍属E3
 
 ### 13.1 已确认原则与本轮批准的精确合同
 
-A01–A06按Task0313 §3.1记录的人类需求：本轮实际卡牌行为统一按最终敏捷排序；有基础和最高值、角色补足不破上限；最终同速才比次级、次级再同我方优先；不改抽取概率/次数/费用或效果公式；声明式、单planner/Owner；独立Runtime后续施工。本轮P4–P8推荐的精确合同已由用户2026-10-21“全部按推荐”批准，共用程序/Counter/non-battle规则随P1–P3一并确认；独立Runtime仍等待E1前置实现。
+A01–A06按Task0313 §3.1记录的人类需求：本轮实际卡牌行为统一按最终敏捷排序；有基础和最高值、角色补足不破上限；最终同速才比次级、次级再同我方优先；不改抽取概率/次数/费用或效果公式；声明式、单planner/Owner；独立Runtime后续施工。本轮P4–P8推荐的精确合同已由用户2026-10-21“全部按推荐”批准，共用程序/Counter/non-battle规则随P1–P3一并确认；AG-1实施路由已由用户明确改为与E2–E5同Task推进；U18仍按豁免记录。
 
 | ID／状态／阻塞 | 推荐默认及可观察结果 | 未采用的实质玩法备选与差异 | 来源／理由／用例 |
 | --- | --- | --- | --- |
@@ -422,7 +446,7 @@ A01–A06按Task0313 §3.1记录的人类需求：本轮实际卡牌行为统一
 | D02-DISCOUNT 已确认；仅AG | prepare仍是结算前固定准备阶段，双方所有轮初合法选中有实体来源先统一算折扣；后面被击倒不撤回其已生效折扣。多个折扣截到原sCost，未选Hand可作合法目标但不产生执行来源/当轮减费收益 | 改在折扣源执行时生效：慢源被高速击倒→折扣0；先执行的付费卡不享后来折扣；将有意改变准备期定义和费用可付性 | 全局预处理消除按敌方名册“后续”与真实敏捷顺序冲突；只减当前Actor sCost，不回溯、不送资源。EQ02、AG08 |
 | D04-AG/D05-AG 已确认；仅AG | 本源开始先查已终局roundEnded，再查实体来源倒地defeated；均不执行、不付Actor/Team/Ability费、不扣Item，Command选中费例外；同源程序完整后查Battle终局，failure优先，后续来源全roundEnded。显式目标仍锁定且HP0变化0/正常收费；自动无替补免费skip | 战斗整队列末判：高速清敌后慢Item仍执行并扣1；来源倒地若仍执行，会让已倒地者反击，效果与推荐不同；不推荐。本轮non-battle仍按D05整轮末检查 | 先手击倒有实质战术作用；同源不截半，普通hpChange不复活。AG04/05/09/10/11 |
 | D07-AG 工程默认；不另审批 | 保存可复验输入与有界实际执行序列，旧分组仅作投影；恢复重算final/tie/order，不能只信序号 | 无内部格式备选 | U1旧Receipt无统一序列。EQ05、NEW07 |
-| D12 工程默认；不另审批 | E1-COMPAT-1验收后再接AG-1；并行设计不并行改planner/restore，旧Map启用敏捷须提高resumeVersion | 用户若明确要求AG先行，才重排E1基准；本轮不作为待批玩法选型 | 避免双方持不同阶段表接同一Owner；E1不依赖D09/D10获批 |
+| D12 工程默认；不另审批 | 原建议为E1-COMPAT-1验收后再接AG-1；用户已明确要求将AG-1实施并入Task 0320，合同保持不变，旧Map启用敏捷须提高resumeVersion | 当前执行路由已按用户明确要求更新；只改实施顺序，不重裁已批准合同 | 避免双方持不同阶段表接同一Owner；E1不依赖D09/D10获批 |
 
 ### 13.2 字段、来源、冻结与稳定尾序
 

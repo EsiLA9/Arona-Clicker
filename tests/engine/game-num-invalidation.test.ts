@@ -13,7 +13,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // 多帧 tick 基线由 game-num-snapshot.test.ts 覆盖。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Expr, value, cond, and } from '../../src/engine/types';
 import { spot } from '../../src/arona-clicker/content/def-factory/spot';

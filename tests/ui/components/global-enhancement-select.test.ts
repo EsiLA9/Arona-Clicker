@@ -3,11 +3,11 @@
 // 与右侧强化面板的 global 过滤
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
-import { createUIContext } from '../../../src/ui/context';
-import { renderSelectorPage } from '../../../src/ui/components/selector-page';
-import { renderEnhancements } from '../../../src/ui/components/enhancements';
+import { createUIContext } from '../../../src/ui/runtime/context';
+import { renderSelectorPage } from '../../../src/ui/components/navigation/selector-page';
+import { renderEnhancements } from '../../../src/ui/components/inventory/enhancements';
 
 const OFFICE = 'base:init:schale_office';
 const PYROXENE = 'base:resource:pyroxene';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { UIHostRegistry, UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
-import { getPresentationTargets, presentationTargetForLegacyRegion } from '../../src/ui/presentation-targets';
+import { UIHostRegistry, UI_HOST_REGISTRY } from '../../src/ui/runtime/ui-host-registry';
+import { getPresentationTargets, presentationTargetForLegacyRegion } from '../../src/ui/presentation/presentation-targets';
 
 describe('UI Host Registry', () => {
   it('把服务声明自动暴露给主题目标选择器', () => {

@@ -9,9 +9,9 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` §“路由、会话与生命周期”及“门控、提交与更新边界” | route 生命周期与局部更新验收 |
-| 源码 | `src/ui/controller.ts:requestMapWorkspaceRefresh/applyUIUpdate/refreshMapWorkspaceRegion/render` | 现有 region dispatcher、MapFlow 清理与 route-only 生命周期 |
+| 源码 | `src/ui/controller/controller.ts:requestMapWorkspaceRefresh/applyUIUpdate/refreshMapWorkspaceRegion/render` | 现有 region dispatcher、MapFlow 清理与 route-only 生命周期 |
 | 源码 | `src/ui/workspace/map-dom-updates.ts:patchMapDOM` | 复用 keyed reconciliation / popover 替换范围 |
-| 源码 | `src/ui/components/map-entry-workspace.ts:renderMapEntryWorkspace` | 准备页稳定 Host、成员语义 key 与局部区域 |
+| 源码 | `src/ui/components/map/map-entry-workspace.ts:renderMapEntryWorkspace` | 准备页稳定 Host、成员语义 key 与局部区域 |
 | 文档 | `docs/docs-829/06-wiki/50-ui/refresh-update.md` | 当前项目 refresh 类别和回退语义 |
 
 ## Context Budget
@@ -36,9 +36,9 @@
 
 | 事实 | 依据（路径 / 符号） | 备注 |
 | --- | --- | --- |
-| `requestMapWorkspaceRefresh` 与 `applyUIUpdate` 目前只对 route kind map 使用 Map 区域刷新 | `src/ui/controller.ts:requestMapWorkspaceRefresh/applyUIUpdate` | map-entry 需单独 region host 路径 |
+| `requestMapWorkspaceRefresh` 与 `applyUIUpdate` 目前只对 route kind map 使用 Map 区域刷新 | `src/ui/controller/controller.ts:requestMapWorkspaceRefresh/applyUIUpdate` | map-entry 需单独 region host 路径 |
 | `patchMapDOM` 可复用 `data-workspace-frame`、column、theme host、focus 和 map region key 做递归 keyed patch，并在真正移除前通知 overlay owner | `src/ui/workspace/map-dom-updates.ts` | 页面可以共用现有协调器 |
-| 当前 root `render()` 会重建 UI；普通页面数据更新应经现有 UIUpdate dispatcher 定向请求 | `src/ui/controller.ts:render/flushUIUpdates` | tick 不得刷新整个页面 |
+| 当前 root `render()` 会重建 UI；普通页面数据更新应经现有 UIUpdate dispatcher 定向请求 | `src/ui/controller/controller.ts:render/flushUIUpdates` | tick 不得刷新整个页面 |
 
 ## Constraints
 
@@ -51,8 +51,8 @@
 
 ## Allowed Files
 
-- `src/ui/controller.ts`
-- `src/ui/components/map-entry-workspace.ts`
+- `src/ui/controller/controller.ts`
+- `src/ui/components/map/map-entry-workspace.ts`
 
 ## Explicit Non-goals
 

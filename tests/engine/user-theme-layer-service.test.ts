@@ -12,8 +12,8 @@ import {
   setTargetLayerEnabled,
   updateTargetLayer,
   withPreviewLayer,
-} from '../../src/arona-clicker/services/user-theme-layer-service';
-import { validateUserThemeDraft } from '../../src/arona-clicker/services/user-theme-service';
+} from '../../src/arona-clicker/services/presentation/user-theme-layer-service';
+import { validateUserThemeDraft } from '../../src/arona-clicker/services/presentation/user-theme-service';
 import type { UserThemeDraft } from '../../src/arona-clicker/types/user-theme';
 
 const layer = (id: string | undefined, value: string) => ({ id, kind: 'solid' as const, value });

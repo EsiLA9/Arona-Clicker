@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 import { finishWelcome, makePack, supplyPack } from '../engine/story-test-fixtures';
 import { and } from '../../src/engine/types';
-import '../../src/ui/service-definitions';
+import '../../src/ui/runtime/service-definitions';
 
 const ENTRY = 'test:activestory:history';
 const STORY = 'test:story:history';

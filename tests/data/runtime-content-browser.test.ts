@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { extra } from '../../src/engine/types';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import type { ContentCatalogQueryPort } from '../../src/arona-clicker/contracts/content-catalog';
+import type { ContentCatalogQueryPort } from '../../src/arona-clicker/contracts/runtime/content-catalog';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Registry } from '../../src/data-services/registry/registry';
 import {

@@ -6,9 +6,9 @@
 
 | 项 | 已有实现 / 来源 | 复用用法与边界 |
 | --- | --- | --- |
-| 底色与表面 | `src/ui/css/variables.css` 提供 `--canvas`、`--panel`、`--panel-light`、`--line` 兜底；`src/ui/theme-tree.ts` 注入运行时主题变量 | 按画布、面板、次级表面角色使用，不新定页面专属浅蓝或白色体系 |
+| 底色与表面 | `src/ui/css/variables.css` 提供 `--canvas`、`--panel`、`--panel-light`、`--line` 兜底；`src/ui/presentation/theme-tree.ts` 注入运行时主题变量 | 按画布、面板、次级表面角色使用，不新定页面专属浅蓝或白色体系 |
 | 内容与弱化文本 | `--ink-on-panel`、`--ink-on-panel-light`、`--muted-on-panel` 等背景感知变量 | 选择与实际宿主背景对应的角色，不将正文或禁用态固定成某种灰色 |
-| 宿主颜色与状态 | `src/ui/css/layout.css` 消费 `--theme-node-*`、`--ui-button-*`；`src/ui/components/tabs.ts` 输出 host/state 元数据 | 沿用对应宿主的普通、active、hover、disabled 表现；主题可变化，不另建状态配色 |
+| 宿主颜色与状态 | `src/ui/css/layout.css` 消费 `--theme-node-*`、`--ui-button-*`；`src/ui/components/shared/tabs.ts` 输出 host/state 元数据 | 沿用对应宿主的普通、active、hover、disabled 表现；主题可变化，不另建状态配色 |
 | 字体 | `variables.css` 的 body 使用 Manrope / sans-serif；`layout.css` 的工具按钮和标题等存在 DM Mono 与中文字体角色 | 优先继承目标组件排版，必要时参考同类页面；现状没有全局统一字号表，不新增字体制造页面差异 |
 | 工作区几何 | `--workspace-gap`、`--workspace-left-width`、`--workspace-center-width`、`--workspace-right-width` | 使用共享 Frame 的 preset / composition / responsive，避免复制三栏几何 |
 | 面板节奏 | `--panel-radius`、`--panel-shadow`、`--panel-content-padding`、`--panel-region-gap` | 继承面板 token 和共享标题区域；局部内容间距按相邻组件处理，不编造全局尺寸表 |

@@ -2,9 +2,11 @@ import { describe, expect, test } from 'vitest';
 import type { Datapack, GameplayMapDef } from '../../src/data-services';
 import type { SpotFunctionalityDef } from '../../src/data-services/contracts/world';
 import { Registry } from '../../src/data-services/registry/registry';
-import { SpotFunctionalitySystem } from '../../src/arona-clicker/services/spot-functionality';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { SpotFunctionalitySystem } from '../../src/arona-clicker/services/world/spot-functionality';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import type { FunctionalityState } from '../../src/engine/contracts/state-query';
+import { tagRef } from '../../src/engine/core/tag';
+import { resolveGameplayMapCandidateSources } from '../../src/data-services/validation/gameplay-map-candidate-pools';
 
 const MAP_ID = 'test:map:vertical_slice';
 const TEST_CHARACTER_ID = 'shiroko';
@@ -67,7 +69,7 @@ const VALID_MAP_ACTIONS: NonNullable<GameplayMapDef['actions']> = [
     name: 'Inspect',
     eligibleCharacterIds: [TEST_CHARACTER_ID],
     target: { kind: 'none' },
-    effects: [{ scope: 'team', resourceId: 'clues', amount: 1 }],
+    effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 1 }] },
   },
   {
     id: 'focus',
@@ -75,7 +77,7 @@ const VALID_MAP_ACTIONS: NonNullable<GameplayMapDef['actions']> = [
     eligibleCharacterIds: [TEST_CHARACTER_ID],
     target: { kind: 'self' },
     costs: [{ scope: 'actor', resourceId: 'stamina', amount: 1 }],
-    effects: [{ scope: 'actor', resourceId: 'focus', amount: 1 }],
+    effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceActor', resourceId: 'focus', delta: 1 }] },
   },
   {
     id: 'assist',
@@ -83,14 +85,17 @@ const VALID_MAP_ACTIONS: NonNullable<GameplayMapDef['actions']> = [
     eligibleCharacterIds: [TEST_CHARACTER_ID],
     target: { kind: 'partyCharacter' },
     costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
-    effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }],
+    effectProgram: { resolve: [{ op: 'resourceChange', account: 'primaryActor', resourceId: 'focus', delta: 1 }] },
   },
 ];
 const VALID_ACTION_MAP: GameplayMapDef = {
   ...VALID_MAP,
   actions: VALID_MAP_ACTIONS,
-  initialActorResources: [{ characterId: TEST_CHARACTER_ID, resourceId: 'stamina', value: 2 }],
-  initialTeamResources: [{ resourceId: 'supplies', value: 1 }],
+  initialActorResources: [
+    { characterId: TEST_CHARACTER_ID, resourceId: 'stamina', value: 2 },
+    { characterId: TEST_CHARACTER_ID, resourceId: 'focus', value: 0 },
+  ],
+  initialTeamResources: [{ resourceId: 'supplies', value: 1 }, { resourceId: 'clues', value: 0 }],
   nodes: VALID_MAP.nodes.map(node => node.id === 'middle'
     ? {
         ...node,
@@ -115,21 +120,21 @@ const VALID_BATTLE_ACTIONS: NonNullable<GameplayMapDef['actions']> = [
     name: 'Strike',
     eligibleCharacterIds: [TEST_CHARACTER_ID],
     target: { kind: 'enemy' },
-    hpEffects: [{ amount: -2 }],
+    effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 2 }] },
   },
   {
     id: 'ability',
     name: 'Ability',
     eligibleCharacterIds: [],
     target: { kind: 'enemy' },
-    hpEffects: [{ amount: -3 }],
+    effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 3 }] },
   },
   {
     id: 'medkit-use',
     name: 'Use Medkit',
     eligibleCharacterIds: [],
     target: { kind: 'partyCharacter' },
-    hpEffects: [{ amount: 4 }],
+    effectProgram: { resolve: [{ op: 'heal', target: 'primary', amount: 4 }] },
   },
 ];
 const VALID_BATTLE_ENCOUNTER: NonNullable<GameplayMapDef['nodes'][number]['encounter']> = {
@@ -393,6 +398,146 @@ const invalidMapRunValues: Array<{
 ];
 
 describe('Gameplay B Map Registry', () => {
+  test('accepts a single declared MapRun Counter or Flag gate on an AG-1 Edge', () => {
+    const mapRunFacts = {
+      counters: [{ id: 'progress', initial: 0, min: 0, max: 4 }],
+      flags: [{ id: 'route-open', initial: false }],
+    };
+    for (const condition of [
+      { kind: 'counter', counterId: 'progress', comparison: 'gte', value: 2 },
+      { kind: 'flag', flagId: 'route-open', value: true },
+    ] as const) {
+      const map: GameplayMapDef = {
+        ...VALID_MAP,
+        executionContractId: 'AG-1',
+        mapRunFacts,
+        edges: [{ fromNodeId: 'start', toNodeId: 'middle', condition }, { fromNodeId: 'middle', toNodeId: 'exit' }],
+      };
+      expect(() => new Registry().load(makeDatapack({ maps: [map] }))).not.toThrow();
+    }
+  });
+
+  test.each([
+    ['undeclared Counter', { kind: 'counter', counterId: 'missing', comparison: 'gte', value: 1 }, { counters: [], flags: [] }, /未声明为 MapRun Counter/],
+    ['wrong Fact kind', { kind: 'counter', counterId: 'route-open', comparison: 'gte', value: 1 }, { counters: [], flags: [{ id: 'route-open', initial: false }] }, /未声明为 MapRun Counter/],
+    ['unknown comparison', { kind: 'counter', counterId: 'progress', comparison: 'neq', value: 1 }, { counters: [{ id: 'progress', initial: 0, min: 0, max: 2 }] }, /comparison/],
+    ['non-boolean Flag value', { kind: 'flag', flagId: 'route-open', value: 1 }, { flags: [{ id: 'route-open', initial: false }] }, /value 必须是 boolean/],
+    ['Edge Fact gate on E1', { kind: 'flag', flagId: 'route-open', value: true }, { flags: [{ id: 'route-open', initial: false }] }, /需要 executionContractId AG-1/],
+    ['extra gate field', { kind: 'flag', flagId: 'route-open', value: true, anyOf: [] }, { flags: [{ id: 'route-open', initial: false }] }, /合同外字段/],
+  ])('rejects invalid Edge Fact gate: %s', (_label, condition, mapRunFacts, error) => {
+    const usesFactGate = condition.kind === 'counter' || condition.kind === 'flag';
+    const map = {
+      ...VALID_MAP,
+      ...(usesFactGate && _label !== 'Edge Fact gate on E1' ? { executionContractId: 'AG-1' } : {}),
+      mapRunFacts,
+      edges: [{ fromNodeId: 'start', toNodeId: 'middle', condition }, { fromNodeId: 'middle', toNodeId: 'exit' }],
+    } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(error);
+  });
+
+  test('accepts the AG-1 contract with capped Action agility and sparse fixed-party supplements', () => {
+    const base = battleMapWithEncounter({
+      title: 'Battle',
+      enemies: [{ id: 'raider', initialHp: 8, maxHp: 10 }],
+      participants: [{ characterId: TEST_CHARACTER_ID, actions: [{ actionId: 'strike', tendencyWeight: 1 }] }],
+    }, [VALID_BATTLE_ACTIONS[0]!]);
+    const ag1Map: GameplayMapDef = {
+      ...base,
+      executionContractId: 'AG-1',
+      partyAgility: [{ characterId: TEST_CHARACTER_ID, agility: 3 }],
+      actions: [{ ...VALID_BATTLE_ACTIONS[0]!, agility: { base: 2, max: 8 } }],
+      nodes: base.nodes.map(node => node.id === 'middle'
+        ? { ...node, encounter: { ...node.encounter!, enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, agility: 4 }] } }
+        : node),
+    };
+    const registry = new Registry();
+    registry.load(makeDatapack({ maps: [ag1Map] }));
+    expect(registry.maps.get(MAP_ID)).toEqual(ag1Map);
+  });
+
+  test('keeps omitted and explicit E1 execution contracts compatible', () => {
+    const base = battleMapWithEncounter({
+      title: 'Battle',
+      enemies: [{ id: 'raider', initialHp: 8, maxHp: 10 }],
+      participants: [{ characterId: TEST_CHARACTER_ID, actions: [{ actionId: 'strike', tendencyWeight: 1 }] }],
+    }, [VALID_BATTLE_ACTIONS[0]!]);
+    for (const map of [base, { ...base, executionContractId: 'E1-COMPAT-1' as const }]) {
+      const registry = new Registry();
+      registry.load(makeDatapack({ maps: [map] }));
+      expect(registry.maps.get(MAP_ID)).toEqual(map);
+    }
+  });
+
+  test('accepts only AG-1 additionalTarget values on unit-target Actions', () => {
+    const base = battleMapWithEncounter({
+      title: 'Battle', enemies: [{ id: 'raider', initialHp: 8, maxHp: 10 }],
+      participants: [{ characterId: TEST_CHARACTER_ID, actions: [{ actionId: 'strike', tendencyWeight: 1 }] }],
+    }, [VALID_BATTLE_ACTIONS[0]!]);
+    for (const additionalTarget of ['partyCharacter', 'enemy'] as const) {
+      expect(() => new Registry().load(makeDatapack({ maps: [{ ...base, executionContractId: 'AG-1',
+        actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'enemy' }, additionalTarget }] }] }))).not.toThrow();
+    }
+    for (const [label, map, error] of [
+      ['E1', { ...base, actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'self' }, additionalTarget: 'enemy' }] }, /additionalTarget 只允许用于 AG-1 Map/],
+      ['unknown value', { ...base, executionContractId: 'AG-1', actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'self' }, additionalTarget: 'all' }] }, /partyCharacter 或 enemy/],
+      ['self target', { ...base, executionContractId: 'AG-1', actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'self' }, additionalTarget: 'enemy' }] }, /requires a partyCharacter or enemy unit target/],
+      ['none target', { ...base, executionContractId: 'AG-1', actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'none' }, additionalTarget: 'enemy' }] }, /requires a partyCharacter or enemy unit target/],
+      ['card target', { ...base, executionContractId: 'AG-1', actions: [{ ...VALID_BATTLE_ACTIONS[0]!, target: { kind: 'card', side: 'ally' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] }, additionalTarget: 'enemy' }] }, /requires a partyCharacter or enemy unit target/],
+    ] as const) {
+      expect(() => new Registry().load(makeDatapack({ maps: [map as unknown as GameplayMapDef] })), label).toThrow(error);
+    }
+  });
+
+  test.each([
+    ['unknown execution contract', { executionContractId: 'AG-2' }, /executionContractId/],
+    ['Action agility on an E1 Map', { actions: VALID_BATTLE_ACTIONS.map(action => action.id === 'strike' ? { ...action, agility: { base: 1, max: 2 } } : action) }, /agility 只允许用于 AG-1 Map/],
+    ['Party agility on an E1 Map', { partyAgility: [{ characterId: TEST_CHARACTER_ID, agility: 1 }] }, /partyAgility 只允许用于 AG-1/],
+    ['Enemy agility on an E1 Map', { nodes: VALID_BATTLE_MAP.nodes.map(node => node.id === 'middle' ? { ...node, encounter: { ...node.encounter!, enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, agility: 1 }] } } : node) }, /agility 只允许用于 AG-1 Map/],
+  ])('rejects $label', (_label, overrides, error) => {
+    const map = { ...VALID_BATTLE_MAP, ...overrides } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(error);
+  });
+
+  test.each([
+    ['missing max', { base: 1 }],
+    ['extra field', { base: 1, max: 2, source: 3 }],
+    ['negative base', { base: -1, max: 2 }],
+    ['fractional maximum', { base: 1, max: 2.5 }],
+    ['unsafe maximum', { base: 1, max: Number.MAX_SAFE_INTEGER + 1 }],
+    ['base above maximum', { base: 3, max: 2 }],
+  ])('rejects AG-1 Action agility with %s', (_label, agility) => {
+    const action = { ...VALID_BATTLE_ACTIONS[0]!, agility };
+    const map = { ...VALID_BATTLE_MAP, executionContractId: 'AG-1', actions: [action, ...VALID_BATTLE_ACTIONS.slice(1)] } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(/agility/);
+  });
+
+  test.each([
+    ['duplicate party Character', [{ characterId: TEST_CHARACTER_ID, agility: 1 }, { characterId: TEST_CHARACTER_ID, agility: 2 }], /重复 Character/],
+    ['outside fixed party', [{ characterId: TEST_CHARACTER_2.id, agility: 1 }], /必须属于 Map partyCharacterIds/],
+    ['negative supplement', [{ characterId: TEST_CHARACTER_ID, agility: -1 }], /非负安全整数/],
+    ['fractional supplement', [{ characterId: TEST_CHARACTER_ID, agility: 1.5 }], /非负安全整数/],
+    ['unsafe supplement', [{ characterId: TEST_CHARACTER_ID, agility: Number.MAX_SAFE_INTEGER + 1 }], /非负安全整数/],
+    ['extra field', [{ characterId: TEST_CHARACTER_ID, agility: 1, source: 2 }], /合同外字段/],
+  ])('rejects AG-1 party agility with %s', (_label, partyAgility, error) => {
+    const map = { ...VALID_BATTLE_MAP, executionContractId: 'AG-1', partyAgility } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map], characters: [TEST_CHARACTER, TEST_CHARACTER_2] }))).toThrow(error);
+  });
+
+  test.each([
+    ['negative value', -1],
+    ['fractional value', 1.5],
+    ['unsafe value', Number.MAX_SAFE_INTEGER + 1],
+  ])('rejects AG-1 Enemy agility with %s', (_label, agility) => {
+    const map = {
+      ...VALID_BATTLE_MAP,
+      executionContractId: 'AG-1',
+      nodes: VALID_BATTLE_MAP.nodes.map(node => node.id === 'middle'
+        ? { ...node, encounter: { ...node.encounter!, enemies: [{ id: 'raider', initialHp: 8, maxHp: 10, agility }] } }
+        : node),
+    } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(/agility 必须是非负安全整数/);
+  });
+
   test('merges, overrides, queries, and clears Map definitions', () => {
     const registry = new Registry();
     registry.load(makeDatapack({ maps: [VALID_MAP] }));
@@ -416,6 +561,101 @@ describe('Gameplay B Map Registry', () => {
     const invalidMap = { ...VALID_MAP, resumeVersion };
     expect(() => new Registry().load(makeDatapack({ maps: [invalidMap] })))
       .toThrow(/resumeVersion must be a positive safe integer/);
+  });
+
+  test('accepts optional MapRun Facts and keeps their namespace separate from Encounter locals', () => {
+    const map: GameplayMapDef = {
+      ...VALID_MAP,
+      mapRunFacts: {
+        counters: [{ id: 'progress', initial: 2, min: 0, max: 5 }],
+        flags: [{ id: 'opened', initial: false }],
+      },
+      nodes: VALID_MAP.nodes.map(node => node.id === 'middle'
+        ? { ...node, encounter: { ...node.encounter!, locals: { counters: [{ id: 'progress', initial: 1, min: 0, max: 3 }] } } }
+        : node),
+    };
+    const registry = new Registry();
+    registry.load(makeDatapack({ maps: [map] }));
+    expect(registry.maps.get(MAP_ID)?.mapRunFacts).toEqual(map.mapRunFacts);
+
+    const legacyRegistry = new Registry();
+    legacyRegistry.load(makeDatapack({ maps: [VALID_MAP] }));
+    expect(legacyRegistry.maps.get(MAP_ID)?.mapRunFacts).toBeUndefined();
+  });
+
+  test.each([
+    {
+      label: 'duplicate Counter IDs',
+      mapRunFacts: { counters: [
+        { id: 'progress', initial: 0, min: 0, max: 1 },
+        { id: 'progress', initial: 0, min: 0, max: 1 },
+      ] },
+      error: /含重复 Counter \/ Flag id "progress"/,
+    },
+    {
+      label: 'duplicate Flag IDs',
+      mapRunFacts: { flags: [{ id: 'opened', initial: false }, { id: 'opened', initial: true }] },
+      error: /含重复 Counter \/ Flag id "opened"/,
+    },
+    {
+      label: 'Counter and Flag IDs that collide',
+      mapRunFacts: {
+        counters: [{ id: 'shared', initial: 0, min: 0, max: 1 }],
+        flags: [{ id: 'shared', initial: false }],
+      },
+      error: /含重复 Counter \/ Flag id "shared"/,
+    },
+    {
+      label: 'Counter initial below min',
+      mapRunFacts: { counters: [{ id: 'progress', initial: -1, min: 0, max: 1 }] },
+      error: /min ≤ initial ≤ max/,
+    },
+    {
+      label: 'Counter initial above max',
+      mapRunFacts: { counters: [{ id: 'progress', initial: 2, min: 0, max: 1 }] },
+      error: /min ≤ initial ≤ max/,
+    },
+    {
+      label: 'unsafe Counter bounds',
+      mapRunFacts: { counters: [{ id: 'progress', initial: 0, min: Number.MAX_SAFE_INTEGER + 1, max: Number.MAX_SAFE_INTEGER + 2 }] },
+      error: /min ≤ initial ≤ max/,
+    },
+    {
+      label: 'non-boolean Flag initial',
+      mapRunFacts: { flags: [{ id: 'opened', initial: 0 }] },
+      error: /initial 必须是 boolean/,
+    },
+    {
+      label: 'blank Fact ID',
+      mapRunFacts: { flags: [{ id: '  ', initial: false }] },
+      error: /id 必须是非空字符串/,
+    },
+    {
+      label: 'unknown MapRun Facts field',
+      mapRunFacts: { counters: [], surprises: [] },
+      error: /含合同外字段 "surprises"/,
+    },
+    {
+      label: 'unknown Counter field',
+      mapRunFacts: { counters: [{ id: 'progress', initial: 0, min: 0, max: 1, extra: true }] },
+      error: /counters\[0\] 含合同外字段 "extra"/,
+    },
+    {
+      label: 'unknown Flag field',
+      mapRunFacts: { flags: [{ id: 'opened', initial: false, extra: true }] },
+      error: /flags\[0\] 含合同外字段 "extra"/,
+    },
+    {
+      label: 'more than 64 combined declarations',
+      mapRunFacts: {
+        counters: Array.from({ length: 33 }, (_, index) => ({ id: `c${index}`, initial: 0, min: 0, max: 1 })),
+        flags: Array.from({ length: 32 }, (_, index) => ({ id: `f${index}`, initial: false })),
+      },
+      error: /Counter \/ Flag 总数不能超过 64/,
+    },
+  ] as Array<{ label: string; mapRunFacts: unknown; error: RegExp }>)('rejects invalid MapRun Facts: $label', ({ mapRunFacts, error }) => {
+    const map = { ...VALID_MAP, mapRunFacts } as unknown as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(error);
   });
 
   test.each(invalidTopologies)('rejects $label', ({ map, error }) => {
@@ -491,13 +731,247 @@ describe('Gameplay B Map Registry', () => {
 
 describe('Gameplay B Map Action Registry', () => {
   const cardAction = { id: 'discount', name: 'Discount', eligibleCharacterIds: [TEST_CHARACTER_ID],
-    target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] };
+    target: { kind: 'card', side: 'ally' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] } };
   test('accepts a real card target and round-local scost discount definition', () => {
     const registry = new Registry();
     const map = mapWithActions([...VALID_MAP_ACTIONS, cardAction]);
     expect(() => registry.load(makeDatapack({ maps: [map] }))).not.toThrow();
   });
-  test('accepts unit target preferences for either faction and stable card preference', () => {
+  test('accepts full Action TagRefs and nested candidate Pools without TagDef declarations', () => {
+    const actions = VALID_MAP_ACTIONS.map(action => action.id === 'inspect'
+      ? { ...action, tags: [tagRef('gameplay-b', ['action', 'explosive'])] }
+      : action.id === 'focus'
+        ? { ...action, tags: [tagRef('gameplay-b', ['action', 'explosive', 'fast'])] }
+        : action);
+    const map: GameplayMapDef = {
+      ...mapWithParticipants([{
+        characterId: TEST_CHARACTER_ID,
+        actions: [{ actionId: 'focus', tendencyWeight: 2 }],
+        candidatePoolIds: ['explosive', 'repeat-explosive'],
+      }]),
+      actions,
+      candidatePools: [
+        {
+          id: 'explosive',
+          entries: [
+            { kind: 'tag', tag: tagRef('gameplay-b', ['action', 'explosive']), weight: 3 },
+            { kind: 'action', actionId: 'assist', weight: 1 },
+          ],
+        },
+        {
+          id: 'repeat-explosive',
+          entries: [{ kind: 'pool', poolId: 'explosive', weight: 2 }],
+        },
+      ],
+    };
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).not.toThrow();
+    expect(resolveGameplayMapCandidateSources(map, [{ actionId: 'focus', tendencyWeight: 2 }], ['explosive', 'repeat-explosive']))
+      .toEqual([
+        { actionId: 'focus', tendencyWeight: 11 },
+        { actionId: 'inspect', tendencyWeight: 9 },
+        { actionId: 'assist', tendencyWeight: 3 },
+      ]);
+  });
+  test('evaluates Fact-gated Pools from explicit runtime snapshots and separates all-potential validation', () => {
+    const map: GameplayMapDef = {
+      ...mapWithParticipants([{
+        characterId: TEST_CHARACTER_ID,
+        actions: [],
+        candidatePoolIds: ['root'],
+      }]),
+      executionContractId: 'AG-1',
+      mapRunFacts: {
+        counters: [{ id: 'wins', initial: 0, min: 0, max: 3 }],
+        flags: [{ id: 'ready', initial: false }],
+      },
+      candidatePools: [
+        { id: 'root', entries: [
+          { kind: 'action', actionId: 'inspect', weight: 1 },
+          { kind: 'pool', poolId: 'ready-pool', weight: 3 },
+        ] },
+        { id: 'ready-pool', gate: { kind: 'flag', flagId: 'ready', value: true }, entries: [
+          { kind: 'pool', poolId: 'wins-pool', weight: 2 },
+          { kind: 'action', actionId: 'assist', weight: 1 },
+        ] },
+        { id: 'wins-pool', gate: { kind: 'counter', counterId: 'wins', comparison: 'gt', value: 0 },
+          entries: [{ kind: 'action', actionId: 'focus', weight: 4 }] },
+      ],
+    };
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).not.toThrow();
+
+    expect(resolveGameplayMapCandidateSources(map, [], ['root'], {
+      mode: 'runtime', mapRunFacts: { counters: [{ id: 'wins', value: 0 }], flags: [{ id: 'ready', value: false }] },
+    })).toEqual([{ actionId: 'inspect', tendencyWeight: 1 }]);
+    expect(resolveGameplayMapCandidateSources(map, [], ['root'], {
+      mode: 'runtime', mapRunFacts: { counters: [{ id: 'wins', value: 0 }], flags: [{ id: 'ready', value: true }] },
+    })).toEqual([
+      { actionId: 'inspect', tendencyWeight: 1 },
+      { actionId: 'assist', tendencyWeight: 3 },
+    ]);
+    expect(resolveGameplayMapCandidateSources(map, [], ['root'], {
+      mode: 'runtime', mapRunFacts: { counters: [{ id: 'wins', value: 1 }], flags: [{ id: 'ready', value: true }] },
+    })).toEqual([
+      { actionId: 'inspect', tendencyWeight: 1 },
+      { actionId: 'focus', tendencyWeight: 24 },
+      { actionId: 'assist', tendencyWeight: 3 },
+    ]);
+
+    const comparisons = [
+      { comparison: 'eq', value: 1 },
+      { comparison: 'lt', value: 2 },
+      { comparison: 'lte', value: 1 },
+      { comparison: 'gt', value: 0 },
+      { comparison: 'gte', value: 1 },
+    ] as const;
+    for (const gate of comparisons) {
+      const comparisonMap: GameplayMapDef = {
+        ...map,
+        candidatePools: [{ id: 'comparison', gate: { kind: 'counter', counterId: 'wins', ...gate },
+          entries: [{ kind: 'action', actionId: 'focus', weight: 1 }] }],
+      };
+      expect(resolveGameplayMapCandidateSources(comparisonMap, [], ['comparison'], {
+        mode: 'runtime', mapRunFacts: { counters: [{ id: 'wins', value: 1 }], flags: [{ id: 'ready', value: false }] },
+      })).toEqual([{ actionId: 'focus', tendencyWeight: 1 }]);
+    }
+
+    expect(resolveGameplayMapCandidateSources(map, [], ['root'], { mode: 'allPotentialSources' })).toEqual([
+      { actionId: 'inspect', tendencyWeight: 1 },
+      { actionId: 'focus', tendencyWeight: 24 },
+      { actionId: 'assist', tendencyWeight: 3 },
+    ]);
+    expect(() => resolveGameplayMapCandidateSources(map, [], ['root'])).toThrow(/explicit runtime Fact snapshot/);
+    expect(() => resolveGameplayMapCandidateSources(map, [], ['root'], { mode: 'runtime' }))
+      .toThrow(/snapshot is required/);
+    expect(() => resolveGameplayMapCandidateSources(map, [], ['root'], {
+      mode: 'runtime', mapRunFacts: { counters: [], flags: [] },
+    })).toThrow(/every declared Counter and Flag/);
+  });
+  test('rejects undeclared, mistyped, unknown, and non-AG-1 Pool gate contracts', () => {
+    const base = {
+      ...mapWithParticipants([{ characterId: TEST_CHARACTER_ID, actions: [], candidatePoolIds: ['gate'] }]),
+      executionContractId: 'AG-1' as const,
+      mapRunFacts: {
+        counters: [{ id: 'wins', initial: 0, min: 0, max: 3 }],
+        flags: [{ id: 'ready', initial: false }],
+      },
+    };
+    const withGate = (gate: unknown, overrides: Partial<GameplayMapDef> = {}): GameplayMapDef => ({
+      ...base,
+      ...overrides,
+      candidatePools: [{ id: 'gate', gate: gate as NonNullable<GameplayMapDef['candidatePools']>[number]['gate'],
+        entries: [{ kind: 'action', actionId: 'inspect', weight: 1 }] }],
+    });
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'missing', comparison: 'eq', value: 0,
+    })] }))).toThrow(/undeclared MapRun Counter "missing"/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'ready', comparison: 'eq', value: 0,
+    })] }))).toThrow(/undeclared MapRun Counter "ready"/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'flag', flagId: 'wins', value: true,
+    })] }))).toThrow(/undeclared MapRun Flag "wins"/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'other', flagId: 'ready', value: false,
+    })] }))).toThrow(/kind must be counter or flag/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'wins', comparison: 'near', value: 0,
+    })] }))).toThrow(/comparison must be eq, lt, lte, gt, or gte/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'wins', comparison: 'eq', value: Number.MAX_SAFE_INTEGER + 1,
+    })] }))).toThrow(/value must be a safe integer/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'flag', flagId: 'ready', value: 1,
+    })] }))).toThrow(/value must be a boolean/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'flag', flagId: 'ready', value: false, extra: true,
+    })] }))).toThrow(/must contain exactly flagId, kind, value/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'wins', comparison: 'eq', value: 0,
+    }, { executionContractId: undefined })] }))).toThrow(/requires executionContractId AG-1/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'counter', counterId: 'wins', comparison: 'eq', value: 0,
+    }, { executionContractId: 'E1-COMPAT-1' })] }))).toThrow(/requires executionContractId AG-1/);
+    expect(() => new Registry().load(makeDatapack({ maps: [withGate({
+      kind: 'flag', flagId: 'ready', value: false,
+    }, { mapRunFacts: undefined })] }))).toThrow(/undeclared MapRun Flag "ready"/);
+  });
+  test('validates gated-only Action Effect contexts using all potentially enabled Pool sources', () => {
+    const gatedOnly: NonNullable<GameplayMapDef['actions']>[number] = {
+      id: 'gated-only', name: 'Gated Only', eligibleCharacterIds: [TEST_CHARACTER_ID], target: { kind: 'self' },
+      effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceActor', resourceId: 'undeclared', delta: 1 }] },
+    };
+    const map: GameplayMapDef = {
+      ...mapWithParticipants([{ characterId: TEST_CHARACTER_ID, actions: [], candidatePoolIds: ['gate'] }]),
+      executionContractId: 'AG-1',
+      mapRunFacts: { flags: [{ id: 'ready', initial: false }] },
+      actions: [...VALID_MAP_ACTIONS, gatedOnly],
+      candidatePools: [{ id: 'gate', gate: { kind: 'flag', flagId: 'ready', value: true },
+        entries: [{ kind: 'action', actionId: 'gated-only', weight: 1 }] }],
+    };
+    expect(() => new Registry().load(makeDatapack({ maps: [map] }))).toThrow(/not declared for source party "shiroko"/);
+  });
+  test('rejects invalid TagRefs, Pool references, Pool cycles, duplicates, and unsafe accumulated weights', () => {
+    const withPools = (candidatePools: unknown, candidatePoolIds: unknown = []): GameplayMapDef => ({
+      ...mapWithParticipants([{
+        characterId: TEST_CHARACTER_ID,
+        actions: [],
+        candidatePoolIds,
+      }]),
+      candidatePools: candidatePools as GameplayMapDef['candidatePools'],
+    });
+
+    const invalidActionTag = mapWithActions([
+      { ...VALID_MAP_ACTIONS[0], tags: ['invalid-tag-ref'] },
+      ...VALID_MAP_ACTIONS.slice(1),
+    ]);
+    expect(() => new Registry().load(makeDatapack({ maps: [invalidActionTag] }))).toThrow(/tags\[0\] 必须是完整 TagRef/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'bad-tag', entries: [{ kind: 'tag', tag: 'invalid-tag-ref', weight: 1 }] },
+    ])] }))).toThrow(/entries\[0\]\.tag 必须是完整 TagRef/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'bad-action', entries: [{ kind: 'action', actionId: 'missing', weight: 1 }] },
+    ])] }))).toThrow(/引用了 Map .*未定义的 Action "missing"/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'bad-pool', entries: [{ kind: 'pool', poolId: 'missing', weight: 1 }] },
+    ])] }))).toThrow(/引用了 Map .*未定义的 candidate Pool "missing"/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'first', entries: [{ kind: 'pool', poolId: 'second', weight: 1 }] },
+      { id: 'second', entries: [{ kind: 'pool', poolId: 'first', weight: 1 }] },
+    ])] }))).toThrow(/candidate Pool reference cycle/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'duplicate', entries: [] },
+      { id: 'duplicate', entries: [] },
+    ])] }))).toThrow(/重复 candidate Pool id "duplicate"/);
+
+    expect(() => new Registry().load(makeDatapack({ maps: [withPools([
+      { id: 'inspect', entries: [{ kind: 'action', actionId: 'inspect', weight: 1 }] },
+    ], ['inspect', 'inspect'])] }))).toThrow(/candidatePoolIds 含重复 Pool ID "inspect"/);
+
+    const overflowMap = {
+      ...mapWithParticipants([{
+        characterId: TEST_CHARACTER_ID,
+        actions: [{ actionId: 'inspect', tendencyWeight: Number.MAX_SAFE_INTEGER }],
+        candidatePoolIds: ['one-more'],
+      }]),
+      candidatePools: [{ id: 'one-more', entries: [{ kind: 'action', actionId: 'inspect', weight: 1 }] }],
+    } as GameplayMapDef;
+    expect(() => new Registry().load(makeDatapack({ maps: [overflowMap] })))
+      .toThrow(/accumulated candidate weight exceeds Number\.MAX_SAFE_INTEGER/);
+
+    const multiplyOverflowMap = withPools([
+      { id: 'large', entries: [{ kind: 'action', actionId: 'inspect', weight: Number.MAX_SAFE_INTEGER }] },
+      { id: 'double', entries: [{ kind: 'pool', poolId: 'large', weight: 2 }] },
+    ], ['double']);
+    expect(() => new Registry().load(makeDatapack({ maps: [multiplyOverflowMap] })))
+      .toThrow(/multiplied candidate weight exceeds Number\.MAX_SAFE_INTEGER/);
+  });
+  test('accepts unit target preferences and stable card preference', () => {
     const registry = new Registry();
     const map = mapWithActions([
       ...VALID_MAP_ACTIONS,
@@ -528,14 +1002,21 @@ describe('Gameplay B Map Action Registry', () => {
       { id: 'enemy-recovery', name: 'Enemy Recovery', eligibleCharacterIds: [],
         target: { kind: 'enemy' }, tendencyRole: 'recovery' },
     ];
-    const map = battleMapWithPools(actions, [{
+    const map = {
+      ...battleMapWithPools(actions, [{
       characterId: TEST_CHARACTER_ID,
       actions: ['inspect', 'focus', 'assist', 'recovery', 'defense', 'attack']
         .map(actionId => ({ actionId, tendencyWeight: 1 })),
     }], [{
       id: 'raider', initialHp: 8, maxHp: 10,
       actions: ['enemy-attack', 'enemy-recovery'].map(actionId => ({ actionId, tendencyWeight: 1 })),
-    }]);
+      }]),
+      initialActorResources: [
+        { characterId: TEST_CHARACTER_ID, resourceId: 'stamina', value: 2 },
+        { characterId: TEST_CHARACTER_ID, resourceId: 'focus', value: 0 },
+      ],
+      initialTeamResources: [{ resourceId: 'clues', value: 0 }, { resourceId: 'supplies', value: 1 }],
+    };
     expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).not.toThrow();
   });
   test('accepts Enemy-owned Action pools and Encounter-local Actor / Team resources', () => {
@@ -544,7 +1025,7 @@ describe('Gameplay B Map Action Registry', () => {
       {
         id: 'enemy-attack', name: 'Enemy Attack', eligibleCharacterIds: [],
         target: { kind: 'partyCharacter', preference: 'lowestHpRatio' }, tendencyRole: 'attack',
-        hpEffects: [{ amount: -2 }],
+        effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 2 }] },
       },
       {
         id: 'enemy-aid', name: 'Enemy Aid', eligibleCharacterIds: [],
@@ -553,8 +1034,10 @@ describe('Gameplay B Map Action Registry', () => {
           { scope: 'actor', resourceId: 'focus', amount: 1 },
           { scope: 'team', resourceId: 'supplies', amount: 1 },
         ],
-        effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }],
-        hpEffects: [{ amount: 2 }],
+        effectProgram: { resolve: [
+          { op: 'resourceChange', account: 'primaryActor', resourceId: 'focus', delta: 1 },
+          { op: 'heal', target: 'primary', amount: 2 },
+        ] },
       },
     ];
     const map = battleMapWithPools(actions, [], [
@@ -566,7 +1049,7 @@ describe('Gameplay B Map Action Registry', () => {
         ],
         initialResources: [{ resourceId: 'focus', value: 2 }],
       },
-      { id: 'scout', initialHp: 5, maxHp: 5, actions: [] },
+      { id: 'scout', initialHp: 5, maxHp: 5, actions: [], initialResources: [{ resourceId: 'focus', value: 0 }] },
     ], {
       initialEnemyTeamResources: [{ resourceId: 'supplies', value: 3 }],
     });
@@ -652,7 +1135,7 @@ describe('Gameplay B Map Action Registry', () => {
       target: { kind: 'enemy' }, tendencyRole: 'recovery' },
     { id: 'recovery-card', name: 'Recovery Card', eligibleCharacterIds: [TEST_CHARACTER_ID],
       target: { kind: 'card', side: 'ally' }, tendencyRole: 'recovery',
-      cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+      effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] } },
   ])('rejects invalid tendencyRole configuration %#', action => {
     if (action.id === 'unknown-role') {
       expect(() => loadMap(mapWithActions([...VALID_MAP_ACTIONS, action]))).toThrow(/tendencyRole/);
@@ -666,7 +1149,7 @@ describe('Gameplay B Map Action Registry', () => {
   });
   test.each([
     { id: 'bad-card-pref', name: 'Bad Card Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
-      target: { kind: 'card', side: 'ally', preference: 'lowestHpRatio' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] },
+      target: { kind: 'card', side: 'ally', preference: 'lowestHpRatio' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] } },
     { id: 'bad-none-pref', name: 'Bad None Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
       target: { kind: 'none', preference: 'stableOrder' } },
     { id: 'unknown-pref', name: 'Unknown Preference', eligibleCharacterIds: [TEST_CHARACTER_ID],
@@ -712,6 +1195,37 @@ describe('Gameplay B Map Action Registry', () => {
     const registry = loadMap(VALID_BATTLE_MAP, [TEST_CHARACTER], [TEST_MEDKIT]);
     expect(registry.maps.get(MAP_ID)).toEqual(VALID_BATTLE_MAP);
   });
+
+  test('accepts effectProgram Actions and keeps Shop Offer effects in their separate contract', () => {
+    const shopMap: GameplayMapDef = {
+      ...VALID_BATTLE_MAP,
+      initialTeamResources: [{ resourceId: 'supplies', value: 2 }],
+      nodes: VALID_MAP.nodes.map(node => node.id !== 'middle' ? node : {
+        id: node.id, title: node.title,
+        activities: [{ id: 'market', shop: { offers: [{
+          id: 'supply-pack', name: 'Supply Pack', costs: [{ resourceId: 'supplies', amount: 1 }],
+          effects: [{ resourceId: 'supplies', amount: 2 }],
+        }] } }],
+      }),
+    };
+    const registry = loadMap(shopMap, [TEST_CHARACTER], [TEST_MEDKIT]);
+    expect(registry.maps.get(MAP_ID)?.actions?.some(action => action.effectProgram?.resolve?.some(row => row.op === 'damage' || row.op === 'heal'))).toBe(true);
+    const market = registry.maps.get(MAP_ID)?.nodes.find(node => node.id === 'middle')?.activities?.[0];
+    expect(market?.shop?.offers[0]?.effects).toEqual([{ resourceId: 'supplies', amount: 2 }]);
+  });
+
+  test.each(['effects', 'hpEffects', 'cardEffects'] as const)(
+    'rejects raw Action field %s in both first-party load and imported-pack validation', field => {
+      const invalidAction = { ...VALID_MAP_ACTIONS[0], [field]: [] };
+      const invalidMap = mapWithActions([invalidAction, ...VALID_MAP_ACTIONS.slice(1)]);
+      const importedRegistry = new Registry();
+      importedRegistry.load(makeDatapack({ maps: [] }));
+      expect(() => new Registry().load(makeDatapack({ maps: [invalidMap] })))
+        .toThrow(new RegExp(`actions\\[0\\] 含合同外字段 "${field}"`));
+      expect(() => importedRegistry.validate(makeDatapack({ maps: [invalidMap] })))
+        .toThrow(new RegExp(`actions\\[0\\] 含合同外字段 "${field}"`));
+    },
+  );
 
   test('resolves an Encounter Item mapping to a Consumable in an earlier loaded Datapack', () => {
     const registry = new Registry();
@@ -862,7 +1376,7 @@ describe('Gameplay B Map Action Registry', () => {
       label: 'a Character performer field',
       action: {
         id: 'source-action', name: 'Source', eligibleCharacterIds: [TEST_CHARACTER_ID],
-        target: { kind: 'enemy' }, hpEffects: [{ amount: -1 }],
+        target: { kind: 'enemy' }, effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] },
       },
       error: /是 Character Action，不能作为 Ability \/ Item 来源/,
     },
@@ -884,30 +1398,33 @@ describe('Gameplay B Map Action Registry', () => {
       action: {
         id: 'source-action', name: 'Source', target: { kind: 'enemy' },
         eligibleCharacterIds: [],
-        effects: [{ scope: 'actor', resourceId: 'focus', amount: 1 }],
+        effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceActor', resourceId: 'focus', delta: 1 }] },
       },
-      error: /不允许 actor-relative effect/,
+      error: /actorless Ability \/ Item cannot reference sourceActor/,
     },
   ])('rejects Ability / Item Actions with $label', ({ action, error }) => {
     expect(() => loadMap(battleMapWithAbilityAction(action), [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(error);
   });
 
   test.each([
-    { label: 'a zero HP change', amount: 0, target: 'enemy', error: /非零安全整数/ },
-    { label: 'an HP change larger than a safe integer', amount: Number.MAX_SAFE_INTEGER + 1, target: 'enemy', error: /非零安全整数/ },
-    { label: 'an HP effect with no selected target', amount: -1, target: 'none', error: /HP 效果必须选择 Enemy 或 partyCharacter target/ },
+    { label: 'a zero HP change', amount: 0, target: 'enemy', error: /effectProgram/ },
+    { label: 'an HP change larger than a safe integer', amount: Number.MAX_SAFE_INTEGER + 1, target: 'enemy', error: /effectProgram/ },
+    { label: 'an HP effect with no selected target', amount: -1, target: 'none', error: /primary requires a possible unit target/ },
   ])('rejects $label', ({ amount, target, error }) => {
     const actions = VALID_BATTLE_ACTIONS.map(action => action.id === 'strike'
-      ? { ...action, target: { kind: target } as NonNullable<GameplayMapDef['actions']>[number]['target'], hpEffects: [{ amount }] }
+      ? { ...action, target: { kind: target } as NonNullable<GameplayMapDef['actions']>[number]['target'],
+        effectProgram: { resolve: [{ op: 'hpChange' as const, target: 'primary' as const, delta: amount }] } }
       : action);
     const map = battleMapWithEncounter(VALID_BATTLE_ENCOUNTER, actions);
     expect(() => loadMap(map, [TEST_CHARACTER], [TEST_MEDKIT])).toThrow(error);
   });
-  test('allows signed HP effects to damage or heal either legal unit collection', () => {
+  test('allows damage and heal primitives to address either legal unit collection', () => {
     const actions = [
       ...VALID_BATTLE_ACTIONS,
-      { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: -1 }] },
-      { id: 'enemy-heal', name: 'Enemy Heal', eligibleCharacterIds: [], target: { kind: 'enemy' }, hpEffects: [{ amount: 1 }] },
+      { id: 'enemy-hit', name: 'Enemy Hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
+        effectProgram: { resolve: [{ op: 'damage', target: 'primary', amount: 1 }] } },
+      { id: 'enemy-heal', name: 'Enemy Heal', eligibleCharacterIds: [], target: { kind: 'enemy' },
+        effectProgram: { resolve: [{ op: 'heal', target: 'primary', amount: 1 }] } },
     ];
     const map = battleMapWithPools(actions, [], [{
       id: 'raider', initialHp: 8, maxHp: 10,
@@ -925,15 +1442,53 @@ describe('Gameplay B Map Action Registry', () => {
   });
 
   test('loads the normal Gameplay B Datapack sample with two fixed party members', () => {
-    const registry = loadMap(
-      gameplayBMapDatapack.maps?.[0] as GameplayMapDef,
-      [TEST_CHARACTER, TEST_CHARACTER_2],
-    );
+    const maps = gameplayBMapDatapack.maps ?? [];
+    const expectedResumeVersions: Readonly<Record<string, number>> = {
+      'gameplay-b:map:field-investigation': 4,
+      'gameplay-b:map:minimal-battle': 5,
+      'gameplay-b:map:linear-battle': 4,
+      'gameplay-b:map:activity-hall': 4,
+      'gameplay-b:map:forked-route': 4,
+      'gameplay-b:map:continuous-conditional': 4,
+      'gameplay-b:map:scost-training': 4,
+      'gameplay-b:map:autonomous-target-battle': 4,
+      'gameplay-b:map:effect-program-example': 4,
+      'gameplay-b:map:status-example': 4,
+      'gameplay-b:map:prepared-tag-combo': 1,
+      'gameplay-b:map:fact-gated-pool-example': 7,
+      'gameplay-b:map:card-modifier-example': 7,
+      'gameplay-b:map:shield-example': 1,
+      'gameplay-b:map:revive-example': 1,
+      'gameplay-b:map:damage-reduction-example': 1,
+      'gameplay-b:map:heal-applied-resource-example': 1,
+      'gameplay-b:map:damage-applied-resource-example': 1,
+      'gameplay-b:map:actual-amount-threshold-example': 1,
+      'gameplay-b:map:status-expiry-reward-example': 1,
+      'gameplay-b:map:damage-protection-example': 1,
+      'gameplay-b:map:enemy-defeated-reward-example': 1,
+      'gameplay-b:map:maprun-status-example': 1,
+    };
+    const registries = maps.map(mapDefinition => {
+      expect(expectedResumeVersions[mapDefinition.id], mapDefinition.id).toBeDefined();
+      expect(mapDefinition.resumeVersion, mapDefinition.id).toBe(expectedResumeVersions[mapDefinition.id]);
+      for (const action of mapDefinition.actions ?? []) {
+        expect(action).not.toHaveProperty('effects');
+        expect(action).not.toHaveProperty('hpEffects');
+        expect(action).not.toHaveProperty('cardEffects');
+      }
+      const registry = loadMap(mapDefinition as GameplayMapDef, [TEST_CHARACTER, TEST_CHARACTER_2], [TEST_MEDKIT]);
+      expect(registry.maps.get(mapDefinition.id)).toEqual(mapDefinition);
+      return registry;
+    });
+    const registry = registries[0]!;
     const map = registry.maps.get('gameplay-b:map:field-investigation');
     expect(map?.partyCharacterIds).toEqual(['shiroko', 'serika']);
     expect(map?.actions).toHaveLength(3);
-    expect(map?.initialActorResources).toHaveLength(2);
-    expect(map?.initialTeamResources).toEqual([{ resourceId: 'supplies', value: 1 }]);
+    expect(map?.initialActorResources).toHaveLength(4);
+    expect(map?.initialTeamResources).toEqual([
+      { resourceId: 'clues', value: 0 },
+      { resourceId: 'supplies', value: 1 },
+    ]);
   });
 
   test.each([
@@ -957,12 +1512,12 @@ describe('Gameplay B Map Action Registry', () => {
       error: /actions\[1\]\.costs\[0\] 含合同外字段 "formula"/,
     },
     {
-      label: 'Effect',
+      label: 'legacy Action effects field',
       map: mapWithActions([
         { ...VALID_MAP_ACTIONS[0], effects: [{ scope: 'team', resourceId: 'clues', amount: 1, eventId: 'old-event' }] },
         ...VALID_MAP_ACTIONS.slice(1),
       ]),
-      error: /actions\[0\]\.effects\[0\] 含合同外字段 "eventId"/,
+      error: /actions\[0\] 含合同外字段 "effects"/,
     },
     {
       label: 'Participant',
@@ -1057,21 +1612,21 @@ describe('Gameplay B Map Action Registry', () => {
     {
       label: 'zero resource effect',
       map: mapWithActions([
-        { ...VALID_MAP_ACTIONS[0], effects: [{ scope: 'team', resourceId: 'clues', amount: 0 }] },
+        { ...VALID_MAP_ACTIONS[0], effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 0 }] } },
         ...VALID_MAP_ACTIONS.slice(1),
       ]),
-      error: /effects\[0\]\.amount 必须是非零安全整数/,
+      error: /effectProgram/,
     },
     {
       label: 'target resource effect with no target',
       map: mapWithActions([
         {
           ...VALID_MAP_ACTIONS[0],
-          effects: [{ scope: 'actor', resourceId: 'focus', amount: 1, recipient: 'target' }],
+          effectProgram: { resolve: [{ op: 'resourceChange', account: 'primaryActor', resourceId: 'focus', delta: 1 }] },
         },
         ...VALID_MAP_ACTIONS.slice(1),
       ]),
-      error: /recipient 为 target 时 Action 必须声明单位 target/,
+      error: /primaryActor requires a possible unit target/,
     },
     {
       label: 'empty actor resource key',

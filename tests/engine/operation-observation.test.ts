@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { OPERATION_OBSERVATION_LIMIT, OPERATION_OBSERVATION_MAX_BYTES, OperationObservationStore } from '../../src/arona-clicker/operation-observation';
-import type { OperationObservationInput } from '../../src/arona-clicker/contracts/operation-observation';
+import { OPERATION_OBSERVATION_LIMIT, OPERATION_OBSERVATION_MAX_BYTES, OperationObservationStore } from '../../src/arona-clicker/services/operation/operation-observation';
+import type { OperationObservationInput } from '../../src/arona-clicker/contracts/operation/operation-observation';
 
 function makeInput(overrides: Partial<OperationObservationInput> = {}): OperationObservationInput {
   return {

@@ -15,7 +15,7 @@ TickSystem 结算一帧的游戏产出；SessionService 决定自动循环何时
 
 ## Session 怎样调度
 
-`SessionService.start()` 先处理读档时间戳对应的离线进度，再启动每秒一次的 interval。离线补算上限为 8 小时；不足 6 帧时不补算，达到阈值时逐帧调用注入的 `doTick`，遇到返回空产出列表便提前结束。自动 interval 每次调用 `doTick()` 后同步 EffectEngine 的当前状态并执行 `EventBus.flush()`。产品 Runtime 把 `doTick` 接到 `GameInstance.tick()`，见 `src/arona-clicker/runtime-wiring.ts`。
+`SessionService.start()` 先处理读档时间戳对应的离线进度，再启动每秒一次的 interval。离线补算上限为 8 小时；不足 6 帧时不补算，达到阈值时逐帧调用注入的 `doTick`，遇到返回空产出列表便提前结束。自动 interval 每次调用 `doTick()` 后同步 EffectEngine 的当前状态并执行 `EventBus.flush()`。产品 Runtime 把 `doTick` 接到 `GameInstance.tick()`，见 `src/arona-clicker/runtime/runtime-wiring.ts`。
 
 `stop()` 清除 interval 并把当前时间设为新的基准；所以普通 stop/start 不补算暂停时长。读档恢复调用 `setLastTick()`，下一次 start 才会根据存档时间补算。测试 `tests/engine/session-service.test.ts` 覆盖读档时间戳与普通停止重启的差别。
 

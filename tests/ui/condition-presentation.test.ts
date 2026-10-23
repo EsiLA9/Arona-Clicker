@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConditionGroup } from '../../src/engine/types';
-import { buildConditionView, renderConditionText, renderConditionTree } from '../../src/ui/condition-presentation';
+import { buildConditionView, renderConditionText, renderConditionTree } from '../../src/ui/presentation/condition-presentation';
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]!));
 

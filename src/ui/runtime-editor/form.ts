@@ -6,7 +6,7 @@ import {
   type ContentAuthoringPolicy,
   type WritableFieldDef,
 } from '../../data-services/authoring/content-policy';
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 import type { RuntimeEditorProblemLocation } from './state';
 import { runtimeEditorReferenceOptions, type RuntimeEditorReferenceOption } from './reference-options';
 

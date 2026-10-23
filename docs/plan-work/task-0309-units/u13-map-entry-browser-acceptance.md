@@ -10,14 +10,14 @@
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` 的浏览器验收项 | 明确主路径与缺项 |
 | 风格 | `ui-style/patterns.md` 的 MapEntry 行 | 让视觉验收状态准确 |
-| 组件 | `src/ui/components/map-entry-workspace.ts` | 核对页面语义、HP、资源与按钮 |
+| 组件 | `src/ui/components/map/map-entry-workspace.ts` | 核对页面语义、HP、资源与按钮 |
 | UI 回归 | `tests/ui/gameplay-b-basic-map-p0-p3.test.ts` | 对照领域行为与浏览器路径 |
 
 ## Confirmed Facts
 
 | 事实 | 依据 | 备注 |
 | --- | --- | --- |
-| 首次主路径在当前源码和正式内容上使用内存验收场景；读档验收在专用 `127.0.0.1:5174` Origin 使用真实存档管理界面保存／刷新／恢复 | `src/ui/components/map-entry-workspace.ts`、`src/ui/controller-actions-operation.ts`；本次浏览器现场 | 原有游戏 Origin 不变；验收 MapRun 存档已重置，空白 Lobby 存档仅属于隔离 Origin |
+| 首次主路径在当前源码和正式内容上使用内存验收场景；读档验收在专用 `127.0.0.1:5174` Origin 使用真实存档管理界面保存／刷新／恢复 | `src/ui/components/map/map-entry-workspace.ts`、`src/ui/controller/controller-actions-operation.ts`；本次浏览器现场 | 原有游戏 Origin 不变；验收 MapRun 存档已重置，空白 Lobby 存档仅属于隔离 Origin |
 | fresh 页显示作者简介／提示、初始队伍 HP/cap 与局内资源；重返页显示当前地点、当前 HP/cap 与资源 | 本次桌面浏览器页面 | 固定队伍为 Shiroko / Serika |
 | 真实遭遇战一轮使 Shiroko 从 10/10 变为 8/10；返回准备页后仍为 8/10，继续返回相同 Map / Encounter 第 2 轮 | 本次桌面浏览器页面 | 未出现 HP 恢复 |
 | 取消重开保持准备页进度；确认重开回起点；战斗完成后到达出口终局页并返回日常 Game | 本次桌面浏览器页面 | 浏览器主路径已验收 |

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { InitDef, AreaDef } from '../../src/data-services/contracts/world';

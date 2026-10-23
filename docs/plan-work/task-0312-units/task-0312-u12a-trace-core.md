@@ -1,10 +1,11 @@
 # Unit 0312-U12A：有界trace格式与program内部校验
 
-状态：施工中；前置U10A/U10B已验收。继承 [[docs/plan-work/task-0312-units/task-0312-u12-trace-validation]] 的Read Set、合同、边界与Stop Conditions。本页为已出现的实际超预算拆分，不削减父Unit验收。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Allowed Files与预算
 
-- 当前新增文件 `src/arona-clicker/services/map-effect-receipt-validator.ts`：首稿580行，内部unknown结构、版本、Scope、source/path、逐source程序语义、guard短路、delta和program投影基础校验。
+- 当前新增文件 `src/arona-clicker/services/map/map-effect-receipt-validator.ts`：首稿580行，内部unknown结构、版本、Scope、source/path、逐source程序语义、guard短路、delta和program投影基础校验。
 - 当前新增文件 `tests/engine/gameplay-b-effect-receipt.test.ts`：首稿138行，30项真实Runtime成功Receipt及独立篡改行为；可增runId parent-envelope及必要Scope反例。
 - 新增实际Receipt：docs/plan-work/task-0312-units/receipts/task-0312-u12a-receipt.md；预计60–80行。
 

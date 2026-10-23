@@ -5,10 +5,10 @@
 //   确认 → 按 mode 启动；故事页旧首次启动动作被拒绝；横幅渲染与 3s 自动消失。
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { bindStoryActions } from '../../src/ui/controller-actions-story';
+import { UIController } from '../../src/ui/controller/controller';
+import { bindStoryActions } from '../../src/ui/controller/controller-actions-story';
 import { finishWelcome } from '../engine/story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';

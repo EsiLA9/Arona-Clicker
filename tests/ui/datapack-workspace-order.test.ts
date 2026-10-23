@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
-import { createUIContext } from '../../src/ui/context';
-import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
-import { buildDatapackWorkspaceView, filterPacks, orderPacks, resolvePackIssues } from '../../src/arona-clicker/services/datapack-workspace-view';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderAppShell, type PanelState } from '../../src/ui/components/shared/app-shell';
+import { buildDatapackWorkspaceView, filterPacks, orderPacks, resolvePackIssues } from '../../src/arona-clicker/services/runtime/datapack-workspace-view';
 import type { PackCatalogEntry } from '../../src/arona-clicker/contracts';
 
 const baseState = (): PanelState => ({

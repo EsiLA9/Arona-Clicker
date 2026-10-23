@@ -13,7 +13,7 @@
 | 项 | 命令 / 方式 | 结果 | 备注 |
 | --- | --- | --- | --- |
 | 测试 | 未执行 | 未执行 | 本轮未要求测试；未改测试文件。 |
-| 源码类型检查 | 临时配置继承仓库 `tsconfig.json`，以 `src/ui/controller.ts` 为入口运行 `npx tsc --noEmit --project <temp-config>` | 通过 | 临时配置已清理。 |
+| 源码类型检查 | 临时配置继承仓库 `tsconfig.json`，以 `src/ui/controller/controller.ts` 为入口运行 `npx tsc --noEmit --project <temp-config>` | 通过 | 临时配置已清理。 |
 | 差异检查 | `git --no-pager diff --check`（U7 两个源文件） | 通过 | |
 | GALHCG | 三路径 changed 只读复核 | 完成 | 未写图。 |
 

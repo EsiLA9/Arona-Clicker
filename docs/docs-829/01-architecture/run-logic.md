@@ -62,9 +62,9 @@ main.ts 创建 Runtime
 | --- | --- |
 | 浏览器启动与挂载 | `src/ui/main.ts`：`boot()` |
 | Runtime 工厂 | `src/app/runtime-bootstrap.ts`：`createAppRuntime()`、`loadDefaultDatapack()` |
-| 包管理与应用 | `src/arona-clicker/runtime.ts`：构造函数、`applyEnabledPacks()`、`createPackApplyTarget()` |
-| 子系统接线 | `src/arona-clicker/runtime-wiring.ts`：`wireGameInstance()` |
-| Registry 装载和会话门面 | `src/arona-clicker/runtime-game-instance.ts`：`init()`、`start()`、`tick()`、`load()`、`reset()` |
+| 包管理与应用 | `src/arona-clicker/runtime/runtime.ts`：构造函数、`applyEnabledPacks()`、`createPackApplyTarget()` |
+| 子系统接线 | `src/arona-clicker/runtime/runtime-wiring.ts`：`wireGameInstance()` |
+| Registry 装载和会话门面 | `src/arona-clicker/runtime/runtime-game-instance.ts`：`init()`、`start()`、`tick()`、`load()`、`reset()` |
 | 包默认选择与恢复 | `tests/data/pack-manager.test.ts`、`tests/engine/arona-runtime-pack.test.ts` |
 
 先看模块职责：[[docs/docs-829/02-modules/00-index]]；包解析和 Registry：[[pack-loading]]；App Runtime 专题：[[docs/docs-829/06-wiki/10-application-runtime/00-index]]。

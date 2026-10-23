@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { EditorModel } from '../../tools/datapack-editor/model/editor-model';
 import { createDatapackPackage } from '../../tools/datapack-editor/ui/io';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { parsePackFromZipBuffer } from '../../src/data-services/datapack/pack-parser';
 

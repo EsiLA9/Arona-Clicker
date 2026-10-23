@@ -1,4 +1,6 @@
-import type { GameInstance } from '../../arona-clicker/runtime-game-instance';
+import type { GameInstance } from '../../arona-clicker/runtime/runtime-game-instance';
+import type { MapRunEncounterSourceTarget } from '../../arona-clicker/contracts/map/map-run';
+import type { GameCommands, MapRunQuery } from '../../arona-clicker/contracts/runtime/runtime';
 import '../css/gameplay-b-quick-test-console.css';
 
 const SCHALE_OFFICE_INIT_ID = 'base:init:schale_office';
@@ -16,8 +18,22 @@ export type GameplayBQuickTestCommandResult =
   | { readonly ok: true; readonly variantIds: readonly TestCharacterId[] }
   | { readonly ok: false; readonly message: string };
 
+export interface GameplayBQuickTestMapOperations {
+  readonly moveTo?: string;
+  readonly abilityId?: string;
+  readonly abilityTarget?: MapRunEncounterSourceTarget;
+  readonly commitRounds?: number;
+}
+
 export type GameplayBQuickTestConsoleCommand =
   | { readonly ok: true; readonly kind: 'grantCharacters'; readonly variantIds: readonly TestCharacterId[] }
+  | {
+    readonly ok: true;
+    readonly kind: 'startMap';
+    readonly mapId: string;
+    readonly enterOffice: boolean;
+    readonly operations?: GameplayBQuickTestMapOperations;
+  }
   | {
     readonly ok: true;
     readonly kind: 'getValue';
@@ -56,9 +72,91 @@ export function interpretGameplayBQuickTestCommand(input: string): GameplayBQuic
   return { ok: true, variantIds };
 }
 
-/** Parse only the two explicit console grammars; getValue names are strict three-part IDs. */
+/** Parse only the explicit console grammars; Datapack names are strict three-part IDs. */
 export function interpretGameplayBQuickTestConsoleCommand(input: string): GameplayBQuickTestConsoleCommand {
   const trimmed = input.trim();
+  if (/^startMap(?:\s|$)/i.test(trimmed)) {
+    const [, mapId, ...args] = trimmed.split(/\s+/);
+    if (!mapId) return { ok: false, message: '用法：startMap modid:map:itemid [--enter-office] [关卡操作参数]。Map 必须已加载。' };
+    const segments = mapId.split(':');
+    if (segments.length !== 3 || segments.some(segment => segment.length === 0)
+      || !/^[a-z0-9-]+$/.test(segments[0]) || segments[1] !== 'map' || !/^[a-z0-9_-]+$/.test(segments[2])) {
+      return { ok: false, message: 'Map ID 必须是严格格式 modid:map:itemid。' };
+    }
+
+    let enterOffice = false;
+    let moveTo: string | undefined;
+    let abilityId: string | undefined;
+    let abilityTarget: MapRunEncounterSourceTarget | undefined;
+    let commitRounds: number | undefined;
+    const used = new Set<string>();
+    const takeValue = (flag: string, index: number): string | null => {
+      if (used.has(flag)) return null;
+      used.add(flag);
+      const value = args[index + 1];
+      return value && !value.startsWith('--') ? value : null;
+    };
+
+    for (let index = 0; index < args.length; index += 1) {
+      const flag = args[index].toLocaleLowerCase();
+      if (flag === '--enter-office') {
+        if (enterOffice) return { ok: false, message: '参数 --enter-office 只能出现一次。' };
+        enterOffice = true;
+        continue;
+      }
+      if (flag === '--move-to') {
+        const value = takeValue(flag, index);
+        if (!value || !/^[a-z0-9_-]+$/i.test(value)) return { ok: false, message: '用法：--move-to <nodeId>，nodeId 只能包含字母、数字、下划线和连字符。' };
+        moveTo = value;
+        index += 1;
+        continue;
+      }
+      if (flag === '--ability') {
+        const value = takeValue(flag, index);
+        if (!value || !/^[a-z0-9_-]+$/i.test(value)) return { ok: false, message: '用法：--ability <actionId>，actionId 只能包含字母、数字、下划线和连字符。' };
+        abilityId = value;
+        index += 1;
+        continue;
+      }
+      if (flag === '--target-party' || flag === '--target-enemy') {
+        const value = takeValue(flag, index);
+        if (!value || !/^[a-z0-9_-]+$/i.test(value)) return { ok: false, message: `用法：${flag} <id>。` };
+        if (abilityTarget) return { ok: false, message: '只能为能力指定一个目标。' };
+        abilityTarget = flag === '--target-party'
+          ? { kind: 'partyCharacter', characterId: value }
+          : { kind: 'enemy', enemyId: value };
+        index += 1;
+        continue;
+      }
+      if (flag === '--commit-rounds') {
+        const value = takeValue(flag, index);
+        if (!value || !/^\d+$/.test(value)) return { ok: false, message: '用法：--commit-rounds <1–20>。' };
+        commitRounds = Number(value);
+        if (!Number.isSafeInteger(commitRounds) || commitRounds < 1 || commitRounds > 20) {
+          return { ok: false, message: '提交回合数必须是 1 到 20 的整数。' };
+        }
+        index += 1;
+        continue;
+      }
+      return { ok: false, message: `不支持关卡操作参数「${args[index]}」。` };
+    }
+
+    if (abilityTarget && !abilityId) return { ok: false, message: '指定目标时必须同时提供 --ability。' };
+    const operations = {
+      ...(moveTo === undefined ? {} : { moveTo }),
+      ...(abilityId === undefined ? {} : { abilityId }),
+      ...(abilityTarget === undefined ? {} : { abilityTarget }),
+      ...(commitRounds === undefined ? {} : { commitRounds }),
+    };
+    return {
+      ok: true,
+      kind: 'startMap',
+      mapId,
+      enterOffice,
+      ...(Object.keys(operations).length === 0 ? {} : { operations }),
+    };
+  }
+
   if (/^getValue(?:\s|$)/i.test(trimmed)) {
     const match = /^getValue\s+(\S+)(?:\s+(\S+))?$/i.exec(trimmed);
     if (!match) return { ok: false, message: GET_VALUE_USAGE };
@@ -143,10 +241,65 @@ function resolveGetValueTarget(
   }
 }
 
+/** Apply a bounded, allowlisted sequence to the newly started MapRun for local acceptance. */
+export function applyGameplayBQuickTestMapOperations(
+  mapRun: Pick<MapRunQuery, 'getWorkspaceView'>,
+  commands: Pick<GameCommands, 'moveMap' | 'setMapAbilityDraft' | 'commitMapEncounterRound'>,
+  runId: string,
+  operations?: GameplayBQuickTestMapOperations,
+): string {
+  if (!operations) return '';
+  const applied: string[] = [];
+  let interruptedBy: string | null = null;
+  try {
+    if (operations.moveTo) {
+      commands.moveMap(runId, operations.moveTo);
+      applied.push(`移动到 ${operations.moveTo}`);
+    }
+    if (operations.abilityId) {
+      const view = mapRun.getWorkspaceView(runId);
+      if (view?.kind !== 'active' || !view.actionPreview) throw new Error('当前节点没有可配置的遭遇能力。');
+      commands.setMapAbilityDraft(runId, operations.abilityId, operations.abilityTarget ?? null, view.actionPreview.draft);
+      applied.push(`选择能力 ${operations.abilityId}`);
+    }
+    if (operations.commitRounds !== undefined) {
+      let committed = 0;
+      for (; committed < operations.commitRounds; committed += 1) {
+        const view = mapRun.getWorkspaceView(runId);
+        if (view?.kind !== 'active' || !view.actionPreview) {
+          if (committed > 0) break;
+          throw new Error('当前节点没有可提交的遭遇回合。');
+        }
+        if (!view.actionPreview.commitPreview.canCommit) {
+          const reason = view.actionPreview.commitPreview.diagnostics.join('；');
+          throw new Error(reason ? `本回合不可提交：${reason}` : '当前回合不可提交。');
+        }
+        commands.commitMapEncounterRound({
+          runId,
+          requestId: `${runId}:quick-test:${view.run.commitVersion}`,
+          expectedCommitVersion: view.run.commitVersion,
+          draft: view.actionPreview.draft,
+        });
+      }
+      applied.push(committed === operations.commitRounds
+        ? `提交 ${committed} 回合`
+        : `遭遇结束前提交 ${committed}/${operations.commitRounds} 回合`);
+    }
+  } catch (error) {
+    interruptedBy = error instanceof Error ? error.message : '关卡操作失败。';
+  }
+  const summary = applied.length > 0 ? `已执行：${applied.join('、')}` : '';
+  return interruptedBy
+    ? `${summary ? `${summary}；` : ''}后续操作中断：${interruptedBy}`
+    : summary;
+}
+
 /** Attach a small, opt-in dialog for local browser acceptance; no persistent state is written. */
 export function mountGameplayBQuickTestConsole(
-  game: Pick<GameInstance, 'state' | 'mutations' | 'registry'>,
+  game: Pick<GameInstance, 'state' | 'mutations' | 'registry' | 'mapRun'>,
   onApplied?: () => void,
+  onStartMap?: (mapId: string, operations?: GameplayBQuickTestMapOperations) => string | void,
+  onEnterOffice?: () => boolean,
 ): void {
   if (document.querySelector('[data-gameplay-b-test-console]')) return;
 
@@ -168,13 +321,13 @@ export function mountGameplayBQuickTestConsole(
       </div>
       <button type="button" class="gameplay-b-test-console__close" data-test-console-close aria-label="关闭控制台">×</button>
     </header>
-    <p class="gameplay-b-test-console__note">仅当前浏览器内存有效；不会写入存档。先进入夏莱办公室，再录入试玩内容。</p>
+    <p class="gameplay-b-test-console__note">仅当前浏览器内存有效；不会写入存档。startMap 可自动进入夏莱办公室、移动到节点、选择能力与目标，并连续提交回合。</p>
     <label class="gameplay-b-test-console__label" for="gameplay-b-test-console-command">输入一条内容命令</label>
-    <textarea id="gameplay-b-test-console-command" rows="3" spellcheck="false" placeholder="getValue base:resource:credit 1000"></textarea>
+    <textarea id="gameplay-b-test-console-command" rows="3" spellcheck="false" placeholder="startMap gameplay-b:map:damage-reduction-example --enter-office --move-to practice --ability cover-serika --target-party serika --commit-rounds 3"></textarea>
     <div class="gameplay-b-test-console__actions">
       <button type="button" data-test-console-run>解释并应用</button>
     </div>
-    <p class="gameplay-b-test-console__result" data-test-console-result role="status" aria-live="polite">支持严格三段 ID：getValue modid:typeid:itemid [valueNum]；另保留角色快捷命令。输入只按白名单解析，不执行代码。</p>`;
+    <p class="gameplay-b-test-console__result" data-test-console-result role="status" aria-live="polite">支持 startMap modid:map:itemid [--enter-office] [--move-to nodeId] [--ability actionId] [--target-party characterId | --target-enemy enemyId] [--commit-rounds 1–20]、getValue modid:typeid:itemid [valueNum] 和角色快捷命令。Map 必须已加载且不能覆盖进行中的关卡。输入只按白名单解析，不执行代码。</p>`;
 
   const textarea = dialog.querySelector<HTMLTextAreaElement>('#gameplay-b-test-console-command')!;
   const result = dialog.querySelector<HTMLElement>('[data-test-console-result]')!;
@@ -194,6 +347,45 @@ export function mountGameplayBQuickTestConsole(
       result.textContent = command.message;
       return;
     }
+    if (command.kind === 'startMap') {
+      if (!game.registry.maps.has(command.mapId)) {
+        result.textContent = `当前没有加载 Map「${command.mapId}」。`;
+        return;
+      }
+      if (game.mapRun.getSnapshot()?.status === 'inProgress') {
+        result.textContent = '当前仍有进行中的关卡；请先结束或放弃后再快速进入。';
+        return;
+      }
+      if (!onStartMap) {
+        result.textContent = '当前试玩台没有连接关卡启动入口。';
+        return;
+      }
+      if (game.state.activeInit !== SCHALE_OFFICE_INIT_ID) {
+        if (!command.enterOffice) {
+          result.textContent = '请先通过正常流程进入夏莱办公室，或为 startMap 添加 --enter-office 参数。';
+          return;
+        }
+        let enteredOffice = false;
+        try {
+          enteredOffice = onEnterOffice?.() === true;
+        } catch {
+          enteredOffice = false;
+        }
+        if (!enteredOffice || game.state.activeInit !== SCHALE_OFFICE_INIT_ID) {
+          result.textContent = '无法通过试玩台进入夏莱办公室；请检查世界线是否可进入。';
+          return;
+        }
+      }
+      try {
+        const operationSummary = onStartMap(command.mapId, command.operations);
+        result.textContent = `已快速进入 Map「${command.mapId}」。${operationSummary ? `${operationSummary}。` : ''}仅当前页面内存有效，刷新即清空。`;
+        dialog.close();
+      } catch {
+        result.textContent = 'Map 无法启动；请检查固定队伍准入和当前 Map 状态。';
+      }
+      return;
+    }
+
     if (game.state.activeInit !== SCHALE_OFFICE_INIT_ID) {
       result.textContent = '请先通过正常流程进入夏莱办公室，再应用试玩内容。';
       return;

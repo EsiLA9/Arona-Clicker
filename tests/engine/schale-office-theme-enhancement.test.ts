@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { entityKeyOf } from '../../src/arona-clicker/services/color-system';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { entityKeyOf } from '../../src/arona-clicker/services/progression/color-system';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

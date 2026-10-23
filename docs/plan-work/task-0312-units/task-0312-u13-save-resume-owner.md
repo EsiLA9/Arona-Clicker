@@ -1,6 +1,7 @@
 # Unit 0312-U13：Owner快照与严格Save/Resume贯通
 
-状态：ready / 未执行；阶段P3。前置：0312-U11及0312-U12A/U12B实际完成Receipt与测试；仅U12A首稿不构成完整恢复校验或放行。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,9 +13,9 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-run-service.ts：snapshotOf/restoreEncounterSnapshot/restoreRunState/restoreEncounterCommitReceipt/restoreSaveSnapshot/createSaveSnapshot | 全部保存/恢复入口 |
-| 源码 | src/arona-clicker/runtime-save-codec.ts：buildSaveData；runtime-save.ts恢复接线；src/arona-clicker/contracts/save-data.ts | 现有SaveData.mapRun直接序列化 |
-| 前置 | src/arona-clicker/services/map-effect-receipt-validator.ts；src/arona-clicker/services/map-encounter-locals.ts | 纯校验接入 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：snapshotOf/restoreEncounterSnapshot/restoreRunState/restoreEncounterCommitReceipt/restoreSaveSnapshot/createSaveSnapshot | 全部保存/恢复入口 |
+| 源码 | src/arona-clicker/runtime/runtime-save-codec.ts：buildSaveData；src/arona-clicker/runtime/runtime-game-instance.ts：createSaveSnapshot/restoreSaveSnapshot调用点；src/arona-clicker/contracts/runtime/save-data.ts | 现有SaveData.mapRun直接序列化与实际Owner恢复回调 |
+| 前置 | src/arona-clicker/services/map/map-effect-receipt-validator.ts；src/arona-clicker/services/map/map-encounter-locals.ts | 纯校验接入 |
 | 金样 | EQ05、NEW03/04/05/07 | 跨轮、跨Encounter、幂等恢复 |
 
 ## Context Budget
@@ -33,6 +34,8 @@
 
 SaveData.mapRun直接JSON复制MapRunSaveSnapshot；Owner恢复严格按字段校验，不能只新增interface。 本轮仅核实源码，未在此规划轮运行本Unit测试；前置新增模块属于待施工产物。
 
+2026-10-22只读预估（尚未放行）：U10B代理已核serialization通路无需改顶层SaveData/codec，实际MapRun恢复回调位于runtime-game-instance，runtime-save无MapRun调用。缺口在Owner的legacy-only Receipt keys及Encounter.locals解码/返回；snapshotOf已由U10/U11复制新字段。初估service +220–320/-40–90、contract净增0–20、new tests400–500、Receipt55–70，总净585–870；此为等待U12B最终API的预估，不是施工放行。B真实Receipt完成后根须再核可信runId/当前HP/locals/资源输入及完整混合校验能力，记录实际预算后开工。
+
 ## Constraints
 
 - 唯一执行合同E1-COMPAT-1；采用已批准P1/P2/P3与D06–D08，不加入AG支付/排序/双方统一prepare。工程字段/函数细节可在已冻结接口责任内实现，不要求人类逐字段审批。
@@ -42,8 +45,8 @@ SaveData.mapRun直接JSON复制MapRunSaveSnapshot；Owner恢复严格按字段�
 
 ## Allowed Files
 
-- `src/arona-clicker/services/map-run-service.ts`
-- `src/arona-clicker/contracts/map-run.ts`
+- `src/arona-clicker/services/map/map-run-service.ts`
+- `src/arona-clicker/contracts/map/map-run.ts`
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-save-resume.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u13-receipt.md
 
@@ -86,3 +89,5 @@ SaveData.mapRun直接JSON复制MapRunSaveSnapshot；Owner恢复严格按字段�
 ## Receipt
 
 执行结束或中断后按 [[docs/ai/templates/execution-receipt]] 创建唯一docs/plan-work/task-0312-units/receipts/task-0312-u13-receipt.md，列实际修改/未完成/命令与退出码/映射的OLD-EQ-NEW ID/风险/需上游项。记录GALHCG“直接影响范围累积，U19统一只读复核”，不得逐次编辑刷新图；本轮无图写授权。下一Unit从前置Receipt得知实际接口与验证，不以计划文字替代施工结果。
+
+2026-10-22前置补正：U12B按真实预算拆出 [[docs/plan-work/task-0312-units/task-0312-u12c-receipt-boundaries]]。负责人已核B的runId/currentEncounter/currentBalances接口和独立59项测试/类型/架构通过；C仅补边界验证并保持此API。接线施工可与C并行，最终恢复验收必须等A/B/C全部实际完成。实际预算登记：service净130–280、测试400–500、Receipt55–70，预计585–870行，上限1000；超限交根拆分，不能跳过Owner原有费用/Wait/版本约束。

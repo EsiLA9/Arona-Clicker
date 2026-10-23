@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
-import { discoverDevelopmentDatapacks, parseDevelopmentPackFolderName } from '../../src/ui/development-datapack-loader';
+import { discoverDevelopmentDatapacks, parseDevelopmentPackFolderName } from '../../src/ui/development/development-datapack-loader';
 
 const manifest = (modName: string, version: string) => JSON.stringify({ modName, name: 'Example', version, dependencies: [] });
 const fragment = (version: string) => JSON.stringify({ name: 'Example', version, spots: [] });

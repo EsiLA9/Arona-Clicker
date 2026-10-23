@@ -2,7 +2,7 @@
 // engine/game/story-helpers.test.ts — page-interaction / passive-picker
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { eligiblePassiveStories, isInteractivePage, pickPassiveStory, rollClickWorkTotal, shouldEchoReply } from '../../../src/arona-clicker/services/story-interaction';
+import { eligiblePassiveStories, isInteractivePage, pickPassiveStory, rollClickWorkTotal, shouldEchoReply } from '../../../src/arona-clicker/services/story/story-interaction';
 import type { PassiveStoryEntry } from '../../../src/data-services/contracts/story-entry';
 
 describe('page-interaction', () => {

@@ -1,7 +1,7 @@
-import { GameInstance } from '../../arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../arona-clicker/runtime/runtime-game-instance';
 import { SaveSystem } from '../../data-services/persistence/storage';
-import { UIController } from '../controller';
-import { bindEvents } from '../controller-events';
+import { UIController } from '../controller/controller';
+import { bindEvents } from '../controller/controller-events';
 import { loadAreaMapDemoPack } from './area-map-demo-pack';
 
 /** Dedicated development session: ordinary saved games are neither read nor written. */

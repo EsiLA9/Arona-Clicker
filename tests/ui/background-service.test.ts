@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import { buildBackgroundView, renderBackground } from '../../src/ui/background-service';
-import { OUTER_BACKGROUND_ID, renderOuterBackground, syncOuterBackground } from '../../src/ui/outer-background';
+import { buildBackgroundView, renderBackground } from '../../src/ui/presentation/background-service';
+import { OUTER_BACKGROUND_ID, renderOuterBackground, syncOuterBackground } from '../../src/ui/presentation/outer-background';
 
 const pics = {
   urlOf: (ref?: string) => ref === 'base:overlay(pic):triangles' ? 'data:image/svg+xml;base64,triangles' : undefined,

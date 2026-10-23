@@ -1,6 +1,7 @@
 # Unit 0312-U12：有界Effect Receipt恢复校验器
 
-状态：ready / 未执行；阶段P3。前置：0312-U10A及U10B实际完成Receipt与测试；只有纯规划U10A不构成放行。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 施工拆分（2026-10-22）：现首稿validator580行+测试138行+Receipt预计60行，共778；根审查发现合法legacy/program混合来源会被误拒、HP链缺旧相位插值、资源before/after缺跨事件账户链。完整补齐估计再增260–350行，总1038–1128，超过1000。按本Unit Stop Conditions拆为 [[docs/plan-work/task-0312-units/task-0312-u12a-trace-core]] → [[docs/plan-work/task-0312-units/task-0312-u12b-mixed-trace-chains]]，保留本页全部验收。两子Unit各≤1000行；U13必须等待U12B真实完整通过，不能把A的30项首稿用例当完整恢复校验。当前校验器尚未接Owner恢复，因此A中明确保留的混合链未完成项不对外声称产品已支持恢复。
 
@@ -18,8 +19,8 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 类型 | src/arona-clicker/contracts/map-effects.ts；src/arona-clicker/contracts/map-run.ts | 实际trace格式/投影 |
-| 源码 | src/arona-clicker/services/map-run-service.ts：restoreEncounterCommitReceipt/restoreActorlessSourceSettlement | 现有恢复契约与分组 |
+| 类型 | src/arona-clicker/contracts/map/map-effects.ts；src/arona-clicker/contracts/map/map-run.ts | 实际trace格式/投影 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：restoreEncounterCommitReceipt/restoreActorlessSourceSettlement | 现有恢复契约与分组 |
 | 合同 | Draft0312 §11.3 D07、EQ05/NEW07（只E1部分） | 校验能力有界、不证明完整历史 |
 
 ## Context Budget
@@ -47,7 +48,7 @@ checkpoint没有完整上一轮世界状态；只可核定义/trace内部链与�
 
 ## Allowed Files
 
-- 新增（执行时才创建）：src/arona-clicker/services/map-effect-receipt-validator.ts
+- 新增（执行时才创建）：src/arona-clicker/services/map/map-effect-receipt-validator.ts
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-receipt.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u12-receipt.md
 
@@ -90,3 +91,5 @@ checkpoint没有完整上一轮世界状态；只可核定义/trace内部链与�
 ## Receipt
 
 执行结束或中断后按 [[docs/ai/templates/execution-receipt]] 创建唯一docs/plan-work/task-0312-units/receipts/task-0312-u12-receipt.md，列实际修改/未完成/命令与退出码/映射的OLD-EQ-NEW ID/风险/需上游项。记录GALHCG“直接影响范围累积，U19统一只读复核”，不得逐次编辑刷新图；本轮无图写授权。下一Unit从前置Receipt得知实际接口与验证，不以计划文字替代施工结果。
+
+2026-10-22续作拆分：U12B真实增量接近1000，剩余旧新prepare叠加、Enemy skip访问、资源中间cost、HP ratio/零值四组边界另交 [[docs/plan-work/task-0312-units/task-0312-u12c-receipt-boundaries]]；父Unit验收保持完整，U13必须等A/B/C全部通过。

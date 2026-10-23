@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { Resource } from '../../src/arona-clicker/types/ids';
-import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { MapRunError, MapRunService } from '../../src/arona-clicker/services/map-run-service';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-commands';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { MapRunError, MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
-import type { MapRun, MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunEncounterSourceTarget } from '../../src/arona-clicker/contracts/map-run';
+import type { MapRun, MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunEncounterSourceTarget } from '../../src/arona-clicker/contracts/map/map-run';
 
 const MAP_ID = gameplayBMapDatapack.maps![0]!.id;
 const ITEM_ID = 'gameplay-b:item:map-kit';
@@ -30,6 +30,11 @@ interface BattleOptions {
   readonly useCondition?: boolean;
 }
 
+function hpProgram(amount: number) {
+  return { resolve: [{ op: amount < 0 ? 'damage' as const : 'heal' as const,
+    target: 'primary' as const, amount: Math.abs(amount) }] };
+}
+
 function battleDatapack(options: BattleOptions = {}): Datapack {
   const baseMap = gameplayBMapDatapack.maps?.[0];
   if (!baseMap) throw new Error('Gameplay B sample Map is missing');
@@ -41,7 +46,7 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
     target: { kind: options.characterTarget ?? 'enemy' },
     ...(options.characterDamage === undefined || options.characterDamage === 0
       ? {}
-      : { hpEffects: [{ amount: options.characterDamage }] }),
+      : { effectProgram: hpProgram(options.characterDamage) }),
   }));
   const actions: GameplayMapActionDef[] = [
     ...characterActions,
@@ -50,21 +55,21 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
       name: 'Map Ability',
       eligibleCharacterIds: [],
       target: { kind: 'enemy' },
-      hpEffects: [{ amount: options.abilityDamage ?? -1 }],
+      effectProgram: hpProgram(options.abilityDamage ?? -1),
     },
     {
       id: SECOND_ABILITY_ID,
       name: 'Second Map Ability',
       eligibleCharacterIds: [],
       target: { kind: 'enemy' },
-      hpEffects: [{ amount: options.abilityDamage ?? -1 }],
+      effectProgram: hpProgram(options.abilityDamage ?? -1),
     },
     {
       id: ITEM_ACTION_ID,
       name: 'Map Item',
       eligibleCharacterIds: [],
       target: { kind: options.itemTarget ?? 'enemy' },
-      hpEffects: [{ amount: options.itemDamage ?? -1 }],
+      effectProgram: hpProgram(options.itemDamage ?? -1),
     },
   ];
   const enemyAction: GameplayMapActionDef | null = options.enemyDamage === undefined ? null : {
@@ -73,7 +78,7 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
     eligibleCharacterIds: [],
     target: { kind: 'partyCharacter', preference: 'lowestHpRatio' },
     tendencyRole: 'attack',
-    hpEffects: [{ amount: -options.enemyDamage }],
+    effectProgram: hpProgram(-options.enemyDamage),
   };
   const enemies = Array.from({ length: options.enemyCount ?? 1 }, (_, index) => ({
     id: index === 0 ? ENEMY_ID : `wolf-${index + 1}`,

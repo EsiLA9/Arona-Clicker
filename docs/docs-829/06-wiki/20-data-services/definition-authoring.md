@@ -18,7 +18,7 @@
 
 应用包配置时，`AronaClickerRuntime.validatePackConfiguration()` 会按候选启用集建立临时 Registry 并逐包校验；校验通过后，`applyPackConfiguration()` 才交给 PackManager 应用并 reload Runtime。Operation 引用错误由 Registry 指向完整 Event/Location ID 与字段路径，例如 `operationEvents[...].locationIds`、`operationLocations[...].routeEdges[...].targetLocationId`。校验失败不会触发 Runtime reload；有效内容改动则在 reload 后由新 Run 从 Registry 读取。
 
-事件作者对不兼容修改递增 Event 的 `resumeVersion`。旧 Run checkpoint 会被拒绝恢复，之后新启动的 Run 使用新定义。Gameplay B 当前采用 Map-only bundle，定义位于 `src/arona-clicker/content/gameplay-b-map-datapack.ts`，并由 `src/arona-clicker/runtime.ts` 注册；旧的 Gameplay B Operation 样例已退役，不代表当前产品内容结构。Operation 表在 Datapack Editor 中的编辑、导入导出及 Runtime reload 闭环由 PB-25 验收；通用作者策略 API 仍不提供 Operation 表的局部 CRUD。
+事件作者对不兼容修改递增 Event 的 `resumeVersion`。旧 Run checkpoint 会被拒绝恢复，之后新启动的 Run 使用新定义。Gameplay B 当前采用 Map-only bundle，定义位于 `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts`，并由 `src/arona-clicker/runtime/runtime.ts` 注册；旧的 Gameplay B Operation 样例已退役，不代表当前产品内容结构。Operation 表在 Datapack Editor 中的编辑、导入导出及 Runtime reload 闭环由 PB-25 验收；通用作者策略 API 仍不提供 Operation 表的局部 CRUD。
 
 ## 从哪里核对
 

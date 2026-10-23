@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { expect, test, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
-import { createUIContext } from '../../src/ui/context';
-import { UIController } from '../../src/ui/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { UIController } from '../../src/ui/controller/controller';
 import { createAreaMapSession, reconcileAreaMap } from '../../src/ui/workspace/area-map-session';
-import { renderAreaMapWorkspace } from '../../src/ui/components/area-map-workspace';
+import { renderAreaMapWorkspace } from '../../src/ui/components/map/area-map-workspace';
 import { reconcileAreaMapDOM } from '../../src/ui/workspace/area-map-dom';
 
 test('selection, projection changes and missing detail repair preserve frame/viewport/node/scroll identities', () => {

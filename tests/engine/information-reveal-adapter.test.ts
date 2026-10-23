@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { InformationRevealAdapter } from '../../src/arona-clicker/services/information-reveal-adapter';
-import { queryInformationReveal, type PrerequisiteMap, type RevealWatch } from '../../src/arona-clicker/services/information-reveal-domain';
+import { InformationRevealAdapter } from '../../src/arona-clicker/services/world/information-reveal-adapter';
+import { queryInformationReveal, type PrerequisiteMap, type RevealWatch } from '../../src/arona-clicker/services/world/information-reveal-domain';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { PlayerState, RevealedInformationTarget } from '../../src/arona-clicker/types/state';
 import type { RevealTrigger } from '../../src/engine/types/reveal';

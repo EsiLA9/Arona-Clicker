@@ -3,10 +3,10 @@
 // 覆盖：kind 视觉模板 / 嵌入标准 Talklet 复用渲染（talk/narration/kizuna）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
-import { createUIContext } from '../../../src/ui/context';
-import { renderChatEntry, renderChatHistory, renderChatTexts, type ChatEntry, type ChatTextEntry } from '../../../src/ui/components/story';
+import { createUIContext } from '../../../src/ui/runtime/context';
+import { renderChatEntry, renderChatHistory, renderChatTexts, type ChatEntry, type ChatTextEntry } from '../../../src/ui/components/story/story';
 import { renderFlowEntry, renderFlowEntries } from '../../../src/ui/flow/flow-render';
 import type { FlowEntry } from '../../../src/ui/flow/flow-entry';
 

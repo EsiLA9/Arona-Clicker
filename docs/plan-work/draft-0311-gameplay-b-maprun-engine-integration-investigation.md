@@ -24,8 +24,8 @@
 
 | 问题 | 已核实依据 | 对方案/验收的影响 | 结论状态 |
 | --- | --- | --- | --- |
-| MapRun 的实现与测试从哪些当前文件进入？ | 当前检出有 `src/arona-clicker/services/map-run-service.ts`、`src/arona-clicker/contracts/map-run.ts`、`src/data-services/contracts/gameplay-map.ts`、`tests/engine/gameplay-b-map-run.test.ts` 和 `tests/engine/gameplay-b-map-runtime-integration.test.ts`；目录存在不等于完整运行路径已验收。 | 报告须从正式 Runtime 装配和 UI 命令调用方追踪，不可把服务或测试文件单独视为端到端证明。 | 路径已定位；语义待核对 |
-| MapRun 的唯一 Owner、GameInstance 装配与公开 Query / Command 边界是什么？ | `src/arona-clicker/contracts/runtime.ts` 暴露 MapRun Query、Workspace 投影及命令接口；`map-run-service.ts` 实现具体服务路径。 | 需要沿实际调用方确认所有权、旁路入口及写入责任。 | 待核对 |
+| MapRun 的实现与测试从哪些当前文件进入？ | 当前检出有 `src/arona-clicker/services/map/map-run-service.ts`、`src/arona-clicker/contracts/map/map-run.ts`、`src/data-services/contracts/gameplay-map.ts`、`tests/engine/gameplay-b-map-run.test.ts` 和 `tests/engine/gameplay-b-map-runtime-integration.test.ts`；目录存在不等于完整运行路径已验收。 | 报告须从正式 Runtime 装配和 UI 命令调用方追踪，不可把服务或测试文件单独视为端到端证明。 | 路径已定位；语义待核对 |
+| MapRun 的唯一 Owner、GameInstance 装配与公开 Query / Command 边界是什么？ | `src/arona-clicker/contracts/runtime/runtime.ts` 暴露 MapRun Query、Workspace 投影及命令接口；`map-run-service.ts` 实现具体服务路径。 | 需要沿实际调用方确认所有权、旁路入口及写入责任。 | 待核对 |
 | 当前机制文档是否覆盖新版 MapRun？ | `docs/docs-829/04-mechanisms/arona-clicker/operation-runtime.md` 和 `docs/docs-829/02-modules/arona-clicker.md` 中可见 Gameplay B EventRun / Operation 描述；MapRun 源码另有独立服务与合同。 | 必须逐条以当前源码和测试复核文档与实现的适用范围；不能沿用文档标题或旧状态得出 MapRun 结论。 | 存在待澄清范围 |
 | 是否有相邻活动工作影响 MapRun UI / 入口事实？ | 当前非归档 Task 0309 提议 MapRun 行前／续行准备页；Task 0310 明确处理独立 Area 导航。两者均为工作文档，不能当作已验收实现。 | 先记录其与本调查的范围接口；调查时以实际工作树及正式路径复核。 | 已定位；影响待核对 |
 | 本 Draft 编写时仓库基线是否干净？ | 2026-10-21，分支 `main`、HEAD `9e2c85f`（`beforeHover`）、相对 `origin/main` ahead 10；工作树有多项源码、测试、Schema、索引和活动 Task 变更，其中包含 MapRun 服务及 UI 文件。 | 正式调查启动时必须重新记录分支、HEAD 和工作树状态；不得覆盖、回滚或把并行改动描述成已合并/已验收合同。对结论注明所调查的检出状态。 | 已核实（仅 Draft 编写时基线） |

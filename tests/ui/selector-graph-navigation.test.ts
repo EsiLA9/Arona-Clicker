@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { buildSelectorGraphView, selectorGraphLinkPath, SELECTOR_GRAPH_DEFINITIONS, type SelectorGraphPortalDef } from '../../src/ui/components/selector-graph';
-import { createUIContext } from '../../src/ui/context';
-import { cameraPoint, GRAPH_NAVIGATION_TIMING } from '../../src/ui/selector-graph-transition';
+import { UIController } from '../../src/ui/controller/controller';
+import { buildSelectorGraphView, selectorGraphLinkPath, SELECTOR_GRAPH_DEFINITIONS, type SelectorGraphPortalDef } from '../../src/ui/components/navigation/selector-graph';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { cameraPoint, GRAPH_NAVIGATION_TIMING } from '../../src/ui/navigation/selector-graph-transition';
 
 const FOUNDATION = 'base:enhancement:foundation';
 const MILLENNIUM = 'base:init:millennium';

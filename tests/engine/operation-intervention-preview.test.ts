@@ -5,20 +5,20 @@ import type {
   OperationEventDef,
   OperationStudentProfileSnapshot,
   OperationTeamState,
-} from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef, OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation-action';
+} from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef, OperationActionTargetDef } from '../../src/arona-clicker/contracts/operation/operation-action';
 import type {
   OperationInterventionDraft,
   OperationInterventionPreviewInput,
   OperationPreparationActorSnapshot,
   OperationPreparationContent,
   OperationPreparationSnapshot,
-} from '../../src/arona-clicker/contracts/operation-beat';
-import { prepareOperationBeat } from '../../src/arona-clicker/services/operation-plan-preparation';
+} from '../../src/arona-clicker/contracts/operation/operation-beat';
+import { prepareOperationBeat } from '../../src/arona-clicker/services/operation/operation-plan-preparation';
 import {
   OperationInterventionPreviewError,
   previewOperationIntervention,
-} from '../../src/arona-clicker/services/operation-intervention-preview';
+} from '../../src/arona-clicker/services/operation/operation-intervention-preview';
 
 function actor(
   id: string,

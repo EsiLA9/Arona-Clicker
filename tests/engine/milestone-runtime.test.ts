@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { Datapack, MilestoneDef, MilestoneListenerDef } from '../../src/data-services/contracts/datapack';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { RevealTrigger } from '../../src/engine/types/reveal';
 

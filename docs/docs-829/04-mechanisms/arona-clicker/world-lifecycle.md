@@ -28,7 +28,7 @@ Init 字段的具体快照范围由 [[docs/docs-829/03-data-structures/player-st
 
 ## 代码入口
 
-- `src/arona-clicker/services/init-service.ts`
+- `src/arona-clicker/services/world/init-service.ts`
 - `src/arona-clicker/state/init-savepoint.ts`
 - `src/arona-clicker/state/per-init-fields.ts`
 - `tests/engine/init-global-lifecycle.test.ts`

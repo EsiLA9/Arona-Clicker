@@ -1,6 +1,7 @@
 # Unit 0312-U16：现有Workspace与Flow显示效果及进度
 
-状态：ready / 未执行；阶段P3。前置：0312-U15实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,10 +13,10 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/ui/components/map-workspace.ts：renderActionHpEffects/renderEncounterSources/renderActivityProgress/renderCommitDock；src/ui/flow/map-flow-model.ts：commitViewFromReceipt/commitLines | 沿用当前卡片/状态/回执入口 |
-| 前置 | src/arona-clicker/contracts/runtime.ts/U15 readonly view；src/arona-clicker/services/map-effect-summary.ts | 不在UI求值 |
+| 源码 | src/ui/components/map/map-workspace.ts：renderActionHpEffects/renderEncounterSources/renderActivityProgress/renderCommitDock；src/ui/flow/map-flow-model.ts：commitViewFromReceipt/commitLines | 沿用当前卡片/状态/回执入口 |
+| 前置 | src/arona-clicker/contracts/runtime/runtime.ts/U15 readonly view；src/arona-clicker/services/map/map-effect-summary.ts | 不在UI求值 |
 | UI约定 | frontend-design skill；docs/ai/frontend-design-project-overlay.md；ui-style/patterns.md；refresh-update.md | 既有风格、结构与刷新范围 |
-| 刷新源码 | src/ui/controller.ts：refreshMapWorkspaceRegion/patchMapDOM；src/ui/controller-actions-operation.ts：refreshMapWorkspacePreservingActionFocus | 复用现有稳定key补丁，不新建更新调度 |
+| 刷新源码 | src/ui/controller/controller.ts：refreshMapWorkspaceRegion/patchMapDOM；src/ui/controller/controller-actions-operation.ts：refreshMapWorkspacePreservingActionFocus | 复用现有稳定key补丁，不新建更新调度 |
 
 ## Context Budget
 
@@ -42,7 +43,7 @@
 
 ## Allowed Files
 
-- `src/ui/components/map-workspace.ts`
+- `src/ui/components/map/map-workspace.ts`
 - `src/ui/flow/map-flow-model.ts`
 - 新增（执行时才创建）：tests/ui/gameplay-b-effect-workspace.test.ts
 - `tests/ui/map-flow-adapter.test.ts`

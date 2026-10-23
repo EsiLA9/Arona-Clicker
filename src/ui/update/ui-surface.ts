@@ -1,4 +1,4 @@
-import type { PanelState } from '../components/app-shell';
+import type { PanelState } from '../components/shared/app-shell';
 import { resolveCurrentWorkspaceRoute } from '../workspace/workspace-router';
 
 export interface UISurfaceToken {

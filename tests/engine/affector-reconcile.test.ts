@@ -14,7 +14,7 @@ import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { Registry } from '../../src/data-services/registry/registry';
 import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { spot } from '../../src/arona-clicker/content/def-factory/spot';
 import { area } from '../../src/arona-clicker/content/def-factory/area';

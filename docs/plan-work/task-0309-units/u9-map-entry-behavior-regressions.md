@@ -11,7 +11,7 @@
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` 的行为验收 | 明确必须证明的无写入、同 Run 与管理操作行为 |
 | 测试 | `tests/ui/gameplay-b-basic-map-p0-p3.test.ts`、`tests/ui/gameplay-b-map-vertical-slice.test.ts` | 复用真实 UI 测试启动与操作链 |
 | 测试 | `tests/engine/gameplay-b-map-runtime-integration.test.ts` | 证明领域投影不写状态并正确区分 fresh / resume / blocked / unavailable |
-| 源码 | `src/ui/components/map-entry.ts`、`controller-actions-operation.ts` | 确认入口 / 续行 UI 行为和当前 data 标记 |
+| 源码 | `src/ui/components/map/map-entry.ts`、`controller-actions-operation.ts` | 确认入口 / 续行 UI 行为和当前 data 标记 |
 
 ## Constraints
 

@@ -2,7 +2,7 @@
 // engine/spot-tag.test.ts — Spot 动态 Tag（撤出/新加入）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { tagPath } from '../../src/engine/core/tag';
 

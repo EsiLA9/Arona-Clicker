@@ -3,7 +3,7 @@ import {
   BackgroundInkService,
   compositeBackgroundInk,
   themeVarLookup,
-} from '../../src/ui/background-color';
+} from '../../src/ui/presentation/background-color';
 import {
   INK_ON_DARK,
   INK_ON_LIGHT,
@@ -12,8 +12,8 @@ import {
   readableOnColor,
   relativeLuminance,
 } from '../../src/engine/core/color';
-import { buildBackgroundView } from '../../src/ui/background-service';
-import { buildThemeVars } from '../../src/ui/theme-tree';
+import { buildBackgroundView } from '../../src/ui/presentation/background-service';
+import { buildThemeVars } from '../../src/ui/presentation/theme-tree';
 
 const noPics = { urlOf: () => undefined, defOf: () => undefined };
 

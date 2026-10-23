@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { Expr } from '../../src/engine/def-factory/expr';
 import { value } from '../../src/engine/def-factory/expr';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { ShopSession } from '../../src/arona-clicker/services/shop-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { ShopSession } from '../../src/arona-clicker/services/economy/shop-service';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
 

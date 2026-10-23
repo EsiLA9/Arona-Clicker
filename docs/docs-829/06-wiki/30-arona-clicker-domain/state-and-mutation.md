@@ -25,6 +25,6 @@ PlayerState 与 InitSnapshot 的范围见 [[docs/docs-829/03-data-structures/pla
 ## 从哪里核对
 
 - `src/arona-clicker/state/state-mutation-service.ts`：`changeResource()`、`setFlag()` 等写入方法，以及资源桶选择和事件发射；服务不负责替每个业务命令做全部资格判断。
-- `src/arona-clicker/runtime-game-instance.ts`：Runtime 将 mutation、事件系统、各领域服务和查询面组合起来；UI 查询走 `getView()` 或专用 ReadModel。
+- `src/arona-clicker/runtime/runtime-game-instance.ts`：Runtime 将 mutation、事件系统、各领域服务和查询面组合起来；UI 查询走 `getView()` 或专用 ReadModel。
 - `tests/engine/state-mutation-service.test.ts` 的“mutates state and emits one resource event”验证资源写入和单一事件；“rejects removing more items than owned”验证资源不足时状态不变。
 - 接着看状态字段归属：[[docs/docs-829/03-data-structures/player-state]]；机制的具体先后及触发规则：[[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]。

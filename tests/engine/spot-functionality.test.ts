@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/spot-functionality.test.ts — Spot 功能系统
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { and } from '../../src/engine/types';
 import type { EnhancementDef } from '../../src/data-services/contracts/enhancement';

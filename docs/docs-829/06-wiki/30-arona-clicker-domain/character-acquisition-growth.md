@@ -14,7 +14,7 @@ Roster 和碎片等字段的生命周期可能受 Init scope 配置影响；角�
 
 ## 从哪里核对
 
-- `src/arona-clicker/services/gacha-service.ts` 的 `GachaService.roll()`：抽取、扣费、角色获得与计数；`src/arona-clicker/state/state-mutation-service.ts` 的 `acquireCharacter()`、`addExp()`、`breakthroughStar()`：持久状态写入。
-- `src/arona-clicker/services/roster-system.ts` 的 `getOwned()`、`contactGroups()`：只读持有和通讯录查询；`src/arona-clicker/services/cultivate-system.ts` 的 `applyExp()`、`checkBreakthrough()`：纯计算/校验。
+- `src/arona-clicker/services/economy/gacha-service.ts` 的 `GachaService.roll()`：抽取、扣费、角色获得与计数；`src/arona-clicker/state/state-mutation-service.ts` 的 `acquireCharacter()`、`addExp()`、`breakthroughStar()`：持久状态写入。
+- `src/arona-clicker/services/character/roster-system.ts` 的 `getOwned()`、`contactGroups()`：只读持有和通讯录查询；`src/arona-clicker/services/progression/cultivate-system.ts` 的 `applyExp()`、`checkBreakthrough()`：纯计算/校验。
 - `tests/engine/gacha-service.test.ts` 覆盖资源不足拒绝、天井计数、重复抽取补偿和部分十连；`tests/engine/cultivate-system.test.ts` 覆盖等级上限、跨级经验、碎片不足/足够与变体碎片隔离。
 - `tests/engine/character-persist.test.ts` 覆盖 roster、gacha 和装备状态按配置进入 global 或 Init 快照。持有状态字段说明见 [[docs/docs-829/03-data-structures/player-state]]。

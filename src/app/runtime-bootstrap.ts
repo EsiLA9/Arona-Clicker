@@ -1,7 +1,7 @@
 import { defaultDatapack } from '../arona-clicker/content';
-import { AronaClickerRuntime, type AronaClickerRuntimeOptions } from '../arona-clicker/runtime';
-import type { OperationContentResolver } from '../arona-clicker/contracts/operation-content-resolver';
-import { createRegistryOperationContentResolver } from '../arona-clicker/services/registry-operation-content-resolver';
+import { AronaClickerRuntime, type AronaClickerRuntimeOptions } from '../arona-clicker/runtime/runtime';
+import type { OperationContentResolver } from '../arona-clicker/contracts/operation/operation-content-resolver';
+import { createRegistryOperationContentResolver } from '../arona-clicker/services/operation/registry-operation-content-resolver';
 
 export const DEFAULT_INIT_ID = 'base:init:schale_office';
 

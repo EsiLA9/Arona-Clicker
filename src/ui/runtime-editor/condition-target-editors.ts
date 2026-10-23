@@ -6,7 +6,7 @@
 // ============================================================
 
 import type { Condition, ConditionTarget, Comparator } from '../../engine/types/expression';
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 import { renderRuntimeEditorReferenceOptions, runtimeEditorReferenceOptions, type RuntimeEditorReferenceKind } from './reference-options';
 
 export interface ConditionTargetOption {

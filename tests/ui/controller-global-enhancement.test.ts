@@ -3,10 +3,10 @@
 // controller-global-enhancement.test.ts — 选择节点图 + GlobalEnhancement 购买
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { projectPlane } from '../../src/ui/components/selector-graph';
+import { UIController } from '../../src/ui/controller/controller';
+import { projectPlane } from '../../src/ui/components/navigation/selector-graph';
 
 const OFFICE = 'base:init:schale_office';
 const FOUNDATION = 'base:enhancement:foundation';

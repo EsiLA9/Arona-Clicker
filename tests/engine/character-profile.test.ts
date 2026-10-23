@@ -4,7 +4,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // 覆盖：声明层 / 玩家覆写层 / 调用点覆写层 / 表查询 / 校验
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { Registry } from '../../src/data-services/registry/registry';

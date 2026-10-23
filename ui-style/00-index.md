@@ -20,4 +20,4 @@
 
 ## 主要依据
 
-主要依据：`src/ui/css/variables.css`、`src/ui/css/layout.css`、`src/ui/css/cards.css`、`src/ui/components/workspace-frame.ts`、`src/ui/components/tabs.ts`。结构验证入口：`tests/ui/workspace-frame.test.ts`，它不证明视觉质量。
+主要依据：`src/ui/css/variables.css`、`src/ui/css/layout.css`、`src/ui/css/cards.css`、`src/ui/components/shared/workspace-frame.ts`、`src/ui/components/shared/tabs.ts`。结构验证入口：`tests/ui/workspace-frame.test.ts`，它不证明视觉质量。

@@ -1,0 +1,735 @@
+// ============================================================
+// engine/color-system.ts — 色彩系统（色彩组库存查询/解锁编排/主题派生）
+//
+// 色彩数学与判定契约全部来自 engine/core/color（框架）：
+// 本模块只做「色彩组 → 整套 token 的派生规则」与库存/解锁编排，
+// 不再自带 hexToHsl / hslCss / 亮度 / 对比度实现。
+//
+// 主题派生规则：primary 缺省取色彩组主色位（role==='primary'，无则首个 slot）色值；
+// 其余 token 按 HSL 深/浅确定性派生，group.theme 显式配置覆盖派生值；
+// 派生前景/背景对对比度不足时自动翻转深浅。
+// ============================================================
+
+import type { ColorGroupDef, ThemeDesignDef } from '../../../data-services/contracts/color';
+import type { ColorGroupId } from '../../types/character';
+import type { Condition, ConditionGroup, Effect } from '../../../engine/types/expression';
+import type { BackgroundLayerDef, ThemeDef, ThemeToken } from '../../../engine/types/theme';
+import type { PlayerState } from '../../types/state';
+import type { Registry } from '../../../data-services/registry/registry';
+import type { ColorMutationPort } from '../../contracts/runtime/mutation';
+import { RuntimeThemeManager, type ThemeLayer, type ThemeRuntimeDiagnostics, type ThemeTokens } from '../../../engine/core/theme-runtime';
+import { SYSTEM_DEFAULT_PRIMARY } from '../../../engine/core/theme-defaults';
+import {
+  MIN_CONTRAST,
+  THEME_LIGHTNESS_THRESHOLD,
+  adjustHsl,
+  contrastRatio,
+  hslCss,
+  themeSurfaceInk,
+  toHsl,
+  type Hsl,
+  type HslAdjust,
+} from '../../../engine/core/color';
+import type { StoredCustomTheme } from '../../types/user-theme';
+
+function normalizePalette(colors: readonly string[] | undefined, uiEnabled?: readonly boolean[]): string[] {
+  return [...(colors ?? [])].filter((color, index) => typeof color === 'string' && color.trim().length > 0 && uiEnabled?.[index] !== false).slice(0, 6);
+}
+
+function storedThemeDef(theme: StoredCustomTheme, base?: ThemeDef): ThemeDef {
+  return {
+    ...base,
+    palette: theme.palette ?? base?.palette,
+    tokens: { ...(base?.tokens ?? {}), ...(theme.tokens ?? {}) },
+    nodes: { ...(base?.nodes ?? {}), ...(theme.nodes ?? {}) },
+    background: theme.background ?? base?.background,
+    systemColorLayerIgnored: theme.systemColorLayerIgnored ?? base?.systemColorLayerIgnored,
+    presentation: theme.presentation ?? base?.presentation,
+  };
+}
+
+function customThemeBase(registry: Registry, theme: StoredCustomTheme): ThemeDef | undefined {
+  if (theme.baseThemeRef?.kind === 'color-group' && theme.baseThemeRef.id) {
+    return { colorGroupId: theme.baseThemeRef.id };
+  }
+  if (theme.baseThemeRef?.kind === 'theme-design' && theme.baseThemeRef.id) {
+    return registry.themeDesigns.get(theme.baseThemeRef.id)?.theme;
+  }
+  return undefined;
+}
+
+/** 实体键：实体主题槽 / 配色设计归属的稳定键。 */
+export function entityKeyOf(kind: 'area' | 'variant' | 'init' | 'enhancement', id: string): string {
+  return `${kind}:${id}`;
+}
+
+/** 实体主题槽的 UI 选项视图。 */
+export interface EntityThemeOption {
+  kind: 'default' | 'equipment' | 'design' | 'custom';
+  id?: string;
+  name: string;
+  theme?: ThemeDef;
+  swatch?: string;
+  owned: boolean;
+  active: boolean;
+}
+
+/**
+ * 由 primary 派生整套 UI token（确定性：同输入同输出）。
+ * 主题面浅/深（HSL 明度 > THEME_LIGHTNESS_THRESHOLD）走框架契约 1：
+ * 浅底 → bg/bgAlt 近白 + text 近黑；深底 → 反之。
+ * bgAlt 相对主色做 +12° 色相偏移。
+ * 聊天气泡左(NPC)/右(Player)底色不同且各带派生文字色，确保对比清晰。
+ */
+export function deriveThemeTokens(primary: string): Record<string, string> {
+  // 非法输入回退系统默认色，而不是假造一组 HSL
+  const base: Hsl = toHsl(primary) ?? toHsl(SYSTEM_DEFAULT_PRIMARY)!;
+  const light = base.l > THEME_LIGHTNESS_THRESHOLD;
+  const derive = (adjust: HslAdjust): string => hslCss(base, adjust) ?? SYSTEM_DEFAULT_PRIMARY;
+  const npcHsl = adjustHsl(base, { saturationScale: 0.5, minSaturation: 0.14, lightness: light ? 0.34 : 0.26 })!;
+  return {
+    primary,
+    primaryDim: derive({ saturationScale: 0.7, lightnessScale: light ? 0.85 : 1.15 }),
+    bg: derive({ saturationScale: 0.12, lightness: light ? 0.96 : 0.12 }),
+    bgAlt: derive({ hueShift: 12, saturationScale: 0.15, lightness: light ? 0.90 : 0.17 }),
+    text: derive({ saturationScale: 0.08, lightness: light ? 0.15 : 0.92 }),
+    textDim: derive({ saturationScale: 0.08, lightness: light ? 0.40 : 0.65 }),
+    border: derive({ saturationScale: 0.20, lightness: light ? 0.82 : 0.28 }),
+    accent: primary,
+    panel: '#ffffff',
+    playerBubble: primary,
+    playerBubbleText: themeSurfaceInk(base),
+    npcBubble: hslCss(npcHsl) ?? primary,
+    npcBubbleText: themeSurfaceInk(npcHsl),
+  };
+}
+
+/** 色彩组主色位色值（role==='primary'，无则首个 slot；空组返回 undefined）。 */
+export function primaryColorOf(group: ColorGroupDef): string | undefined {
+  const slot = group.slots.find(s => s.role === 'primary') ?? group.slots[0];
+  return slot?.color;
+}
+
+/**
+ * 解析色彩组的最终 token 表（唯一主题解析路径）：
+ * group.theme 显式覆盖 > primary 派生 > 默认 primary；
+ * primary 缺省取主色位色值。
+ * CT-04 对比度防呆：text/bg 对不足阈值时翻转 text 深浅。
+ */
+export function resolveTheme(group: ColorGroupDef): Record<string, string> {
+  const primary = group.theme?.['primary'] ?? primaryColorOf(group) ?? SYSTEM_DEFAULT_PRIMARY;
+  const tokens = { ...deriveThemeTokens(primary) };
+  if (group.theme) {
+    for (const [key, value] of Object.entries(group.theme)) {
+      if (value != null) tokens[key] = value;
+    }
+  }
+  const fg = tokens['text'];
+  const bg = tokens['bg'];
+  if (fg && bg && contrastRatio(fg, bg) < MIN_CONTRAST) {
+    const bgL = toHsl(bg)?.l ?? 0.5;
+    const flipped = bgL > THEME_LIGHTNESS_THRESHOLD ? 'hsl(0 8% 10%)' : 'hsl(0 0% 94%)';
+    if (contrastRatio(flipped, bg) > contrastRatio(fg, bg)) tokens['text'] = flipped;
+  }
+  return tokens;
+}
+
+// ============================================================================
+// ColorGroup / ThemeDef → theme-tree 快速映射（token 贡献）
+//
+// 每个实体（角色对话 / Area / Spot / Talklet·Story / 自定义主题）都可把自身
+// 解析为一组 token 贡献，填入全局参考 theme-tree（见 theme-runtime 分层合并）。
+// ColorGroup 直接 resolveTheme；ThemeDef = 引用组打底 + tokens 局部覆盖。
+// ============================================================================
+
+/**
+ * ThemeDef（声明式主题：引用 ColorGroup 打底 + 局部覆盖）→ token 贡献。
+ * 供 Area / 学生对话 / Spot / 自定义主题统一复用同一条解析路径。
+ */
+export function themeContributionFromThemeDef(
+  theme: ThemeDef | undefined,
+  getGroup: (id: ColorGroupId) => ColorGroupDef | undefined,
+): ThemeTokens {
+  if (!theme) return {};
+  const tokens: ThemeTokens = {};
+  if (theme.colorGroupId) {
+    const group = getGroup(theme.colorGroupId);
+    if (group) Object.assign(tokens, resolveTheme(group));
+  }
+  if (theme.tokens) Object.assign(tokens, theme.tokens);
+  return tokens;
+}
+
+// --- 服务 ---
+
+export class ColorSystem {
+  /** 通用主题图层算法入口；普通游戏界面每次只写入一个已选主题。 */
+  readonly runtime: RuntimeThemeManager;
+  private readonly selectedRuntime: RuntimeThemeManager;
+  private selectedThemeLayer: ThemeLayer | null = null;
+  private selectorThemeLayer: ThemeLayer | null = null;
+  private temporaryThemeLayer: ThemeLayer | null = null;
+  private temporaryThemeId: string | null = null;
+  private previewThemeLayer: ThemeLayer | null = null;
+
+  constructor(
+    private readonly registry: Registry,
+    private readonly mutations: ColorMutationPort,
+    private readonly getState: () => PlayerState,
+    private readonly checkCondition: (expr: Condition | ConditionGroup, state: PlayerState) => boolean,
+  ) {
+    this.runtime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+    this.selectedRuntime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+  }
+
+  private resolveLayerTokens(layer: ThemeLayer): ThemeTokens {
+    const tokens: ThemeTokens = {};
+    if (layer.groupId) {
+      const def = this.registry.colorGroups.get(layer.groupId);
+      if (def) Object.assign(tokens, resolveTheme(def));
+    }
+    if (layer.tokens) Object.assign(tokens, layer.tokens);
+    return tokens;
+  }
+
+  // --- 运行时主题（RuntimeThemeManager 门面） ---
+
+  /** 将存档选择解析为单一界面主题；通讯录学生对话可用其实体主题覆盖当前选择。 */
+  syncSelectedThemeFromState(state: PlayerState, customThemeAvailable = true, conversationVariantId?: string | null): void {
+    const selection = state.activeTheme ?? { kind: 'system' as const };
+    const area = state.currentAreaId ? this.registry.areas.get(state.currentAreaId) : undefined;
+    const sceneTheme = area
+      ? this.resolveEntityTheme(state, entityKeyOf('area', area.id), { declaredTheme: area.theme }).theme
+      : null;
+    const sceneLayer = sceneTheme && area ? this.themeLayerFromDef(`area:${area.id}`, sceneTheme) : null;
+    let selected: ThemeLayer | null = sceneLayer;
+    let selectorSelected: ThemeLayer | null = null;
+    if (selection.kind === 'color-group') {
+      const group = this.registry.colorGroups.get(selection.id);
+      if (group && this.isGroupOwned(state, selection.id)) {
+        selectorSelected = selected = this.enrichThemeLayer({
+          id: selection.id,
+          sourceId: `color-group:${selection.id}`,
+          scope: 'player',
+          groupId: selection.id,
+          palette: this.paletteOfGroup(selection.id),
+          systemColorLayerIgnored: group.systemColorLayerIgnored,
+        });
+      }
+    } else if (selection.kind === 'custom') {
+      const stored = state.customThemes?.[selection.id];
+      if (stored && customThemeAvailable && state.userTheme?.enabled !== false) {
+        const base = customThemeBase(this.registry, stored);
+        const applied = storedThemeDef(stored, base);
+        const globalHost = applied.presentation?.hosts?.find(host => host.id === 'global');
+        selectorSelected = selected = this.themeLayerFromDef(selection.id, applied, {
+          palette: normalizePalette(applied.palette, stored.paletteUiEnabled),
+          scopeNodeOverrides: stored.scopes,
+          background: globalHost?.layers ?? applied.background,
+          backgroundLayerOrder: globalHost?.layerOrder ?? stored.backgroundLayerOrder,
+          systemColorLayerIgnored: stored.systemColorLayerIgnored
+            ?? applied.systemColorLayerIgnored
+            ?? (applied.colorGroupId ? this.registry.colorGroups.get(applied.colorGroupId)?.systemColorLayerIgnored : undefined),
+        });
+      }
+    }
+    if (conversationVariantId) {
+      const variant = this.registry.characterVariants.get(conversationVariantId);
+      if (variant) {
+        const entityKey = entityKeyOf('variant', variant.id);
+        const attachment = state.themeAttachments?.[entityKey];
+        const stored = attachment?.enabled ? state.customThemes?.[attachment.customThemeId] : undefined;
+        const declaredTheme = variant.theme ?? (variant.colorGroupId ? { colorGroupId: variant.colorGroupId } : undefined);
+        const studentTheme = this.resolveEntityTheme(state, entityKey, {
+          declaredTheme,
+          equippedEquipmentId: state.roster?.[variant.id]?.colorEquipment,
+        }).theme;
+        if (studentTheme) {
+          const globalHost = studentTheme.presentation?.hosts?.find(host => host.id === 'global');
+          selected = this.themeLayerFromDef(`student:${variant.id}`, studentTheme, {
+            palette: stored ? normalizePalette(stored.palette, stored.paletteUiEnabled) : studentTheme.palette,
+            scopeNodeOverrides: stored?.scopes,
+            background: globalHost?.layers ?? studentTheme.background,
+            backgroundLayerOrder: globalHost?.layerOrder ?? stored?.backgroundLayerOrder,
+            systemColorLayerIgnored: stored?.systemColorLayerIgnored ?? studentTheme.systemColorLayerIgnored,
+          });
+        }
+      }
+    }
+    this.selectorThemeLayer = selectorSelected;
+    this.selectedThemeLayer = selected;
+    this.syncSingleRuntimeTheme();
+  }
+
+  private themeLayerFromDef(
+    sourceId: string,
+    theme: ThemeDef,
+    options: Pick<ThemeLayer, 'palette' | 'scopeNodeOverrides' | 'background' | 'backgroundLayerOrder' | 'systemColorLayerIgnored'> = {},
+  ): ThemeLayer {
+    const group = theme.colorGroupId ? this.registry.colorGroups.get(theme.colorGroupId) : undefined;
+    return this.enrichThemeLayer({
+      id: sourceId,
+      sourceId,
+      scope: 'player',
+      groupId: theme.colorGroupId as ColorGroupId | undefined,
+      palette: options.palette ?? theme.palette,
+      tokens: theme.tokens,
+      nodeOverrides: theme.nodes,
+      scopeNodeOverrides: options.scopeNodeOverrides,
+      background: options.background ?? theme.background,
+      backgroundLayerOrder: options.backgroundLayerOrder,
+      systemColorLayerIgnored: options.systemColorLayerIgnored ?? theme.systemColorLayerIgnored ?? group?.systemColorLayerIgnored,
+      presentation: theme.presentation,
+    });
+  }
+
+  private syncSingleRuntimeTheme(): void {
+    const layer = this.previewThemeLayer ?? this.temporaryThemeLayer ?? this.selectedThemeLayer;
+    this.selectedRuntime.reset();
+    this.selectedRuntime.setPlayer(layer ? { ...layer, scope: 'player' } : null);
+  }
+
+  /** 从状态同步全局主题来源；保留旧门面供调用方迁移，主题仍只会单选。 */
+  syncPlayerThemeFromState(state: PlayerState): void {
+    this.syncSelectedThemeFromState(state);
+  }
+
+  syncUserThemeFromState(state: PlayerState, active: boolean): void {
+    this.syncSelectedThemeFromState(state, active);
+  }
+
+  /** 编辑器预览作为完整临时主题替换当前选中项，不叠加到场景主题之上。 */
+  setUserThemePreview(draft: { palette?: string[]; paletteUiEnabled?: boolean[]; systemColorLayerIgnored?: boolean; backgroundLayerOrder?: string[]; tokens?: Partial<Record<ThemeToken, string>>; nodes?: import('../../../engine/types/theme').ThemeDef['nodes']; scopes?: import('../../types/user-theme').UserThemeDraft['scopes']; background?: import('../../../engine/types/theme').ThemeDef['background']; presentation?: import('../../../engine/types/theme').PresentationDef } | null): void {
+    if (draft) {
+      const globalHost = draft.presentation?.hosts?.find(host => host.id === 'global');
+      this.previewThemeLayer = {
+        id: 'user-theme-preview',
+        sourceId: 'user-theme-preview',
+        scope: 'player',
+        palette: normalizePalette(draft.palette, draft.paletteUiEnabled),
+        tokens: draft.tokens,
+        nodeOverrides: draft.nodes,
+        scopeNodeOverrides: draft.scopes,
+        background: globalHost?.layers ?? draft.background,
+        backgroundLayerOrder: globalHost?.layerOrder ?? draft.backgroundLayerOrder,
+        systemColorLayerIgnored: draft.systemColorLayerIgnored,
+        presentation: draft.presentation,
+      };
+    } else this.previewThemeLayer = null;
+    this.syncSingleRuntimeTheme();
+  }
+
+  /** 一般 Datapack 主题编辑器预览：以候选内容整体替换当前主题。 */
+  setExclusiveThemePreview(layer: ThemeLayer | null): void {
+    this.previewThemeLayer = layer ? this.enrichThemeLayer({ ...layer, scope: 'player' }) : null;
+    this.syncSingleRuntimeTheme();
+  }
+
+  /** 压入场景特色层（当前 Area / 当前对话学生；同 scope 覆盖）。 */
+  pushSceneTheme(layer: ThemeLayer): void {
+    this.runtime.pushScene(this.enrichThemeLayer(layer));
+  }
+
+  /** 弹出场景层（按 scope 弹出；缺省弹出最近一个）。 */
+  popSceneTheme(scope?: ThemeLayer['scope']): void {
+    this.runtime.popScene(scope);
+  }
+
+  /** 推入临时演出层，返回其 id（供 popEphemeralTheme 移除）。 */
+  pushEphemeralTheme(layer: ThemeLayer): string {
+    const enriched = this.enrichThemeLayer(layer);
+    const id = this.runtime.pushEphemeral(enriched);
+    this.temporaryThemeId = id;
+    this.temporaryThemeLayer = { ...enriched, id, scope: 'player' };
+    this.syncSingleRuntimeTheme();
+    return id;
+  }
+
+  /** 移除临时演出层（不存在则静默忽略）。 */
+  popEphemeralTheme(id: string): void {
+    this.runtime.popEphemeral(id);
+    if (this.temporaryThemeId === id) {
+      this.temporaryThemeId = null;
+      this.temporaryThemeLayer = null;
+      this.syncSingleRuntimeTheme();
+    }
+  }
+
+  /** 清空全部运行时层（新会话/读档）。 */
+  resetRuntimeThemes(): void {
+    this.selectedThemeLayer = null;
+    this.selectorThemeLayer = null;
+    this.temporaryThemeLayer = null;
+    this.temporaryThemeId = null;
+    this.previewThemeLayer = null;
+    this.runtime.reset();
+    this.selectedRuntime.reset();
+  }
+
+  /** 当前界面唯一选中主题的解析结果。 */
+  runtimeTheme(): ReturnType<RuntimeThemeManager['resolve']> {
+    return this.selectedRuntime.resolve();
+  }
+
+  /** 选择页只以玩家选中的全局主题为基底；场景默认、剧情换肤和编辑预览不进入输入快照。 */
+  selectorBaseTheme(): ReturnType<RuntimeThemeManager['resolve']> {
+    const selectorRuntime = new RuntimeThemeManager(layer => this.resolveLayerTokens(layer));
+    selectorRuntime.setPlayer(this.selectorThemeLayer ? { ...this.selectorThemeLayer, scope: 'player' } : null);
+    return selectorRuntime.resolve();
+  }
+
+  /** 当前运行时主题层的只读来源/生命周期诊断；不写入玩家状态。 */
+  runtimeThemeDiagnostics(target?: string): ThemeRuntimeDiagnostics {
+    return this.selectedRuntime.diagnostics(target);
+  }
+
+  /** 当前运行时主题合并后的最终 token 表。 */
+  runtimeThemeTokens(): Record<string, string> {
+    return this.runtimeTheme().tokens;
+  }
+
+  /** 某 scope 当前生效层（忽略临时演出层）解析出的 token 表；无该层返回空表。 */
+  scopeThemeTokens(scope: ThemeLayer['scope']): ThemeTokens {
+    return this.selectedRuntime.resolveScope(scope);
+  }
+
+  /**
+   * 处理临时演出类 theme effect（setTheme op）。
+   * 由 effect-engine 在 applyEffects 时转发（mutations 对 setTheme 保持 no-op）。
+   * scope=area/student 时改写实体主题槽（持久，玩家可改回）；否则整体替换当前界面主题。
+   * @returns 是否已消费（op 属于主题类）。
+   */
+  /** 剧情演出临时层的固定槽位：同一剧情内的 setTheme 覆盖式更新，离开剧情即清除。 */
+  static readonly STORY_EPHEMERAL_ID = 'story-ephemeral';
+
+  handleThemeEffect(effect: Effect): boolean {
+    if (effect.op !== 'setTheme') return false;
+    const value = effect.value as import('../../../engine/types/expression').ThemeEffectValue;
+    if (value?.scope === 'area' || value?.scope === 'student') {
+      if (!value.entityKey) return false;
+      // 剧情/Trigger 直接改写实体主题槽（自定义来源，持久至玩家改回）
+      this.mutations.setEntityThemeSlot(value.entityKey, {
+        kind: 'custom',
+        customTheme: { colorGroupId: value.colorGroupId, palette: value.palette, tokens: value.tokens, nodes: value.nodes },
+      });
+      return true;
+    }
+    this.temporaryThemeId = ColorSystem.STORY_EPHEMERAL_ID;
+    this.temporaryThemeLayer = this.enrichThemeLayer({
+      id: ColorSystem.STORY_EPHEMERAL_ID,
+      sourceId: ColorSystem.STORY_EPHEMERAL_ID,
+      scope: 'player',
+      groupId: value?.colorGroupId,
+      palette: normalizePalette(value?.palette),
+      tokens: value?.tokens,
+      nodeOverrides: value?.nodes,
+      background: value?.background,
+    });
+    this.syncSingleRuntimeTheme();
+    return true;
+  }
+
+  /** 清除剧情临时演出层（剧情结束后调用）。 */
+  clearStoryTheme(): void {
+    if (this.temporaryThemeId === ColorSystem.STORY_EPHEMERAL_ID) {
+      this.temporaryThemeId = null;
+      this.temporaryThemeLayer = null;
+      this.syncSingleRuntimeTheme();
+    }
+  }
+
+  getGroup(groupId: ColorGroupId): ColorGroupDef | undefined {
+    return this.registry.colorGroups.get(groupId);
+  }
+
+  paletteOfGroup(groupId: ColorGroupId): string[] {
+    const group = this.registry.colorGroups.get(groupId);
+    return group ? normalizePalette(group.slots.map(slot => slot.color)) : [];
+  }
+
+  private enrichThemeLayer(layer: ThemeLayer): ThemeLayer {
+    return layer.palette?.length || !layer.groupId
+      ? layer
+      : { ...layer, palette: this.paletteOfGroup(layer.groupId) };
+  }
+
+  // --- theme-tree 快速映射（封装 registry 解析） ---
+
+  /** ColorGroup → 整包 token 贡献（即 resolveTheme）。 */
+  themeFromGroup(groupId: ColorGroupId): ThemeTokens {
+    const group = this.registry.colorGroups.get(groupId);
+    return group ? resolveTheme(group) : {};
+  }
+
+  /** ThemeDef → token 贡献（统一解析路径）。 */
+  themeFromThemeDef(theme: ThemeDef | undefined): ThemeTokens {
+    return themeContributionFromThemeDef(theme, id => this.registry.colorGroups.get(id));
+  }
+
+  // --- 实体主题槽（Area / 学生差分的多来源配色） ---
+
+  /** 设计 → 主题定义。 */
+  designTheme(designId: string): ThemeDef | undefined {
+    return this.registry.themeDesigns.get(designId)?.theme;
+  }
+
+  /** 某实体已解锁的设计（按获得顺序）。 */
+  ownedDesigns(state: PlayerState, entityKey: string): ThemeDesignDef[] {
+    return (state.entityThemeDesignsOwned?.[entityKey] ?? [])
+      .map(id => this.registry.themeDesigns.get(id))
+      .filter((d): d is ThemeDesignDef => !!d);
+  }
+
+  /** 设计是否已解锁。 */
+  isDesignOwned(state: PlayerState, entityKey: string, designId: string): boolean {
+    return state.entityThemeDesignsOwned?.[entityKey]?.includes(designId) ?? false;
+  }
+
+  /** 由 ThemeDef 取预览主色（colorGroupId → 组主色位/theme.primary；否则 tokens.primary）。 */
+  themeSwatchColor(theme: ThemeDef): string | undefined {
+    if (theme.colorGroupId) {
+      const group = this.registry.colorGroups.get(theme.colorGroupId);
+      const primary = group?.theme?.['primary'] ?? (group ? primaryColorOf(group) : undefined);
+      if (primary) return primary;
+    }
+    return theme.tokens?.['primary'];
+  }
+
+  /**
+   * 解析实体当前生效的主题槽覆盖（ThemeDef | null）。
+   * null = 无覆盖，调用方走声明默认（Area.theme / Variant.theme / 色组回退）。
+   * equipment 来源跟随「当前已装备」的装备（kind 即「跟随装备」语义）。
+   */
+  entityThemeOverride(
+    state: PlayerState,
+    entityKey: string,
+    equippedEquipmentId?: string | null,
+  ): ThemeDef | null {
+    return this.resolveEntityTheme(state, entityKey, { equippedEquipmentId }).theme;
+  }
+
+  /** 统一解析实体主题来源，供 UI、预览和运行时使用。 */
+  resolveEntityTheme(
+    state: PlayerState,
+    entityKey: string,
+    opts: { declaredTheme?: ThemeDef; equippedEquipmentId?: string | null } = {},
+  ): { theme: ThemeDef | null; sourceKind: 'custom' | 'design' | 'equipment' | 'declared-default' | 'none'; sourceId?: string; baseThemeRef?: StoredCustomTheme['baseThemeRef'] } {
+    const attachment = state.themeAttachments?.[entityKey];
+    const stored = attachment?.enabled ? state.customThemes?.[attachment.customThemeId] : undefined;
+    if (stored) {
+      const base = stored.baseThemeRef?.kind === 'color-group' && stored.baseThemeRef.id
+        ? { colorGroupId: stored.baseThemeRef.id }
+        : stored.baseThemeRef?.kind === 'theme-design' && stored.baseThemeRef.id
+          ? this.registry.themeDesigns.get(stored.baseThemeRef.id)?.theme
+          : undefined;
+      return { theme: storedThemeDef(stored, base), sourceKind: 'custom', sourceId: stored.id, baseThemeRef: stored.baseThemeRef };
+    }
+    const slot = state.entityThemeSlots?.[entityKey];
+    if (slot?.kind === 'custom') return { theme: slot.customTheme ?? null, sourceKind: 'custom' };
+    if (slot?.kind === 'design') {
+      if (!slot.designId || !this.isDesignOwned(state, entityKey, slot.designId)) return { theme: null, sourceKind: 'none' };
+      return { theme: this.registry.themeDesigns.get(slot.designId)?.theme ?? null, sourceKind: 'design', sourceId: slot.designId };
+    }
+    const equippedEquipmentId = opts.equippedEquipmentId;
+    if (equippedEquipmentId) {
+      const def = this.registry.colorEquipments.get(equippedEquipmentId);
+      if (def) {
+        // 装备未声明专属主题时，回退为其引用色彩组自身的主题预设
+        return { theme: def.theme ?? { colorGroupId: def.colorGroupId }, sourceKind: 'equipment', sourceId: def.id };
+      }
+    }
+    if (slot?.kind === 'equipment') return { theme: null, sourceKind: 'none' };
+    return {
+      theme: opts.declaredTheme ?? null,
+      sourceKind: opts.declaredTheme ? 'declared-default' : 'none',
+    };
+  }
+
+  /**
+   * 实体的可用主题来源列表（UI 渲染用）：
+   * 声明默认 → 当前装备主题 → 目标为该实体的设计（含未解锁，owned=false）→ 玩家自定义。
+   */
+  entityThemeOptions(
+    state: PlayerState,
+    entityKey: string,
+    opts: { declaredTheme?: ThemeDef; equippedEquipmentId?: string | null },
+  ): EntityThemeOption[] {
+    const { declaredTheme, equippedEquipmentId } = opts;
+    const slot = state.entityThemeSlots?.[entityKey];
+    const options: EntityThemeOption[] = [];
+    if (declaredTheme) {
+      options.push({
+        kind: 'default',
+        name: '声明默认',
+        theme: declaredTheme,
+        swatch: this.themeSwatchColor(declaredTheme),
+        owned: true,
+        active: !slot || slot.kind === 'default',
+      });
+    }
+    if (equippedEquipmentId) {
+      const def = this.registry.colorEquipments.get(equippedEquipmentId);
+      const theme = def?.theme ?? (def ? { colorGroupId: def.colorGroupId } : undefined);
+      if (def && theme) {
+        options.push({
+          kind: 'equipment',
+          id: def.id,
+          name: `装备 · ${def.name}`,
+          theme,
+          swatch: this.themeSwatchColor(theme),
+          owned: true,
+          active: slot?.kind === 'equipment',
+        });
+      }
+    }
+    const owned = state.entityThemeDesignsOwned?.[entityKey] ?? [];
+    const designs = [...this.registry.themeDesigns.values()].filter(
+      d => d.entityKey === entityKey || (!d.entityKey && owned.includes(d.id)),
+    );
+    for (const d of designs) {
+      options.push({
+        kind: 'design',
+        id: d.id,
+        name: d.name,
+        theme: d.theme,
+        swatch: this.themeSwatchColor(d.theme),
+        owned: owned.includes(d.id),
+        active: slot?.kind === 'design' && slot.designId === d.id,
+      });
+    }
+    const attachedCustom = state.themeAttachments?.[entityKey];
+    const storedCustom = attachedCustom?.enabled ? state.customThemes?.[attachedCustom.customThemeId] : undefined;
+    if (storedCustom) {
+      options.push({
+        kind: 'custom',
+        id: storedCustom.id,
+        name: `自定义 · ${storedCustom.name}`,
+        theme: storedThemeDef(storedCustom),
+        swatch: this.themeSwatchColor(storedThemeDef(storedCustom)),
+        owned: true,
+        active: true,
+      });
+    } else if (slot?.kind === 'custom' && slot.customTheme) {
+      options.push({
+        kind: 'custom',
+        name: '自定义',
+        theme: slot.customTheme,
+        swatch: this.themeSwatchColor(slot.customTheme),
+        owned: true,
+        active: true,
+      });
+    }
+    return options;
+  }
+
+  /**
+   * 尝试解锁实体配色设计：条件校验 → 入库存 → 自动设为该实体当前生效主题。
+   * @returns 'unlocked' 成功 | 'already' 幂等 | false 条件不满足或定义缺失
+   */
+  tryUnlockDesign(entityKey: string, designId: string): 'unlocked' | 'already' | false {
+    const def = this.registry.themeDesigns.get(designId);
+    if (!def) return false;
+    const state = this.getState();
+    if (this.isDesignOwned(state, entityKey, designId)) return 'already';
+    if (def.unlock && !this.checkCondition(def.unlock, state)) return false;
+    if (!this.mutations.unlockEntityDesign(entityKey, designId)) return 'already';
+    // 获得即改默认：自动把该设计设为实体当前生效主题
+    this.mutations.setEntityThemeSlot(entityKey, { kind: 'design', designId });
+    return 'unlocked';
+  }
+
+  /**
+   * 扫描全部带 unlock + entityKey 的配色设计，对尚未拥有且条件已满足者自动解锁。
+   * 挂在 characterAcquired / flagChanged 时机（与 ColorEquipmentSystem.recheckUnlocks 同一闭环）。
+   * @returns 本次新解锁的设计 id 列表（空数组 = 无变化）。
+   */
+  recheckDesignUnlocks(): string[] {
+    const newly: string[] = [];
+    for (const def of this.registry.themeDesigns.values()) {
+      if (!def.unlock || !def.entityKey) continue;
+      if (this.tryUnlockDesign(def.entityKey, def.id) === 'unlocked') newly.push(def.id);
+    }
+    return newly;
+  }
+
+  getAllGroups(): ColorGroupDef[] {
+    return [...this.registry.colorGroups.values()];
+  }
+
+  isGroupOwned(state: PlayerState, groupId: string): boolean {
+    return state.groupsOwned?.includes(groupId) ?? false;
+  }
+
+  ownedGroups(state: PlayerState): ColorGroupDef[] {
+    return (state.groupsOwned ?? [])
+      .map(id => this.registry.colorGroups.get(id))
+      .filter((d): d is ColorGroupDef => !!d);
+  }
+
+  /**
+   * 尝试解锁色彩组（条件编排在此，写经 mutations.unlockGroup）。
+   * @returns 'unlocked' 成功 | 'already' 幂等 | false 条件不满足或定义缺失
+   */
+  tryUnlockGroup(groupId: string): 'unlocked' | 'already' | false {
+    const def = this.getGroup(groupId);
+    if (!def) return false;
+    const state = this.getState();
+    if (this.isGroupOwned(state, groupId)) return 'already';
+    if (def.unlock && !this.checkCondition(def.unlock, state)) return false;
+    return this.mutations.unlockGroup(groupId) ? 'unlocked' : 'already';
+  }
+
+  /**
+   * 扫描所有已定义色彩组，对尚未拥有且条件已满足者执行 tryUnlockGroup。
+   * 仅覆盖带 unlock 条件的色彩组（缺省无 unlock = 不可自动解锁，见 ColorGroupDef 约定）。
+   * 挂在 characterAcquired / 进入世界线等时机，使"达成条件即自动解锁"闭环。
+   * @returns 本次新解锁的色彩组 id 列表（空数组 = 无变化）。
+   */
+  recheckUnlocks(): string[] {
+    const newly: string[] = [];
+    for (const def of this.getAllGroups()) {
+      if (!def.unlock) continue;
+      if (this.tryUnlockGroup(def.id) === 'unlocked') newly.push(def.id);
+    }
+    return newly;
+  }
+
+  /** 变体已装备色彩装备的聚合效果声明已迁移至 ColorEquipmentSystem.effectsOf（单装备槽按 colorEquipment 聚合）。 */
+
+  /** 当前激活 ColorGroup 的最终 token 表；系统默认或用户主题返回 null。 */
+  activeThemeTokens(state: PlayerState): Record<string, string> | null {
+    const id = state.activeTheme?.kind === 'color-group' ? state.activeTheme.id : undefined;
+    if (!id) return null;
+    const def = this.getGroup(id);
+    if (!def || !this.isGroupOwned(state, id)) return null;
+    return resolveTheme(def);
+  }
+
+  /**
+   * 图鉴用：拆解出色彩组每个 token 的取值与来源。
+   * - 来源 'defined'  = 作者显式配置值：ColorGroupDef.theme 中的键，或主色位色值
+   * - 来源 'derived'  = 引擎由 primary 经 HSL 规则确定性派生的自动构造值
+   * autoConstructed：theme 缺省或仅配 primary（其余全部靠派生）→ 视为「自动构造」；
+   * 反之作者显式补充了至少一个非 primary token → 「已被定义」。
+   * 返回顺序按 token 稳定性：primary 优先，其余按解析结果键序。
+   */
+  describeGroup(def: ColorGroupDef): {
+    autoConstructed: boolean;
+    tokens: { key: string; value: string; source: 'defined' | 'derived' }[];
+  } {
+    const definedKeys = new Set(Object.keys(def.theme ?? {}));
+    // 主色位色值本身即作者的显式定义（哪怕 theme 缺省）
+    if (!definedKeys.has('primary')) definedKeys.add('primary');
+    const resolved = resolveTheme(def);
+    const autoConstructed = [...definedKeys].every(k => k === 'primary');
+    const ordered = ['primary', ...Object.keys(resolved).filter(k => k !== 'primary')];
+    return {
+      autoConstructed,
+      tokens: ordered.map(key => ({
+        key,
+        value: resolved[key],
+        source: definedKeys.has(key) ? 'defined' : 'derived',
+      })),
+    };
+  }
+}

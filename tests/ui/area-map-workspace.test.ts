@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
-import { createUIContext } from '../../src/ui/context';
-import { UIController } from '../../src/ui/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { UIController } from '../../src/ui/controller/controller';
 import { createAreaMapSession } from '../../src/ui/workspace/area-map-session';
-import { renderAreaMapWorkspace } from '../../src/ui/components/area-map-workspace';
+import { renderAreaMapWorkspace } from '../../src/ui/components/map/area-map-workspace';
 
 test('three columns retain real Area rail, render escaped public nodes and a separate travel action', () => {
   const game = new GameInstance();

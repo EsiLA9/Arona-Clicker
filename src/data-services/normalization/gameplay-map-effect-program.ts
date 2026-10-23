@@ -1,66 +1,81 @@
 import type {
   GameplayMapEffectConditionDef,
+  GameplayMapEffectLoopConditionDef,
+  GameplayMapEffectLoopStatementDef,
   GameplayMapEffectProgramDef,
   GameplayMapEffectStatementDef,
+  GameplayMapEffectTriggerDef,
 } from '../contracts/gameplay-map-effects';
 import type { GameplayMapActionDef } from '../contracts/gameplay-map';
 import { validateGameplayMapEffectProgram } from '../validation/gameplay-map-effect-syntax';
 
-export type GameplayMapEffectMode = 'legacy' | 'program';
-
-/** The OLD phase facts the outer source scheduler must preserve for a legacy leaf. */
-export interface GameplayMapLegacyPhase {
-  readonly partyAction?: 'party-action-hp-before-resource-settlement' | 'resource-settlement-after-party-action-hp';
-  readonly actorlessSource?: 'resource-settlement-before-actorless-hp' | 'actorless-hp-after-resource-settlement';
-  readonly enemySource?: 'enemy-resource-before-own-hp' | 'enemy-hp-after-own-resource';
-}
-
 export interface GameplayMapEffectOrigin {
   readonly originPath: string;
-  readonly mode: GameplayMapEffectMode;
-  readonly legacyPhase?: GameplayMapLegacyPhase;
+  readonly mode: 'program';
 }
 
-type NormalizedGameplayMapEffectConditionMetadata = {
-  readonly originPath: string;
-  readonly mode: 'program';
-};
+type NormalizedGameplayMapEffectConditionMetadata = GameplayMapEffectOrigin;
 
-/** Every nested condition retains its own source path and program origin. */
-export type NormalizedGameplayMapEffectCondition =
-  | ({
-    readonly kind: 'all' | 'any';
-    readonly conditions: readonly NormalizedGameplayMapEffectCondition[];
-  } & NormalizedGameplayMapEffectConditionMetadata)
-  | ({
-    readonly kind: 'not';
-    readonly condition: NormalizedGameplayMapEffectCondition;
-  } & NormalizedGameplayMapEffectConditionMetadata)
-  | (Exclude<GameplayMapEffectConditionDef, { kind: 'all' | 'any' | 'not' }>
-    & NormalizedGameplayMapEffectConditionMetadata);
+type NormalizeConditionTree<T> =
+  T extends { readonly kind: 'all' | 'any'; readonly conditions: readonly (infer Child)[] }
+    ? Omit<T, 'conditions'> & NormalizedGameplayMapEffectConditionMetadata & {
+      readonly conditions: readonly NormalizeConditionTree<Child>[];
+    }
+    : T extends { readonly kind: 'not'; readonly condition: infer Child }
+      ? Omit<T, 'condition'> & NormalizedGameplayMapEffectConditionMetadata & {
+        readonly condition: NormalizeConditionTree<Child>;
+      }
+      : T & NormalizedGameplayMapEffectConditionMetadata;
 
-export type NormalizedGameplayMapEffectInstruction =
-  | (Extract<GameplayMapEffectStatementDef, { op: 'hpChange' }> & GameplayMapEffectOrigin)
-  | (Extract<GameplayMapEffectStatementDef, { op: 'resourceChange' }> & GameplayMapEffectOrigin)
-  | (Extract<GameplayMapEffectStatementDef, { op: 'counterAdd' }> & GameplayMapEffectOrigin)
-  | (Extract<GameplayMapEffectStatementDef, { op: 'flagSet' }> & GameplayMapEffectOrigin)
-  | (Omit<Extract<GameplayMapEffectStatementDef, { op: 'when' }>, 'condition' | 'then' | 'else'> & GameplayMapEffectOrigin & {
-    readonly condition: NormalizedGameplayMapEffectCondition;
-    readonly then: readonly NormalizedGameplayMapEffectInstruction[];
-    readonly else?: readonly NormalizedGameplayMapEffectInstruction[];
-  });
+/** Every nested condition retains its source path and Program origin. */
+export type NormalizedGameplayMapEffectCondition = NormalizeConditionTree<GameplayMapEffectConditionDef>;
+export type NormalizedGameplayMapEffectLoopCondition = NormalizeConditionTree<GameplayMapEffectLoopConditionDef>;
+
+type NormalizedElseItems<T> = T extends { readonly else?: readonly (infer Else)[] } ? Else : never;
+type NormalizeInstructionTree<T> =
+  T extends {
+    readonly op: 'when';
+    readonly condition: infer Condition;
+    readonly then: readonly (infer Then)[];
+  }
+    ? Omit<T, 'condition' | 'then' | 'else'> & GameplayMapEffectOrigin & {
+      readonly condition: NormalizeConditionTree<Condition>;
+      readonly then: readonly NormalizeInstructionTree<Then>[];
+      readonly else?: readonly NormalizeInstructionTree<NormalizedElseItems<T>>[];
+    }
+    : T extends { readonly op: 'forTargets'; readonly body: readonly (infer Body)[] }
+      ? Omit<T, 'body'> & GameplayMapEffectOrigin & {
+        readonly body: readonly NormalizeInstructionTree<Body>[];
+      }
+      : T & GameplayMapEffectOrigin;
+
+export type NormalizedGameplayMapEffectInstruction = NormalizeInstructionTree<GameplayMapEffectStatementDef>;
+export type NormalizedGameplayMapEffectLoopInstruction = NormalizeInstructionTree<GameplayMapEffectLoopStatementDef>;
 
 export type NormalizedGameplayMapPrepareInstruction = {
   readonly op: 'discountSCost';
   readonly amount: number;
 } & GameplayMapEffectOrigin;
 
+export type NormalizedGameplayMapEffectTrigger = {
+  readonly id: string;
+  readonly event: GameplayMapEffectTriggerDef['event'];
+  readonly minimumActualAmount?: number;
+  readonly effect: {
+    readonly op: 'resourceChange';
+    readonly account: 'primaryActor' | 'sourceActor';
+    readonly resourceId: string;
+    readonly delta: number;
+  } & GameplayMapEffectOrigin;
+  readonly originPath: string;
+  readonly mode: 'program';
+};
+
 export interface NormalizedGameplayMapActionEffects {
-  readonly mode: GameplayMapEffectMode;
-  /** Legacy leaves keep the historical exemption from E1's new-program visit budget. */
-  readonly budget: 'legacy-unmetered' | 'program-4096';
+  readonly budget: 'program-4096';
   readonly prepare: readonly NormalizedGameplayMapPrepareInstruction[];
   readonly resolve: readonly NormalizedGameplayMapEffectInstruction[];
+  readonly triggers?: readonly NormalizedGameplayMapEffectTrigger[];
 }
 
 export class GameplayMapEffectNormalizationError extends Error {
@@ -81,136 +96,82 @@ const isRecord = (value: unknown): value is RecordValue => {
   }
 };
 
-const isOwn = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 const exactKeys = (value: RecordValue, allowed: readonly string[], path: string) => {
   const extra = Object.keys(value).find(key => !allowed.includes(key));
   if (extra) throw new GameplayMapEffectNormalizationError(`${path}.${extra}: unknown field`);
 };
 
 const ACTION_FIELDS = [
-  'id', 'name', 'description', 'eligibleCharacterIds', 'target', 'tendencyRole',
-  'costs', 'effects', 'hpEffects', 'cardEffects', 'effectProgram',
+  'id', 'name', 'description', 'agility', 'eligibleCharacterIds', 'target', 'tendencyRole',
+  'costs', 'effectProgram', 'tags', 'additionalTarget',
 ] as const;
 
-function normalizeCondition(value: GameplayMapEffectConditionDef, path: string): NormalizedGameplayMapEffectCondition {
+type GameplayMapEffectConditionInput = GameplayMapEffectConditionDef | GameplayMapEffectLoopConditionDef;
+type GameplayMapEffectStatementInput = GameplayMapEffectStatementDef | GameplayMapEffectLoopStatementDef;
+type NormalizedGameplayMapEffectInstructionInput =
+  | NormalizedGameplayMapEffectInstruction
+  | NormalizedGameplayMapEffectLoopInstruction;
+
+function normalizeCondition(value: GameplayMapEffectConditionInput, path: string):
+  NormalizedGameplayMapEffectCondition | NormalizedGameplayMapEffectLoopCondition {
   const origin = { originPath: path, mode: 'program' as const };
   if (value.kind === 'not') {
-    return { ...value, ...origin, condition: normalizeCondition(value.condition, `${path}.condition`) };
+    return { ...value, ...origin, condition: normalizeCondition(value.condition, `${path}.condition`) } as
+      NormalizedGameplayMapEffectCondition | NormalizedGameplayMapEffectLoopCondition;
   }
   if (value.kind === 'all' || value.kind === 'any') {
     return {
       ...value,
       ...origin,
       conditions: value.conditions.map((child, index) => normalizeCondition(child, `${path}.conditions[${index}]`)),
-    } as NormalizedGameplayMapEffectCondition;
+    } as NormalizedGameplayMapEffectCondition | NormalizedGameplayMapEffectLoopCondition;
   }
-  return { ...value, ...origin } as NormalizedGameplayMapEffectCondition;
+  return { ...value, ...origin } as NormalizedGameplayMapEffectCondition | NormalizedGameplayMapEffectLoopCondition;
+}
+
+function normalizeStatements(
+  statements: readonly GameplayMapEffectStatementInput[], path: string,
+): readonly NormalizedGameplayMapEffectInstructionInput[] {
+  return statements.map((statement, index) => {
+    const statementPath = `${path}[${index}]`;
+    const origin = { originPath: statementPath, mode: 'program' as const };
+    if (statement.op === 'when') {
+      const { condition, then, else: otherwise, ...fields } = statement;
+      return {
+        ...fields,
+        ...origin,
+        condition: normalizeCondition(condition, `${statementPath}.condition`),
+        then: normalizeStatements(then, `${statementPath}.then`),
+        ...(otherwise === undefined ? {} : { else: normalizeStatements(otherwise, `${statementPath}.else`) }),
+      } as NormalizedGameplayMapEffectInstructionInput;
+    }
+    if (statement.op === 'forTargets') {
+      return {
+        ...statement,
+        ...origin,
+        body: normalizeStatements(statement.body, `${statementPath}.body`),
+      } as NormalizedGameplayMapEffectInstructionInput;
+    }
+    return { ...statement, ...origin } as NormalizedGameplayMapEffectInstructionInput;
+  });
 }
 
 function normalizeProgramStatements(
   statements: readonly GameplayMapEffectStatementDef[], path: string,
 ): readonly NormalizedGameplayMapEffectInstruction[] {
-  return statements.map((statement, index) => {
-    const statementPath = `${path}[${index}]`;
-    const origin = { originPath: statementPath, mode: 'program' as const };
-    if (statement.op !== 'when') return { ...statement, ...origin } as NormalizedGameplayMapEffectInstruction;
-    const { condition, then, else: otherwise, ...fields } = statement;
-    return {
-      ...fields,
-      ...origin,
-      condition: normalizeCondition(condition, `${statementPath}.condition`),
-      then: normalizeProgramStatements(then, `${statementPath}.then`),
-      ...(otherwise === undefined ? {} : { else: normalizeProgramStatements(otherwise, `${statementPath}.else`) }),
-    } as NormalizedGameplayMapEffectInstruction;
-  });
+  return normalizeStatements(statements, path) as readonly NormalizedGameplayMapEffectInstruction[];
 }
 
-function normalizeLegacy(action: GameplayMapActionDef, rootPath: string): NormalizedGameplayMapActionEffects {
-  const prepare: NormalizedGameplayMapPrepareInstruction[] = [];
-  const resolve: NormalizedGameplayMapEffectInstruction[] = [];
-  const add = (instruction: NormalizedGameplayMapEffectInstruction) => resolve.push(instruction);
-
-  if (action.hpEffects !== undefined) {
-    if (!Array.isArray(action.hpEffects)) throw new GameplayMapEffectNormalizationError(`${rootPath}.hpEffects: expected array`);
-    action.hpEffects.forEach((raw, index) => {
-      const path = `${rootPath}.hpEffects[${index}]`;
-      if (!isRecord(raw)) throw new GameplayMapEffectNormalizationError(`${path}: expected object`);
-      exactKeys(raw, ['amount'], path);
-      if (!Number.isSafeInteger(raw.amount) || raw.amount === 0) throw new GameplayMapEffectNormalizationError(`${path}.amount: expected a non-zero safe integer`);
-      add({ op: 'hpChange', target: 'primary', delta: raw.amount as number, originPath: path, mode: 'legacy' });
-    });
-  }
-
-  if (action.effects !== undefined) {
-    if (!Array.isArray(action.effects)) throw new GameplayMapEffectNormalizationError(`${rootPath}.effects: expected array`);
-    action.effects.forEach((raw, index) => {
-      const path = `${rootPath}.effects[${index}]`;
-      if (!isRecord(raw)) throw new GameplayMapEffectNormalizationError(`${path}: expected object`);
-      exactKeys(raw, ['scope', 'resourceId', 'amount', 'recipient'], path);
-      const account = raw.scope === 'team' ? 'sourceTeam'
-        : raw.scope === 'actor' ? raw.recipient === 'target' ? 'primaryActor' : 'sourceActor'
-          : undefined;
-      if (!account || typeof raw.resourceId !== 'string' || raw.resourceId.trim().length === 0
-        || !Number.isSafeInteger(raw.amount) || raw.amount === 0
-        || (raw.recipient !== undefined && raw.recipient !== 'actor' && raw.recipient !== 'target')
-        || (raw.scope === 'team' && raw.recipient !== undefined)) {
-        throw new GameplayMapEffectNormalizationError(`${path}: invalid legacy resource effect`);
-      }
-      add({
-        op: 'resourceChange', account, resourceId: raw.resourceId, delta: raw.amount as number,
-        originPath: path, mode: 'legacy', legacyPhase: {
-          partyAction: 'resource-settlement-after-party-action-hp',
-          actorlessSource: 'resource-settlement-before-actorless-hp',
-          enemySource: 'enemy-resource-before-own-hp',
-        },
-      });
-    });
-  }
-
-  if (action.cardEffects !== undefined) {
-    if (!Array.isArray(action.cardEffects)) throw new GameplayMapEffectNormalizationError(`${rootPath}.cardEffects: expected array`);
-    action.cardEffects.forEach((raw, index) => {
-      const path = `${rootPath}.cardEffects[${index}]`;
-      if (!isRecord(raw)) throw new GameplayMapEffectNormalizationError(`${path}: expected object`);
-      exactKeys(raw, ['kind', 'amount'], path);
-      if (raw.kind !== 'scostDiscount' || !Number.isSafeInteger(raw.amount) || (raw.amount as number) <= 0) {
-        throw new GameplayMapEffectNormalizationError(`${path}: invalid legacy card effect`);
-      }
-      prepare.push({ op: 'discountSCost', amount: raw.amount as number, originPath: path, mode: 'legacy' });
-    });
-  }
-
-  // The source kind is only known by the outer planner. These labels let it
-  // retain the different OLD HP phases without baking a queue into a leaf.
-  for (let index = 0; index < resolve.length; index += 1) {
-    const instruction = resolve[index]!;
-    if (instruction.op !== 'hpChange') continue;
-    resolve[index] = {
-      ...instruction,
-      legacyPhase: {
-        partyAction: 'party-action-hp-before-resource-settlement',
-        actorlessSource: 'actorless-hp-after-resource-settlement',
-        enemySource: 'enemy-hp-after-own-resource',
-      },
-    };
-  }
-
-  return { mode: 'legacy', budget: 'legacy-unmetered', prepare, resolve };
-}
-
-/** Convert old Action arrays or a validated E1 program to the common pure instruction tree. */
+/** Normalize a finite E1/E2 Program; Actions without a Program have no effect leaves. */
 export function normalizeMapActionEffects(
   action: GameplayMapActionDef,
   originPath = `actions.${action.id}`,
 ): NormalizedGameplayMapActionEffects {
   if (!isRecord(action)) throw new GameplayMapEffectNormalizationError(`${originPath}: expected Action object`);
   exactKeys(action, ACTION_FIELDS, originPath);
-  const hasProgram = action.effectProgram !== undefined;
-  const legacyFields = ['hpEffects', 'effects', 'cardEffects'] as const;
-  if (hasProgram && legacyFields.some(field => isOwn(action, field))) {
-    throw new GameplayMapEffectNormalizationError(`${originPath}: effectProgram cannot be mixed with legacy effect arrays`);
+  if (action.effectProgram === undefined) {
+    return { budget: 'program-4096', prepare: [], resolve: [] };
   }
-  if (!hasProgram) return normalizeLegacy(action, originPath);
 
   const program = action.effectProgram as GameplayMapEffectProgramDef;
   const validation = validateGameplayMapEffectProgram(program, `${originPath}.effectProgram`);
@@ -223,10 +184,20 @@ export function normalizeMapActionEffects(
     originPath: `${originPath}.effectProgram.prepare[${index}]`,
     mode: 'program' as const,
   }));
+  const triggers = program.triggers?.map((trigger, index) => ({
+    ...trigger,
+    originPath: `${originPath}.effectProgram.triggers[${index}]`,
+    mode: 'program' as const,
+    effect: {
+      ...trigger.effect,
+      originPath: `${originPath}.effectProgram.triggers[${index}].effect`,
+      mode: 'program' as const,
+    },
+  }));
   return {
-    mode: 'program',
     budget: 'program-4096',
     prepare,
     resolve: normalizeProgramStatements(program.resolve ?? [], `${originPath}.effectProgram.resolve`),
+    ...(triggers === undefined ? {} : { triggers }),
   };
 }

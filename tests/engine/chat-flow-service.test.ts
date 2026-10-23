@@ -10,7 +10,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 //   5. ChatFlowService 方法直接调用的事件语义
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameEvent } from '../../src/engine/types';
 import type { StoryDef } from '../../src/data-services/contracts/story';

@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID, defaultDatapack, loadDefaultDatapack } from '../../src/app/runtime-bootstrap';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 
 function actionE2EDatapack(): typeof gameplayBMapDatapack {
   const source = gameplayBMapDatapack.maps?.[0];
@@ -15,7 +15,7 @@ function actionE2EDatapack(): typeof gameplayBMapDatapack {
     description: '通过手牌外指令补充一条调查线索。',
     eligibleCharacterIds: [...source.partyCharacterIds],
     target: { kind: 'none' as const },
-    effects: [{ scope: 'team' as const, resourceId: 'clues', amount: 1 }],
+    effectProgram: { resolve: [{ op: 'resourceChange' as const, account: 'sourceTeam' as const, resourceId: 'clues', delta: 1 }] },
   };
   const actions = [...(source.actions ?? []), commandAction].map(action => ({
     ...action,
@@ -27,8 +27,11 @@ function actionE2EDatapack(): typeof gameplayBMapDatapack {
     resumeVersion: source.resumeVersion + 1,
     actions,
     // Two committed rounds exhaust the small test budget; the next round uses the real Wait state.
-    initialActorResources: source.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'stamina', value: 2 })),
-    initialTeamResources: [{ resourceId: 'supplies', value: 100 }],
+    initialActorResources: source.partyCharacterIds.flatMap(characterId => [
+      { characterId, resourceId: 'stamina', value: 2 },
+      { characterId, resourceId: 'focus', value: 0 },
+    ]),
+    initialTeamResources: [{ resourceId: 'supplies', value: 100 }, { resourceId: 'clues', value: 0 }],
     nodes: source.nodes.map(node => {
       if (!node.encounter) return node;
       const { completion: _completion, ...encounter } = node.encounter;

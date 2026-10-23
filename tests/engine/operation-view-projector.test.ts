@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
+import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
 import type { OperationCardPoolDef, OperationStrategyProfileDef } from '../../src/data-services/contracts/operation';
-import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
+import { OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
 
 const ACTOR_ID = 'test:actor:student';
 const ACTION_ID = 'test:action:protect';

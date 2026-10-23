@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TD
-  UI["src/ui<br/>Controller / Components"] --> APP["src/app / src/arona-clicker/runtime<br/>应用与产品组合根"]
+  UI["src/ui<br/>Controller / Components"] --> APP["src/app / src/arona-clicker/runtime/runtime<br/>应用与产品组合根"]
   APP --> DOMAIN["src/arona-clicker/services / state / read-model"]
   APP --> ENGINE["src/engine<br/>通用机制"]
   APP --> DATA["src/data-services<br/>包、Registry、存储与资产"]

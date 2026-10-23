@@ -1,6 +1,7 @@
 # Unit 0312-U07：旧内容通过共享叶子规划并保持金样
 
-状态：ready / 未执行；阶段P2。前置：0312-U01实际完成Receipt与测试、0312-U06实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,8 +13,8 @@
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-run-service.ts：resolveEncounterCommitPlan/settlementChangesFor/applyHpEffects；src/arona-clicker/services/map-card-effects.ts：resolveMapCardEffects/mapScostCost | 替换旧leaf运算而不改source相位 |
-| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map-effect-planner.ts | 复用U05/U06单一语义 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：resolveEncounterCommitPlan/settlementChangesFor/applyHpEffects；src/arona-clicker/services/map/map-card-effects.ts：resolveMapCardEffects/mapScostCost | 替换旧leaf运算而不改source相位 |
+| 前置 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map/map-effect-planner.ts | 复用U05/U06单一语义 |
 | 金样 | U01 OLD/EQ，E0 EQ02–EQ04 | 旧成本/目标/skip/终局不变 |
 
 ## Context Budget
@@ -43,8 +44,8 @@
 
 ## Allowed Files
 
-- `src/arona-clicker/services/map-run-service.ts`
-- `src/arona-clicker/services/map-card-effects.ts`
+- `src/arona-clicker/services/map/map-run-service.ts`
+- `src/arona-clicker/services/map/map-card-effects.ts`
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-legacy-goldens.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u07-receipt.md
 

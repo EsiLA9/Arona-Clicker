@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { Datapack, MilestoneDef } from '../../src/data-services/contracts/datapack';
 import { Registry } from '../../src/data-services/registry/registry';
 import { createDefaultState } from '../../src/arona-clicker/state/state-factory';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
-import { deriveDesiredMilestoneWatches } from '../../src/arona-clicker/services/milestone-domain';
-import { MilestoneAdapter } from '../../src/arona-clicker/services/milestone-adapter';
+import { deriveDesiredMilestoneWatches } from '../../src/arona-clicker/services/world/milestone-domain';
+import { MilestoneAdapter } from '../../src/arona-clicker/services/world/milestone-adapter';
 
 const OFFICE = 'base:init:schale_office';
 const CREDIT = 'test:resource:credit';

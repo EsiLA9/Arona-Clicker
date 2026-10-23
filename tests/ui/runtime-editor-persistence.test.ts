@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 import {
   createRuntimeDatapackEditorState,
   restoreRuntimeEditorSnapshot,

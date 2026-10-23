@@ -1,6 +1,7 @@
 # Unit 0312-U01：把旧行为金样落成可运行基准
 
-状态：ready / 未执行；阶段P1。前置：E0最终合同准入已通过，无产品前置。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -13,7 +14,7 @@
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
 | E0 | behavior-cases OLD01、EQ02–EQ05及Skip补全；U1证据/Receipt | 取真实旧行为，不取AG期望 |
-| 源码 | src/arona-clicker/services/map-run-service.ts：resolveEncounterCommitPlan/prepareEncounterRoundCommit | 固定旧阶段与skip |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：resolveEncounterCommitPlan/prepareEncounterRoundCommit | 固定旧阶段与skip |
 | 测试 | tests/engine/gameplay-b-map-run.test.ts；gameplay-b-map-cards.test.ts；gameplay-b-map-source-transactions.test.ts；gameplay-b-map-save-resume.test.ts 的E0命名用例 | 复用合法Owner启动/Variant/Hand/草稿构造 |
 
 ## Context Budget

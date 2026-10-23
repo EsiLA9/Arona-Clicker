@@ -9,7 +9,7 @@
 //   便于精确控制 tags 与挂载，不依赖 baseDatapack 的具体数据。
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ValueSystem } from '../../src/engine/expression/value-system';

@@ -41,9 +41,9 @@ main.ts 创建 Runtime
 | --- | --- |
 | `src/ui/main.ts` | 启动顺序、浏览器包存储恢复、开发包发现、UI 挂载 |
 | `src/app/runtime-bootstrap.ts` | 创建 Runtime；将“加载默认内容”转到启用包应用 |
-| `src/arona-clicker/runtime.ts` | 产品层组合根；管理 PackManager 和包应用回调 |
-| `src/arona-clicker/runtime-game-instance.ts` | 持有组合后的 Registry、系统和服务，提供初始化及生命周期门面 |
-| `src/arona-clicker/runtime-wiring.ts` | 创建底层系统与领域服务，并为它们连接共同依赖 |
+| `src/arona-clicker/runtime/runtime.ts` | 产品层组合根；管理 PackManager 和包应用回调 |
+| `src/arona-clicker/runtime/runtime-game-instance.ts` | 持有组合后的 Registry、系统和服务，提供初始化及生命周期门面 |
+| `src/arona-clicker/runtime/runtime-wiring.ts` | 创建底层系统与领域服务，并为它们连接共同依赖 |
 | `src/data-services/` | 提供 Datapack、包管理、Registry 等共享内容能力 |
 
 模块职责卡：[[docs/docs-829/02-modules/app-runtime]]、[[docs/docs-829/02-modules/data-services]]。包计划如何应用到 Registry 和图片见 [[docs/docs-829/06-wiki/10-application-runtime/pack-application]]。
@@ -52,5 +52,5 @@ main.ts 创建 Runtime
 
 - 启动：`src/ui/main.ts` 的 `boot()`。
 - 工厂：`src/app/runtime-bootstrap.ts` 的 `createAppRuntime()`、`loadDefaultDatapack()`。
-- 接线和包应用：`src/arona-clicker/runtime.ts`、`runtime-game-instance.ts`、`runtime-wiring.ts`。
+- 接线和包应用：`src/arona-clicker/runtime/runtime.ts`、`runtime-game-instance.ts`、`runtime-wiring.ts`。
 - 验证入口：`tests/engine/arona-runtime-pack.test.ts` 核对启用包进入 Registry、初次启动留在 Lobby、包库快照恢复与无效包停用。

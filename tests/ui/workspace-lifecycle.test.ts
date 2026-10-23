@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { ShopSession } from '../../src/arona-clicker/services/shop-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { ShopSession } from '../../src/arona-clicker/services/economy/shop-service';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
-import { UIController } from '../../src/ui/controller';
-import { renderShopWorkspace } from '../../src/ui/components/shop';
-import { createInventoryWorkspaceState } from '../../src/ui/inventory-view';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { UIController } from '../../src/ui/controller/controller';
+import { renderShopWorkspace } from '../../src/ui/components/inventory/shop';
+import { createInventoryWorkspaceState } from '../../src/ui/utilities/inventory-view';
 
 describe('Workspace 页面生命周期', () => {
   let game: GameInstance;

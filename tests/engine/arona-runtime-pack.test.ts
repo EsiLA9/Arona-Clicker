@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { PackManagerSnapshot, StoredPack } from '../../src/data-services/datapack/pack-manager';
 import type { Datapack } from '../../src/data-services/contracts/datapack';

@@ -6,7 +6,7 @@
 | 实际修改 | 修订并扩展 `tests/engine/gameplay-b-effect-test-fixtures.ts`、`tests/engine/gameplay-b-effect-legacy-goldens.test.ts`；新增本Receipt。两份测试初稿已由负责人纳入工作树提交，本Receipt记录的是该初稿上的U01最终修改。 |
 | 未完成内容 | 无U01内剩余项。没有新增程序语法或NEW断言；后续产品Unit、U18/U19验收仍按总Task依赖执行。 |
 | 范围外变更 | 无；未改产品源码、总Task或Unit正文，未Git提交，未触碰其它工作树改动。开工基线HEAD为 `dff0061`；执行期间外部提交将HEAD推进至 `a28f1d9`并纳入两份施工初稿，提交执行方未核实，本施工代理与负责人均未提交。 |
-| GALHCG影响闭环 | 只读确认 `project_id=acprogram`、根目录匹配；只读源搜索命中 `src/arona-clicker/services/map-run-service.ts:959` 的 `resolveEncounterCommitPlan`。U01文件影响范围留待U19统一只读复核；未改图、refresh或写freshness。 |
+| GALHCG影响闭环 | 只读确认 `project_id=acprogram`、根目录匹配；只读源搜索命中 `src/arona-clicker/services/map/map-run-service.ts:959` 的 `resolveEncounterCommitPlan`。U01文件影响范围留待U19统一只读复核；未改图、refresh或写freshness。 |
 
 ## 测试与验证结果
 

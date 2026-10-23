@@ -11,7 +11,7 @@
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` | 保持交付事实、限制与未完成项一致 |
 | 机制 | `docs/docs-829/06-wiki/50-ui/refresh-update.md` | 唯一权威点记录区域更新与失效恢复边界 |
 | 风格 | `ui-style/patterns.md` | 记录新 Workspace 的视觉与组件复用关系 |
-| 源码 | `src/ui/components/map-entry-workspace.ts`、`src/ui/controller.ts` | 复核当前真实结构与更新入口 |
+| 源码 | `src/ui/components/map/map-entry-workspace.ts`、`src/ui/controller/controller.ts` | 复核当前真实结构与更新入口 |
 
 ## Constraints
 

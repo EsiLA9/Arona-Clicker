@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-commands';
 
 const INIT = 'test:init:operation-observation';
 const AREA = 'test:area:operation-observation';

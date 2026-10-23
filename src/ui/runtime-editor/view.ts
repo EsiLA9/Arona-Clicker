@@ -1,7 +1,7 @@
 import { codexKindLabel, codexKindGroup } from './codex/content-labels';
 import { getContentPolicy, SPOT_CONTENT_POLICY } from '../../data-services/authoring/content-policy';
-import type { UIContext } from '../context';
-import type { PanelState } from '../components/app-shell';
+import type { UIContext } from '../runtime/context';
+import type { PanelState } from '../components/shared/app-shell';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts';
 import {
   codexEntryKey,

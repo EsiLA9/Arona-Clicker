@@ -1,6 +1,6 @@
 import type { Condition, ConditionGroup, Effect, ValueExpression } from '../../../engine/types';
 import { describeEffect, describeValueExpression } from '../../../engine/effect/affector-text';
-import { describeConditionLeaf, renderConditionText } from '../../condition-presentation';
+import { describeConditionLeaf, renderConditionText } from '../../presentation/condition-presentation';
 import type { InspectorNameResolver } from './types';
 
 export type InspectorSemanticKind = 'condition' | 'effect' | 'value' | 'payment' | 'reveal';

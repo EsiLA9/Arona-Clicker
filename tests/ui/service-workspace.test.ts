@@ -2,12 +2,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { AchievementViewItem } from '../../src/arona-clicker/read-model/achievement-view';
-import { createUIContext } from '../../src/ui/context';
-import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderAppShell, type PanelState } from '../../src/ui/components/shared/app-shell';
 import { createRuntimeDatapackEditorState } from '../../src/ui/runtime-editor/state';
 
 const baseState = (): PanelState => ({

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { PackManager, type StoredPack } from '../../src/data-services/datapack/pack-manager';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
-import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
-import { ThemeContentEditorService } from '../../src/arona-clicker/services/theme-content-editor-service';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
+import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-commands';
+import { ThemeContentEditorService } from '../../src/arona-clicker/services/presentation/theme-content-editor-service';
 
 function editingPack(): StoredPack {
   const datapack: Datapack = {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
-import { OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { createOperationPlayerSceneCardInstances, shuffleOperationPlayerSceneDeck } from '../../src/arona-clicker/services/operation-player-scene-deck';
+import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation/operation';
+import { OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { createOperationPlayerSceneCardInstances, shuffleOperationPlayerSceneDeck } from '../../src/arona-clicker/services/operation/operation-player-scene-deck';
 
 function deckEvent(seed = 17): OperationEventDef {
   const route = (id: string, targetLocationId: string) => ({

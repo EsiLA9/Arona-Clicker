@@ -4,7 +4,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // （收集/级联解锁色彩组/单装备槽/条件拒绝/效果聚合）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 

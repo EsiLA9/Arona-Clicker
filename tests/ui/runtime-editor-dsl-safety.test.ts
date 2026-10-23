@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { decodeSpotContent, MAX_CONDITION_DEPTH, MAX_CONDITION_ITEMS } from '../../src/data-services/authoring/content-policy-dsl';
 import type { SpotDef } from '../../src/data-services/contracts/world';
 import type { ConditionGroup, Effect, ValueExpression } from '../../src/engine/types/expression';
-import type { UIContext } from '../../src/ui/context';
+import type { UIContext } from '../../src/ui/runtime/context';
 import {
   MAX_VALUE_EXPRESSION_DEPTH,
   MAX_VALUE_EXPRESSION_NODES,

@@ -1,4 +1,5 @@
 import type { Character } from '../../engine/types/ids';
+import type { TagRef } from '../../engine/core/tag';
 import type { GameplayMapEffectProgramDef, GameplayMapEncounterLocalsDef, GameplayMapEffectConditionDef } from './gameplay-map-effects';
 
 /** Static Gameplay B map content. Node, edge, and action IDs are local to this map. */
@@ -17,9 +18,12 @@ export interface GameplayMapDef {
   /**
    * Author-maintained compatibility version for MapRun resume. Raise this when
    * changing any action, encounter participant, tendency, target, cost, effect,
-   * initial HP, or initial resource rule that can affect an active run.
+   * MapRun Fact, candidate Pool or Edge gate, initial HP, or initial resource
+   * rule that can affect an active run.
    */
   readonly resumeVersion: number;
+  /** Selects the MapRun source scheduling / payment contract; omitted Maps retain E1 compatibility. */
+  readonly executionContractId?: GameplayMapExecutionContractId;
   /** Local ID of the node where a new MapRun begins. */
   readonly startNodeId: string;
   /** Local IDs of nodes that end the MapRun when reached. */
@@ -28,10 +32,22 @@ export interface GameplayMapDef {
   readonly partyCharacterIds: readonly Character[];
   /** Explicit MapRun-local starting HP and cap for every fixed party member. */
   readonly initialPartyHp: readonly GameplayMapInitialPartyHpDef[];
+  /** Optional frozen AG-1 Character agility supplements; omitted party members contribute zero. */
+  readonly partyAgility?: readonly GameplayMapPartyAgilityDef[];
   /** Explicit PlayerCost balance assigned when a new MapRun starts. */
   readonly initialPlayerCost: number;
+  /**
+   * Optional MapRun-local facts initialized for each new run and retained
+   * across Encounters and Nodes. They may gate static candidate Pools and
+   * Edges, but do not affect Encounter locals or external AC / Story state.
+   */
+  readonly mapRunFacts?: GameplayMapRunFactsDef;
   /** Map-local reusable actions; omitted when every encounter is Wait-only. */
   readonly actions?: readonly GameplayMapActionDef[];
+  /** Ordered Map-local candidate pools shared by Character and Enemy candidate sources. */
+  readonly candidatePools?: readonly GameplayMapCandidatePoolDef[];
+  /** Map-local finite Status definitions that Actions may apply inside an Encounter. */
+  readonly statuses?: readonly GameplayMapStatusDef[];
   /** Per-character MapRun resource balances; all undeclared values start at 0. */
   readonly initialActorResources?: readonly GameplayMapInitialActorResourceDef[];
   /** Shared MapRun resource balances; all undeclared values start at 0. */
@@ -42,6 +58,118 @@ export interface GameplayMapDef {
   readonly edges: readonly GameplayMapEdgeDef[];
 }
 
+/** Closed set of bounded Counters and boolean Flags owned by one MapRun. */
+export interface GameplayMapRunFactsDef {
+  /** MapRun-local safe-integer Counters; IDs share a namespace with `flags`. */
+  readonly counters?: readonly GameplayMapRunCounterDef[];
+  /** MapRun-local boolean Flags; IDs share a namespace with `counters`. */
+  readonly flags?: readonly GameplayMapRunFlagDef[];
+}
+
+/** One MapRun-local Counter initialized when a new run starts. */
+export interface GameplayMapRunCounterDef {
+  /** Stable non-empty identifier within this Map's MapRun Fact namespace. */
+  readonly id: string;
+  /** Initial safe-integer value, inclusive within `min` and `max`. */
+  readonly initial: number;
+  /** Inclusive safe-integer lower bound. */
+  readonly min: number;
+  /** Inclusive safe-integer upper bound. */
+  readonly max: number;
+}
+
+/** One MapRun-local boolean Flag initialized when a new run starts. */
+export interface GameplayMapRunFlagDef {
+  /** Stable non-empty identifier within this Map's MapRun Fact namespace. */
+  readonly id: string;
+  /** Initial value; must be a boolean. */
+  readonly initial: boolean;
+}
+
+/** MapRun source scheduling contract. Omitted values preserve legacy E1 behavior. */
+export type GameplayMapExecutionContractId = 'E1-COMPAT-1' | 'AG-1';
+
+/** One fixed-party AG-1 agility supplement frozen into a new MapRun. */
+export interface GameplayMapPartyAgilityDef {
+  /** Fixed Map party member receiving this supplement. */
+  readonly characterId: Character;
+  /** Non-negative safe integer added to each of the Character's Action base values before the Action cap. */
+  readonly agility: number;
+}
+
+/** One Map-local unit Status definition; it has no script or external resource path. */
+export type GameplayMapStatusDef =
+  | {
+    /** Stable local identifier referenced by `statusApply`. */
+    readonly id: string;
+    /** Defaults to Encounter; MapRun Statuses persist between Encounter activities for one Run. */
+    readonly lifetime?: 'encounter' | 'mapRun';
+    /** Player-facing Status name. */
+    readonly name: string;
+    /** Optional player-facing explanation. */
+    readonly description?: string;
+    /** Optional Map-local cleanse category; omitted Statuses are not matched by category removal. */
+    readonly category?: 'harmful' | 'beneficial';
+    /** Optional one-time positive resource reward to the holder on natural round-end expiry. */
+    readonly onExpire?: { readonly resourceId: string; readonly delta: number };
+    /** Positive resource granted to the holder after each direct Hit removes HP. */
+    readonly onDamageTaken?: { readonly resourceId: string; readonly delta: number };
+    /** Burn deals HP damage per layer at round-end. */
+    readonly kind: 'burn';
+    /** Positive HP applied per layer at the round-end tick. */
+    readonly hpPerStack: number;
+    /** Maximum active layers for one holder and source identity. */
+    readonly maxStacks: number;
+  }
+  | {
+    readonly id: string;
+    /** Defaults to Encounter; MapRun Statuses persist between Encounter activities for one Run. */
+    readonly lifetime?: 'encounter' | 'mapRun';
+    readonly name: string;
+    readonly description?: string;
+    readonly category?: 'harmful' | 'beneficial';
+    /** Optional one-time positive resource reward to the holder on natural round-end expiry. */
+    readonly onExpire?: { readonly resourceId: string; readonly delta: number };
+    readonly onDamageTaken?: { readonly resourceId: string; readonly delta: number };
+    /** Regen restores HP per layer at round-end. */
+    readonly kind: 'regen';
+    readonly hpPerStack: number;
+    readonly maxStacks: number;
+  }
+  | {
+    readonly id: string;
+    /** Defaults to Encounter; MapRun Statuses persist between Encounter activities for one Run. */
+    readonly lifetime?: 'encounter' | 'mapRun';
+    readonly name: string;
+    readonly description?: string;
+    /** Optional one-time positive resource reward to the holder on natural round-end expiry. */
+    readonly onExpire?: { readonly resourceId: string; readonly delta: number };
+    readonly onDamageTaken?: { readonly resourceId: string; readonly delta: number };
+    /** Damage-reduction Statuses are explicitly beneficial. */
+    readonly category: 'beneficial';
+    /** Reduce each incoming damage request per active layer. */
+    readonly kind: 'damageReduction';
+    /** Positive safe integer damage reduction per active layer. */
+    readonly damageReductionPerStack: number;
+    readonly maxStacks: number;
+  }
+  | {
+    readonly id: string;
+    /** Defaults to Encounter; MapRun Statuses persist between Encounter activities for one Run. */
+    readonly lifetime?: 'encounter' | 'mapRun';
+    readonly name: string;
+    readonly description?: string;
+    /** Optional one-time positive resource reward to the holder on natural round-end expiry. */
+    readonly onExpire?: { readonly resourceId: string; readonly delta: number };
+    readonly onDamageTaken?: { readonly resourceId: string; readonly delta: number };
+    /** Damage protection is a beneficial, finite one-time hit charge. */
+    readonly category: 'beneficial';
+    /** Consume one layer to fully block one positive AG-1 damage hit. */
+    readonly kind: 'damageProtection';
+    /** Maximum active protection charges for one holder and source identity. */
+    readonly maxStacks: number;
+  };
+
 /** One reusable action authored once and referenced by its Map-local ID. */
 export interface GameplayMapActionDef {
   /** Stable only within the owning map. */
@@ -50,10 +178,16 @@ export interface GameplayMapActionDef {
   readonly name: string;
   /** Optional player-facing action explanation. */
   readonly description?: string;
+  /** Optional AG-1 base and cap for this Action's execution agility; both values are required together. */
+  readonly agility?: GameplayMapActionAgilityDef;
+  /** Static classification tags; each value must be a complete cross-Datapack TagRef. */
+  readonly tags?: readonly TagRef[];
   /** Fixed Map party members allowed to perform this Character action; use [] when no Character may use it. */
   readonly eligibleCharacterIds: readonly Character[];
   /** The only target rule used by this action. */
   readonly target: GameplayMapActionTargetDef;
+  /** Optional AG-1 secondary unit target domain; authoring contract only. */
+  readonly additionalTarget?: 'partyCharacter' | 'enemy';
   /**
    * Optional explicit combat use for finite Encounter tendency adjustments.
    * Role conditions are evaluated from the candidate actor's side; omitted
@@ -62,15 +196,49 @@ export interface GameplayMapActionDef {
   readonly tendencyRole?: 'recovery' | 'defense' | 'attack';
   /** Optional resource balances consumed before applying effects. */
   readonly costs?: readonly GameplayMapActionResourceCostDef[];
-  /** Optional actor/team resource changes applied by a successful action. */
-  readonly effects?: readonly GameplayMapActionResourceEffectDef[];
-  /** Optional bounded HP changes applied to the selected Enemy or party target. */
-  readonly hpEffects?: readonly GameplayMapActionHpEffectDef[];
-  /** Round-local effects on the selected domain card; requires a `card` target. */
-  readonly cardEffects?: readonly GameplayMapActionCardEffectDef[];
-  /** Optional finite E1 program. Registry validates its syntax and source context before use. */
+  /** Optional finite E1-E4 program. Registry validates its syntax and source context before use. */
   readonly effectProgram?: GameplayMapEffectProgramDef;
 }
+
+/** Action-specific AG-1 execution speed bounds. */
+export interface GameplayMapActionAgilityDef {
+  /** Non-negative safe integer base speed. */
+  readonly base: number;
+  /** Non-negative safe integer maximum speed; must be at least `base`. */
+  readonly max: number;
+}
+
+/** One finite, ordered set of candidate sources owned by a Gameplay B Map. */
+export interface GameplayMapCandidatePoolDef {
+  /** Stable only within the owning Map. */
+  readonly id: string;
+  /** Ordered weighted Action, Tag, or nested-pool entries. */
+  readonly entries: readonly GameplayMapCandidatePoolEntryDef[];
+  /** Optional single MapRun Fact condition controlling whether this Pool contributes candidates. */
+  readonly gate?: GameplayMapCandidatePoolGateDef;
+}
+
+/** One closed, atomic MapRun Fact condition for a static candidate Pool. */
+export type GameplayMapCandidatePoolGateDef =
+  | {
+    /** Compare one declared MapRun Counter with a fixed safe integer. */
+    readonly kind: 'counter';
+    readonly counterId: string;
+    readonly comparison: 'eq' | 'lt' | 'lte' | 'gt' | 'gte';
+    readonly value: number;
+  }
+  | {
+    /** Compare one declared MapRun Flag with a fixed boolean. */
+    readonly kind: 'flag';
+    readonly flagId: string;
+    readonly value: boolean;
+  };
+
+/** Weighted candidate source; nested Pool weights multiply their expanded contributions. */
+export type GameplayMapCandidatePoolEntryDef =
+  | { readonly kind: 'action'; readonly actionId: string; readonly weight: number }
+  | { readonly kind: 'tag'; readonly tag: TagRef; readonly weight: number }
+  | { readonly kind: 'pool'; readonly poolId: string; readonly weight: number };
 
 /** Targets available to autonomous Character / Enemy Actions and actorless Ability / Item actions. */
 export type GameplayMapActionTargetDef =
@@ -78,6 +246,8 @@ export type GameplayMapActionTargetDef =
   | { readonly kind: 'self' }
   | {
     readonly kind: 'partyCharacter';
+    /** Include downed Party members in the primary target set; AG-1 Revive is the intended use. */
+    readonly includeDefeated?: boolean;
     /** Optional legal-target preference; absent means the first Map party member. */
     readonly preference?: 'stableOrder' | 'lowestHpRatio' | 'highestMissingHpRatio';
   }
@@ -90,17 +260,9 @@ export type GameplayMapActionTargetDef =
     readonly kind: 'card';
     /** Relative to the source: self means its owner's cards; ally includes self. */
     readonly side: 'self' | 'ally' | 'opponent' | 'any';
-    /** Cards currently support stable logical catalog order only. */
+    /** Cards support stable logical catalog order only. */
     readonly preference?: 'stableOrder';
   };
-
-/** A preparation effect resolved before the full round's net action costs are charged. */
-export interface GameplayMapActionCardEffectDef {
-  /** Only the target card's Actor `sCost` action cost is reduced, never PlayerCost. */
-  readonly kind: 'scostDiscount';
-  /** Positive safe integer reduction; stacks within this round and clamps at zero cost. */
-  readonly amount: number;
-}
 
 /** Resource costs are positive amounts charged from the acting combatant or its side's team. */
 export interface GameplayMapActionResourceCostDef {
@@ -109,28 +271,6 @@ export interface GameplayMapActionResourceCostDef {
   /** Resource key; an undeclared starting balance is 0. */
   readonly resourceId: string;
   /** Positive safe integer amount to consume. */
-  readonly amount: number;
-}
-
-/** A signed change to the acting combatant's Actor resource or its side's Team resource. */
-export interface GameplayMapActionResourceEffectDef {
-  /** `actor` changes the acting combatant's balance; `team` changes its side's shared pool. */
-  readonly scope: 'actor' | 'team';
-  /** Resource key; an undeclared starting balance is 0. */
-  readonly resourceId: string;
-  /** Non-zero safe integer delta; positive adds and negative removes balance. */
-  readonly amount: number;
-  /**
-   * For actor-scoped effects, defaults to the performer; `target` applies the
-   * change to the encounter's resolved target and therefore requires a target rule.
-   * Team-scoped effects do not accept a recipient.
-   */
-  readonly recipient?: 'actor' | 'target';
-}
-
-/** A signed HP change applied to the action's selected Enemy or party target. */
-export interface GameplayMapActionHpEffectDef {
-  /** Non-zero safe integer; negative damages and positive heals the selected unit. */
   readonly amount: number;
 }
 
@@ -268,15 +408,29 @@ export interface GameplayMapEdgeDef {
   readonly condition?: GameplayMapEdgeConditionDef;
 }
 
-/** The only Edge condition shape used by basic map gameplay. */
-export interface GameplayMapEdgeConditionDef {
-  /** Requires a shared MapRun Team resource balance to reach `amount`. */
-  readonly kind: 'teamResourceAtLeast';
-  /** MapRun-local Team resource key; reading it never consumes balance. */
-  readonly resourceId: string;
-  /** Positive safe integer threshold. */
-  readonly amount: number;
-}
+/** One read-only Team resource or single MapRun Fact condition on a directed Edge. */
+export type GameplayMapEdgeConditionDef =
+  | {
+    /** Requires a shared MapRun Team resource balance to reach `amount`. */
+    readonly kind: 'teamResourceAtLeast';
+    /** MapRun-local Team resource key; reading it never consumes balance. */
+    readonly resourceId: string;
+    /** Positive safe integer threshold. */
+    readonly amount: number;
+  }
+  | {
+    /** Compares one declared MapRun Counter with a fixed safe integer. */
+    readonly kind: 'counter';
+    readonly counterId: string;
+    readonly comparison: 'eq' | 'lt' | 'lte' | 'gt' | 'gte';
+    readonly value: number;
+  }
+  | {
+    /** Compares one declared MapRun Flag with a fixed boolean. */
+    readonly kind: 'flag';
+    readonly flagId: string;
+    readonly value: boolean;
+  };
 
 /** Encounter presentation, battle roster, autonomous action pools, and player sources. */
 export interface GameplayEncounterDef {
@@ -320,6 +474,8 @@ export interface GameplayEncounterParticipantDef {
    * legal and leaves this participant with Wait for the encounter.
    */
   readonly actions: readonly GameplayEncounterActionCandidateDef[];
+  /** Additional ordered Map-local candidate pools merged after direct Actions. */
+  readonly candidatePoolIds?: readonly string[];
 }
 
 /** One Map-local action available to a Character or Enemy for weighted drawing. */
@@ -353,8 +509,12 @@ export interface GameplayEncounterEnemyDef {
   readonly initialHp: number;
   /** Positive safe integer cap for this Enemy's Encounter-local HP. */
   readonly maxHp: number;
+  /** Optional non-negative safe integer AG-1 agility supplement; omitted means zero. */
+  readonly agility?: number;
   /** Weighted autonomous Action candidates; omitted or empty means this Enemy waits. */
   readonly actions?: readonly GameplayEncounterActionCandidateDef[];
+  /** Additional ordered Map-local candidate pools merged after direct Actions. */
+  readonly candidatePoolIds?: readonly string[];
   /** Encounter-local Actor balances for this Enemy; undeclared resources start at 0. */
   readonly initialResources?: readonly GameplayEncounterInitialEnemyResourceDef[];
 }

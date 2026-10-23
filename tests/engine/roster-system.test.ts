@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/roster-system.test.ts — 通讯录/获得/碎片（R 组 + P-01）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { } from '../../src/engine/types';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { Resource } from '../../src/arona-clicker/types/ids';

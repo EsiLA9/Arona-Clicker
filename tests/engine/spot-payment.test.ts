@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { Expr, and, cond } from '../../src/engine/types';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 const INIT = 'test:init:payments';
 const AREA = 'test:area:payments';

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { resolveTheme, deriveThemeTokens, ColorSystem } from '../../src/arona-clicker/services/color-system';
+import { resolveTheme, deriveThemeTokens, ColorSystem } from '../../src/arona-clicker/services/progression/color-system';
 import { contrastRatio, toHsl } from '../../src/engine/core/color';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';
 

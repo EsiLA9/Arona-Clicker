@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 
 const INIT = 'base:init:theme_showcase';
 const SPOT = 'base:spot:theme_showcase_b';

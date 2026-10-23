@@ -1,15 +1,15 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { SaveSystem } from '../../src/data-services/persistence/storage';
-import { createUIContext } from '../../src/ui/context';
-import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
-import { UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
-import { UIController } from '../../src/ui/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderAppShell, type PanelState } from '../../src/ui/components/shared/app-shell';
+import { UI_HOST_REGISTRY } from '../../src/ui/runtime/ui-host-registry';
+import { UIController } from '../../src/ui/controller/controller';
 import { IS_DEBUG_EDITING } from '../../src/ui/runtime-editor/config';
-import '../../src/ui/service-definitions';
+import '../../src/ui/runtime/service-definitions';
 
 const baseState = (): PanelState => ({
   service: 'game',

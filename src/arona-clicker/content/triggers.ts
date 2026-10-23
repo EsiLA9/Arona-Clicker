@@ -1,6 +1,6 @@
 import { trigger, and, cond } from '../../engine/types';
 import type { TriggerDef } from '../../engine/types';
-import { ABYDOS_STUDENT_RECRUITMENT_SPOT_ID } from './spots';
+import { ABYDOS_STUDENT_RECRUITMENT_SPOT_ID } from './world/spots';
 
 export const baseTriggers: TriggerDef[] = [
   trigger('base:trigger:first_credit_milestone').onTick().when(and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 100))).effects({ op: 'addResource', target: Resource.Credit, value: 25 }).build(),

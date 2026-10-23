@@ -2,10 +2,10 @@
 // engine/enhancement-reveal.test.ts — 信息揭示阶梯（RevealStage）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
-import { getEnhancementReveal } from '../../src/ui/components/tooltip';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { getEnhancementReveal } from '../../src/ui/components/tooltip/tooltip';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';

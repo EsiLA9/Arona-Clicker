@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map-run';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
+import type { MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map/map-run';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import {
   createLegacyGoldenOwner,
@@ -113,6 +113,107 @@ function ownerForActivities(map: GameplayMapDef) {
 afterEach(() => { games.splice(0).forEach(game => game.dispose()); });
 
 describe('Gameplay B effect program installation and public Commit', () => {
+  test('damage/heal Commit installs ordered HP deltas and replay retains distinct Trace operations', () => {
+    const map = legacyGoldenMap({
+      id: 'test:map:program-damage-heal-commit',
+      partyHp: { shiroko: 10, serika: 4 },
+      actions: [
+        { id: 'aid', name: 'Aid', eligibleCharacterIds: ['shiroko'], target: { kind: 'partyCharacter' },
+          effectProgram: { resolve: [
+            { op: 'heal', target: 'primary', amount: 3 },
+            { op: 'damage', target: 'primary', amount: 2 },
+          ] } },
+        { id: 'wait', name: 'Wait', eligibleCharacterIds: ['serika'], target: { kind: 'none' } },
+      ],
+      participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'aid', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'wait', tendencyWeight: 1 }] },
+      ],
+    });
+    const state = owner(map);
+    state.service.setPreparedTarget(state.runId, 'shiroko', 'serika', draft(state.service));
+    const beforePreview = state.service.getSnapshot();
+    const preview = state.service.previewEncounterCommit(state.runId);
+    expect(preview).toMatchObject({ canCommit: true, diagnostics: [] });
+    expect(state.service.getSnapshot()).toEqual(beforePreview);
+
+    const cmd = command(state.service, state.runId, 'damage-heal-commit-replay');
+    const committed = state.service.commitEncounterRound(cmd);
+    expect(committed.partyHp.find(row => row.characterId === 'serika')?.currentHp).toBe(5);
+    expect(committed.lastEncounterCommit?.settlements.find(row => row.characterId === 'shiroko')?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'serika', delta: 3 },
+      { scope: 'party', characterId: 'serika', delta: -2 },
+    ]);
+    expect(committed.lastEncounterCommit?.effectTrace?.filter(row => row.op === 'heal' || row.op === 'damage')).toMatchObject([
+      { op: 'heal', amount: 3, before: 4, after: 7, delta: 3 },
+      { op: 'damage', amount: 2, before: 7, after: 5, delta: -2 },
+    ]);
+    const replayed = state.service.commitEncounterRound(cmd);
+    expect(replayed).toEqual(committed);
+    expect(replayed.partyHp.find(row => row.characterId === 'serika')?.currentHp).toBe(5);
+  });
+
+  test('Status Remove follows ordered Status Apply in Preview and installs the detached result on Commit', () => {
+    const burn = { id: 'burn', name: 'Burn', kind: 'burn' as const, hpPerStack: 1, maxStacks: 3 };
+    const map: GameplayMapDef = {
+      ...legacyGoldenMap({
+        id: 'test:map:program-status-remove-commit',
+        actions: [
+          { id: 'cleanse', name: 'Apply then clear', eligibleCharacterIds: ['shiroko'], target: { kind: 'partyCharacter' },
+            agility: { base: 1, max: 1 },
+            effectProgram: { resolve: [
+              { op: 'statusApply', target: 'primary', statusId: 'burn', stacks: 1, durationRounds: 2 },
+              { op: 'statusRemove', target: 'primary', statusId: 'burn' },
+            ] } },
+          { id: 'wait', name: 'Wait', eligibleCharacterIds: ['serika'], target: { kind: 'none' }, agility: { base: 1, max: 1 } },
+        ],
+        participants: [
+          { characterId: 'shiroko', actions: [{ actionId: 'cleanse', tendencyWeight: 1 }] },
+          { characterId: 'serika', actions: [{ actionId: 'wait', tendencyWeight: 1 }] },
+        ],
+      }),
+      executionContractId: 'AG-1',
+      statuses: [burn],
+    };
+    const state = owner(map);
+    state.service.setPreparedTarget(state.runId, 'shiroko', 'serika', draft(state.service));
+    const beforePreview = state.service.getSnapshot();
+    const preview = state.service.previewEncounterCommit(state.runId);
+    expect(preview).toMatchObject({ canCommit: true, diagnostics: [] });
+    expect(preview?.effectTrace).toMatchObject([
+      { op: 'statusApply', identity: { kind: 'partyCharacter', id: 'serika' }, statusId: 'burn' },
+      { op: 'statusRemove', identity: { kind: 'partyCharacter', id: 'serika' }, statusId: 'burn', removed: [{ statusIndexBefore: 0 }] },
+    ]);
+    expect(state.service.getSnapshot()).toEqual(beforePreview);
+
+    const committed = state.service.commitEncounterRound(command(state.service, state.runId, 'status-remove-commit'));
+    expect(committed.lastEncounterCommit?.effectTrace).toEqual(preview?.effectTrace);
+    expect(committed.lastEncounterCommit?.plannedStatuses).toEqual([]);
+  });
+
+  test('a runtime-invalid E2 Value rejects the full Commit without installing partial state', () => {
+    const map = legacyGoldenMap({
+      id: 'test:map:program-e2-value-failure',
+      actions: [
+        { id: 'bad-area', name: 'Bad Area', eligibleCharacterIds: ['shiroko'], target: { kind: 'none' },
+          effectProgram: { resolve: [{
+            op: 'damage', target: { set: { side: 'enemy' } },
+            amount: { kind: 'divFloor', left: { kind: 'literal', value: 1 }, right: { kind: 'literal', value: 0 } },
+          }] } },
+        { id: 'wait', name: 'Wait', eligibleCharacterIds: ['serika'], target: { kind: 'none' } },
+      ],
+      participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'bad-area', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'wait', tendencyWeight: 1 }] },
+      ],
+      enemies: [{ id: 'robot', initialHp: 5, maxHp: 10, actions: [] }],
+    });
+    const state = owner(map);
+    const before = state.service.getSnapshot();
+    expect(() => state.service.commitEncounterRound(command(state.service, state.runId, 'e2-divide-zero'))).toThrow(/divides by zero/);
+    expect(state.service.getSnapshot()).toEqual(before);
+  });
+
   test.each([
     { initialHp: 4, guardBeforeHeal: true, threshold: 4, expectedMed: 1, expectedCurrent: 7 },
     { initialHp: 5, guardBeforeHeal: true, threshold: 4, expectedMed: 0, expectedCurrent: 8 },
@@ -196,14 +297,18 @@ describe('Gameplay B effect program installation and public Commit', () => {
       actions: [
         { id: 'natural-spend', name: 'Natural Spend', eligibleCharacterIds: ['shiroko'], target: { kind: 'none' },
           costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }] },
-        { id: 'late-refill', name: 'Late Refill', eligibleCharacterIds: ['serika'], target: { kind: 'none' },
+        { id: 'late-refill', name: 'Late Refill', eligibleCharacterIds: ['serika'], target: { kind: 'enemy' },
           costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
-          effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceTeam', resourceId: 'supplies', delta: 1 }] } },
+          effectProgram: { resolve: [
+            { op: 'damage', target: 'primary', amount: 3 },
+            { op: 'resourceChange', account: 'sourceTeam', resourceId: 'supplies', delta: 1 },
+          ] } },
       ],
       participants: [
         { characterId: 'shiroko', actions: [{ actionId: 'natural-spend', tendencyWeight: 1 }] },
         { characterId: 'serika', actions: [{ actionId: 'late-refill', tendencyWeight: 1 }] },
       ],
+      enemies: [{ id: 'robot', initialHp: 10, maxHp: 10 }],
     });
     const fixture = createLegacyGoldenOwner(map);
     games.push(fixture.game);
@@ -230,6 +335,7 @@ describe('Gameplay B effect program installation and public Commit', () => {
     expect(fixture.game.state).toEqual(beforeState);
     expect(fixture.game.statsService.getSnapshot()).toEqual(beforeStats);
     expect(fixture.game.mapRun.getSnapshot()?.teamResources).toEqual([{ resourceId: 'supplies', value: 1 }]);
+    expect(fixture.game.mapRun.getSnapshot()?.activeEncounter?.enemies).toEqual([{ enemyId: 'robot', currentHp: 10 }]);
     expect(fixture.game.mapRun.getSnapshot()?.playerCost).toBe(1);
   });
 

@@ -8,7 +8,7 @@
 
 import { MAX_CONDITION_DEPTH, MAX_CONDITION_ITEMS } from '../../data-services/authoring/content-policy-dsl';
 import type { Comparator, Condition, ConditionGroup, ConditionTarget, Effect, EffectOp, ValueExpression } from '../../engine/types/expression';
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 import {
   CONDITION_TARGET_OPTIONS,
   conditionTargetEditorOf,

@@ -5,19 +5,19 @@ import type {
   OperationEventDef,
   OperationStudentProfileSnapshot,
   OperationTeamState,
-} from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
+} from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
 import type {
   OperationPreparationContent,
   OperationPreparationSnapshot,
-} from '../../src/arona-clicker/contracts/operation-beat';
-import type { OperationResolutionPlannerInput } from '../../src/arona-clicker/contracts/operation-resolution';
-import { prepareOperationBeat } from '../../src/arona-clicker/services/operation-plan-preparation';
+} from '../../src/arona-clicker/contracts/operation/operation-beat';
+import type { OperationResolutionPlannerInput } from '../../src/arona-clicker/contracts/operation/operation-resolution';
+import { prepareOperationBeat } from '../../src/arona-clicker/services/operation/operation-plan-preparation';
 import {
   OperationResolutionPlannerError,
   planOperationResolution,
-} from '../../src/arona-clicker/services/operation-resolution-planner';
-import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../../src/arona-clicker/contracts/operation';
+} from '../../src/arona-clicker/services/operation/operation-resolution-planner';
+import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../../src/arona-clicker/contracts/operation/operation';
 
 const TEAM_BLUE = 'team:blue';
 const STUDENT_A = 'actor:student-a';

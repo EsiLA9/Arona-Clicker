@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationActorDef, OperationEventDef } from '../../src/arona-clicker/contracts/operation';
+import type { OperationActorDef, OperationEventDef } from '../../src/arona-clicker/contracts/operation/operation';
 import type {
   OperationActionDef,
   OperationCombinationRuleDef,
-} from '../../src/arona-clicker/contracts/operation-action';
-import type { OperationPreparedActorPlan, PreparedBeat } from '../../src/arona-clicker/contracts/operation-beat';
+} from '../../src/arona-clicker/contracts/operation/operation-action';
+import type { OperationPreparedActorPlan, PreparedBeat } from '../../src/arona-clicker/contracts/operation/operation-beat';
 import {
   OperationCombinationResolverError,
   resolveOperationCombinations,
-} from '../../src/arona-clicker/services/operation-combination-resolver';
+} from '../../src/arona-clicker/services/operation/operation-combination-resolver';
 
 function actor(id: string, type: 'student' | 'opponent' | 'environment'): OperationActorDef {
   return { id, type, hp: { initial: 1, min: 0, max: 1 } };

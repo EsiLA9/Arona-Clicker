@@ -1,4 +1,4 @@
-import type { MapActionRelation, MapTargetRef } from '../../arona-clicker/contracts/map-relations';
+import type { MapActionRelation, MapTargetRef } from '../../arona-clicker/contracts/map/map-relations';
 import { mapCardHasEntry, mapCardInstanceAt, mapLocationObjectKey, type MapLocationRef } from '../cards/card-host';
 import { mapObjectKey, presentMapRelations } from './map-relation-presentation';
 

@@ -19,7 +19,7 @@ import {
   type FlowIdentified,
   type FlowTalkletInput,
 } from '../../src/ui/flow/flow-entry';
-import type { ChatEntry } from '../../src/ui/components/story';
+import type { ChatEntry } from '../../src/ui/components/story/story';
 
 function entry(overrides: Partial<FlowEntry> & Pick<FlowEntry, 'instanceKey'>): FlowEntry {
   return {

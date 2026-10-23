@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation';
-import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation-action';
-import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation-runtime-service';
-import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../../src/arona-clicker/contracts/operation';
+import type { OperationEventDef, OperationRunStartInput } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationActionDef } from '../../src/arona-clicker/contracts/operation/operation-action';
+import { OperationRuntimeError, OperationRuntimeService } from '../../src/arona-clicker/services/operation/operation-runtime-service';
+import { OPERATION_TACTICAL_RNG_ALGORITHM } from '../../src/arona-clicker/contracts/operation/operation';
 
 const A = 'demo:actor:one';
 const B = 'demo:actor:two';

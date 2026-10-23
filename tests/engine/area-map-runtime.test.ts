@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { loadAreaMapDemoPack } from '../../src/ui/development/area-map-demo-pack';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
 test('failed complete-set map admission preserves live Registry, position and runtime generation', async () => {

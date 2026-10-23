@@ -1,0 +1,76 @@
+import { UIContext } from '../../runtime/context';
+import { renderResourceStrip } from './header';
+import { renderPanelTabsRegion, TabDef } from './tabs';
+import { renderProductionNodes } from './production';
+import { renderEnhancements } from '../inventory/enhancements';
+import { renderCharacterPanel } from '../character/contacts';
+import { describeAffectorPack } from '../../../engine/effect/affector-text';
+import { describeCondition } from '../tooltip/tooltip';
+import { renderBackground } from '../../presentation/background-service';
+import { renderPresentationHostGeometryStyle } from '../../presentation/presentation-service';
+
+const RIGHT_TABS: TabDef[] = [
+  { id: 'spot', label: '设施' },
+  { id: 'character', label: '学生' },
+  { id: 'enh', label: '强化' },
+  { id: 'other', label: '其他' },
+];
+
+export function renderRightPanel(ctx: UIContext, activeTab: string, selectedVariantId: string | null = null): string {
+  let body: string;
+  if (activeTab === 'enh') {
+    body = renderEnhancements(ctx);
+  } else if (activeTab === 'other') {
+    body = renderOtherTab(ctx);
+  } else if (activeTab === 'character') {
+    body = renderCharacterPanel(ctx, selectedVariantId);
+  } else {
+    body = renderProductionNodes(ctx);
+  }
+  const hostId = `rightPanel.${activeTab}`;
+  const showResources = activeTab === 'spot' || activeTab === 'enh';
+  return `
+    <aside class="ui-cluster ui-cluster--right-panel panel right-panel presentation-host-target" ${renderPresentationHostGeometryStyle(ctx, hostId)} data-game-panel="right" data-theme-scope="right.${activeTab}" data-theme-host-id="${hostId}" data-theme-state="default" data-theme-text-mode="${ctx.textColorModeForHost(hostId)}">
+      ${renderBackground(ctx.backgroundForHost(hostId), 'console-panel-background')}
+      ${renderPanelTabsRegion(ctx, 'right', RIGHT_TABS, activeTab)}
+      ${showResources ? renderResourceStrip(ctx) : ''}
+      <div class="ui-cluster ui-cluster--right-${activeTab} panel-body">${body}</div>
+    </aside>`;
+}
+
+function renderOtherTab(ctx: UIContext): string {
+  const { game, view } = ctx;
+  const inventoryRows = Object.entries(view.inventory).length
+    ? Object.entries(view.inventory).map(([itemId, count]) => {
+        const item = game.registry.items.get(itemId);
+        const useButton = item?.type === 'consumable'
+          ? `<button class="use-item-button" data-use-item="${itemId}">使用</button>`
+          : '';
+        return `<li class="hover-wrap" data-tooltip="item:${itemId}"><span>${ctx.escapeHtml(item?.name ?? itemId)}</span><div class="inventory-actions">${useButton}<b>${count}</b></div></li>`;
+      }).join('')
+    : '<li class="empty">背包目前为空</li>';
+
+  const affectorText = (packId: string): string => {
+    const pack = game.affectorEngine.getPack(packId);
+    if (!pack) return '';
+    return describeAffectorPack(pack, ctx.nameOf, {
+      describeCondition: cond => describeCondition(cond, ctx.nameOf),
+    }).join('；');
+  };
+  const affectors = view.activeAffectors.length
+    ? view.activeAffectors.map(instance => {
+        const shortName = instance.packId.split(':').pop() ?? instance.packId;
+        const detail = affectorText(instance.packId) || `${instance.mountEntityId} / ${instance.activeEntryIds.length} active`;
+        return `
+        <div class="trace"><span class="trace-line cyan"></span><p><b>${ctx.escapeHtml(shortName)}</b><small>${ctx.escapeHtml(detail)}</small></p><span class="trace-value">ACTIVE</span></div>`;
+      }).join('')
+    : '<div class="trace-empty">当前没有生效中的 Affector</div>';
+
+  return `
+    <div class="mini-panel-head"><span class="eyebrow">背包</span></div>
+    <ul class="inventory-list">${inventoryRows}</ul>
+    <button type="button" class="toolbar-button inventory-open-workspace" data-open-inventory>打开完整背包 ↗</button>
+    <div class="mini-panel-head"><span class="eyebrow">效果追踪</span></div>
+    <div class="trace"><span class="trace-line"></span><p><b>基础生产</b><small>Spot output pipeline</small></p><span class="trace-value">READY</span></div>
+    ${affectors}`;
+}

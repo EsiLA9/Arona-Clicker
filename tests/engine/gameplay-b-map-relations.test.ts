@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameplayMapActionTargetDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
-import { projectMapRelations } from '../../src/arona-clicker/services/map-relation-projector';
+import { projectMapRelations } from '../../src/arona-clicker/services/map/map-relation-projector';
 
 describe('Map preparation relation projection', () => {
   const games: GameInstance[] = [];
@@ -18,17 +18,29 @@ describe('Map preparation relation projection', () => {
       maps: [map],
     };
   }
-  function setup(target: GameplayMapActionTargetDef = { kind: 'enemy' }) {
+  function setup(target: GameplayMapActionTargetDef = { kind: 'enemy' }, ag1 = false) {
     const original = gameplayBMapDatapack.maps![0]!;
     const map: GameplayMapDef = {
-      ...original, initialPlayerCost: 4,
+      ...original, ...(ag1 ? { executionContractId: 'AG-1' as const,
+        partyAgility: original.partyCharacterIds.map(characterId => ({ characterId, agility: 1 })) } : {}),
+      initialPlayerCost: 4,
+      initialActorResources: original.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'energy', value: 0 })),
+      initialTeamResources: [{ resourceId: 'supplies', value: 0 }],
       actions: [
         ...['hit', 'hit-b', 'hit-c', 'hit-d'].map(id => ({ id, name: id, eligibleCharacterIds: ['shiroko'], target,
-          ...(target.kind === 'enemy' || target.kind === 'partyCharacter' ? { hpEffects: [{ amount: -1 }] } : {}),
-          effects: [{ scope: 'actor' as const, resourceId: 'energy', amount: 1 }, { scope: 'team' as const, resourceId: 'supplies', amount: 1 }] })),
+          ...(ag1 ? { agility: { base: 1, max: 8 } } : {}),
+          effectProgram: { resolve: [
+            ...(target.kind === 'enemy' || target.kind === 'partyCharacter'
+              ? [{ op: 'hpChange' as const, target: 'primary' as const, delta: -1 }] : []),
+            { op: 'resourceChange' as const, account: 'sourceActor' as const, resourceId: 'energy', delta: 1 },
+            { op: 'resourceChange' as const, account: 'sourceTeam' as const, resourceId: 'supplies', delta: 1 },
+          ] } })),
         { id: 'enemy-hit', name: 'enemy-hit', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
-          tendencyRole: 'attack', hpEffects: [{ amount: -2 }] },
-        { id: 'ability', name: 'Ability', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: 1 }] },
+          ...(ag1 ? { agility: { base: 1, max: 8 } } : {}),
+          tendencyRole: 'attack', effectProgram: { resolve: [{ op: 'hpChange', target: 'primary', delta: -2 }] } },
+        { id: 'ability', name: 'Ability', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
+          ...(ag1 ? { agility: { base: 1, max: 8 } } : {}),
+          effectProgram: { resolve: [{ op: 'hpChange', target: 'primary', delta: 1 }] } },
       ],
       nodes: original.nodes.map(node => node.id !== 'b' ? node : {
         ...node, encounter: {
@@ -72,12 +84,15 @@ describe('Map preparation relation projection', () => {
     expect(projected[0]).toMatchObject({
       phase: 'preparation', source: { kind: 'preparedAction', performer: { id: 'shiroko' } },
       selectedTarget: { kind: 'enemy', id: 'robot-b' }, targetState: 'determined',
-      effectRecipients: [
-        { kind: 'hp', recipient: { kind: 'enemy', id: 'robot-b' } },
-        { kind: 'resource', recipient: { kind: 'partyCharacter', id: 'shiroko' } },
-        { kind: 'resource', recipient: { kind: 'team' } },
+      declaredEffects: [
+        { kind: 'hp', target: 'primary', delta: -1, path: expect.stringMatching(/^actions\.hit(?:-[b-d])?\.effectProgram\.resolve\[0\]$/),
+          recipient: { kind: 'enemy', id: 'robot-b' } },
+        { kind: 'resource', account: 'sourceActor', resourceId: 'energy', delta: 1, recipient: { kind: 'partyCharacter', id: 'shiroko' } },
+        { kind: 'resource', account: 'sourceTeam', resourceId: 'supplies', delta: 1,
+          recipient: { kind: 'team', side: 'party' } },
       ],
     });
+    expect(projected[0]).not.toHaveProperty('effectRecipients');
     expect(projected.filter(row => row.source.kind === 'preparedAction')).toHaveLength(1); // Serika waits.
     expect(projected.filter(row => row.source.kind === 'enemy')).toHaveLength(2);
     expect(projected[1]).toMatchObject({
@@ -88,10 +103,22 @@ describe('Map preparation relation projection', () => {
     });
     expect(relations()).toEqual(projected);
     expect(game.mapRun.getSnapshot()).toEqual(before);
-    expect(Object.isFrozen(projected[0].effectRecipients[0].recipient)).toBe(true);
+    expect(Object.isFrozen(projected[0].declaredEffects?.[0]?.recipient)).toBe(true);
     expect(Object.isFrozen(projected[0].scope)).toBe(true);
     expect(Object.isFrozen(projected[0].candidates)).toBe(true);
     expect(projected[0].draft).not.toBe(view().actionPreview!.draft);
+  });
+
+  test('projects AG-1 Effect Program relations when the Action carries execution agility', () => {
+    const { relations } = setup({ kind: 'enemy' }, true);
+    expect(relations()[0]).toMatchObject({
+      source: { kind: 'preparedAction' },
+      declaredEffects: [
+        { kind: 'hp', target: 'primary', delta: -1 },
+        { kind: 'resource', account: 'sourceActor', resourceId: 'energy', delta: 1 },
+        { kind: 'resource', account: 'sourceTeam', resourceId: 'supplies', delta: 1 },
+      ],
+    });
   });
 
   test.each(['none', 'self'] as const)('distinguishes %s from pending or unknown', kind => {

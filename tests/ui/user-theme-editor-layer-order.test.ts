@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { createUIContext } from '../../src/ui/context';
-import { renderUserThemeEditor, setPresentationHostState } from '../../src/ui/components/user-theme-editor';
-import { renderLayerManagerList } from '../../src/ui/components/user-theme-layer-manager';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderUserThemeEditor, setPresentationHostState } from '../../src/ui/components/settings/user-theme-editor';
+import { renderLayerManagerList } from '../../src/ui/components/settings/user-theme-layer-manager';
 
 const game = { world: {}, registry: {}, pics: { list: () => [] }, getView: () => ({}) } as never;
 

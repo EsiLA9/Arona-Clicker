@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | 实施及本Unit指定验证完成，交负责人审查；不代表E1整体完成。 |
-| 实际修改 | 修改 `src/arona-clicker/contracts/map-run.ts`，为Encounter locals及U10未来Preview/Commit trace留typed引用；新增 `src/arona-clicker/services/map-encounter-locals.ts`；修改 `src/arona-clicker/services/map-run-service.ts`，安装/保留locals、复制快照并移除U03仅locals拒绝；新增 `tests/engine/gameplay-b-effect-lifecycle.test.ts`；新增本Receipt。U07在 `map-run-service.ts` 的既有实现保留。 |
+| 实际修改 | 修改 `src/arona-clicker/contracts/map/map-run.ts`，为Encounter locals及U10未来Preview/Commit trace留typed引用；新增 `src/arona-clicker/services/map/map-encounter-locals.ts`；修改 `src/arona-clicker/services/map/map-run-service.ts`，安装/保留locals、复制快照并移除U03仅locals拒绝；新增 `tests/engine/gameplay-b-effect-lifecycle.test.ts`；新增本Receipt。U07在 `map-run-service.ts` 的既有实现保留。 |
 | 手写净改动估算 | U08自身约420行（含Receipt，map-run-service只计本Unit增量，不计先前U07内容）；低于负责人登记的1000行上限。 |
 | 未完成内容 | 本Unit的状态生命周期与指定行为已完成。新Save字段的严格恢复仍由U13负责；counterAdd/flagSet真实执行与trace生产留U10；condition completion留U11。 |
 | 范围外变更 | 无。本Unit只改其五条白名单路径；保留U04–U07及并行U09工作树改动，未修改Task/Unit或提交Git。 |

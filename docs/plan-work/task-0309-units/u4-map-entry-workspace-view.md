@@ -10,11 +10,11 @@
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` §“推荐页面与操作结构”及信息优先级 | 内容层级和业务限制 |
 | 风格 | `ui-style/foundations.md`、`ui-style/patterns.md` | 复用既有主题、三栏与标题栏 |
-| 源码 | `src/ui/components/workspace-frame.ts:renderWorkspaceFrame` | 列宿主、Theme Scope 与滚动 owner |
-| 源码 | `src/ui/components/area-workspace.ts:renderAreaWorkspace` | 桌面 route-only 三栏页面结构 |
-| 源码 | `src/ui/components/workspace-titlebar.ts:renderWorkspaceTitlebar` | 复用标准标题栏与返回操作 |
+| 源码 | `src/ui/components/shared/workspace-frame.ts:renderWorkspaceFrame` | 列宿主、Theme Scope 与滚动 owner |
+| 源码 | `src/ui/components/world/area-workspace.ts:renderAreaWorkspace` | 桌面 route-only 三栏页面结构 |
+| 源码 | `src/ui/components/shared/workspace-titlebar.ts:renderWorkspaceTitlebar` | 复用标准标题栏与返回操作 |
 | 源码 | `src/ui/workspace/workspace-renderer.ts:renderWorkspaceBody` | route 到页面组件分发 |
-| 契约 | `src/arona-clicker/contracts/map-entry.ts:MapEntryView` | 只读内容来源 |
+| 契约 | `src/arona-clicker/contracts/map/map-entry.ts:MapEntryView` | 只读内容来源 |
 
 ## Context Budget
 
@@ -38,9 +38,9 @@
 
 | 事实 | 依据（路径 / 符号） | 备注 |
 | --- | --- | --- |
-| `renderWorkspaceFrame` 为每列声明 hostId、themeScope、surface、scroll owner 与 workspaceOwner | `src/ui/components/workspace-frame.ts` | 复用共享三栏骨架 |
-| route-only Area 页面使用 `renderWorkspaceTitlebar`、左侧 rail、中心与右侧 panel surface | `src/ui/components/area-workspace.ts` | 当前可复用入口 |
-| MapEntryView 的名字、准入、HP、资源和进度来自 Runtime 的只读 DTO | `src/arona-clicker/contracts/map-entry.ts` | UI 不访问 Owner |
+| `renderWorkspaceFrame` 为每列声明 hostId、themeScope、surface、scroll owner 与 workspaceOwner | `src/ui/components/shared/workspace-frame.ts` | 复用共享三栏骨架 |
+| route-only Area 页面使用 `renderWorkspaceTitlebar`、左侧 rail、中心与右侧 panel surface | `src/ui/components/world/area-workspace.ts` | 当前可复用入口 |
+| MapEntryView 的名字、准入、HP、资源和进度来自 Runtime 的只读 DTO | `src/arona-clicker/contracts/map/map-entry.ts` | UI 不访问 Owner |
 
 ## Constraints
 
@@ -53,10 +53,10 @@
 
 ## Allowed Files
 
-- `src/ui/components/map-entry-workspace.ts`
+- `src/ui/components/map/map-entry-workspace.ts`
 - `src/ui/css/map-entry-workspace.css`
 - `src/ui/workspace/workspace-renderer.ts`
-- `src/ui/components/workspace-titlebar.ts`
+- `src/ui/components/shared/workspace-titlebar.ts`
 
 ## Explicit Non-goals
 

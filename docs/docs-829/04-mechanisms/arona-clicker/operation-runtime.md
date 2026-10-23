@@ -81,17 +81,21 @@ Scene 没有独立 Runtime owner、`sceneInstanceId` 或 SaveData 字段。`Even
 
 `previewIntervention()` / `reviseIntervention()` 在启用自动行动的 Scene 复用唯一 `interventionDraft`；普通 Scene 不接受会被结算忽略的战术干预。Scene Batch 预览会给出按玩家费用预留后形成的角色计划与覆盖结果，Commit 重算并应用该覆盖。Skip 仍跳过可选玩家选择，但不取消 fixed SceneAction、fixed PlayerSceneCard 或 Character 自动行动。仅实际成功 Character Action 或已结算的玩家行动可触发 Scene completion；全员 Wait 或空 Skip 不自动完成 Scene。所有上述步骤仍在现有 detached Planner 与一次 Run slot 替换中完成，失败提交不写回状态、批次计数、历史或随机游标。
 
-`gameplay-b:operation-event:atomic-scene-demo` 是独立的小型 Registry Event，包含一个复合 Location 和一个最小出口 Location；复合地点按序排列 `investigate-equipment` → `handle-alarm` 两个 Scene。检查故障设备是 required SceneAction：Skip 不会揭示维修线索；学生主动检查并成功提交后，View 才将警报 Scene 投影为 active。警报 Scene 分四批运行：`all-eligible` 对当前前排的两名敌人结算、显式选择并把一名前排敌人移到后排、再次 `all-eligible`（只命中仍在前排的敌人）、最后显式选择解除警报并揭示完成 Fact 的敌人。Scene A 完成时地点仍为 inProgress、出口 Route 不可用且没有路线历史。Scene B 成功后，独立地点目标与有序 Scene 完成门槛共同满足；来源地点记录为 success，唯一合法出口显示为路线按钮，玩家提交该 Route ID 后才转场。Run / Map 保留来源地点成功状态及两个 completed Scene ID，Route history 保存 Route ID。样例通过通用 Registry Operation 入口启动，不增加 Event-ID Runtime 分支；其 Event checkpoint 版本为 3。
+### 历史 Operation 场景样例
 
-`gameplay-b:operation-event:rest-scene-demo` 是混合 Scene UI 的正式 Registry 样例。两名学生各有三个合法 Character Action、每批抽取两张 Character Hand；Hoshino/Serika 的 Profile 使用不同优先级，目标型同队行动按各自合法目标偏好选人。Scene 显式启用 `autoCharacterActions`，保留一个 fixed SceneAction 供 Skip 验证，玩家在 Run 启动时抽两张 SceneCard，后续批次不自动补牌。整备度达到 4 才完成 Scene 与 Event；至少两批都可以把 Character actorPlans、fixed SceneAction 与玩家卡放进同一条 OperationResolution。完成后，普通 Operation 入口可以重新开始同一 Event；其 Event checkpoint 版本为 1。
+以下 Event ID 与场景描述保留为通用 Operation / Scene 合同的历史示例；相应第一方示例源码已移除，当前 Gameplay B 默认只装载 Map-only 内容包。这些描述不表示样例仍注册在当前 Runtime 中。通用 Operation Runtime 与 Workspace 仍然存在。
+
+`gameplay-b:operation-event:atomic-scene-demo` 曾是独立的小型 Registry Event，包含一个复合 Location 和一个最小出口 Location；复合地点按序排列 `investigate-equipment` → `handle-alarm` 两个 Scene。检查故障设备是 required SceneAction：Skip 不会揭示维修线索；学生主动检查并成功提交后，View 才将警报 Scene 投影为 active。警报 Scene 分四批运行：`all-eligible` 对当前前排的两名敌人结算、显式选择并把一名前排敌人移到后排、再次 `all-eligible`（只命中仍在前排的敌人）、最后显式选择解除警报并揭示完成 Fact 的敌人。Scene A 完成时地点仍为 inProgress、出口 Route 不可用且没有路线历史。Scene B 成功后，独立地点目标与有序 Scene 完成门槛共同满足；来源地点记录为 success，唯一合法出口显示为路线按钮，玩家提交该 Route ID 后才转场。Run / Map 保留来源地点成功状态及两个 completed Scene ID，Route history 保存 Route ID。该样例使用通用 Registry Operation 入口，不增加 Event-ID Runtime 分支；其历史 checkpoint 版本为 3。
+
+`gameplay-b:operation-event:rest-scene-demo` 曾是混合 Scene UI 的 Registry 样例。两名学生各有三个合法 Character Action、每批抽取两张 Character Hand；Hoshino/Serika 的 Profile 使用不同优先级，目标型同队行动按各自合法目标偏好选人。Scene 显式启用 `autoCharacterActions`，保留一个 fixed SceneAction 供 Skip 验证，玩家在 Run 启动时抽两张 SceneCard，后续批次不自动补牌。整备度达到 4 才完成 Scene 与 Event；至少两批都可以把 Character actorPlans、fixed SceneAction 与玩家卡放进同一条 OperationResolution。其历史 checkpoint 版本为 1。
 
 Scene 可用 `sceneActionChoice` 声明一个 M-of-N 候选集。V1 只接受 required Global SceneAction ID，作者的 N 必须在 `[1, M]`；普通 SceneAction 批次必须恰好提交 N 个不同候选，候选缺失、重复或多选都会使 Preview 与 Commit 整批失败。`fixed` SceneAction 在普通提交和显式 Skip 中都会自动结算，但不计入 N。显式 `skip: true` 是独立命令，不受 exact-N 拦截；它消耗批次额度，跳过可选 SceneAction、PlayerSceneCard 与 PurchaseOffer，同时结算 fixed SceneAction 和 fixed PlayerSceneCard。固定项目的费用照常预检并纳入同一批次。Skip 是否推进 Scene completion 取决于 fixed 项的结果，空 Skip 本身不构成完成。普通空提交不能伪装成 skip。该选择合同不把物理 PlayerSceneCard 或 PurchaseOffer 混入 M/N 候选。
 
 同一 Scene 还可声明 `purchaseOffers`，但当前演示把玩法分置于同一 Location 的两个有序 Scene：`choose-response` 先完成 exact 2-of-4 选择，`purchase-supplies` 再呈现两个不同价格的补给。每个 PurchaseOffer 指向已登记 targetless Operation Action、非负共享 PlayerCost 与一个 Event `factIds` 中初始未记录且唯一的 `purchaseFactId`。Action 必须至少有一个 Event Track / Fact / HeldItem 奖励效果，不得声明 Action cost 或非 Event 效果。成功购买在同一 Resolution 中扣共享 PlayerCost、运行既有 Action effects 并揭示独立 purchase Fact；奖励 HeldItem 不充当防重锁。该 marker 属于 EventRun 的 `knownFactIds`，随 checkpoint 保存；Preview 和 Commit 均按 marker 重验。因此移除奖励物、恢复存档或重置 Location-local 进度不会清除购买锁。Action、StudentSkillRule 与 CombinationRule effects 不得 reveal/forget 任何预留 marker。Purchase Offer 的 View 奖励说明采用人类可读 Action 描述或标题，不把 Event-local Item/Fact/Track ID 当玩家文案。当前机制不引入 ShopService、货币或通用库存层。
 
-`gameplay-b:operation-event:scene-offer-purchase-demo` 是上述合同的独立验收样例：同一 Location 内先 M/N 选择，再批量购买两个补给；购买后另用库存复核行动证明持有物可移除而 marker 仍有效。每个显式 Scene 仅在成功 Commit 后满足各自 completion 条件；两幕完成并满足 Location objectives 后显示唯一出口按钮，玩家选择后转场。
+`gameplay-b:operation-event:scene-offer-purchase-demo` 曾是上述合同的独立验收样例：同一 Location 内先 M/N 选择，再批量购买两个补给；购买后另用库存复核行动证明持有物可移除而 marker 仍有效。每个显式 Scene 仅在成功 Commit 后满足各自 completion 条件；两幕完成并满足 Location objectives 后显示唯一出口按钮，玩家选择后转场。
 
-正式 Carousel 与 Strategy Park checkpoint 的 `resumeVersion` 当前分别为 3 与 4：Scene ID 进入 Resolution 后，旧版本检查点按既有内容版本策略拒绝，不做迁移。
+历史 Carousel 与 Strategy Park checkpoint 曾分别使用 `resumeVersion` 3 与 4；这些版本值不代表当前第一方 Gameplay B 内容。通用 EventRun 仍按 Event 内容的 `resumeVersion` 拒绝不兼容的旧 checkpoint，不做隐式迁移。
 
 显式 Scene 序列的完成是 Location 退出前置门槛：即使地点目标已满足，前序或当前 Scene 尚未完成时，地点也不会被标记完成或开放出口。Scene A → B 本身不消耗 Route；完成最后一幕后，再由 Location outcome 决定结果并评估出口。只要有可用 Route（包括唯一出口），都显示路线按钮并等待玩家显式提交 Route ID；没有可用 Route 时按现有 Location / Event outcome 结束行动。
 
@@ -131,7 +135,7 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 `commitBeat({ runId, planVersion })` 先校验当前 in-progress Run 与版本，再运行纯 planner。owner 校验候选批次与当前 Run、Location、计划版本和 RNG cursor 一致，把结算 delta 应用到 detached 候选 Run，并完成随机状态、Beat/Resolution 序号、草稿清除、历史 append 与下一 Beat 准备。所有步骤成功后只替换一次 Run slot，再发布 `beatResolved`。`commitSceneActionBatch()` 复用同一个 `planOperationResolution()`、OperationResolution 容器与变更应用逻辑；自动行动 Scene 把 Character actorPlans、fixed/玩家选择和 PlayerSceneCard 放在同一个批次中，不运行 Combat 专属 Intent、Combination、StudentSkill，也不抽取战术随机数，只提交批次数、PlayerCost、Actor/Team 支付、效果与牌区移动。任何规划、校验、费用、目标或下一 Beat 准备失败均不写 Run、随机流、历史或通知。
 
-每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。Resolution 历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。成功 Commit、Route 转场和 Location 入场费用记录共享 Run-wide `timelineSequence`，供 UI 按可证明的顺序交织结算、路线与 Cost 变化；缺少共同序号时 UI 标出顺序不完整，不猜测。修改该 checkpoint 字段的正式 Carousel / Strategy Park Event 已递增各自 `resumeVersion`，按既有策略拒绝旧 checkpoint，不做迁移。
+每次成功状态变更都会推进 `planVersion`：Commit、有效 `applyStateDelta()`、Location complete/route transition 和 finish。Route 命令必须匹配当前 `runId` 与 `planVersion`。状态/Location 变化会清除过期草稿并重建当前规范计划；终局状态没有下一 Beat。最近一次已消费 `basePlanVersion` 的 Commit 重试在 stale/terminal 检查前返回同一条冻结 Resolution，不重复扣费、抽样、写入或通知；更早版本不重放，返回 stale。Resolution 历史最多保留最近 32 条，`resolutionSequence` 不随裁剪回退。成功 Commit、Route 转场和 Location 入场费用记录共享 Run-wide `timelineSequence`，供 UI 按可证明的顺序交织结算、路线与 Cost 变化；缺少共同序号时 UI 标出顺序不完整，不猜测。历史 Carousel / Strategy Park Event 曾递增各自 `resumeVersion`；这些具体 Event 已退出第一方内容，当前 Gameplay B 以 Map-only bundle 为准。通用 Operation checkpoint 仍按 Event 自身版本拒绝不兼容的旧内容。
 
 ## 其他状态转移与生命周期
 
@@ -153,12 +157,12 @@ Combination 只匹配当前 Location 的规则和两名不同学生的 `studentA
 
 ## 代码与测试
 
-- `src/arona-clicker/contracts/operation.ts`、`operation-action.ts`、`operation-skill.ts`、`operation-beat.ts`、`operation-resolution.ts`、`operation-save.ts`：EventRun、Action、有限技能、Beat、Resolution 与有界存档合同。
-- `src/arona-clicker/services/operation-entry-service.ts`、`operation-participant-admission.ts`、`student-operation-profile-resolver.ts`：ID-only entry、参与者准入与 Actor/Profile 入场投影。
+- `src/arona-clicker/contracts/operation/operation.ts`、`operation-action.ts`、`operation-skill.ts`、`operation-beat.ts`、`operation-resolution.ts`、`operation-save.ts`：EventRun、Action、有限技能、Beat、Resolution 与有界存档合同。
+- `src/arona-clicker/services/operation/operation-entry-service.ts`、`operation-participant-admission.ts`、`student-operation-profile-resolver.ts`：ID-only entry、参与者准入与 Actor/Profile 入场投影。
 - `operation-definition-validation.ts`、`operation-action-content-validation.ts`、`operation-tactical-definition-validation.ts`：事件、Action 与战术内容校验。
 - `operation-plan-preparation.ts`、`operation-target-selection.ts`、`operation-intervention-preview.ts`、`operation-combination-resolver.ts`、`operation-tactical-rng.ts`、`operation-resolution-planner.ts`：纯计划、干预、协同、局部随机与结算规划。
-- `src/arona-clicker/services/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
-- `src/arona-clicker/services/registry-operation-content-resolver.ts`、`src/arona-clicker/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：Registry 内容解析、resolver 装配、私有 owner 和 GameInstance 生命周期清理。
+- `src/arona-clicker/services/operation/operation-runtime-service.ts`：Run owner、版本检查、原子提交、有限历史与生命周期通知。
+- `src/arona-clicker/services/operation/registry-operation-content-resolver.ts`、`src/arona-clicker/runtime/runtime-options.ts`、`runtime-wiring.ts`、`runtime-game-instance.ts`：Registry 内容解析、resolver 装配、私有 owner 和 GameInstance 生命周期清理。
 - 定向测试：`tests/engine/operation-runtime-service.test.ts`、`operation-scene-actions.test.ts`、`gameplay-b-save-resume.test.ts`、`operation-player-scene-deck.test.ts`、`gameplay-b-scene-action-sample.test.ts`、`gameplay-b-multiscene-location.test.ts`、`gameplay-b-route-sample.test.ts`、`gameplay-b-operation-sample.test.ts`、`operation-plan-preparation.test.ts`、`operation-target-selection.test.ts`、`operation-intervention-preview.test.ts`、`operation-combination-resolver.test.ts`、`operation-tactical-rng.test.ts`、`operation-resolution-planner.test.ts`、`gameplay-b-event-runtime-integration.test.ts`、`student-operation-runtime.test.ts`。Operation Entry 的 Registry 引用校验见 `tests/data/spot-operation-entry.test.ts`；当前没有对应的 Operation Entry UI 启动集成测试。Gameplay B 已采用 Map Entry，其 UI 垂直切片见 `tests/ui/gameplay-b-basic-map-p0-p3.test.ts` 和 `tests/ui/gameplay-b-map-vertical-slice.test.ts`，不覆盖 Operation Entry。
 
 相关边界：[[docs/docs-829/01-architecture/data-flow]]、[[docs/docs-829/02-modules/arona-clicker]]、[[docs/docs-829/03-data-structures/player-state]]。

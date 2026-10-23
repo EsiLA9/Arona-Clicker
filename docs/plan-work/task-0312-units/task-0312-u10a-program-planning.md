@@ -1,14 +1,15 @@
 # Unit 0312-U10A：新程序权威纯规划
 
-状态：ready；前置U08/U09实际Receipt已完成。继承 [[docs/plan-work/task-0312-units/task-0312-u10-program-authoritative-commit]] 全部Read Set、E1-COMPAT-1约束与Stop Conditions；本页限定子范围，不替换原合同。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## 范围与预算
 
 允许文件：
 
-- `src/arona-clicker/services/map-run-service.ts`：净增260–350行；只改纯planner、Preview和必要的Commit拒绝门位置。
-- `src/arona-clicker/contracts/map-run.ts`：净增15–35行，公开Preview/Receipt的规则版本、访问数、结果locals等必要typed字段。
-- `src/arona-clicker/contracts/map-effects.ts`：净增10–30行，资源实际before/after与prepare trace必要类型；资源意图与最终trace必须可区分。
+- `src/arona-clicker/services/map/map-run-service.ts`：净增260–350行；只改纯planner、Preview和必要的Commit拒绝门位置。
+- `src/arona-clicker/contracts/map/map-run.ts`：净增15–35行，公开Preview/Receipt的规则版本、访问数、结果locals等必要typed字段。
+- `src/arona-clicker/contracts/map/map-effects.ts`：净增10–30行，资源实际before/after与prepare trace必要类型；资源意图与最终trace必须可区分。
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-program.test.ts；350–480行，真实Owner入口的Preview行为、预算与零写。
 - 新增实际 `docs/plan-work/task-0312-units/receipts/task-0312-u10a-receipt.md`：50–70行。
 

@@ -6,16 +6,16 @@ import {
   type OperationEventDef,
   type OperationStudentProfileSnapshot,
   type OperationTacticalRandomState,
-} from '../../src/arona-clicker/contracts/operation';
-import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation-skill';
-import type { OperationPreparedActorPlan, PreparedBeat } from '../../src/arona-clicker/contracts/operation-beat';
+} from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationStudentSkillRuleDef } from '../../src/arona-clicker/contracts/operation/operation-skill';
+import type { OperationPreparedActorPlan, PreparedBeat } from '../../src/arona-clicker/contracts/operation/operation-beat';
 import {
   OperationTacticalRngError,
   operationTacticalWordAt,
   sampleOperationTacticalBelow,
   sampleOperationTacticalIntegerRange,
   rollOperationStudentSkills,
-} from '../../src/arona-clicker/services/operation-tactical-rng';
+} from '../../src/arona-clicker/services/operation/operation-tactical-rng';
 
 const UINT64 = 1n << 64n;
 

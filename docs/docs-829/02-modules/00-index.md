@@ -6,7 +6,7 @@
 
 | 模块 | 卡片 | 源码 |
 | --- | --- | --- |
-| 应用与 Runtime | [[docs/docs-829/02-modules/app-runtime]] | `src/app/`、`src/arona-clicker/runtime*.ts` |
+| 应用与 Runtime | [[docs/docs-829/02-modules/app-runtime]] | `src/app/`、`src/arona-clicker/runtime/runtime*.ts` |
 | Data Services | [[docs/docs-829/02-modules/data-services]] | `src/data-services/` |
 | Engine | [[docs/docs-829/02-modules/engine]] | `src/engine/` |
 | AronaClicker Domain | [[docs/docs-829/02-modules/arona-clicker]] | `src/arona-clicker/` |

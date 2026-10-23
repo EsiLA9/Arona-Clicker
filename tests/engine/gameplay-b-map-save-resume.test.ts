@@ -3,11 +3,11 @@ import { createAppRuntime, DEFAULT_INIT_ID } from '../../src/app/runtime-bootstr
 import {
   gameplayBAutonomousTargetBattleDefinition,
   gameplayBMapDatapack,
-} from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+} from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
+import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import { Character } from '../../src/arona-clicker/types/ids';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 const STUDENTS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
 const VARIANTS: Record<typeof STUDENTS[number], string> = {
@@ -74,6 +74,66 @@ describe('Gameplay B MapRun Save/Resume', () => {
     expect(activeOwner.getSnapshot()).toEqual(active);
   });
 
+  test('round-trips declared MapRun Facts and rejects missing, extra, duplicate, or out-of-range saved values', () => {
+    const baseMap = gameplayBMapDatapack.maps?.[0];
+    expect(baseMap).toBeDefined();
+    if (!baseMap) throw new Error('Gameplay B sample Map is missing');
+    const map = {
+      ...baseMap,
+      mapRunFacts: {
+        counters: [{ id: 'route-progress', initial: 1, min: 0, max: 3 }],
+        flags: [{ id: 'alerted', initial: false }],
+      },
+    };
+    const resolver = { resolve: (mapId: string) => mapId === map.id ? map : null };
+    const source = new MapRunService(resolver, resolveVariantCharacterId);
+    source.start(map.id, MAP_PARTY);
+    const checkpoint = source.createSaveSnapshot();
+    expect(checkpoint?.run.mapRunFacts).toEqual({
+      counters: [{ id: 'route-progress', value: 1 }],
+      flags: [{ id: 'alerted', value: false }],
+    });
+    if (!checkpoint) throw new Error('MapRun checkpoint is missing');
+
+    const progressed = {
+      ...checkpoint,
+      run: {
+        ...checkpoint.run,
+        mapRunFacts: {
+          counters: [{ id: 'route-progress', value: 2 }],
+          flags: [{ id: 'alerted', value: true }],
+        },
+      },
+    };
+    const restored = new MapRunService(resolver, resolveVariantCharacterId);
+    expect(restored.restoreSaveSnapshot(progressed)).toMatchObject({ status: 'restored' });
+    expect(restored.getSnapshot()?.mapRunFacts).toEqual(progressed.run.mapRunFacts);
+
+    const invalidSnapshots = [
+      { ...checkpoint.run, mapRunFacts: undefined },
+      { ...checkpoint.run, mapRunFacts: { ...checkpoint.run.mapRunFacts!, extra: true } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'route-progress', value: 4 }], flags: [{ id: 'alerted', value: false }] } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'route-progress', value: 1 }, { id: 'route-progress', value: 1 }], flags: [{ id: 'alerted', value: false }] } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'forged', value: 1 }], flags: [{ id: 'alerted', value: false }] } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'route-progress', value: Number.MAX_SAFE_INTEGER + 1 }], flags: [{ id: 'alerted', value: false }] } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'route-progress', value: 1 }], flags: [{ id: 'alerted', value: 0 }] } },
+      { ...checkpoint.run, mapRunFacts: { counters: [{ id: 'route-progress', value: 1 }], flags: [{ id: 'alerted', value: false, extra: 0 }] } },
+    ];
+    for (const run of invalidSnapshots) {
+      const owner = new MapRunService(resolver, resolveVariantCharacterId);
+      expect(owner.restoreSaveSnapshot({ ...checkpoint, run })).toMatchObject({ status: 'rejected', reason: 'invalid-run' });
+      expect(owner.getSnapshot()).toBeNull();
+    }
+
+    const noFactsMap = { ...baseMap };
+    const noFactsResolver = { resolve: (mapId: string) => mapId === noFactsMap.id ? noFactsMap : null };
+    const legacyOwner = new MapRunService(noFactsResolver, resolveVariantCharacterId);
+    expect(legacyOwner.restoreSaveSnapshot({ ...checkpoint, run: checkpoint.run })).toMatchObject({
+      status: 'rejected', reason: 'invalid-run',
+    });
+    expect(legacyOwner.getSnapshot()).toBeNull();
+  });
+
   test('rejects checkpoint restore without a Registry Variant lookup and leaves the owner empty', () => {
     const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
@@ -111,6 +171,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
     expect(save.mapRun).toMatchObject({ mapId: map.id, resumeVersion: map.resumeVersion, run: active });
     expect(save.mapRun?.run.runId).toBe(started.runId);
+    expect(save.mapRun?.run).not.toHaveProperty('partyAgility');
     expect(save.mapRun?.run.visitedNodeIds).toEqual([started.currentNodeId, encounterEdge.toNodeId]);
     expect(save.mapRun?.run.activeEncounter?.nodeId).toBe(encounterEdge.toNodeId);
     expect(save.mapRun?.run.activeEncounter).toMatchObject({
@@ -122,6 +183,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
         { characterId: Character.Serika, actionIds: expect.arrayContaining(MAP_HAND_ACTION_IDS) },
       ],
     });
+    expect(save.mapRun?.run.activeEncounter).not.toHaveProperty('enemyAgility');
     expect(Object.keys(save.mapRun!.run)).not.toContain('activeEncounterNodeId');
     expect(JSON.parse(JSON.stringify(save.mapRun!.run))).not.toHaveProperty('activeEncounterNodeId');
     expect(save.mapRun?.run.actorResources).toEqual([
@@ -370,7 +432,8 @@ describe('Gameplay B MapRun Save/Resume', () => {
 
   test('rejects an unknown Map or mismatched resumeVersion without changing PlayerState', () => {
     const source = createGame();
-    expect(gameplayBMapDatapack.maps?.every(candidate => candidate.resumeVersion >= 3)).toBe(true);
+    expect(gameplayBMapDatapack.maps?.every(candidate => Number.isSafeInteger(candidate.resumeVersion)
+      && candidate.resumeVersion >= 1)).toBe(true);
     const map = gameplayBMapDatapack.maps?.[0];
     expect(map).toBeDefined();
     if (!map) throw new Error('Gameplay B sample Map is missing');

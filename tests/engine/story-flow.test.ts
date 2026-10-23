@@ -10,7 +10,7 @@
 //   6. millennium 演示：click 阻塞 + insert + choice text 阻塞
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { finishWelcome, clickGatePack, clickWorkGatePack, whisperClickPack, gotoClickPack } from './story-test-fixtures';
 

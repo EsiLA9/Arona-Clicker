@@ -9,14 +9,14 @@
 | 类型 | 路径 / 符号 | 读它的原因 |
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` §“门控、提交与更新边界”与验收 | 来源失效、竞态、单次提交边界 |
-| 源码 | `src/ui/components/map-entry.ts:renderMapEntryFunctions` | 设施按钮与作者文案 |
-| 源码 | `src/ui/controller-actions-operation.ts:mapFunctionAvailable/handleMapClick` | 当前 Map 入口重核、MapRun 点击动作 |
-| 源码 | `src/ui/components/map-workspace.ts:renderActiveCenter` | 现场返回入口 |
-| 源码 | `src/ui/components/map-entry-workspace.ts:renderPrimaryAction` | 准备页按钮与前台状态反馈 |
-| 源码 | `src/ui/controller.ts:enterMapEntry/returnMapToEntry/returnFromMapEntry` | route-only 会话生命周期 |
-| 契约 | `src/arona-clicker/contracts/map-entry.ts:MapEntryView` | fresh/resume 的权威当前模式与身份 |
-| 机制 | `src/arona-clicker/contracts/story-query.ts:isBlockingInteraction` | 覆盖全局与 chat 游标的交互 gate |
-| 源码 | `src/ui/modal.ts:ModalManager.isOpen` | Spot 确认 / 其他前台 modal gate |
+| 源码 | `src/ui/components/map/map-entry.ts:renderMapEntryFunctions` | 设施按钮与作者文案 |
+| 源码 | `src/ui/controller/controller-actions-operation.ts:mapFunctionAvailable/handleMapClick` | 当前 Map 入口重核、MapRun 点击动作 |
+| 源码 | `src/ui/components/map/map-workspace.ts:renderActiveCenter` | 现场返回入口 |
+| 源码 | `src/ui/components/map/map-entry-workspace.ts:renderPrimaryAction` | 准备页按钮与前台状态反馈 |
+| 源码 | `src/ui/controller/controller.ts:enterMapEntry/returnMapToEntry/returnFromMapEntry` | route-only 会话生命周期 |
+| 契约 | `src/arona-clicker/contracts/map/map-entry.ts:MapEntryView` | fresh/resume 的权威当前模式与身份 |
+| 机制 | `src/arona-clicker/contracts/story/story-query.ts:isBlockingInteraction` | 覆盖全局与 chat 游标的交互 gate |
+| 源码 | `src/ui/interaction/modal.ts:ModalManager.isOpen` | Spot 确认 / 其他前台 modal gate |
 
 ## Context Budget
 
@@ -40,11 +40,11 @@
 
 | 事实 | 依据（路径 / 符号） | 备注 |
 | --- | --- | --- |
-| 当前 Spot Map 按钮点击会直接 `startMap` 或直接切入 map route | `src/ui/controller-actions-operation.ts:handleMapClick` | 入口需先改为 route map-entry |
-| `mapFunctionAvailable` 当前核对当前 Area、utilityKnown、functionality identity，但未重验 condition | `src/ui/controller-actions-operation.ts:mapFunctionAvailable` | 本 Unit 增加条件重核 |
-| `StoryService.isBlockingInteraction()` 检查 global cursor 与全部 chat cursors | `src/arona-clicker/services/story-service.ts:cursorsForInteractionGate/isBlockingInteraction` | 覆盖跨流阻塞交互 |
-| `ModalManager.isOpen()` 可识别前台确认 / modal | `src/ui/modal.ts` | 入口 / start / continue 前 gate |
-| Map Workspace 活动态返回按钮当前回到进入前位置 | `src/ui/components/map-workspace.ts:renderActiveCenter` | 改成返回准备页 |
+| 当前 Spot Map 按钮点击会直接 `startMap` 或直接切入 map route | `src/ui/controller/controller-actions-operation.ts:handleMapClick` | 入口需先改为 route map-entry |
+| `mapFunctionAvailable` 当前核对当前 Area、utilityKnown、functionality identity，但未重验 condition | `src/ui/controller/controller-actions-operation.ts:mapFunctionAvailable` | 本 Unit 增加条件重核 |
+| `StoryService.isBlockingInteraction()` 检查 global cursor 与全部 chat cursors | `src/arona-clicker/services/story/story-service.ts:cursorsForInteractionGate/isBlockingInteraction` | 覆盖跨流阻塞交互 |
+| `ModalManager.isOpen()` 可识别前台确认 / modal | `src/ui/interaction/modal.ts` | 入口 / start / continue 前 gate |
+| Map Workspace 活动态返回按钮当前回到进入前位置 | `src/ui/components/map/map-workspace.ts:renderActiveCenter` | 改成返回准备页 |
 
 ## Constraints
 
@@ -58,11 +58,11 @@
 
 ## Allowed Files
 
-- `src/ui/components/map-entry.ts`
-- `src/ui/controller-actions-operation.ts`
-- `src/ui/components/map-workspace.ts`
-- `src/ui/components/app-shell.ts`
-- `src/ui/components/map-entry-workspace.ts`
+- `src/ui/components/map/map-entry.ts`
+- `src/ui/controller/controller-actions-operation.ts`
+- `src/ui/components/map/map-workspace.ts`
+- `src/ui/components/shared/app-shell.ts`
+- `src/ui/components/map/map-entry-workspace.ts`
 
 ## Explicit Non-goals
 

@@ -5,8 +5,8 @@ import JSZip from 'jszip';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { mergeFragments, parseFragment } from '../../src/data-services/datapack/fragment-parser';
 import { parsePackFromZipBuffer } from '../../src/data-services/datapack/pack-parser';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 const ROOT = process.cwd();

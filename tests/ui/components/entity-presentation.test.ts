@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import type { Datapack } from '../../../src/data-services/contracts/datapack';
 import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
-import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
-import { createUIContext } from '../../../src/ui/context';
-import { renderEntityPresentationOptions } from '../../../src/ui/components/entity-presentation';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
+import { createUIContext } from '../../../src/ui/runtime/context';
+import { renderEntityPresentationOptions } from '../../../src/ui/components/presentation/entity-presentation';
 
 const datapack = (): Datapack => ({
   name: 'entity-presentation-ui-test',

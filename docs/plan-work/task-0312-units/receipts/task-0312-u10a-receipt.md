@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U10A纯规划与指定验证完成，交负责人审查；U10整体未完成。 |
-| 实际修改 | 修改 `src/arona-clicker/services/map-run-service.ts`、`src/arona-clicker/contracts/map-run.ts`、`src/arona-clicker/contracts/map-effects.ts`；新增 `tests/engine/gameplay-b-effect-program.test.ts` 与本 Receipt。 |
+| 实际修改 | 修改 `src/arona-clicker/services/map/map-run-service.ts`、`src/arona-clicker/contracts/map/map-run.ts`、`src/arona-clicker/contracts/map/map-effects.ts`；新增 `tests/engine/gameplay-b-effect-program.test.ts` 与本 Receipt。 |
 | 行数 | 按当前共享树相对HEAD准确统计：map-run-service +439/-93、map-run contract +45/-0、map-effects本Unit增量 +41/-0（U06原有113行不计）、新测试 +400/-0、本Receipt +43/-0；合计 +968/-93，净增875行。服务/contract差异包含已在工作树中的U07/U08改动，U07 Receipt记录其service为+94/-59；此合计保守高于U10A自身净改动，仍低于负责人登记的1000行上限。 |
 | 未完成内容 | U10B负责移除Commit保护、安装locals/trace/Receipt并完成幂等和GameInstance跨Owner事务验收；U15负责将Runtime readmodel完整透传Preview/Receipt字段。U10A不代表U10整体完成。 |
 | 范围外变更 | 无。未改Runtime投影文件、其它Unit/代理文件或Task；未提交Git。共享工作区其它改动保留。 |

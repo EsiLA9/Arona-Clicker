@@ -14,7 +14,7 @@ import {
 import { ImageStore, resolvePicSrc } from '../../src/data-services';
 import { Registry } from '../../src/data-services/registry/registry';
 import { RegistryError } from '../../src/data-services/registry/registry-validate';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { } from '../../src/engine/types';
 
 describe('parsePicId / buildPicId / isPicRef', () => {

@@ -40,8 +40,8 @@
 
 ## 源码与测试
 
-- 浏览器启动选项：`src/ui/main.ts`、`src/arona-clicker/runtime.ts` 的 `createPackApplyTarget()`。
-- 新游戏 / 恢复的 UI 调用：`src/ui/controller.ts` 的 `startNewGame()`、`resumeInit()`。
-- Init、存档和重置门面：`src/arona-clicker/runtime-game-instance.ts` 的 `init()`、`save()`、`load()`、`reset()`。
-- 会话接线：`src/arona-clicker/runtime-wiring.ts` 中 `SessionService` 的 `doTick` 回调；`start()` / `stop()` 见 `runtime-game-instance.ts`。
+- 浏览器启动选项：`src/ui/main.ts`、`src/arona-clicker/runtime/runtime.ts` 的 `createPackApplyTarget()`。
+- 新游戏 / 恢复的 UI 调用：`src/ui/controller/controller.ts` 的 `startNewGame()`、`resumeInit()`。
+- Init、存档和重置门面：`src/arona-clicker/runtime/runtime-game-instance.ts` 的 `init()`、`save()`、`load()`、`reset()`。
+- 会话接线：`src/arona-clicker/runtime/runtime-wiring.ts` 中 `SessionService` 的 `doTick` 回调；`start()` / `stop()` 见 `runtime-game-instance.ts`。
 - 指定测试验证首次包应用保持 Lobby、包库快照恢复和应用恢复；本 Unit 未逐项执行或审查所有 Init、旅行及存档测试。

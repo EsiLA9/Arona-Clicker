@@ -12,7 +12,7 @@ import type {
   SpotLevelUpgradeDraft,
   SpotRevealTriggerDraft,
 } from '../../data-services/authoring/content-policy-types';
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 import type { RuntimeEditorProblemInput } from './form';
 import {
   FUNCTIONALITY_PROTOTYPE,

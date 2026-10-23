@@ -13,7 +13,7 @@ import { ValueSystem } from '../../src/engine/expression/value-system';
 import { StatsService } from '../../src/engine/stats/stats';
 import { EventBus } from '../../src/engine/core/event-bus';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 
 const state = {
   resources: {},

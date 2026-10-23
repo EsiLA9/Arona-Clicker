@@ -29,8 +29,8 @@ AC 外部系统中，目前真正跨 Owner 接入的是 Encounter Consumable：�
 
 ### 当前来源分类
 
-- **新版 MapRun 正式运行面**：`src/data-services/contracts/gameplay-map.ts`、`src/arona-clicker/contracts/map-run.ts`、`services/map-run-service.ts`、`runtime-game-instance.ts`、`runtime-commands.ts`、Registry Map resolver、`src/ui/components/map-workspace.ts` 和 MapRun 相关测试。
-- **当前 Datapack 内容包**：`src/arona-clicker/content/gameplay-b-map-datapack.ts`，Runtime 以 `gameplay-b@1.0.0` bundle 装载。它含 8 个 Map 定义和一个 Map Entry Spot，文件注释明确为 Map-only，不包含旧 Operation 样例。
+- **新版 MapRun 正式运行面**：`src/data-services/contracts/gameplay-map.ts`、`src/arona-clicker/contracts/map/map-run.ts`、`services/map-run-service.ts`、`runtime-game-instance.ts`、`runtime-commands.ts`、Registry Map resolver、`src/ui/components/map/map-workspace.ts` 和 MapRun 相关测试。
+- **当前 Datapack 内容包**：`src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts`，Runtime 以 `gameplay-b@1.0.0` bundle 装载。它含 8 个 Map 定义和一个 Map Entry Spot，文件注释明确为 Map-only，不包含旧 Operation 样例。
 - **旧 Operation**：`OperationRuntimeService / EventRun / operationEntry` 仍在同一个 GameInstance 和 SaveData 中，但使用单独 Owner、合同与 checkpoint；其技能、场景、卡牌或奖励不能算作 MapRun 已实现能力。
 - **文档现状**：`docs/docs-829/06-wiki/50-ui/refresh-update.md` 含当前 MapRun Workspace 片段；多篇 Operation Runtime / PlayerState / Data Flow 页面仍以 EventRun 为 Gameplay B 主模型。`pack-loading.md` 已说当前 bundle 为 Map-only，但引用的 Datapack 源文件路径已经过期。实施事实以源码和本轮测试为准。
 - **样例与正式路径**：八张 Map 随实际 `gameplay-b@1.0.0` bundle 注册；测试既有纯 `MapRunService` 单测，也有 `GameInstance`、真实 Registry / Spot 和 DOM Workspace 覆盖。单测不自动证明 UI 浏览器闭环；旧 UI 入口测试当前失败。
@@ -86,7 +86,7 @@ flowchart LR
   R -->|rebuild and validate by mapId + resumeVersion| OWNER
 ```
 
-关键入口证据：`GameInstance.#mapRunOwner` 与 `replaceMapRunOwner()`（`src/arona-clicker/runtime-game-instance.ts:226,307-313`）；冻结查询 facade（`:242-278`）；`startMap()` 与准入（`:673-677,808-858`）；命令转接（`src/arona-clicker/runtime-commands.ts:34-50,102-124`）；MapRun 真正开局（`src/arona-clicker/services/map-run-service.ts:2594-2657`）。
+关键入口证据：`GameInstance.#mapRunOwner` 与 `replaceMapRunOwner()`（`src/arona-clicker/runtime/runtime-game-instance.ts:226,307-313`）；冻结查询 facade（`:242-278`）；`startMap()` 与准入（`:673-677,808-858`）；命令转接（`src/arona-clicker/runtime/runtime-commands.ts:34-50,102-124`）；MapRun 真正开局（`src/arona-clicker/services/map/map-run-service.ts:2594-2657`）。
 
 ### Owner 与状态写入
 
@@ -113,7 +113,7 @@ Edge 单向；移动前拒绝活动 Encounter / Activity、不相邻目标和不
 - 结束条件：所有敌人 HP 到 0 为 Encounter 胜利；全队 HP 为 0 为 `partyDefeated` 失败；有限回合 Rest 到轮数后结束；非战斗 Encounter 只有显式 `completion: { kind:'manual' }` 才能手动完成。Battle 不能手动完成。MapRun 成功还要求到达出口。
 - `abandon()` 只清除活动 Run，不留下失败结果；当前没有通用撤退、结算奖励或 MapRun 游戏历史合同。
 
-地图定义和运行状态分离证据：`GameplayMapDef / GameplayEncounterDef / GameplayMapActivityDef`（`gameplay-map.ts:4-350`）；Run / Encounter / Result / Save DTO（`src/arona-clicker/contracts/map-run.ts:130-426`）；移动与活动结束（`map-run-service.ts:3468-3661`）。
+地图定义和运行状态分离证据：`GameplayMapDef / GameplayEncounterDef / GameplayMapActivityDef`（`gameplay-map.ts:4-350`）；Run / Encounter / Result / Save DTO（`src/arona-clicker/contracts/map/map-run.ts:130-426`）；移动与活动结束（`map-run-service.ts:3468-3661`）。
 
 ### Run 与 Encounter 状态边界
 
@@ -238,7 +238,7 @@ MapRun 有三栏 Map Workspace；GameInstance 基于 Run + 当前 resolver + Map
 
 Map Flow 由 UI 的 `MapFlowModel.sync(view)` 从 Map / Node / Encounter / Commit / Shop / Result 投影出工作区信息流条目，并共用 story.ts 的 Flow renderer。这是 Flow 呈现复用，不是 StoryService / Talklet / Story Trigger 接线；`GameplayMapDef` 没有 Story/Talklet 活动字段。
 
-当前工作树 Map Entry 转换：Spot 上 `data-map-entry-open` 打开 `map-entry` route；准备页内 `data-map-entry-start` 或 `data-map-entry-continue-run` 才真正开始／续行。Controller 仍会重核设施身份、Map、当前 Run 和入口门控。对应代码在 `src/ui/components/map-entry.ts:6-39`、`map-entry-workspace.ts:98-167`、`controller-actions-operation.ts:1394-1496`。但两个仍在使用旧 Spot 直启动按钮的端到端 UI 测试组没有同步，导致当轮 7 项失败；当前没有直接以新 entry route 完成开始／续行/返回/视觉验收的专门测试。
+当前工作树 Map Entry 转换：Spot 上 `data-map-entry-open` 打开 `map-entry` route；准备页内 `data-map-entry-start` 或 `data-map-entry-continue-run` 才真正开始／续行。Controller 仍会重核设施身份、Map、当前 Run 和入口门控。对应代码在 `src/ui/components/map/map-entry.ts:6-39`、`map-entry-workspace.ts:98-167`、`controller-actions-operation.ts:1394-1496`。但两个仍在使用旧 Spot 直启动按钮的端到端 UI 测试组没有同步，导致当轮 7 项失败；当前没有直接以新 entry route 完成开始／续行/返回/视觉验收的专门测试。
 
 MapRun UI 已有 DOM 测试覆盖路线条件和过期移动、完整 Hand 与 Wait、PlayerCommand / Swap / 单位和 Card Target、Ability / Item Draft、整轮提交、Shop、敌方与失败展示。DOM 测试未检查真实浏览器主题、布局、滚动、触屏或完整鼠标体验；本轮没有视觉结论。
 
@@ -375,7 +375,7 @@ flowchart LR
 
 | 阶段 / 优先级 | 前置与复用 | 新增的最小能力 | 可能模块 | 独立验收 | 风险 |
 | --- | --- | --- | --- | --- | --- |
-| **P0：闭合当前 Map Entry 转场与正式 UI slice**（继续 Task 0309，不另造重复目标） | 已有 `map-entry` route、MapEntryView、固定队伍/HP/资源投影、MapRun Owner 和 Save/Resume；Spot mapEntry 原合同保留 | 更新 Spot→Entry→start/continue→Map→return/re-entry 的正式 controller / integration 测试；补 fresh/resume/other-map blocked/stale source；浏览器宽屏验收 | `src/ui/controller-actions-operation.ts`、map-entry / map-workspace、workspace router、UI tests | 正常 Datapack 从 Spot 打开准备页→开始→离开再续行→战斗→出口成功；不重建 runId / HP / Hand / RNG；浏览器确认三栏和返回焦点 | 当前测试读取已撤下的 Spot `data-map-entry-start`；不更新旧测试可能继续出现表面失败或误删新路径 |
+| **P0：闭合当前 Map Entry 转场与正式 UI slice**（继续 Task 0309，不另造重复目标） | 已有 `map-entry` route、MapEntryView、固定队伍/HP/资源投影、MapRun Owner 和 Save/Resume；Spot mapEntry 原合同保留 | 更新 Spot→Entry→start/continue→Map→return/re-entry 的正式 controller / integration 测试；补 fresh/resume/other-map blocked/stale source；浏览器宽屏验收 | `src/ui/controller/controller-actions-operation.ts`、map-entry / map-workspace、workspace router、UI tests | 正常 Datapack 从 Spot 打开准备页→开始→离开再续行→战斗→出口成功；不重建 runId / HP / Hand / RNG；浏览器确认三栏和返回焦点 | 当前测试读取已撤下的 Spot `data-map-entry-start`；不更新旧测试可能继续出现表面失败或误删新路径 |
 | **P1：扩展受限声明式 Action Effect 原语** | 复用纯 Preview / Commit plan、Run snapshot、Registry 校验、Settlement receipt 和当前 Item coordinator 经验 | 选择最小可组合原语：表达式/条件/target set/顺序组合中的经裁定子集；类型可序列化且全在 Run Plan 内模拟。先只做可由一个 Datapack 演练证明的效果 | `GameplayMapDef` schema、MapRun planner / effect resolver、Registry validation、MapRun tests、独立 Schema | 同一回合多 Action 的合法/非法目标、总费用、HP/资源、失败零写入、Preview 不变、Save/Resume 回放一致 | 若直接走 AC StateMutation，跨 Owner 事务不再原子；若过早支持任意 TS，失去作者可验证性 |
 | **P2：引入 Map Action Tag 与 CardPool 候选组装** | 依赖稳定 Action IDs、候选权重 / 资格与 Hand RNG；可沿用当前抽牌后才生成真实 CardInstance 的边界 | 用受限 Tag 做分类；从至少两个声明来源组候选，明确去重、来源权重、资格/条件顺序。先不让每个角色继续手工重复列出整组 Action | `gameplay-map.ts`、Map candidate resolver、Registry/schema、author tooling | 一个真实 Datapack 两来源组合，重复 Action 处理确定，Tag 筛选/序列化/跨包引用静态验证，Hands deterministic 且 Save/Resume 不变 | Tag 语义过载成抽牌规则；重复来源重复抽到同一 Action；来源权重缺失稳定性 |
 | **P3：外部角色成长 Adapter** | 依赖明确的 Map Action / target / stat 使用合同；复用 GameInstance admission 和 roster query | 选最少一项实际成长字段建立只读入场投影；冻结版本与来源；可在 MapRun 中稳定恢复；任何写回另行设计 | GameInstance adapter、Character / Variant / Roster / progression ports、MapRun party snapshot、schema/save tests | 同一角色不同等级/星级的稳定入场对照；入场后 AC 培养变化不改变运行中快照；重载和不同 Variant 失败策略明示 | 把 PlayerState 进度复制成第二 Owner、映射规则未经玩法裁定、保存版本漂移 |
@@ -414,12 +414,12 @@ flowchart LR
 ### 重点源码与测试
 
 - 内容合同与验证：`src/data-services/contracts/gameplay-map.ts:4-350`、`src/data-services/contracts/datapack.ts:87-90`、`src/data-services/registry/registry.ts:381-388,822,1306-1316`、`src/data-services/registry/registry-validate.ts:63-194,227-431,501-666,790-810,1068-1086`。
-- 内容 bundle 与装配：`src/arona-clicker/content/gameplay-b-map-datapack.ts:8-145,154-249,255-430,431-753,754-984`、`src/arona-clicker/runtime.ts:937-953`。
-- 运行状态和 Owner：`src/arona-clicker/contracts/map-run.ts:4-426`、`src/arona-clicker/contracts/map-cards.ts:2-27`、`src/arona-clicker/runtime-game-instance.ts:220-278,307-313,673-858,860-1043`、`src/arona-clicker/runtime-commands.ts:30-50,102-124`。
-- 抽牌 / Preview / Targets / Effect：`src/arona-clicker/services/gameplay-b-hand-resolver.ts:152-267,348-560`、`gameplay-b-action-preview-resolver.ts`、`map-card-catalog.ts`、`map-card-effects.ts:29-120`、`map-run-service.ts:959-1493,2582-2852,3032-3322`。
-- Save / movement / activities：`src/arona-clicker/services/map-run-service.ts:2594-2758,3369-3686`、`src/arona-clicker/contracts/save-data.ts:31-33`、`runtime-game-instance.ts:1320-1365`。
-- UI：`src/ui/components/map-entry.ts:6-39`、`map-entry-workspace.ts:98-167`、`controller-actions-operation.ts:1177-1297,1394-1496`、`src/ui/components/map-workspace.ts`、`src/ui/flow/map-flow-model.ts:318-337,443-636`。
-- 外部系统：`src/engine/effect/effect-engine.ts`、`affector-engine.ts`、`trigger-system.ts`、`src/engine/expression/condition-system.ts`、`src/arona-clicker/services/roster-system.ts:19-54`、`cultivate-system.ts`、`state/state-mutation-service.ts:779-830,928+`。
+- 内容 bundle 与装配：`src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts:8-145,154-249,255-430,431-753,754-984`、`src/arona-clicker/runtime/runtime.ts:937-953`。
+- 运行状态和 Owner：`src/arona-clicker/contracts/map/map-run.ts:4-426`、`src/arona-clicker/contracts/map/map-cards.ts:2-27`、`src/arona-clicker/runtime/runtime-game-instance.ts:220-278,307-313,673-858,860-1043`、`src/arona-clicker/runtime/runtime-commands.ts:30-50,102-124`。
+- 抽牌 / Preview / Targets / Effect：`src/arona-clicker/services/map/gameplay-b-hand-resolver.ts:152-267,348-560`、`gameplay-b-action-preview-resolver.ts`、`map-card-catalog.ts`、`map-card-effects.ts:29-120`、`map-run-service.ts:959-1493,2582-2852,3032-3322`。
+- Save / movement / activities：`src/arona-clicker/services/map/map-run-service.ts:2594-2758,3369-3686`、`src/arona-clicker/contracts/runtime/save-data.ts:31-33`、`runtime-game-instance.ts:1320-1365`。
+- UI：`src/ui/components/map/map-entry.ts:6-39`、`map-entry-workspace.ts:98-167`、`controller-actions-operation.ts:1177-1297,1394-1496`、`src/ui/components/map/map-workspace.ts`、`src/ui/flow/map-flow-model.ts:318-337,443-636`。
+- 外部系统：`src/engine/effect/effect-engine.ts`、`affector-engine.ts`、`trigger-system.ts`、`src/engine/expression/condition-system.ts`、`src/arona-clicker/services/character/roster-system.ts:19-54`、`cultivate-system.ts`、`state/state-mutation-service.ts:779-830,928+`。
 - Editor 区分：`src/data-services/authoring/content-policies.ts:370-376`、`tools/datapack-editor/schema/engine-defs.gen.json:21-22,4091+`。
 - 当前非归档关联工作：`docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md`；区域导航与 MapRun 分离见 `task-0310-area-map-navigation-service-v1.md`。
 - 行为覆盖：`tests/data/gameplay-b-map-registry.test.ts`；`tests/engine/gameplay-b-map-run.test.ts`；`gameplay-b-map-runtime-integration.test.ts`；`gameplay-b-map-save-resume.test.ts`；`gameplay-b-map-source-transactions.test.ts`；`gameplay-b-map-cards.test.ts` / `gameplay-b-map-relations.test.ts`；`tests/ui/gameplay-b-map-workspace.test.ts` / `gameplay-b-map-vertical-slice.test.ts`；`tests/engine/gameplay-b-basic-map-p0-p3.test.ts` / `tests/ui/gameplay-b-basic-map-p0-p3.test.ts`。

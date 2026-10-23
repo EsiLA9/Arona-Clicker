@@ -2,7 +2,7 @@
 // engine/game-num.test.ts — 统一数值注册 + 懒求值（primitiveGain）
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { Expr, value } from '../../src/engine/types';
 import type { PlayerState } from '../../src/arona-clicker/types/state';

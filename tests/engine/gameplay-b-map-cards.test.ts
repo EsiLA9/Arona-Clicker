@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
-import type { MapRunCardRef } from '../../src/arona-clicker/contracts/map-cards';
-import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/gameplay-b-action-preview-resolver';
-import { createGameCommands } from '../../src/arona-clicker/runtime-commands';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
+import type { MapRunCardRef } from '../../src/arona-clicker/contracts/map/map-cards';
+import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/map/gameplay-b-action-preview-resolver';
+import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-commands';
 
 describe('MapRun domain cards', () => {
   const games: GameInstance[] = [];
@@ -53,7 +53,7 @@ describe('MapRun domain cards', () => {
   function discountMap(side: 'self' | 'ally' | 'opponent' | 'any' = 'ally', one = false): GameplayMapDef {
     return { ...map, initialActorResources: map.partyCharacterIds.map(characterId => ({ characterId, resourceId: 'sCost', value: 2 })),
       actions: map.actions!.map(action => action.id === 'a'
-        ? { ...action, target: { kind: 'card', side }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] }
+        ? { ...action, target: { kind: 'card', side }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] } }
         : { ...action, costs: [{ scope: 'actor', resourceId: 'sCost', amount: 1 }] }),
       nodes: map.nodes.map(node => node.id !== 'b' ? node : { ...node, encounter: { ...node.encounter!, participants: [
         { characterId: 'shiroko', actions: [{ actionId: 'a', tendencyWeight: 1 }] },
@@ -71,14 +71,14 @@ describe('MapRun domain cards', () => {
     expect(defaultTarget).toEqual(initial.actionPreview!.preparedActions[0].legalTargetCards![0]);
     expect(initial.relations[0]).toMatchObject({ selectedTarget: defaultTarget, targetState: 'determined', canSelectTarget: true,
       source: { performer: { kind: 'partyCharacter', id: 'shiroko' } },
-      effectRecipients: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: defaultTarget }] });
+      declaredEffects: [{ kind: 'cardCost', resourceId: 'sCost', amount: -1, recipient: defaultTarget }] });
     expect(initial.relations[0].candidates).toEqual(initial.actionPreview!.preparedActions[0].legalTargetCards);
     expect(game.mapRun.getSnapshot()).toEqual(before);
     const target = initial.relations[0].candidates[0];
     if (target.kind !== 'card') throw new Error('Expected a domain card');
     game.setMapPreparedCardTarget(runId, 'shiroko', target, initial.actionPreview!.draft);
     expect(view().relations[0]).toMatchObject({ selectedTarget: target, targetState: 'determined',
-      effectRecipients: [{ kind: 'cardCost', recipient: target, amount: -1 }] });
+      declaredEffects: [{ kind: 'cardCost', recipient: target, amount: -1 }] });
     expect(Object.isFrozen(view().relations[0].selectedTarget!.scope)).toBe(true);
     const unused = view().cards.find(card => card.ref.id === target.id && !card.prepared);
     const after = game.commitMapEncounterRound({ runId, requestId: 'projected', expectedCommitVersion: 0, draft: view().actionPreview!.draft });
@@ -166,7 +166,7 @@ describe('MapRun domain cards', () => {
       actions: [
         {
           id: 'source-card', name: 'Discount Card', eligibleCharacterIds: ['shiroko'],
-          target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: 1 }],
+          target: { kind: 'card', side: 'ally' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: 1 }] },
         },
         {
           id: 'shared-cost-action', name: 'Shared Cost', eligibleCharacterIds: ['serika', 'hoshino'],
@@ -215,7 +215,7 @@ describe('MapRun domain cards', () => {
   test('large stacked reductions clamp at zero and stay independent from fixed PlayerCost', () => {
     const base = discountMap('ally', true);
     const definition: GameplayMapDef = { ...base, actions: base.actions!.map(action => action.id === 'a' || action.id === 'b'
-      ? { ...action, target: { kind: 'card', side: 'ally' }, cardEffects: [{ kind: 'scostDiscount', amount: Number.MAX_SAFE_INTEGER }] }
+      ? { ...action, target: { kind: 'card', side: 'ally' }, effectProgram: { prepare: [{ op: 'discountSCost', amount: Number.MAX_SAFE_INTEGER }] } }
       : action) };
     const { game, runId, view } = setup(definition);
     const after = game.commitMapEncounterRound({ runId, requestId: 'stacked', expectedCommitVersion: 0, draft: view().actionPreview!.draft });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { UISurfaceRuntime } from '../../src/ui/update/ui-surface';
 import { UIUpdateDispatcher } from '../../src/ui/update/ui-update-dispatcher';
-import type { PanelState } from '../../src/ui/components/app-shell';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
 import type { UIUpdate, UIUpdateApplyResult } from '../../src/ui/update/ui-update-types';
 
 function panelState(): PanelState {

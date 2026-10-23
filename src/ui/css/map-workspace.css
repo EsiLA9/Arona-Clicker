@@ -862,7 +862,19 @@
 }
 
 .map-workspace__unit-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  align-items: baseline;
   min-height: 2px;
+}
+
+.map-workspace__unit-status {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--muted-on-panel-light);
+  font-size: 7px;
+  line-height: 1.2;
 }
 
 .map-workspace__unit-card-stack {
@@ -1181,6 +1193,11 @@
 
 .map-workspace__action-cost {
   display: block;
+}
+
+.map-workspace__execution-sequence {
+  margin-top: 4px;
+  line-height: 1.5;
 }
 
 .map-workspace__context-section {

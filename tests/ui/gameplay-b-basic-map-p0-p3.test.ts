@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createAppRuntime, DEFAULT_INIT_ID, loadDefaultDatapack } from '../../src/app/runtime-bootstrap';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { SpotDef } from '../../src/data-services/contracts/world';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 
 const PARTY = ['shiroko', 'serika'] as const;
 const DAMAGE_ACTION_LABEL = /普通射击|瞄准射击/;

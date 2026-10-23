@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { operationRelationAnchors, operationRelationPath, type OperationRelationRect } from '../../src/ui/operation-card-relation';
+import { operationRelationAnchors, operationRelationPath, type OperationRelationRect } from '../../src/ui/presentation/operation-card-relation';
 
 const rect = (left: number, top: number, right: number, bottom: number): OperationRelationRect => ({ left, top, right, bottom });
 

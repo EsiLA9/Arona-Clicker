@@ -1,9 +1,9 @@
 import type { PackCatalogEntry } from '../../arona-clicker/contracts';
-import { isReorderable } from '../../arona-clicker/services/datapack-workspace-view';
-import type { DatapackWorkspaceSection } from '../../arona-clicker/services/datapack-workspace-view';
+import { isReorderable } from '../../arona-clicker/services/runtime/datapack-workspace-view';
+import type { DatapackWorkspaceSection } from '../../arona-clicker/services/runtime/datapack-workspace-view';
 import type { PackConfigurationDraft } from '../../data-services/datapack/pack-manager';
 
-export type { DatapackWorkspaceSection } from '../../arona-clicker/services/datapack-workspace-view';
+export type { DatapackWorkspaceSection } from '../../arona-clicker/services/runtime/datapack-workspace-view';
 export type DatapackWorkspaceMode = 'classic' | 'development';
 
 export interface DatapackWorkspaceState {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { createUIContext } from '../../src/ui/context';
-import { renderUserThemeEditor } from '../../src/ui/components/user-theme-editor';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderUserThemeEditor } from '../../src/ui/components/settings/user-theme-editor';
 
 const game = { world: {}, registry: {}, pics: { list: () => [] }, getView: () => ({}) } as never;
 

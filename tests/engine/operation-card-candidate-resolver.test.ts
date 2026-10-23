@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation';
-import type { OperationStudentProfileSnapshot } from '../../src/arona-clicker/contracts/operation';
+import type { OperationEventDef } from '../../src/arona-clicker/contracts/operation/operation';
+import type { OperationStudentProfileSnapshot } from '../../src/arona-clicker/contracts/operation/operation';
 import type { OperationActionDef, OperationCardPoolDef, OperationStrategyProfileDef } from '../../src/data-services/contracts/operation';
-import { operationCharacterHandWordAt } from '../../src/arona-clicker/services/operation-tactical-rng';
-import { resolveOperationCharacterHand } from '../../src/arona-clicker/services/operation-card-candidate-resolver';
+import { operationCharacterHandWordAt } from '../../src/arona-clicker/services/operation/operation-tactical-rng';
+import { resolveOperationCharacterHand } from '../../src/arona-clicker/services/operation/operation-card-candidate-resolver';
 
 const eventDefinition: OperationEventDef = {
   id: 'test:operation-event:hand',

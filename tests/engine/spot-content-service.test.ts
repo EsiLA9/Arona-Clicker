@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { SpotContentService, type SpotContentPort } from '../../src/arona-clicker/services/spot-content-service';
-import type { RuntimeModApplyResult } from '../../src/arona-clicker/contracts/runtime';
-import type { RuntimeModStateSnapshot, RuntimeSpotInput, RuntimeSpotMutation, RuntimeSpotMutationResult } from '../../src/arona-clicker/contracts/runtime-content';
+import { SpotContentService, type SpotContentPort } from '../../src/arona-clicker/services/world/spot-content-service';
+import type { RuntimeModApplyResult } from '../../src/arona-clicker/contracts/runtime/runtime';
+import type { RuntimeModStateSnapshot, RuntimeSpotInput, RuntimeSpotMutation, RuntimeSpotMutationResult } from '../../src/arona-clicker/contracts/runtime/runtime-content';
 
 const spot: RuntimeSpotInput = {
   idName: 'desk',

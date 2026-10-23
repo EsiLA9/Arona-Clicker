@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U12A核心实现与指定验证完成；U12总体未完成，等待U12B。 |
-| 实际修改 | 新增 `src/arona-clicker/services/map-effect-receipt-validator.ts`、`tests/engine/gameplay-b-effect-receipt.test.ts` 与本Receipt。 |
+| 实际修改 | 新增 `src/arona-clicker/services/map/map-effect-receipt-validator.ts`、`tests/engine/gameplay-b-effect-receipt.test.ts` 与本Receipt。 |
 | 实际行数 | validator 584行、行为测试143行、本Receipt 38行，合计765行，低于U12A的850行目标及1000行上限。 |
 | 未完成内容 | A仅验证当前全program Receipt。合法legacy/program混合source仍被拒绝；HP日志与plannedLocals对照需修正；完整then/else访问walk、地图来源许可、运行时缺trace拒绝、声明顺序Source校验、program间legacy HP相位插入、跨资源账户余额链、legacy/program组合折扣及当前HP/资源末值完整核验均留U12B。A不声明具备完整U12恢复验证能力。 |
 | 范围外变更 | 无；未改Owner恢复、MapRun、U11或其它测试，没有提交Git。 |

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import type { MapRunCardRef } from '../../src/arona-clicker/contracts/map-cards';
-import type { MapCardActionChoice } from '../../src/arona-clicker/services/map-card-effects';
-import { resolveMapCardEffects } from '../../src/arona-clicker/services/map-card-effects';
-import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/gameplay-b-action-preview-resolver';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { MapRunCardRef } from '../../src/arona-clicker/contracts/map/map-cards';
+import type { MapCardActionChoice } from '../../src/arona-clicker/services/map/map-card-effects';
+import { resolveMapCardEffects } from '../../src/arona-clicker/services/map/map-card-effects';
+import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/map/gameplay-b-action-preview-resolver';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { createLegacyGoldenOwner, commitCommand as runtimeCommitCommand } from './gameplay-b-effect-test-fixtures';
 
@@ -104,7 +104,7 @@ describe('Gameplay B CardRef prepare adapter', () => {
       source: { kind: 'partyCharacter', id: 'shiroko' },
       actionId: 'discount',
       effectPath: 'actions.discount.effectProgram.prepare[0]',
-      leaf: { op: 'discountSCost', amount: 1, mode: 'program' },
+      leaf: { op: 'discountSCost', amount: 1 },
     }]);
     expect(Object.isFrozen(first.prepareMetadata)).toBe(true);
     expect(Object.isFrozen(first.prepareMetadata[0])).toBe(true);
@@ -145,7 +145,7 @@ describe('Gameplay B CardRef prepare adapter', () => {
       source: { kind: 'enemy', id: 'robot' },
       actionId: 'enemy-discount',
       effectPath: 'actions.enemy-discount.effectProgram.prepare[0]',
-      leaf: { op: 'discountSCost', amount: 2, mode: 'program' },
+      leaf: { op: 'discountSCost', amount: 2 },
     });
   });
 
@@ -193,29 +193,23 @@ describe('Gameplay B CardRef prepare adapter', () => {
     })).toThrow(/Card target selection is not legal/);
   });
 
-  test('legacy and program effects cannot be mixed on the same Action', () => {
+  test('Program prepare discounts Actor sCost without reducing PlayerCost', () => {
     const state = setup();
-    const mixed = {
-      ...state.definition,
-      actions: state.definition.actions!.map(action => action.id === 'discount'
-        ? { ...action, cardEffects: [{ kind: 'scostDiscount' as const, amount: 1 }] }
-        : action),
-    };
-    expect(() => resolveGameplayBActionPreview({
-      runId: state.runId, definition: mixed, encounter: state.current.activeEncounter!,
-      party: state.current.party, partyHp: state.current.partyHp, playerCost: state.current.playerCost,
-      actorResources: state.current.actorResources, teamResources: state.current.teamResources,
-    })).toThrow(/cannot be mixed with legacy effect arrays/);
+    const committed = state.game.commitMapEncounterRound(runtimeCommitCommand(state.game, state.runId, 'prepare-cost-scope'));
+    expect(committed.lastEncounterCommit?.settlements.some(row => row.scostCost
+      && row.scostCost.discount > 0 && row.scostCost.paid < row.scostCost.original)).toBe(true);
+    expect(committed.actorResources).toContainEqual({ characterId: 'serika', resourceId: 'sCost', value: 2 });
+    expect(committed.playerCost).toBe(state.current.playerCost);
   });
 
-  test('an unprepared Hand target does not transfer its legacy discount to the executed card', () => {
-    const legacy: GameplayMapDef = {
+  test('an unprepared Hand target does not transfer its Program discount to the executed card', () => {
+    const definition: GameplayMapDef = {
       ...map,
       actions: map.actions!.map(action => action.id === 'discount'
-        ? { ...action, effectProgram: undefined, cardEffects: [{ kind: 'scostDiscount', amount: 1 }] }
+        ? { ...action, effectProgram: { prepare: [{ op: 'discountSCost' as const, amount: 1 }], resolve: [] } }
         : action),
     };
-    const state = setup(legacy);
+    const state = setup(definition);
     const activeActionId = state.choices.find(choice => choice.characterId === 'serika')?.actionId;
     const unused = state.cards.find(card => card.zone === 'hand' && card.owner.id === 'serika'
       && card.actionId !== activeActionId);

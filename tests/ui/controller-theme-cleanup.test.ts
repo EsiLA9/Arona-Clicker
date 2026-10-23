@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import { clearInjectedThemeVars } from '../../src/ui/controller-theme';
+import { clearInjectedThemeVars } from '../../src/ui/controller/controller-theme';
 
 describe('主题 CSS 注入清理', () => {
   test('删除连续的旧变量时不会跳过后一个变量', () => {

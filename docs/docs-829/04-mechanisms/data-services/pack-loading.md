@@ -16,7 +16,7 @@
 
 产品发布基础包由 `src/arona-clicker/content/base-pack/datapack.json` 与 JSON 分片打包，记录来源标为 `bundle`。当前发布版本为 `base@1.0.2`。它与 `datapack-dev/` 的来源对账无关；发布基准只读，复制出的新 Version 编辑态记录可以进入启用序列并由 RuntimeEditor 保存。旧快照中的 `builtin` 来源不再定义是否必需，必需性由 `base` 槽位承担。
 
-Gameplay B 当前默认只装载 Map 内容：可选 bundle `gameplay-b@1.0.0` 由 Runtime 装配 `content/operation-samples/gameplay-b-map-datapack.ts`，依赖 `base`，只声明 `maps` 和 `Spot.mapEntry`，不带 Operation Event / Location / Action / Profile 表。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。
+Gameplay B 当前默认只装载 Map 内容：可选 bundle `gameplay-b@1.0.0` 由 Runtime 装配 `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts`，依赖 `base`，只声明 `maps` 和 `Spot.mapEntry`，不带 Operation Event / Location / Action / Profile 表。首次发现此包时默认启用；快照已记录该包、Pane 已有明确选择，或已有同 Mod 启用项时不覆盖玩家选择。
 
 旧 13 地点 Strategy Park bundle `gameplay-b-strategy-park@1.0.0` 已从默认装配中退役。恢复旧包库快照时，Runtime 将该精确 `bundle` 身份列为退役项；`PackManager` 只移除对应的内置 bundle 记录，清理没有剩余记录的选择 Pane，并保存清理后的快照。用户导入包与编辑态副本不会因为这个内置退役规则被删除。
 
@@ -36,6 +36,6 @@ Gameplay B 当前默认只装载 Map 内容：可选 bundle `gameplay-b@1.0.0` �
 
 ## 入口与验证
 
-- 源码：`src/data-services/datapack/pack-parser.ts`、`pack-manager.ts`、`source.ts`；产品启用集入口：`src/arona-clicker/runtime.ts:applyEnabledPacks()`。
+- 源码：`src/data-services/datapack/pack-parser.ts`、`pack-manager.ts`、`source.ts`；产品启用集入口：`src/arona-clicker/runtime/runtime.ts:applyEnabledPacks()`。
 - 测试：`tests/data/pack-source.test.ts`、`pack-parser.test.ts`、`pack-manager.test.ts`；产品 bundle 与 Registry 装载：`tests/engine/arona-runtime-pack.test.ts`。
 - 往上看产品启动：[[docs/docs-829/01-architecture/run-logic]]；按问题浏览装载与作者流程：[[docs/docs-829/06-wiki/20-data-services/00-index]]。

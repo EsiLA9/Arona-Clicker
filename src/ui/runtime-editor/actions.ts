@@ -84,12 +84,12 @@ import {
   writeCollectionRow,
   type CollectionPrototype,
 } from './collection-prototypes';
-import type { UIController } from '../controller';
-import { captureFocusWithin, restoreFocusWithin } from '../focus';
-import { downloadBytes } from '../file-download';
-import { createUIContext } from '../context';
+import type { UIController } from '../controller/controller';
+import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
+import { downloadBytes } from '../utilities/file-download';
+import { createUIContext } from '../runtime/context';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
-import type { RuntimeSpotMutationResult, RuntimeWorldDraft } from '../../arona-clicker/contracts/runtime-content';
+import type { RuntimeSpotMutationResult, RuntimeWorldDraft } from '../../arona-clicker/contracts/runtime/runtime-content';
 import { hasDatapackWorkspaceChanges } from '../workspace/datapack-workspace-state';
 
 function escapeHtml(value: string): string {

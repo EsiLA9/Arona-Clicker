@@ -1,6 +1,7 @@
 # Unit 0312-U03：Registry逐Encounter和逐来源验证
 
-状态：ready / 未执行；阶段P1。前置：0312-U02实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -14,7 +15,7 @@
 | --- | --- | --- |
 | 源码 | src/data-services/registry/registry-validate.ts：validateMapActionContent/validateEncounter/abilityActionIds/itemActions/activities | 复用当前引用校验入口 |
 | 新增依赖 | src/data-services/validation/gameplay-map-effect-syntax.ts 与 src/data-services/contracts/gameplay-map-effects.ts | U02语法/类型 |
-| 源码 | src/arona-clicker/services/map-run-service.ts：initialResourceBalances/isActorlessSourceAction；src/arona-clicker/services/map-card-effects.ts | 作者约束必须与运行时一致 |
+| 源码 | src/arona-clicker/services/map/map-run-service.ts：initialResourceBalances/isActorlessSourceAction；src/arona-clicker/services/map/map-card-effects.ts | 作者约束必须与运行时一致 |
 | E0 | NEW06/NEW07、D06及Actorless审阅修正 | 逐上下文、未走分支也验证 |
 
 ## Context Budget
@@ -47,7 +48,7 @@ registry-validate为Action字段/cardEffects显式白名单，resourceId不查�
 - `src/data-services/registry/registry-validate.ts`
 - 新增（执行时才创建）：src/data-services/validation/gameplay-map-effect-context.ts
 - 新增（执行时才创建）：tests/data/gameplay-b-effect-registry.test.ts
-- `src/arona-clicker/services/map-run-service.ts`
+- `src/arona-clicker/services/map/map-run-service.ts`
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u03-receipt.md
 
 路径为精确写入白名单，标“新增”的当前不创建；不能因Read Set包含某文件就修改它。其它Unit、E0归档、Draft语义、顶层协议、无关测试均不在白名单。源码路径名由本Task冻结；若需改路径先由负责人更新范围。

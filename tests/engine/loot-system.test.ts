@@ -5,7 +5,7 @@ import { describe, test, expect } from 'vitest';
 import { Registry } from '../../src/data-services/registry/registry';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
-import { LootSystem } from '../../src/arona-clicker/services/loot-system';
+import { LootSystem } from '../../src/arona-clicker/services/economy/loot-system';
 import type { DropTableEntry } from '../../src/data-services/contracts/drop-table';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 

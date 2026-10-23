@@ -3,7 +3,7 @@
 // ui/modal.test.ts — 弹窗母版骨架
 // ============================================================
 import { afterEach, describe, test, expect } from 'vitest';
-import { ModalManager, renderModalShell } from '../../src/ui/modal';
+import { ModalManager, renderModalShell } from '../../src/ui/interaction/modal';
 
 afterEach(() => {
   document.body.innerHTML = '';

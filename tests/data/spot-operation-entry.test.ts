@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Registry } from '../../src/data-services/registry/registry';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { GAMEPLAY_B_MAP_SPOT_ID, gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
+import { GAMEPLAY_B_MAP_SPOT_ID, gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 
 describe('Spot 统一行动入口引用', () => {
   it('装载后拒绝缺失和未知关卡引用', () => {

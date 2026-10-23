@@ -3,9 +3,9 @@
 // controller-init-select.test.ts — 选择页交互：购买后局部刷新
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
+import { UIController } from '../../src/ui/controller/controller';
 import { SaveSystem } from '../../src/data-services/persistence/storage';
 
 const OFFICE = 'base:init:schale_office';

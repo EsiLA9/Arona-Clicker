@@ -23,7 +23,7 @@ Surface key / generation 令旧 Workspace 发出的请求不会落入新页面�
 
 ## 事件怎样选刷新
 
-`src/ui/controller-events.ts` 把引擎事件映射成界面响应：资源、Spot 产出和 Tick 的高频数字由轻量刷新覆盖；可见性变化尝试刷新单张 Spot 卡片 / Area 项，集合发生改变或目标找不到时回退面板更新。应用主题相关事件可以安排结构刷新；单个实体表现事件则调用针对该实体的更新入口。收到事件不等于无条件 `render()`。
+`src/ui/controller/controller-events.ts` 把引擎事件映射成界面响应：资源、Spot 产出和 Tick 的高频数字由轻量刷新覆盖；可见性变化尝试刷新单张 Spot 卡片 / Area 项，集合发生改变或目标找不到时回退面板更新。应用主题相关事件可以安排结构刷新；单个实体表现事件则调用针对该实体的更新入口。收到事件不等于无条件 `render()`。
 
 项目交互边界还规定，scroll、hover、focus、普通 click 和单项选择默认不得调用全量 render；优先复用 behavior / region 更新并保留无关节点。规范来源：[[docs/ai/frontend-design-project-overlay]]。
 
@@ -41,11 +41,11 @@ Surface key / generation 令旧 Workspace 发出的请求不会落入新页面�
 
 ## 聊天流与 Map 信息流的共享条目
 
-普通 Chat 与 Gameplay B 中部信息流共用一套条目标识与滚动实现：条目根元素带 `data-flow-entry-key`，宿主带 `data-flow-host-key`／`data-flow-stream-key` 与 `role="log"`。条目渲染统一走 `src/ui/components/story.ts` 的 `renderChatEntry`，Map 只提供投影，不另拼条目 HTML；正文附加行、受控 `FlowContent.actions` 按钮及 `data-*`／`role` 语义标记由渲染器统一转义与白名单输出，不接受任意 HTML 或内联事件。
+普通 Chat 与 Gameplay B 中部信息流共用一套条目标识与滚动实现：条目根元素带 `data-flow-entry-key`，宿主带 `data-flow-host-key`／`data-flow-stream-key` 与 `role="log"`。条目渲染统一走 `src/ui/components/story/story.ts` 的 `renderChatEntry`，Map 只提供投影，不另拼条目 HTML；正文附加行、受控 `FlowContent.actions` 按钮及 `data-*`／`role` 语义标记由渲染器统一转义与白名单输出，不接受任意 HTML 或内联事件。
 
 滚动状态由 `src/ui/flow/flow-scroll.ts` 按**流实例键**保存，而不是按 DOM 元素：普通 Chat 全量 render 会换 `.chat-stream` 节点，Map 的 feed 由 `patchMapDOM` 保留，两者都能恢复阅读位置。只有原本贴底且出现新条目时才跟随到底；上翻阅读时按条目实例键与相对偏移恢复，锚点被回收则退到相邻稳定条目。
 
-`src/ui/chat-stream.ts` 的追加与 Gameplay B 的条目投递共用 `src/ui/flow/flow-entry.ts` 的 `append`／`replaceSameId` 与 200 条上限。`replaceSameId` 只用于显式声明非空逻辑 ID 的条目（如 `gameplay-b:current-enemy-info`），普通 Chat 条目不写该字段，仍按数字 ID 与 `storyPageKey` 去重。
+`src/ui/presentation/chat-stream.ts` 的追加与 Gameplay B 的条目投递共用 `src/ui/flow/flow-entry.ts` 的 `append`／`replaceSameId` 与 200 条上限。`replaceSameId` 只用于显式声明非空逻辑 ID 的条目（如 `gameplay-b:current-enemy-info`），普通 Chat 条目不写该字段，仍按数字 ID 与 `storyPageKey` 去重。
 
 ## Map Workspace 的跨栏更新
 
@@ -59,11 +59,19 @@ Frame、列根、共享顶部、真实滚动 owner 与仍有效的按钮保持�
 
 同一 Map 中移动、完成遭遇和进入终态仍需同步所有受影响消费者，不能误降为敌方区更新。缺失的内容区域可在所属列中补回；根或路由身份不匹配时取消旧请求或按当前路由恢复，不把全页 render 当作普通点击路径。验证入口为 `tests/ui/map-dom-updates.test.ts`、`tests/ui/gameplay-b-map-workspace.test.ts` 与 `tests/ui/gameplay-b-map-vertical-slice.test.ts`，视觉复用入口见 [[ui-style/patterns]]。
 
+### Gameplay B E1 声明、进度与结算结果
+
+Map Action 的 `effectProgram` 声明摘要、Encounter 完成条件和当前 locals 由 Runtime ReadModel 提供。声明摘要标记为声明；`when` 的 then / else 条件不会被 UI 求值，也不会被同时描述为已经发生。damage / heal 摘要显示操作、primary 目标和请求数量；右栏活动进度显示完成条件与当前 Counter / Flag 值。
+
+Owner Preview 提供本轮实际条件结果、HP / 资源变化、Counter / Flag 前后值和 `prepare` 对真实 CardRef 的 sCost 费用；damage / heal 同时显示请求数量和 HP 实际变化，实际变化为 0 时仍显示。Commit 信息流使用 Owner Receipt 中的实际分支、来源、HP 与资源变化，跨 Activity 保留原 Receipt 的活动范围。U26 自然到期回馈沿用同一回执条目，在 Action Trigger 后显示 `statusExpiryTriggerTrace` 的 Status、holder、应用来源、到期前剩余时长与资源余额变化；它是独立 roundEnd 事件，不投影成执行序列中的 Action/Card。U27 damageProtection 沿用 damage Effect Trace 行，在同一条 Flow 中显示目标、Status 来源/Action、层数消费和拦截量，并说明 HP 未变、Shield 未消耗。UI 只格式化这些 ReadModel，不运行效果程序或写 Owner 状态。
+
+这些内容沿用既有 Map 区域刷新和 `patchMapDOM()`，保留 Frame、列、滚动宿主及仍有效的操作节点；Flow 由稳定条目键更新。定向 DOM / Flow 证据见 [[docs/plan-work/task-0312-units/receipts/task-0312-u15-receipt]]、[[docs/plan-work/task-0312-units/receipts/task-0312-u16-receipt]]，以及 `tests/engine/gameplay-b-effect-projection.test.ts`、`tests/ui/gameplay-b-effect-workspace.test.ts`、`tests/ui/map-flow-adapter.test.ts`。这些测试只证明自动化与 DOM 行为，不代替真实浏览器验收。
+
 ## MapEntry 准备页的局部更新
 
 `map-entry` 是只携带 `mapId` 的 route-only Workspace。`MapEntryView` 通过 `MapRunQuery.getEntryView()` 读取；页面不写入 Run。准备页内的 Map 状态刷新与 Story / 前台门控重算使用专属 `workspace.map-entry` region 请求，Controller 只重绘 `map-entry` 根并经 `patchMapDOM()` 按 `data-map-region-key`、队员、资源项、焦点和 Frame / column / theme host key 协调。左右栏内容滚动宿主与仍有效的主操作节点保持身份，滚动位置恢复；管理区等 keyed DOM 自身状态保留。替换范围先通知 Popover owner，局部 patch 后再复核锚点。
 
-MapEntry 局部刷新检查当前仍是同一 mapId 路由，并用 UI 会话里的 `mapEntrySource` 重验 Spot 所属当前 Area、utility reveal、MapEntry functionality 与条件。正常 `render()` 也做同样检查。入口无法验证时，只退回最初 `returnTo` 并清除这次 UI 来源；不 abandon 有效 MapRun。来源绑定不进入 SaveData，读档或 Controller 重建后缺少有效来源时，玩家需从设施重新打开准备页。常规生产 Tick 不属于此页的独立刷新来源；实际更新由 Map / 门控变化的定向调用发起。实现入口：`src/ui/controller.ts` 的 `requestMapEntryWorkspaceRefresh()` / `refreshMapEntryWorkspaceRegion()` 与 `src/ui/components/map-entry-workspace.ts`；视觉复用见 [[ui-style/patterns]]。
+MapEntry 局部刷新检查当前仍是同一 mapId 路由，并用 UI 会话里的 `mapEntrySource` 重验 Spot 所属当前 Area、utility reveal、MapEntry functionality 与条件。正常 `render()` 也做同样检查。入口无法验证时，只退回最初 `returnTo` 并清除这次 UI 来源；不 abandon 有效 MapRun。来源绑定不进入 SaveData，读档或 Controller 重建后缺少有效来源时，玩家需从设施重新打开准备页。常规生产 Tick 不属于此页的独立刷新来源；实际更新由 Map / 门控变化的定向调用发起。实现入口：`src/ui/controller/controller.ts` 的 `requestMapEntryWorkspaceRefresh()` / `refreshMapEntryWorkspaceRegion()` 与 `src/ui/components/map/map-entry-workspace.ts`；视觉复用见 [[ui-style/patterns]]。
 
 ## Map 单位关系的临时交互更新
 
@@ -71,7 +79,7 @@ MapEntry 局部刷新检查当前仍是同一 mapId 路由，并用 UI 会话里
 
 `src/ui/workspace/map-relation-interaction.ts` 的 `MapRelationInteraction` 由 Controller 持有，只保存 Hover / Focus、固定、目标编辑与拖拽临时状态。`map-relation-presentation.ts` 在既有可视实例上补属性；Map 局部协调完成后 Controller 同次重核呈现，防止临时 role 属性被新 HTML 清掉。不为这些交互请求全页 render，也不增加渲染调度器。
 
-单位或真实卡牌的点击、Enter 和拖拽合法释放经同一 Controller adapter 发草稿命令；6px 拖拽阈值之前保留原卡点击，成功拖拽抑制尾随点击，新的物理按下 / Enter / Space 恢复独立操作。取消 / 无效释放不写入。命中按最上层元素身份与领域候选核对，不根据坐标推导相对目标；选择不依赖 SVG 或连接锚点。卡牌当前展示、Hand 展示和可访问目标代理共享 object key，不创建领域副本；关闭浮层先于安装目标编辑状态。确认仍通过一次 Map patch 保留 Frame / 列 / Flow，sCost 与 cardEffects 只消费 Runtime 投影。Scope / draft 变化重核来源，离开 Run / 读档沿 `disposeMapFlow()` 清理临时态，Controller 销毁移除监听与指针捕获。对应行为证明见 `tests/ui/map-relation-interaction.test.ts` 与 `gameplay-b-map-workspace.test.ts`；Flow 独立玩法卡与连接线尚未属于该实现。
+单位或真实卡牌的点击、Enter 和拖拽合法释放经同一 Controller adapter 发草稿命令；6px 拖拽阈值之前保留原卡点击，成功拖拽抑制尾随点击，新的物理按下 / Enter / Space 恢复独立操作。取消 / 无效释放不写入。命中按最上层元素身份与领域候选核对，不根据坐标推导相对目标；选择不依赖 SVG 或连接锚点。卡牌当前展示、Hand 展示和可访问目标代理共享 object key，不创建领域副本；关闭浮层先于安装目标编辑状态。确认仍通过一次 Map patch 保留 Frame / 列 / Flow，CardRef sCost 与 `effectProgram.prepare` 只消费 Runtime 投影。Scope / draft 变化重核来源，离开 Run / 读档沿 `disposeMapFlow()` 清理临时态，Controller 销毁移除监听与指针捕获。对应行为证明见 `tests/ui/map-relation-interaction.test.ts` 与 `gameplay-b-map-workspace.test.ts`；Flow 独立玩法卡与连接线尚未属于该实现。
 
 ## 测试与验证边界
 

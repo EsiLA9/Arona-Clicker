@@ -11,15 +11,28 @@ import type {
   MapRunSuccessWorkspaceView,
   MapRunWorkspaceView,
   MapWorkspaceEnemyActionSettlementView,
+  MapWorkspaceEdgeConditionView,
   MapWorkspaceNodeView,
-} from '../../arona-clicker/contracts/runtime';
+} from '../../arona-clicker/contracts/runtime/runtime';
 import type {
   MapRunEncounterCommitReceipt,
+  MapRunEncounterExecutionSequenceEntry,
   MapRunEncounterEnemyActionSettlement,
   MapRunEncounterHpChange,
   MapRunEncounterSettlementResourceChange,
   MapRunEncounterSourceTarget,
-} from '../../arona-clicker/contracts/map-run';
+} from '../../arona-clicker/contracts/map/map-run';
+import type {
+  MapEffectDamageProtectionTrace,
+  MapEffectShieldTraceEntry,
+  MapEffectStatusCategoryRemoveTraceEntry,
+  MapEffectStatusConsumeTraceEntry,
+  MapEffectStatusExpiryTriggerTraceEntry,
+  MapEffectStatusDamageTriggerTraceEntry,
+  MapEffectTraceEntry,
+  MapEffectTriggerTraceEntry,
+} from '../../arona-clicker/contracts/map/map-effects';
+import type { MapRunCardInstance, MapRunCardRef } from '../../arona-clicker/contracts/map/map-cards';
 import {
   FLOW_STREAM_MAX,
   applyFlowEntryInPlace,
@@ -60,7 +73,7 @@ export function mapLocationChoices(
       const objectKey = mapLocationObjectKey(ref);
       const locked = edge.condition !== undefined && !edge.condition.satisfied;
       const requirement = edge.condition
-        ? `需要 ${port.nameOf('resource', edge.condition.resourceId)} ≥ ${port.formatNumber(edge.condition.amount)}${locked ? '（未满足）' : '（已满足）'}`
+        ? `需要 ${mapEdgeConditionRequirement(edge.condition, port)}${locked ? '（未满足）' : '（已满足）'}`
         : '';
       return [{
         instanceKey: mapCardInstanceKey(`flow:${streamKey}`, `${entryInstanceKey}:location:${node.id}`, objectKey),
@@ -70,7 +83,7 @@ export function mapLocationChoices(
         ...(node.description ? { description: node.description } : {}),
         stateLabel: [mapNodeProgressLabel(view, node), requirement].filter(Boolean).join(' · '),
         selectable: !locked,
-        ...(locked ? { unavailableReason: `需要 ${port.nameOf('resource', edge.condition!.resourceId)} ≥ ${port.formatNumber(edge.condition!.amount)}` } : {}),
+        ...(locked ? { unavailableReason: `需要 ${mapEdgeConditionRequirement(edge.condition!, port)}` } : {}),
       }];
     });
   return locations.length ? {
@@ -80,6 +93,20 @@ export function mapLocationChoices(
     hostLayout: { alignment: 'left', gapPx: 12 },
     locations,
   } : null;
+}
+
+function mapEdgeConditionRequirement(
+  condition: MapWorkspaceEdgeConditionView,
+  port: MapFlowTextPort,
+): string {
+  if (condition.kind === 'teamResourceAtLeast') {
+    return `${port.nameOf('resource', condition.resourceId)} ≥ ${port.formatNumber(condition.amount)}`;
+  }
+  if (condition.kind === 'counter') {
+    const comparison = { eq: '=', lt: '<', lte: '≤', gt: '>', gte: '≥' }[condition.comparison];
+    return `地图计数 ${condition.counterId} ${comparison} ${port.formatNumber(condition.value)}`;
+  }
+  return `地图标记 ${condition.flagId} = ${condition.value ? 'true' : 'false'}`;
 }
 
 /** 地点进度文案由地图列表与流内移动选项共用。 */
@@ -100,11 +127,27 @@ export interface MapFlowTextPort {
   formatNumber(value: number): string;
 }
 
+/** One concise target-card modifier label, shared with the existing CardRef picker. */
+export function mapCardEffectModifierPreviewLabel(
+  preview: { readonly op: 'damage' | 'heal'; readonly delta: number },
+  formatNumber: (value: number) => string = value => String(value),
+): string {
+  const sign = preview.delta < 0 ? '−' : '+';
+  return `${preview.op === 'heal' ? '治疗' : '伤害'} ${sign}${formatNumber(Math.abs(preview.delta))}`;
+}
+
 /** 归一化后的结算视图：投影回执与持久回执共用同一套逐行格式化。 */
 interface CommitView {
   readonly requestId: string;
   readonly nodeId: string;
+  readonly activityId?: string;
   readonly round: number;
+  readonly executionContractId?: 'E1-COMPAT-1' | 'AG-1';
+  readonly executionSequence?: readonly (MapRunEncounterExecutionSequenceEntry & {
+    readonly sourceId?: string | null;
+    readonly actionName?: string;
+    readonly targetCardActionName?: string;
+  })[];
   readonly settlements: readonly {
     readonly characterId: string;
     readonly actionName: string;
@@ -120,12 +163,14 @@ interface CommitView {
     readonly actionName: string;
     readonly target: MapRunEncounterSourceTarget;
     readonly playerCostSpent: 1;
+    readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   } | null;
   readonly item: {
     readonly itemName: string;
     readonly target: MapRunEncounterSourceTarget;
     readonly consumedCount: 1;
+    readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   } | null;
   readonly enemyActions: readonly {
@@ -139,6 +184,13 @@ interface CommitView {
     readonly resourceChanges: readonly MapRunEncounterSettlementResourceChange[];
     readonly hpChanges: readonly MapRunEncounterHpChange[];
   }[];
+  readonly effectTrace?: readonly MapEffectTraceEntry[];
+  readonly statusConsumeTrace?: readonly MapEffectStatusConsumeTraceEntry[];
+  readonly statusCategoryRemoveTrace?: readonly MapEffectStatusCategoryRemoveTraceEntry[];
+  readonly triggerTrace?: readonly MapEffectTriggerTraceEntry[];
+  readonly statusExpiryTriggerTrace?: readonly MapEffectStatusExpiryTriggerTraceEntry[];
+  readonly statusDamageTriggerTrace?: readonly MapEffectStatusDamageTriggerTraceEntry[];
+  readonly shieldTrace?: readonly MapEffectShieldTraceEntry[];
 }
 
 function port_name(port: MapFlowTextPort, type: string, id: string): string {
@@ -171,6 +223,224 @@ function resourcesLabel(port: MapFlowTextPort, changes: readonly MapRunEncounter
     .join(' · ');
 }
 
+function signedDeltaLabel(port: MapFlowTextPort, delta: number): string {
+  return `${delta > 0 ? '+' : ''}${port.formatNumber(delta)}`;
+}
+
+function effectTraceSourceLabel(port: MapFlowTextPort, trace: MapEffectTraceEntry): string {
+  const action = port_name(port, 'action', trace.actionId);
+  const source = trace.source;
+  if (!source) return `行动：${action}`;
+  if (source.kind === 'partyCharacter') return `${port_name(port, 'character', source.id)}：${action}`;
+  if (source.kind === 'enemy') return `敌方 ${port_name(port, 'enemy', source.id)}：${action}`;
+  if (source.kind === 'ability') return `Ability：${action}`;
+  return `Item ${port_name(port, 'item', source.itemId)}：${action}`;
+}
+
+function damageProtectionSourceLabel(port: MapFlowTextPort, trace: MapEffectDamageProtectionTrace): string {
+  const source = trace.statusBefore.source;
+  if (source.kind === 'partyCharacter') return port.nameOf('character', source.id);
+  if (source.kind === 'enemy') return `敌方 ${port.nameOf('enemy', source.id)}`;
+  if (source.kind === 'ability') return 'Ability';
+  return `Item ${port.nameOf('item', source.itemId)}`;
+}
+
+function effectTraceLines(port: MapFlowTextPort, trace: readonly MapEffectTraceEntry[] | undefined): string[] {
+  const lines: string[] = [];
+  for (const entry of trace ?? []) {
+    const source = effectTraceSourceLabel(port, entry);
+    if (entry.op === 'targetSet') {
+      const members = entry.identities.map(identity => identity.kind === 'partyCharacter'
+        ? port_name(port, 'character', identity.id)
+        : `敌方 ${port_name(port, 'enemy', identity.id)}`);
+      lines.push(`${source}：解析${entry.selection === 'set' ? '目标集合' : '主目标'}（${entry.identities.length}名${members.length ? `：${members.join('、')}` : ''}）`);
+    } else if (entry.op === 'when') {
+      lines.push(`${source}：条件${entry.result ? '成立' : '不成立'}`);
+    } else if (entry.op === 'revive') {
+      const target = port.nameOf('character', entry.identity.id);
+      lines.push(entry.outcome === 'revived'
+        ? `${source}：复苏 ${target} 至 ${port.formatNumber(entry.afterHp)} HP（请求 ${port.formatNumber(entry.requestedHp)}，实际恢复 ${port.formatNumber(entry.restoredHp)}）`
+        : `${source}：${target} 已存活，复苏 no-op（HP ${port.formatNumber(entry.beforeHp)} → ${port.formatNumber(entry.afterHp)}）`);
+    } else if (entry.op === 'damage') {
+      const damage = entry;
+      const protection = damage.damageProtection;
+      const reduction = damage.damageReduction;
+      if (protection !== undefined) {
+        const status = protection.statusBefore;
+        const target = status.holder.kind === 'partyCharacter'
+          ? port.nameOf('character', status.holder.id)
+          : `敌方 ${port.nameOf('enemy', status.holder.id)}`;
+        lines.push(`${source} → ${target}：Status ${status.statusId}（${damageProtectionSourceLabel(port, protection)} · ${port.nameOf('action', status.actionId)}）层数 ${port.formatNumber(status.stacks)} → ${port.formatNumber(protection.statusAfter?.stacks ?? 0)}层 · 拦截伤害 ${port.formatNumber(protection.blockedAmount)}；HP 不变；Shield 未消耗`);
+      } else if (reduction !== undefined) {
+        const target = damage.identity?.kind === 'partyCharacter'
+          ? port.nameOf('character', damage.identity.id)
+          : damage.identity?.kind === 'enemy'
+            ? `敌方 ${port.nameOf('enemy', damage.identity.id)}` : '目标';
+        const sourceDetails = reduction.sources.map(row => {
+          const statusSource = row.source?.kind === 'partyCharacter'
+            ? port.nameOf('character', row.source.id ?? '')
+            : row.source?.kind === 'enemy' ? `敌方 ${port.nameOf('enemy', row.source.id ?? '')}`
+              : row.source?.kind === 'ability' ? 'Ability'
+                : row.source?.kind === 'item' ? `Item ${port.nameOf('item', row.source.itemId ?? '')}` : '来源未知';
+          return `Status ${row.statusId}（${statusSource} · ${port.nameOf('action', row.actionId)} · ${port.formatNumber(row.stacks)}层 × ${port.formatNumber(row.damageReductionPerStack)}，减免 ${port.formatNumber(row.reducedAmount)}）`;
+        });
+        const preStatusRequest = damage.amount + reduction.total;
+        const rawRequest = damage.requestedAmount ?? preStatusRequest;
+        const modifiedRequest = damage.modifiedRequestedAmount ?? preStatusRequest;
+        const modifier = modifiedRequest === rawRequest ? '' : ` · Modifier 后 ${port.formatNumber(modifiedRequest)}`;
+        const details = sourceDetails.length ? `（${sourceDetails.join('、')}）` : '（没有贡献来源）';
+        lines.push(`${source} → ${target}：原始伤害请求 ${port.formatNumber(rawRequest)}${modifier} · 防御 Status 减免 ${port.formatNumber(reduction.total)}${details}`);
+      }
+    } else if (entry.op === 'counterAdd') {
+      lines.push(`${source}：Counter ${entry.counterId} ${port.formatNumber(entry.before)} → ${port.formatNumber(entry.after)}（变化 ${signedDeltaLabel(port, entry.delta)}）`);
+    } else if (entry.op === 'flagSet') {
+      lines.push(`${source}：Flag ${entry.flagId} ${entry.before ? '是' : '否'} → ${entry.after ? '是' : '否'}`);
+    }
+  }
+  return lines;
+}
+
+function shieldActorLabel(port: MapFlowTextPort, identity: MapEffectShieldTraceEntry['identity']): string {
+  return identity.kind === 'partyCharacter'
+    ? port.nameOf('character', identity.id)
+    : `敌方 ${port.nameOf('enemy', identity.id)}`;
+}
+
+function shieldSourceLabel(port: MapFlowTextPort, trace: MapEffectShieldTraceEntry): string {
+  const source = trace.source;
+  if (!source) return port.nameOf('action', trace.actionId);
+  if (source.kind === 'partyCharacter') return `${port.nameOf('character', source.id)} · ${port.nameOf('action', trace.actionId)}`;
+  if (source.kind === 'enemy') return `敌方 ${port.nameOf('enemy', source.id)} · ${port.nameOf('action', trace.actionId)}`;
+  if (source.kind === 'ability') return `Ability · ${port.nameOf('action', trace.actionId)}`;
+  return `Item ${port.nameOf('item', source.itemId)} · ${port.nameOf('action', trace.actionId)}`;
+}
+
+function shieldTraceLines(port: MapFlowTextPort, trace: readonly MapEffectShieldTraceEntry[] | undefined): string[] {
+  return (trace ?? []).map(entry => {
+    const target = shieldActorLabel(port, entry.identity);
+    const source = shieldSourceLabel(port, entry);
+    if (entry.op === 'shieldAdd') {
+      return entry.outcome === 'applied'
+        ? `${source} → ${target}：获得 Shield ${port.formatNumber(entry.added)}（Shield ${port.formatNumber(entry.shieldBefore)} → ${port.formatNumber(entry.shieldAfter)}）`
+        : `${source} → ${target}：目标已倒下，未获得 Shield`;
+    }
+    return `${source} → ${target}：伤害 ${port.formatNumber(entry.requestedAmount)} · Shield 吸收 ${port.formatNumber(entry.absorbed)} · 剩余伤害 ${port.formatNumber(entry.remainingDamage)}（Shield ${port.formatNumber(entry.shieldBefore)} → ${port.formatNumber(entry.shieldAfter)}，HP ${port.formatNumber(entry.hpBefore)} → ${port.formatNumber(entry.hpAfter)}）`;
+  });
+}
+
+function statusConsumeSourceLabel(port: MapFlowTextPort, trace: MapEffectStatusConsumeTraceEntry): string {
+  const action = port.nameOf('action', trace.actionId);
+  const source = trace.source;
+  if (!source) return action;
+  if (source.kind === 'partyCharacter') return `${port.nameOf('character', source.id)} · ${action}`;
+  if (source.kind === 'enemy') return `敌方 ${port.nameOf('enemy', source.id)} · ${action}`;
+  if (source.kind === 'ability') return `Ability · ${action}`;
+  return `Item ${port.nameOf('item', source.itemId)} · ${action}`;
+}
+
+function statusConsumeTraceLines(port: MapFlowTextPort, trace: readonly MapEffectStatusConsumeTraceEntry[] | undefined): string[] {
+  return (trace ?? []).map(entry => {
+    const holder = entry.identity.kind === 'partyCharacter'
+      ? port.nameOf('character', entry.identity.id)
+      : `敌方 ${port.nameOf('enemy', entry.identity.id)}`;
+    const instances = entry.changes.map(change =>
+      `${port.formatNumber(change.statusBefore.stacks)} → ${port.formatNumber(change.statusAfter?.stacks ?? 0)}层`);
+    const details = instances.length ? `；实例 ${instances.join('、')}` : '；没有匹配实例';
+    return `${statusConsumeSourceLabel(port, entry)}：${holder} 的 Status ${entry.statusId} · 请求 ${port.formatNumber(entry.requestedStacks)}层 / 已消费 ${port.formatNumber(entry.consumedStacks)}层 / 缺额 ${port.formatNumber(entry.unmetStacks)}层${details}`;
+  });
+}
+
+function statusCategoryRemoveSourceLabel(port: MapFlowTextPort, trace: MapEffectStatusCategoryRemoveTraceEntry): string {
+  const action = port.nameOf('action', trace.actionId);
+  const source = trace.source;
+  if (!source) return action;
+  if (source.kind === 'partyCharacter') return `${port.nameOf('character', source.id)} · ${action}`;
+  if (source.kind === 'enemy') return `敌方 ${port.nameOf('enemy', source.id)} · ${action}`;
+  if (source.kind === 'ability') return `Ability · ${action}`;
+  return `Item ${port.nameOf('item', source.itemId)} · ${action}`;
+}
+
+function statusCategoryRemoveTraceLines(port: MapFlowTextPort, trace: readonly MapEffectStatusCategoryRemoveTraceEntry[] | undefined): string[] {
+  return (trace ?? []).map(entry => {
+    const holder = entry.identity.kind === 'partyCharacter'
+      ? port.nameOf('character', entry.identity.id)
+      : `敌方 ${port.nameOf('enemy', entry.identity.id)}`;
+    const instances = entry.removed.map(row =>
+      `Status ${row.status.statusId}（${port.formatNumber(row.status.stacks)}层，原数组位置 ${port.formatNumber(row.statusIndexBefore + 1)}）`);
+    const details = instances.length ? `；移除实例 ${instances.join('、')}` : '；没有匹配实例';
+    return `${statusCategoryRemoveSourceLabel(port, entry)}：${holder} 的 ${entry.category} 类 Status${details}`;
+  });
+}
+
+function triggerTraceLines(
+  port: MapFlowTextPort,
+  trace: readonly MapEffectTriggerTraceEntry[] | undefined,
+): string[] {
+  return (trace ?? []).map(entry => {
+    const target = entry.target.kind === 'partyCharacter'
+      ? port.nameOf('character', entry.target.id)
+      : `敌方 ${port.nameOf('enemy', entry.target.id)}`;
+    const label = entry.event === 'healApplied' ? 'Heal Trigger'
+      : entry.event === 'damageApplied' ? 'Damage Trigger' : 'Defeat Trigger';
+    const parent = entry.event === 'healApplied' ? 'Heal' : 'Damage';
+    const requested = entry.event === 'healApplied'
+      ? `请求治疗 ${port.formatNumber(entry.requestedAmount)}`
+      : `请求伤害 ${port.formatNumber(entry.requestedAmount)}（减伤/Shield 前）`;
+    const actual = entry.event === 'healApplied' ? '实际恢复'
+      : entry.event === 'damageApplied' ? '实际损失 HP' : '致死命中实际损失 HP';
+    const recipient = entry.event === 'enemyDefeated'
+      ? `；奖励领取者 ${port.nameOf('character', entry.rewardRecipient.id)}` : '';
+    return `${label} ${port.formatNumber(entry.queueIndex)} · ${entry.triggerId} · ${entry.event} · 执行 ${port.formatNumber(entry.parentExecutionIndex + 1)} ${port.nameOf('action', entry.actionId)}（父 ${parent} ${entry.eventPath}）→ ${target}${recipient}：${requested}，${actual} ${port.formatNumber(entry.actualAppliedAmount)} → ${port.nameOf('resource', entry.resourceId)} ${signedDeltaLabel(port, entry.delta)}（${entry.path}）`;
+  });
+}
+
+function statusExpirySourceLabel(port: MapFlowTextPort, status: MapEffectStatusExpiryTriggerTraceEntry['status']): string {
+  const action = port.nameOf('action', status.actionId);
+  if (status.source.kind === 'partyCharacter') return `${port.nameOf('character', status.source.id)} · ${action}`;
+  if (status.source.kind === 'enemy') return `敌方 ${port.nameOf('enemy', status.source.id)} · ${action}`;
+  if (status.source.kind === 'ability') return `Ability · ${action}`;
+  return `Item ${port.nameOf('item', status.source.itemId)} · ${action}`;
+}
+
+function statusExpiryTriggerLines(
+  port: MapFlowTextPort,
+  trace: readonly MapEffectStatusExpiryTriggerTraceEntry[] | undefined,
+): string[] {
+  return (trace ?? []).map(entry => {
+    const holder = entry.holder.kind === 'partyCharacter'
+      ? port.nameOf('character', entry.holder.id)
+      : `敌方 ${port.nameOf('enemy', entry.holder.id)}`;
+    const reward = `${port.nameOf('resource', entry.resourceId)} ${signedDeltaLabel(port, entry.delta)}`
+      + `（${port.formatNumber(entry.balanceBefore)} → ${port.formatNumber(entry.balanceAfter)}）`;
+    return `Status 到期回馈 ${port.formatNumber(entry.queueIndex)} · ${entry.status.statusId} · 持有者 ${holder}`
+      + ` · 来源 ${statusExpirySourceLabel(port, entry.status)}`
+      + ` · 剩余 ${port.formatNumber(entry.status.remainingRounds)} 轮 → ${reward}`;
+  });
+}
+
+function statusDamageTriggerLines(
+  port: MapFlowTextPort,
+  trace: readonly MapEffectStatusDamageTriggerTraceEntry[] | undefined,
+): string[] {
+  return (trace ?? []).map(entry => {
+    const holder = entry.holder.kind === 'partyCharacter'
+      ? port.nameOf('character', entry.holder.id)
+      : `敌方 ${port.nameOf('enemy', entry.holder.id)}`;
+    return `Status 受伤回馈 ${port.formatNumber(entry.queueIndex)} · ${port.nameOf('action', entry.actionId)} ${entry.hitPath} · 持有者 ${holder} · Status ${entry.status.statusId}（来源 ${statusExpirySourceLabel(port, entry.status)}）· 实际损失 HP ${port.formatNumber(entry.actualAppliedAmount)} → ${port.nameOf('resource', entry.resourceId)} ${signedDeltaLabel(port, entry.delta)}（${port.formatNumber(entry.balanceBefore)}→${port.formatNumber(entry.balanceAfter)}）`;
+  });
+}
+
+function triggerQueueLines(
+  port: MapFlowTextPort,
+  actionTrace: readonly MapEffectTriggerTraceEntry[] | undefined,
+  statusDamageTrace: readonly MapEffectStatusDamageTriggerTraceEntry[] | undefined,
+): string[] {
+  return [
+    ...(actionTrace ?? []).map(entry => ({ queueIndex: entry.queueIndex, line: triggerTraceLines(port, [entry])[0]! })),
+    ...(statusDamageTrace ?? []).map(entry => ({ queueIndex: entry.queueIndex, line: statusDamageTriggerLines(port, [entry])[0]! })),
+  ].sort((left, right) => left.queueIndex - right.queueIndex).map(row => row.line);
+}
+
 function enemySkipLabel(reason: MapRunEncounterEnemyActionSettlement['skipReason']): string {
   switch (reason) {
     case 'defeated': return '行动前已倒下，跳过';
@@ -201,11 +471,18 @@ function enemyActionRows(
 }
 
 /** 持久回执 → 归一化视图；动作名称走 UIContext 查询。 */
-function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCommitReceipt): CommitView {
+function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCommitReceipt, cards: readonly MapRunCardInstance[]): CommitView {
+  const triggerTrace = receipt.triggerTrace;
   return {
     requestId: receipt.requestId,
     nodeId: receipt.nodeId,
+    ...(receipt.activityId === undefined ? {} : { activityId: receipt.activityId }),
     round: receipt.round,
+    ...(receipt.executionContractId === undefined ? {} : { executionContractId: receipt.executionContractId }),
+    ...(receipt.executionSequence === undefined ? {} : { executionSequence: receipt.executionSequence.map(row => {
+      const actionName = targetCardActionName(port, row, cards);
+      return { ...row, ...(actionName === undefined ? {} : { targetCardActionName: actionName }) };
+    }) }),
     settlements: receipt.settlements.map(settlement => ({
       characterId: settlement.characterId,
       actionName: settlement.actionId ? port_name(port, 'action', settlement.actionId) : 'Wait',
@@ -221,21 +498,42 @@ function commitViewFromReceipt(port: MapFlowTextPort, receipt: MapRunEncounterCo
       actionName: port_name(port, 'action', receipt.ability.actionId),
       target: receipt.ability.target,
       playerCostSpent: receipt.ability.playerCostSpent,
+      resourceChanges: receipt.ability.resourceChanges,
       hpChanges: receipt.ability.hpChanges,
     } : null,
     item: receipt.item ? {
       itemName: port_name(port, 'item', receipt.item.itemId),
       target: receipt.item.target,
       consumedCount: receipt.item.consumedCount,
+      resourceChanges: receipt.item.resourceChanges,
       hpChanges: receipt.item.hpChanges,
     } : null,
     enemyActions: enemyActionRows(port, receipt.enemyActions ?? []),
+    ...(receipt.effectTrace === undefined ? {} : { effectTrace: receipt.effectTrace }),
+    ...(receipt.statusConsumeTrace === undefined ? {} : { statusConsumeTrace: receipt.statusConsumeTrace }),
+    ...(receipt.statusCategoryRemoveTrace === undefined ? {} : { statusCategoryRemoveTrace: receipt.statusCategoryRemoveTrace }),
+    ...(triggerTrace === undefined ? {} : { triggerTrace }),
+    ...(receipt.statusExpiryTriggerTrace === undefined ? {} : { statusExpiryTriggerTrace: receipt.statusExpiryTriggerTrace }),
+    ...(receipt.statusDamageTriggerTrace === undefined ? {} : { statusDamageTriggerTrace: receipt.statusDamageTriggerTrace }),
+    ...(receipt.shieldTrace === undefined ? {} : { shieldTrace: receipt.shieldTrace }),
   };
 }
 
 /** 结算逐行正文：角色结算 → Ability → Item → 敌方行动。 */
 function commitLines(port: MapFlowTextPort, commit: CommitView): string[] {
   const lines: string[] = [];
+  if (commit.executionContractId === 'AG-1') {
+    lines.push(...(commit.executionSequence === undefined
+      ? ['AG-1 执行序列暂不可用。']
+      : executionSequenceLines(port, commit.executionSequence)));
+    lines.push(...effectTraceLines(port, commit.effectTrace));
+    lines.push(...statusConsumeTraceLines(port, commit.statusConsumeTrace));
+    lines.push(...statusCategoryRemoveTraceLines(port, commit.statusCategoryRemoveTrace));
+    lines.push(...triggerQueueLines(port, commit.triggerTrace, commit.statusDamageTriggerTrace));
+    lines.push(...statusExpiryTriggerLines(port, commit.statusExpiryTriggerTrace));
+    lines.push(...shieldTraceLines(port, commit.shieldTrace));
+    return lines;
+  }
   if (commit.settlements.length === 0) lines.push('本轮没有队员行动结算。');
   for (const settlement of commit.settlements) {
     const actor = port_name(port, 'character', settlement.characterId);
@@ -252,12 +550,14 @@ function commitLines(port: MapFlowTextPort, commit: CommitView): string[] {
     lines.push(`${actor}：${settlement.actionName}${override}${target}${playerCost}${resources ? ` · ${resources}` : ''}${scost}${hp ? ` · ${hp}` : ''}`);
   }
   if (commit.ability) {
+    const resources = resourcesLabel(port, commit.ability.resourceChanges);
     const hp = commit.ability.hpChanges.length ? ` · ${hpChangesLabel(port, commit.ability.hpChanges)}` : '';
-    lines.push(`Ability：${commit.ability.actionName} → ${targetLabel(port, commit.ability.target)} · −${commit.ability.playerCostSpent} PlayerCost${hp}`);
+    lines.push(`Ability：${commit.ability.actionName} → ${targetLabel(port, commit.ability.target)} · −${commit.ability.playerCostSpent} PlayerCost${resources ? ` · ${resources}` : ''}${hp}`);
   }
   if (commit.item) {
+    const resources = resourcesLabel(port, commit.item.resourceChanges);
     const hp = commit.item.hpChanges.length ? ` · ${hpChangesLabel(port, commit.item.hpChanges)}` : '';
-    lines.push(`Item：${commit.item.itemName} → ${targetLabel(port, commit.item.target)} · 消耗 ${commit.item.consumedCount}${hp}`);
+    lines.push(`Item：${commit.item.itemName} → ${targetLabel(port, commit.item.target)} · 消耗 ${commit.item.consumedCount}${resources ? ` · ${resources}` : ''}${hp}`);
   }
   for (const action of commit.enemyActions) {
     const actor = `敌方 ${port_name(port, 'enemy', action.enemyId)}`;
@@ -275,7 +575,105 @@ function commitLines(port: MapFlowTextPort, commit: CommitView): string[] {
     const hp = action.hpChanges.length ? hpChangesLabel(port, action.hpChanges) : '';
     lines.push(`${actor}：${action.actionName}${target}${cost}${resources ? ` · ${resources}` : ''}${hp ? ` · ${hp}` : ''}`);
   }
+  lines.push(...effectTraceLines(port, commit.effectTrace));
+  lines.push(...triggerQueueLines(port, commit.triggerTrace, commit.statusDamageTriggerTrace));
+  lines.push(...statusExpiryTriggerLines(port, commit.statusExpiryTriggerTrace));
+  lines.push(...shieldTraceLines(port, commit.shieldTrace));
   return lines;
+}
+
+function sourceIdFromSequenceKey(row: MapRunEncounterExecutionSequenceEntry): string | null {
+  if (row.owner) return row.owner.id;
+  try {
+    const identity: unknown = JSON.parse(row.sourceKey);
+    if (Array.isArray(identity) && identity[5] === row.sourceKind && identity[7] === row.actionId
+      && typeof identity[6] === 'string') return identity[6];
+  } catch { /* Keep the source kind and Action as the readable fallback. */ }
+  return null;
+}
+
+function executionSourceLabel(
+  port: MapFlowTextPort,
+  row: MapRunEncounterExecutionSequenceEntry & { readonly sourceId?: string | null },
+): string {
+  if (row.sourceKind === 'partyAction' && row.owner?.kind === 'partyCharacter') {
+    const owner = port.nameOf('character', row.owner.id);
+    return row.cardRef === null ? `${owner} · 指令` : owner;
+  }
+  if (row.sourceKind === 'enemyAction' && row.owner?.kind === 'enemy') return `敌方 ${port.nameOf('enemy', row.owner.id)}`;
+  if (row.sourceKind === 'ability') return 'Ability';
+  const itemId = row.sourceId ?? sourceIdFromSequenceKey(row) ?? row.actionId;
+  return `Item ${port.nameOf('item', itemId)}`;
+}
+
+function executionTargetLabel(port: MapFlowTextPort, row: MapRunEncounterExecutionSequenceEntry & { readonly targetCardActionName?: string }): string {
+  if (row.target.kind === 'partyCharacter') return port.nameOf('character', row.target.characterId);
+  if (row.target.kind === 'enemy') return `敌方 ${port.nameOf('enemy', row.target.enemyId)}`;
+  if (row.target.kind === 'card') return row.targetCardActionName ? `卡牌目标：${row.targetCardActionName}` : '卡牌目标';
+  return '无单位目标';
+}
+
+function executionSkipLabel(reason: NonNullable<MapRunEncounterExecutionSequenceEntry['skipReason']>): string {
+  switch (reason) {
+    case 'defeated': return '来源开始时已倒下，跳过';
+    case 'noLegalTarget': return '没有合法目标，跳过';
+    case 'unaffordable': return '费用不足，跳过';
+    case 'roundEnded': return '本轮已终结，跳过';
+  }
+}
+
+function executionSequenceLines(
+  port: MapFlowTextPort,
+  sequence: readonly (MapRunEncounterExecutionSequenceEntry & {
+    readonly sourceId?: string | null;
+    readonly actionName?: string;
+    readonly targetCardActionName?: string;
+  })[],
+): string[] {
+  if (sequence.length === 0) return ['本轮没有已选执行来源。'];
+  return sequence.map(row => {
+    const action = row.actionName ?? port.nameOf('action', row.actionId);
+    const details: string[] = [];
+    if (row.skipReason) details.push(executionSkipLabel(row.skipReason));
+    if (row.playerCostSpent > 0) details.push(`−${port.formatNumber(row.playerCostSpent)} PlayerCost`);
+    if (row.sourceKind === 'item') details.push(row.itemConsumed ? '消耗道具' : '未消耗道具');
+    if (!row.skipReason) {
+      for (const change of row.resourceChanges) {
+        const enemyId = change.enemyId;
+        const owner = change.scope === 'actor'
+          ? change.characterId ? `${port.nameOf('character', change.characterId)} `
+            : `敌方 ${enemyId ? port.nameOf('enemy', enemyId) : '单位'} `
+          : change.teamSide === 'enemy' ? '敌方共用 ' : '队伍 ';
+        details.push(`${owner}${port.nameOf('resource', change.resourceId)} ${signedDeltaLabel(port, change.delta)}`);
+      }
+      details.push(...row.hpChanges.map(change => {
+        const owner = change.scope === 'party' ? port.nameOf('character', change.characterId)
+          : `敌方 ${port.nameOf('enemy', change.enemyId)}`;
+        return `${owner} ${hpLabel(change.delta)}`;
+      }));
+    }
+    if (details.length === 0) details.push('没有 HP 或资源变化');
+    return `执行 ${port.formatNumber(row.executionIndex + 1)}：${executionSourceLabel(port, row)} · ${action} → ${executionTargetLabel(port, row)} · ${details.join(' · ')}`;
+  });
+}
+
+function targetCardActionName(
+  port: MapFlowTextPort,
+  row: MapRunEncounterExecutionSequenceEntry,
+  cards: readonly MapRunCardInstance[],
+): string | undefined {
+  if (row.target.kind !== 'card') return undefined;
+  const targetCardRef = row.target.cardRef;
+  if (!targetCardRef) return undefined;
+  const card = cards.find(candidate => sameMapCardRef(candidate.ref, targetCardRef));
+  return card?.actionId ? port.nameOf('action', card.actionId) : undefined;
+}
+
+function sameMapCardRef(left: MapRunCardRef, right: MapRunCardRef): boolean {
+  return left.kind === right.kind && left.id === right.id
+    && left.scope.runId === right.scope.runId && left.scope.mapId === right.scope.mapId
+    && left.scope.nodeId === right.scope.nodeId && left.scope.activityId === right.scope.activityId
+    && left.scope.round === right.scope.round;
 }
 
 /** 把活动 View 的当前活动 ID 收敛为「属于当前地点」的那一个。 */
@@ -537,10 +935,17 @@ export class MapFlowModel {
   private commitView(view: MapRunActiveWorkspaceView): CommitView | null {
     const projected = view.actionPreview?.recentCommit;
     if (projected) {
+      const triggerTrace = projected.triggerTrace;
       return {
         requestId: projected.requestId,
         nodeId: projected.nodeId,
+        ...(projected.activityId === undefined ? {} : { activityId: projected.activityId }),
         round: projected.round,
+        ...(projected.executionContractId === undefined ? {} : { executionContractId: projected.executionContractId }),
+        ...(projected.executionSequence === undefined ? {} : { executionSequence: projected.executionSequence.map(row => {
+          const actionName = targetCardActionName(this.port, row, view.cards);
+          return { ...row, ...(actionName === undefined ? {} : { targetCardActionName: actionName }) };
+        }) }),
         settlements: projected.settlements.map(settlement => ({
           characterId: settlement.characterId,
           actionName: settlement.action?.name ?? 'Wait',
@@ -556,24 +961,37 @@ export class MapFlowModel {
           actionName: projected.ability.action?.name ?? '行动',
           target: projected.ability.target,
           playerCostSpent: projected.ability.playerCostSpent,
+          resourceChanges: projected.ability.resourceChanges ?? [],
           hpChanges: projected.ability.hpChanges,
         } : null,
         item: projected.item ? {
           itemName: projected.item.itemName,
           target: projected.item.target,
           consumedCount: projected.item.consumedCount,
+          resourceChanges: projected.item.resourceChanges ?? [],
           hpChanges: projected.item.hpChanges,
         } : null,
         enemyActions: enemyActionRows(this.port, projected.enemyActions),
+        ...(projected.effectTrace === undefined ? {} : { effectTrace: projected.effectTrace }),
+        ...(projected.statusConsumeTrace === undefined ? {} : { statusConsumeTrace: projected.statusConsumeTrace }),
+        ...(projected.statusCategoryRemoveTrace === undefined ? {} : { statusCategoryRemoveTrace: projected.statusCategoryRemoveTrace }),
+        ...(triggerTrace === undefined ? {} : { triggerTrace }),
+        ...(projected.statusExpiryTriggerTrace === undefined ? {} : { statusExpiryTriggerTrace: projected.statusExpiryTriggerTrace }),
+        ...(projected.statusDamageTriggerTrace === undefined ? {} : { statusDamageTriggerTrace: projected.statusDamageTriggerTrace }),
+        ...(projected.shieldTrace === undefined ? {} : { shieldTrace: projected.shieldTrace }),
       };
     }
     const receipt = view.run.lastEncounterCommit;
-    return receipt ? commitViewFromReceipt(this.port, receipt) : null;
+    return receipt ? commitViewFromReceipt(this.port, receipt, view.cards) : null;
   }
 
   private commitEntry(view: MapRunActiveWorkspaceView, commit: CommitView): FlowEntry {
     const origin = view.map.nodes.find(node => node.id === commit.nodeId)?.title ?? commit.nodeId;
-    const locationLabel = commit.nodeId === view.run.currentNodeId ? '最近提交结果' : '最近结算 · 原地点';
+    const sameNode = commit.nodeId === view.run.currentNodeId;
+    const originalActivity = commit.activityId !== undefined
+      && commit.activityId !== currentActivityId(view, commit.nodeId);
+    const locationLabel = !sameNode ? '最近结算 · 原地点'
+      : originalActivity ? '最近结算 · 原活动' : '最近提交结果';
     return {
       streamKey: this.streamKey,
       instanceKey: mapInstanceKey('commit', commit.requestId),
@@ -585,6 +1003,8 @@ export class MapFlowModel {
       lines: commitLines(this.port, commit),
       marks: {
         'data-map-commit-receipt': commit.requestId,
+        'data-map-commit-node-id': commit.nodeId,
+        ...(commit.activityId === undefined ? {} : { 'data-map-commit-activity-id': commit.activityId }),
         role: 'status',
       },
       source: { kind: 'map.commit', id: commit.requestId },

@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U07 实施与指定验证完成，交负责人审查；不代表 E1 产品整体完成。 |
-| 实际修改 | 修改 `src/arona-clicker/services/map-run-service.ts`（新增94行、删除59行、净增35行）与 `src/arona-clicker/services/map-card-effects.ts`（新增20行、删除7行、净增13行）；新增本 Receipt。旧金样 `tests/engine/gameplay-b-effect-legacy-goldens.test.ts` 未改，全部旧期望保留。 |
+| 实际修改 | 修改 `src/arona-clicker/services/map/map-run-service.ts`（新增94行、删除59行、净增35行）与 `src/arona-clicker/services/map/map-card-effects.ts`（新增20行、删除7行、净增13行）；新增本 Receipt。旧金样 `tests/engine/gameplay-b-effect-legacy-goldens.test.ts` 未改，全部旧期望保留。 |
 | 手写预算 | 开工估算约560行已向负责人报备；负责人登记本Unit手写净改动上限1000行。最终两份源码净增48行，旧金样改动0行。 |
 | 未完成内容 | 无 U07 内剩余项。U08/U09/U10/U11 的 locals、Card prepare adapter、program commit 与 condition completion 仍按各自 Unit 实施。 |
 | 范围外变更 | 无 U07 范围外改动；保留工作树里 U04/U05/U06 的未提交产物和文档。未提交 Git。 |

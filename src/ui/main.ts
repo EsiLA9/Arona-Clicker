@@ -1,9 +1,9 @@
-import { UIController } from './controller';
-import type { AronaClickerRuntime } from '../arona-clicker/runtime';
+import { UIController } from './controller/controller';
+import type { AronaClickerRuntime } from '../arona-clicker/runtime/runtime';
 import { IndexedDbPackSnapshotStore } from '../data-services';
 import { createAppRuntime, loadDefaultDatapack } from '../app/runtime-bootstrap';
-import { discoverBundledDevelopmentDatapacks } from './development-datapack-loader';
-import './service-definitions';
+import { discoverBundledDevelopmentDatapacks } from './development/development-datapack-loader';
+import './runtime/service-definitions';
 // 样式按原 styles.css 分区拆分（variables 必须最先引入，其顶部 @import 为远程字体）
 import './css/variables.css';
 import './css/layout.css';
@@ -80,8 +80,18 @@ async function boot(): Promise<void> {
     document.querySelector('#startup-shell')?.remove();
 
     if (gameplayBQuickTestConsoleEnabled) {
-      const { mountGameplayBQuickTestConsole } = await import('./development/gameplay-b-quick-test-console');
-      mountGameplayBQuickTestConsole(game, () => controller.render());
+      const { applyGameplayBQuickTestMapOperations, mountGameplayBQuickTestConsole } =
+        await import('./development/gameplay-b-quick-test-console');
+      mountGameplayBQuickTestConsole(game, () => controller.render(), (mapId, operations) => {
+        const run = controller.commands.startMap(mapId);
+        controller.replaceWorkspaceRoute({ kind: 'map', runId: run.runId });
+        const summary = applyGameplayBQuickTestMapOperations(game.mapRun, controller.commands, run.runId, operations);
+        controller.render();
+        return summary;
+      }, () => {
+        controller.resumeInit('base:init:schale_office');
+        return game.state.activeInit === 'base:init:schale_office';
+      });
       document.body.dataset.gameplayBQuickTest = 'map';
       document.title = `${document.title} · Gameplay B quick test`;
     }

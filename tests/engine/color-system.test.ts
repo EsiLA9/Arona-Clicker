@@ -3,11 +3,11 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/color-system.test.ts — 色彩系统（CL 组 + CT 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import {
   deriveThemeTokens,
   resolveTheme,
-} from '../../src/arona-clicker/services/color-system';
+} from '../../src/arona-clicker/services/progression/color-system';
 import { contrastRatio } from '../../src/engine/core/color';
 import type { ColorGroupDef, } from '../../src/data-services/contracts/color';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';

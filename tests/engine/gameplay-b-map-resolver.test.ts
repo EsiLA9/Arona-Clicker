@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
-import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b-map-datapack';
-import { createRegistryMapContentResolver } from '../../src/arona-clicker/services/registry-map-content-resolver';
+import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
+import { createRegistryMapContentResolver } from '../../src/arona-clicker/services/map/registry-map-content-resolver';
 import { Registry } from '../../src/data-services/registry/registry';
 
 function loadGameplayBRegistry(): Registry {

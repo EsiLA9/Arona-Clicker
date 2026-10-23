@@ -2,7 +2,7 @@ import type { Effect, ExtraValue, ValueExpression } from '../../engine/types';
 import type { ChatTextEffectValue } from '../../engine/contracts/chat-presentation';
 import type { EntityPresentationEffectValue, ThemeEffectValue } from '../../engine/types/expression';
 import { assertValidExtra, extraFromJson } from '../../engine/extra/index';
-import type { EffectMutationPort } from '../contracts/effect-mutation';
+import type { EffectMutationPort } from '../contracts/runtime/effect-mutation';
 
 export function applyEffects(this: EffectMutationPort, effects: Effect[]): void {
   for (const effect of effects) this.applyEffect(effect);

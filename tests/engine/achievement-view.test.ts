@@ -6,8 +6,8 @@ import type { Condition } from '../../src/engine/types/expression';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { InitSnapshot, PlayerState } from '../../src/arona-clicker/types/state';
 import { buildAchievementView } from '../../src/arona-clicker/read-model/achievement-view';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import type { GameReadModel } from '../../src/arona-clicker/contracts/runtime';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { GameReadModel } from '../../src/arona-clicker/contracts/runtime/runtime';
 
 const OFFICE = 'base:init:schale_office';
 const CREDIT = 'test:resource:credit';

@@ -3,10 +3,10 @@
 // 纯字符串断言：标题解析（openingTitle 优先）、owner 行、data 钩子、HTML 转义。
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
-import { createUIContext } from '../../../src/ui/context';
-import { renderStoryGate, renderOpeningBanner, storyDisplayTitle, BANNER_ANIMATION_MS } from '../../../src/ui/components/story-gate';
+import { createUIContext } from '../../../src/ui/runtime/context';
+import { renderStoryGate, renderOpeningBanner, storyDisplayTitle, BANNER_ANIMATION_MS } from '../../../src/ui/components/story/story-gate';
 
 describe('renderStoryGate / renderOpeningBanner', () => {
   let game: GameInstance;

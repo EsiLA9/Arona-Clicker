@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U11实现与指定验收完成，交负责人审查。 |
-| 实际修改 | 修改 `src/arona-clicker/services/map-run-service.ts` 与允许的 `tests/engine/gameplay-b-effect-lifecycle.test.ts`；新增本 Receipt。 |
+| 实际修改 | 修改 `src/arona-clicker/services/map/map-run-service.ts` 与允许的 `tests/engine/gameplay-b-effect-lifecycle.test.ts`；新增本 Receipt。 |
 | 预算 | U11净增约500行，低于负责人放宽的1000行上限。共享 `map-run-service.ts` 当前整体diff包含前置U10已完成的规划/安装修改，估算仅计本Unit条件完成与转换安全增量。 |
 | 未完成内容 | 无。 |
 | 范围外变更 | 无。本Unit未提交Git，未改U12 validator、其它Unit文件或存档格式。 |

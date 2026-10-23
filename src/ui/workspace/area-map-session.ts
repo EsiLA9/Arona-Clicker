@@ -1,4 +1,4 @@
-import type { AreaMapQueryPort, AreaMapView } from '../../arona-clicker/contracts/area-map-query';
+import type { AreaMapQueryPort, AreaMapView } from '../../arona-clicker/contracts/world/area-map-query';
 
 export interface AreaMapCamera { scale: number; x: number; y: number }
 export interface AreaMapSession {

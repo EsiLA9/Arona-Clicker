@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MapEffectTraceEntry } from '../../src/arona-clicker/contracts/map-effects';
-import type { MapRunEncounterCommitCommand } from '../../src/arona-clicker/contracts/map-run';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import type { MapEffectTraceEntry } from '../../src/arona-clicker/contracts/map/map-effects';
+import type { MapRunEncounterCommitCommand } from '../../src/arona-clicker/contracts/map/map-run';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
-import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
+import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import {
   copyMapEffectTrace,
   copyMapEncounterLocalsState,
   initializeMapEncounterLocals,
-} from '../../src/arona-clicker/services/map-encounter-locals';
+} from '../../src/arona-clicker/services/map/map-encounter-locals';
 import {
   createLegacyGoldenRuntime,
   LEGACY_GOLDEN_ITEM_ID,
@@ -605,5 +605,57 @@ describe('Gameplay B Encounter locals lifecycle', () => {
     expect(Object.isFrozen(snapshot[0])).toBe(true);
     expect(Object.isFrozen(when.reads[0])).toBe(true);
     expect(Object.isFrozen(copiedRead.identity)).toBe(true);
+  });
+
+  it('ticks in fixed Party-then-Enemy order and gives simultaneous Status defeat failure priority', () => {
+    const actions = [
+      { id: 'mark-self-and-enemy', name: 'Mark both', eligibleCharacterIds: ['shiroko'], target: { kind: 'enemy' as const },
+        effectProgram: { resolve: [
+          { op: 'statusApply' as const, target: 'source' as const, statusId: 'burn', stacks: 1, durationRounds: 2 },
+          { op: 'statusApply' as const, target: 'primary' as const, statusId: 'burn', stacks: 1, durationRounds: 2 },
+        ] } },
+      { id: 'mark-serika', name: 'Mark Serika', eligibleCharacterIds: ['serika'], target: { kind: 'self' as const },
+        effectProgram: { resolve: [{ op: 'statusApply' as const, target: 'source' as const, statusId: 'burn', stacks: 1, durationRounds: 2 }] } },
+    ];
+    const base = legacyGoldenMap({
+      id: 'test:map:status-terminal-priority',
+      partyCharacterIds: ['shiroko', 'serika'],
+      partyHp: { shiroko: 1, serika: 1 },
+      actions,
+      participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'mark-self-and-enemy', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'mark-serika', tendencyWeight: 1 }] },
+      ],
+      enemies: [{ id: 'foe', initialHp: 1, maxHp: 1 }],
+    });
+    const map: GameplayMapDef = {
+      ...base,
+      statuses: [{ id: 'burn', name: 'Burn', kind: 'burn', hpPerStack: 1, maxStacks: 1 }],
+      initialPartyHp: [
+        { characterId: 'shiroko', initialHp: 1, maxHp: 1 },
+        { characterId: 'serika', initialHp: 1, maxHp: 1 },
+      ],
+    };
+    const game = createLegacyGoldenRuntime(map);
+    try {
+      const started = game.startMap(map.id);
+      game.moveMap(started.runId, 'battle');
+      const first = game.commitMapEncounterRound(runtimeEncounterCommand(game, started.runId, 'status-death-round-one'));
+      expect(first.activeEncounter?.statuses).toHaveLength(3);
+
+      const second = game.commitMapEncounterRound(runtimeEncounterCommand(game, started.runId, 'status-death-round-two'));
+      expect(second.status).toBe('failure');
+      expect(second.activeEncounter).toBeNull();
+      expect(second.partyHp.map(row => row.currentHp)).toEqual([0, 0]);
+      expect(second.lastEncounterCommit?.plannedStatuses).toHaveLength(3);
+      expect(second.lastEncounterCommit?.plannedStatuses?.every(status => status.remainingRounds === 1)).toBe(true);
+      expect(second.lastEncounterCommit?.statusTrace).toMatchObject([
+        { holder: { kind: 'partyCharacter', id: 'shiroko' }, hpBefore: 1, hpAfter: 0 },
+        { holder: { kind: 'partyCharacter', id: 'serika' }, hpBefore: 1, hpAfter: 0 },
+        { holder: { kind: 'enemy', id: 'foe' }, hpBefore: 1, hpAfter: 0 },
+      ]);
+    } finally {
+      game.dispose();
+    }
   });
 });

@@ -3,8 +3,8 @@
 // ============================================================
 
 import { describe, test, expect, beforeAll } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { entityKeyOf } from '../../src/arona-clicker/services/color-system';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { entityKeyOf } from '../../src/arona-clicker/services/progression/color-system';
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { ThemeDesignDef } from '../../src/data-services/contracts/color';
 

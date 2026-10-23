@@ -10,8 +10,8 @@
 | --- | --- | --- |
 | Task | `docs/plan-work/task-0309-maprun-staging-and-reentry-workspace.md` §“路由、会话与生命周期” | 入口会话及 replace 语义 |
 | 源码 | `src/ui/workspace/workspace-router.ts:WorkspaceRoute/resolveCurrentWorkspaceRoute` | 路由身份与 route-only 例外 |
-| 源码 | `src/ui/components/app-shell.ts:PanelState` | UI-only 会话状态归属 |
-| 源码 | `src/ui/controller.ts:enterWorkspaceRoute/replaceWorkspaceRoute/returnFromMapWorkspace` | 单层 returnTo 和 MapFlow 生命周期 |
+| 源码 | `src/ui/components/shared/app-shell.ts:PanelState` | UI-only 会话状态归属 |
+| 源码 | `src/ui/controller/controller.ts:enterWorkspaceRoute/replaceWorkspaceRoute/returnFromMapWorkspace` | 单层 returnTo 和 MapFlow 生命周期 |
 | 测试 | `tests/ui/workspace-router.test.ts`、`tests/ui/workspace-lifecycle.test.ts` | 原单层返回回归入口；本轮不修改或运行测试 |
 
 ## Context Budget
@@ -37,8 +37,8 @@
 | 事实 | 依据（路径 / 符号） | 备注 |
 | --- | --- | --- |
 | Map / Area 为 route-only 页面，`resolveCurrentWorkspaceRoute` 显式保留，legacy state 不携带其内部状态 | `src/ui/workspace/workspace-router.ts:resolveCurrentWorkspaceRoute` | 新 route 需加入同一保留分支 |
-| Workspace 只有单层 `returnTo`，`replaceWorkspaceRoute` 保留它而 `enterWorkspaceRoute` 新建返回位置 | `src/ui/workspace/workspace-router.ts`；`src/ui/controller.ts` | entry 与现场互切必须 replace |
-| `enterWorkspaceRoute` 离开 Map 时清理 MapFlow；`replaceWorkspaceRoute` 当前不做该清理 | `src/ui/controller.ts:enterWorkspaceRoute/replaceWorkspaceRoute` | 现场返回准备页须显式清理 |
+| Workspace 只有单层 `returnTo`，`replaceWorkspaceRoute` 保留它而 `enterWorkspaceRoute` 新建返回位置 | `src/ui/workspace/workspace-router.ts`；`src/ui/controller/controller.ts` | entry 与现场互切必须 replace |
+| `enterWorkspaceRoute` 离开 Map 时清理 MapFlow；`replaceWorkspaceRoute` 当前不做该清理 | `src/ui/controller/controller.ts:enterWorkspaceRoute/replaceWorkspaceRoute` | 现场返回准备页须显式清理 |
 
 ## Constraints
 
@@ -50,8 +50,8 @@
 ## Allowed Files
 
 - `src/ui/workspace/workspace-router.ts`
-- `src/ui/components/app-shell.ts`
-- `src/ui/controller.ts`
+- `src/ui/components/shared/app-shell.ts`
+- `src/ui/controller/controller.ts`
 
 ## Explicit Non-goals
 

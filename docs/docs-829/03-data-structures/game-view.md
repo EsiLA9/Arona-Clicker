@@ -30,6 +30,6 @@ Story / Affectors ─┘
 
 ## 从哪里核对
 
-- 输入和字段：`src/arona-clicker/read-model/game-view-builder.ts` 的 `ViewBuildContext`、`buildGameView()`；Runtime 在 `src/arona-clicker/runtime-game-instance.ts` 的 `getView()` 调用构造器。
+- 输入和字段：`src/arona-clicker/read-model/game-view-builder.ts` 的 `ViewBuildContext`、`buildGameView()`；Runtime 在 `src/arona-clicker/runtime/runtime-game-instance.ts` 的 `getView()` 调用构造器。
 - 相关验证：`tests/engine/state-mutation-service.test.ts` 证明状态写入与资源事件的路径；`tests/engine/achievement-view.test.ts` 验证一类专用只读投影会利用当前状态和历史 Init 快照。本次 Read Set 内未找到单独直接调用 `buildGameView()` 的测试；builder 的字段复制细节以当前实现核对，不把相邻测试夸大为直接覆盖。
 - 再往前追写入：[[docs/docs-829/06-wiki/30-arona-clicker-domain/state-and-mutation]]；按玩家问题查功能协作：[[docs/docs-829/06-wiki/00-index]]。

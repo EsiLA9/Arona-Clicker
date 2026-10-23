@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 状态 | U09 实施与定向行为验证完成，交负责人审查；新 program 仍被 U03 MapRun 过渡门拒绝 Commit，不代表 U10 已完成。 |
-| 实际修改 | 修改 `src/arona-clicker/services/map-card-effects.ts`、`src/arona-clicker/services/gameplay-b-action-preview-resolver.ts`；新增 `tests/engine/gameplay-b-effect-card-prepare.test.ts` 与本 Receipt。 |
+| 实际修改 | 修改 `src/arona-clicker/services/map/map-card-effects.ts`、`src/arona-clicker/services/map/gameplay-b-action-preview-resolver.ts`；新增 `tests/engine/gameplay-b-effect-card-prepare.test.ts` 与本 Receipt。 |
 | 实际手写行数 | 服务文件增加53行、删除11行；测试255行、Receipt 41行；合计增加349行、删除11行，净增338行，低于500行常规预算。 |
 | 未完成内容 | 无 U09 内剩余项；定向测试、全局类型、架构、空白与文档验证均已完成。 |
 | 范围外变更 | 未修改 Task、Unit、U08 文件、其他服务或旧金样；未提交 Git。保留工作树中 U04–U08 已有并行改动。 |

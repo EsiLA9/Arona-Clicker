@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
 
 let game: GameInstance;

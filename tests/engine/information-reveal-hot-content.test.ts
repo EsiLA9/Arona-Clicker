@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
-import type { RuntimeWorldDraft, RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime-content';
+import type { RuntimeWorldDraft, RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime/runtime-content';
 
 const MOD = 'reveal-hot';
 const INIT = `${MOD}:init:demo`;

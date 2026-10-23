@@ -18,6 +18,6 @@ Area 移动受当前 Init、连通关系、可见性和剧情阻断条件约束�
 
 ## 从哪里核对
 
-- `src/arona-clicker/services/init-service.ts`：`startNewGame()`、`resumeInit()`、`restartInit()`、`hardRestartInit()`、`travelToArea()`；公共门面由 Runtime 委托。
+- `src/arona-clicker/services/world/init-service.ts`：`startNewGame()`、`resumeInit()`、`restartInit()`、`hardRestartInit()`、`travelToArea()`；公共门面由 Runtime 委托。
 - `src/arona-clicker/state/init-savepoint.ts` 与 `src/arona-clicker/state/per-init-fields.ts`：决定哪些局部字段在离开时保存、重开时清空、恢复时还原。
 - `tests/engine/init-global-lifecycle.test.ts` 验证直接切换 Init 会先保存当前进度、Story 游标随快照恢复、快照与活动状态不共享可变对象。移动的细节拒绝条件继续查 [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]。

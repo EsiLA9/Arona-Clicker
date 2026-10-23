@@ -1,4 +1,4 @@
-import type { UIContext } from '../context';
+import type { UIContext } from '../runtime/context';
 
 export type RuntimeEditorReferenceKind = 'resource' | 'spot' | 'area' | 'init' | 'story' | 'enhancement';
 

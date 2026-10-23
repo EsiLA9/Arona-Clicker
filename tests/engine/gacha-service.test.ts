@@ -3,7 +3,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // engine/gacha-service.test.ts — 抽取模式与卡池（G 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { } from '../../src/engine/types';
 import { GachaMode } from '../../src/data-services/contracts/gacha-pool';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';

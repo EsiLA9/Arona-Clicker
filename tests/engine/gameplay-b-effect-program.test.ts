@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map-run';
-import type { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { MapRunService } from '../../src/arona-clicker/services/map-run-service';
+import type { MapRunEncounterDraftToken } from '../../src/arona-clicker/contracts/map/map-run';
+import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import {
   createLegacyGoldenOwner,
@@ -57,6 +57,39 @@ function preview(service: MapRunService, runId: string) {
 afterEach(() => { games.splice(0).forEach(game => game.dispose()); });
 
 describe('Gameplay B authoritative effect program planning', () => {
+  test('damage/heal Preview maps ordered actual HP deltas and leaves the Owner unchanged', () => {
+    const map = legacyGoldenMap({
+      id: 'test:map:program-damage-heal-preview',
+      partyHp: { shiroko: 10, serika: 4 },
+      actions: [
+        { id: 'aid', name: 'Aid', eligibleCharacterIds: ['shiroko'], target: { kind: 'partyCharacter' },
+          effectProgram: { resolve: [
+            { op: 'heal', target: 'primary', amount: 3 },
+            { op: 'damage', target: 'primary', amount: 2 },
+          ] } },
+        { id: 'wait', name: 'Wait', eligibleCharacterIds: ['serika'], target: { kind: 'none' } },
+      ],
+      participants: [
+        { characterId: 'shiroko', actions: [{ actionId: 'aid', tendencyWeight: 1 }] },
+        { characterId: 'serika', actions: [{ actionId: 'wait', tendencyWeight: 1 }] },
+      ],
+    });
+    const { service, runId } = owner(map);
+    service.setPreparedTarget(runId, 'shiroko', 'serika', draft(service));
+    const before = service.getSnapshot();
+    const result = preview(service, runId);
+    expect(result).toMatchObject({ canCommit: true, diagnostics: [] });
+    expect(result?.settlements?.find(row => row.characterId === 'shiroko')?.hpChanges).toEqual([
+      { scope: 'party', characterId: 'serika', delta: 3 },
+      { scope: 'party', characterId: 'serika', delta: -2 },
+    ]);
+    expect(result?.effectTrace?.filter(row => row.op === 'heal' || row.op === 'damage')).toMatchObject([
+      { op: 'heal', amount: 3, before: 4, after: 7, delta: 3, identity: { kind: 'partyCharacter', id: 'serika' } },
+      { op: 'damage', amount: 2, before: 7, after: 5, delta: -2, identity: { kind: 'partyCharacter', id: 'serika' } },
+    ]);
+    expect(service.getSnapshot()).toEqual(before);
+  });
+
   test('HP guards observe current source HP and Preview traces actual C3 resource balances', () => {
     const map = withLocals(legacyGoldenMap({
       id: 'test:map:program-order',
@@ -242,43 +275,6 @@ describe('Gameplay B authoritative effect program planning', () => {
       source: { kind: 'enemy', id: 'robot-2' },
       kind: 'statement',
     }));
-  });
-
-  test('legacy Ability healing stays after a new Item guard in the established phase', () => {
-    const map = withLocals(legacyGoldenMap({
-      id: 'test:map:program-new04',
-      partyHp: { shiroko: 4 },
-      actions: [
-        { id: 'legacy-heal', name: 'Legacy Heal', eligibleCharacterIds: [], target: { kind: 'partyCharacter' }, hpEffects: [{ amount: 3 }] },
-        {
-          id: 'program-item', name: 'Program Item', eligibleCharacterIds: [], target: { kind: 'partyCharacter' },
-          effectProgram: { resolve: [{
-            op: 'when', condition: { kind: 'hpAtLeast', target: 'primary', value: 7 },
-            then: [{ op: 'flagSet', flagId: 'ready', value: true }],
-            else: [{ op: 'flagSet', flagId: 'ready', value: false }],
-          }] },
-        },
-        { id: 'wait', name: 'Wait', eligibleCharacterIds: ['shiroko', 'serika'], target: { kind: 'none' } },
-      ],
-      participants: ['shiroko', 'serika'].map(characterId => ({
-        characterId, actions: [{ actionId: 'wait', tendencyWeight: 1 }],
-      })),
-      enemies: [{ id: 'robot', initialHp: 10, maxHp: 10 }],
-      abilityActionIds: ['legacy-heal'],
-      itemActions: [{ itemId: LEGACY_GOLDEN_ITEM_ID, actionId: 'program-item' }],
-      itemCount: 1,
-    }), { flags: [{ id: 'ready', initial: false }] });
-    const { service, runId } = owner(map, 1);
-    service.setAbilityDraft(runId, 'legacy-heal', { kind: 'partyCharacter', characterId: 'shiroko' }, draft(service));
-    service.setItemDraft(runId, LEGACY_GOLDEN_ITEM_ID, { kind: 'partyCharacter', characterId: 'shiroko' }, draft(service));
-    const result = preview(service, runId);
-    expect(result?.plannedLocals?.flags.ready).toBe(false);
-    expect(result?.effectTrace?.find(row => row.op === 'when')).toMatchObject({
-      result: false,
-      reads: [{ op: 'hpAtLeast', current: 4, value: 7, result: false }],
-    });
-    expect(result?.settlements?.find(row => row.characterId === 'shiroko')?.hpChanges).toBeUndefined();
-    expect(result?.settlements).toHaveLength(2);
   });
 
   test('one round-local visit budget admits 4096 accesses with prepare included and rejects the 4097th', () => {

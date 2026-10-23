@@ -1,6 +1,7 @@
 # Unit 0312-U05：旧数组与新程序进入同一规范化表示
 
-状态：ready / 未执行；阶段P2。前置：0312-U02实际完成Receipt与测试、0312-U03实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -13,7 +14,7 @@
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
 | 源码 | src/data-services/contracts/gameplay-map.ts 与U02作者类型 | 统一纯数据规范化输入 |
-| 旧相位 | src/arona-clicker/services/map-run-service.ts：settlementChangesFor/applyHpEffects/pendingHpActions/Enemy循环；src/arona-clicker/services/map-card-effects.ts | 保留旧相位，不默认重新排列 |
+| 旧相位 | src/arona-clicker/services/map/map-run-service.ts：settlementChangesFor/applyHpEffects/pendingHpActions/Enemy循环；src/arona-clicker/services/map/map-card-effects.ts | 保留旧相位，不默认重新排列 |
 | 合同 | Draft0312 §11.2；OLD/EQ金样 | 定义legacy相位标签与program顺序 |
 
 ## Context Budget

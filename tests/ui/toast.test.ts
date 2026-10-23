@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { ToastService } from '../../src/ui/components/toast';
+import { ToastService } from '../../src/ui/components/shared/toast';
 
 describe('Toast 折叠控制', () => {
   afterEach(() => {

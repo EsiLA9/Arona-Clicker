@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { clearTagResidueByMod, mergeTagEffects, mergeTagOverrides, splitTagEffects, splitTagOverrides, summarizeTagResidue } from '../../src/arona-clicker/state/tag-residue';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 
 describe('dynamic Tag save residue', () => {

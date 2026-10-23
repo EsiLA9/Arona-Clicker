@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { mergeFragments, parseFragment } from '../../src/data-services/datapack/fragment-parser';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { bindEvents } from '../../src/ui/controller-events';
+import { UIController } from '../../src/ui/controller/controller';
+import { bindEvents } from '../../src/ui/controller/controller-events';
 
 const PACK_DIR = 'datapack-dev/area-achievement-demo';
 const MOD = 'area-achievement-demo';

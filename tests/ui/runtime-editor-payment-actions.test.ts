@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { createUIContext } from '../../src/ui/context';
+import { UIController } from '../../src/ui/controller/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
 import { bindRuntimeDatapackEditorActions } from '../../src/ui/runtime-editor/actions';
 import { createRuntimeDatapackEditorState, setRuntimeEditorSpot } from '../../src/ui/runtime-editor/state';
 import { renderRuntimeSpotForm } from '../../src/ui/runtime-editor/view';

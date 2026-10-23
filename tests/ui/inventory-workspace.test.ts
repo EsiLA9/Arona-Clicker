@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { createUIContext } from '../../src/ui/context';
-import { renderAppShell, type PanelState } from '../../src/ui/components/app-shell';
-import { UIController } from '../../src/ui/controller';
-import { UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
-import { createInventoryWorkspaceState } from '../../src/ui/inventory-view';
-import '../../src/ui/service-definitions';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderAppShell, type PanelState } from '../../src/ui/components/shared/app-shell';
+import { UIController } from '../../src/ui/controller/controller';
+import { UI_HOST_REGISTRY } from '../../src/ui/runtime/ui-host-registry';
+import { createInventoryWorkspaceState } from '../../src/ui/utilities/inventory-view';
+import '../../src/ui/runtime/service-definitions';
 
 const ENERGY = 'base:item:energy_drink';
 const NOTE = 'base:item:field_note';

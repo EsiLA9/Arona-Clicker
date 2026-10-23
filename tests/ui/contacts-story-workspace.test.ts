@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GameInstance } from '../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { UIController } from '../../src/ui/controller';
-import { UI_HOST_REGISTRY } from '../../src/ui/ui-host-registry';
-import '../../src/ui/service-definitions';
+import { UIController } from '../../src/ui/controller/controller';
+import { UI_HOST_REGISTRY } from '../../src/ui/runtime/ui-host-registry';
+import '../../src/ui/runtime/service-definitions';
 
 describe('Contacts / Story Workspace ownership', () => {
   let game: GameInstance;

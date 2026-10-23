@@ -26,20 +26,20 @@ V1 交付：设施 Map 入口先打开准备页；无进行中 Run 时显示行�
 
 | 已核实事实 | 当前源码／测试依据 | 对施工的影响 |
 | --- | --- | --- |
-| Map 入口由 Spot functionality 声明，已有自定义按钮文案 | `src/ui/components/map-entry.ts` 的 renderMapEntryFunctions；`src/data-services/contracts/world.ts` 的 mapEntry/mapEntryLabel | 复用现有设施入口，保留作者文案；按钮改为打开准备页，不再当场开始 Run |
+| Map 入口由 Spot functionality 声明，已有自定义按钮文案 | `src/ui/components/map/map-entry.ts` 的 renderMapEntryFunctions；`src/data-services/contracts/world.ts` 的 mapEntry/mapEntryLabel | 复用现有设施入口，保留作者文案；按钮改为打开准备页，不再当场开始 Run |
 | 入口区分同图继续、其他图有局、功能条件不足 | 同组件读取 mapRun.getSnapshot，检查 inProgress/mapId 和 fn.condition | 准备页保留单一活动 Run 限制；不能静默替换另一局，需处理入口打开后的状态变化 |
-| 点击时重核设施属于当前 Area、效用已知与功能有效 | `src/ui/controller-actions-operation.ts` 的 mapFunctionAvailable、handleMapClick | 不能只凭准备页打开时许可；开始／继续前要重核 source Spot／functionality／Map |
+| 点击时重核设施属于当前 Area、效用已知与功能有效 | `src/ui/controller/controller-actions-operation.ts` 的 mapFunctionAvailable、handleMapClick | 不能只凭准备页打开时许可；开始／继续前要重核 source Spot／functionality／Map |
 | 当前开始动作直接 startMap 后进入 map 路由；继续动作仅切路由 | handleMapClick 的 data-map-entry-start / data-map-entry-continue-run 分支 | 将入口动作与最终开始／继续命令拆开；继续不应新增 resume 写命令 |
 | 固定队伍由 Map 声明 | `src/data-services/contracts/gameplay-map.ts` 的 partyCharacterIds、initialPartyHp、initialPlayerCost、initialActorResources、initialTeamResources | 首次预览用 Map 初始值；不能从角色长期培养数据推断战斗 HP／战力 |
-| 准入在 GameInstance 内，当前是私有方法 | `src/arona-clicker/runtime-game-instance.ts` 的 startMap、admitMapParty | 需提供窄只读准入投影，和实际开始复用同一求解，避免 UI 复制逻辑 |
+| 准入在 GameInstance 内，当前是私有方法 | `src/arona-clicker/runtime/runtime-game-instance.ts` 的 startMap、admitMapParty | 需提供窄只读准入投影，和实际开始复用同一求解，避免 UI 复制逻辑 |
 | 准入要求 Character 解锁且有持有的 Registry Variant；同角色多差分按 roster key 排序择首个 | admitMapParty 使用 characterSystem.getUnlocked、rosterSystem.getOwned/getVariant | V1 展示实际自动匹配差分；不将它描述为玩家已选编队，不能为通过准入自动发角色 |
-| MapRun 私有 Owner 独立于 UI | `src/arona-clicker/services/map-run-service.ts` 的 MapRunService；GameInstance.#mapRunOwner；`src/arona-clicker/contracts/map-run.ts` 的 MapRun | 只读页面不持有可写 Run；party、partyHp、currentNodeId、资源、草稿／随机流继续由 Owner 管理 |
+| MapRun 私有 Owner 独立于 UI | `src/arona-clicker/services/map/map-run-service.ts` 的 MapRunService；GameInstance.#mapRunOwner；`src/arona-clicker/contracts/map/map-run.ts` 的 MapRun | 只读页面不持有可写 Run；party、partyHp、currentNodeId、资源、草稿／随机流继续由 Owner 管理 |
 | start 会建立 Run、进入起点内容并可能初始化 Encounter／抽牌，也可能起点直接终局 | MapRunService.start 中 openNodeContent、runId 分配与 finishSuccess | 不能调用 start 生成预览再撤销；开始后按真实返回／Workspace View 判断现场还是终局 |
-| 返回游戏只退出 Workspace，Run 保留 | `src/ui/controller.ts` 的 returnFromMapWorkspace、disposeMapFlow；`map-workspace.ts` 的 data-map-back | 增加返回准备页路径；离开现场只清理 UI 临时交互，不清 Run |
+| 返回游戏只退出 Workspace，Run 保留 | `src/ui/controller/controller.ts` 的 returnFromMapWorkspace、disposeMapFlow；`map-workspace.ts` 的 data-map-back | 增加返回准备页路径；离开现场只清理 UI 临时交互，不清 Run |
 | 旧继续路径保持 runId 和整个快照 | `tests/ui/gameplay-b-map-vertical-slice.test.ts` 的返回／continue 用例 | 更新为经准备页返回现场，并继续断言快照不变，不能删除原行为保证 |
 | 重开沿相同准入队伍创建新 Run，失败恢复旧 slot | MapRunService.restart；GameCommands.restartMap | 续行、重开必须不同；重开才重置 HP／资源／进度并产生新 runId，不重新自动换队 |
 | 放弃清除活动 Run，已写长期状态不会回滚 | MapRunService.abandon；controller-actions-operation.ts 的 openMapAbandonConfirmation 与 openMapRestartConfirmation 文案 | 沿用真实命令和危险操作确认，取消无副作用，不额外添加自动放弃逻辑 |
-| 活动 Run 可随主 SaveData 保存，恢复校验 resumeVersion 与快照内容 | MapRunService.createSaveSnapshot/restoreSaveSnapshot；`src/arona-clicker/contracts/save-data.ts`；GameInstance.load | 不增加准备页存档字段；读档成功后的继续页消费恢复 Run，拒绝恢复不能伪造续局 |
+| 活动 Run 可随主 SaveData 保存，恢复校验 resumeVersion 与快照内容 | MapRunService.createSaveSnapshot/restoreSaveSnapshot；`src/arona-clicker/contracts/runtime/save-data.ts`；GameInstance.load | 不增加准备页存档字段；读档成功后的继续页消费恢复 Run，拒绝恢复不能伪造续局 |
 | 终局会清活动 slot，保留有限结果，失败结果不进入存档 | map-run.ts 的 MapRunSuccessResult/MapRunFailureResult 与 MapRunSaveSnapshot；getMapWorkspaceView | 准备页不能把“没有活动 slot”解释成某次通关或失败；V1 不做完整局次历史 |
 | Workspace 返回位置是单层 | `src/ui/workspace/workspace-router.ts` 的 WorkspaceNavigationState、enter/replaceWorkspaceNavigation；Controller 的 enter/replaceWorkspaceRoute | 游戏→准备页只保存一次来源；准备页↔现场用 replace，不能覆盖最初返回点 |
 | 路由镜像对 route-only 页有显式例外 | resolveCurrentWorkspaceRoute 当前保留 map/area 路由；legacy 不携带它们的内部状态 | 新 route 必须接入解析、key、Surface 与刷新分支，不只在 union 添加一个名字 |
@@ -157,11 +157,11 @@ entryInfo?: {
 
 | 模块 | 现有文件／建议扩展 |
 | --- | --- |
-| 内容说明／协议 | `src/data-services/contracts/gameplay-map.ts`；`src/data-services/registry/registry-validate.ts`；`scripts/gen-engine-schema.mjs`；Schema 同步测试，按需维护 editor-extras 元数据；正式示例 `src/arona-clicker/content/gameplay-b-map-datapack.ts` |
-| 准备查询／固定队伍 | `src/arona-clicker/runtime-game-instance.ts` 的 admitMapParty/startMap/_mapRunQuery；`src/arona-clicker/contracts/runtime.ts`；建议将新 DTO 放 contracts 下 map-entry.ts，共享准入／投影放 read-model 或 services 对应文件，避免继续堆叠大门面 |
-| Owner 边界 | `src/arona-clicker/services/map-run-service.ts`；`contracts/map-run.ts`；只在需要得到绑定定义的 HP cap 等窄查询时扩展，不改变 Run 结构与战斗结算 |
-| 路由／UI 状态 | `src/ui/workspace/workspace-router.ts`、`workspace-renderer.ts`、`src/ui/controller.ts`，按需要在 `components/app-shell.ts` 或专用 UI session 文件持有 source binding |
-| 页面／控制 | `src/ui/components/map-entry.ts` 继续承担 Spot 按钮；另建 map-entry-workspace 组件及作用域样式；`controller-actions-operation.ts` 接入口／现场返回／确认；`components/map-workspace.ts` 调整活动现场返回动作 |
+| 内容说明／协议 | `src/data-services/contracts/gameplay-map.ts`；`src/data-services/registry/registry-validate.ts`；`scripts/gen-engine-schema.mjs`；Schema 同步测试，按需维护 editor-extras 元数据；正式示例 `src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack.ts` |
+| 准备查询／固定队伍 | `src/arona-clicker/runtime/runtime-game-instance.ts` 的 admitMapParty/startMap/_mapRunQuery；`src/arona-clicker/contracts/runtime/runtime.ts`；建议将新 DTO 放 contracts 下 map-entry.ts，共享准入／投影放 read-model 或 services 对应文件，避免继续堆叠大门面 |
+| Owner 边界 | `src/arona-clicker/services/map/map-run-service.ts`；`contracts/map-run.ts`；只在需要得到绑定定义的 HP cap 等窄查询时扩展，不改变 Run 结构与战斗结算 |
+| 路由／UI 状态 | `src/ui/workspace/workspace-router.ts`、`workspace-renderer.ts`、`src/ui/controller/controller.ts`，按需要在 `components/app-shell.ts` 或专用 UI session 文件持有 source binding |
+| 页面／控制 | `src/ui/components/map/map-entry.ts` 继续承担 Spot 按钮；另建 map-entry-workspace 组件及作用域样式；`controller-actions-operation.ts` 接入口／现场返回／确认；`components/map-workspace.ts` 调整活动现场返回动作 |
 | 更新／表现／清理 | `src/ui/update/` 命中的 dispatcher／surface，`ui-host-registry.ts` 及真实宿主注册处，`components/workspace-titlebar.ts`、`flow/map-flow-model.ts` 与 Controller 清理入口；按实际消费方局部接入 |
 | 测试与文档 | `tests/ui/gameplay-b-map-vertical-slice.test.ts`、`gameplay-b-map-workspace.test.ts`、`workspace-router.test.ts`、`workspace-lifecycle.test.ts`；`tests/engine/gameplay-b-map-runtime-integration.test.ts`、`gameplay-b-map-run.test.ts`；新增准备页用例，更新受影响现行文档与 ui-style 条目 |
 

@@ -1,6 +1,6 @@
 import type { EditorModel } from '../../model/editor-model';
 import type { PresentationDef } from '../../../../src/engine/types/theme';
-import { buildPresentationView, renderPresentationRegion } from '../../../../src/ui/presentation-service';
+import { buildPresentationView, renderPresentationRegion } from '../../../../src/ui/presentation/presentation-service';
 
 export function renderPresentationPreview(container: HTMLElement, model: EditorModel, presentation: PresentationDef | undefined): void {
   container.replaceChildren();

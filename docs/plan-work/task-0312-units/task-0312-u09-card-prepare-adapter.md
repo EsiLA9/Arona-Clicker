@@ -1,6 +1,7 @@
 # Unit 0312-U09：新prepare折扣复用真实CardRef入口
 
-状态：ready / 未执行；阶段P2。前置：0312-U07实际完成Receipt与测试。
+状态：completed — 本页仅保留施工计划；实际修改与验证结果以对应实施 Receipt 为准。
+> 现行作者合同与迁移结果以 [[docs/docs-829/03-data-structures/datapack-contracts]]、[[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]] 和对应 Receipt 为准；本页的旧字段与 legacy 执行说明只记录当时施工计划，不是当前作者入口。
 
 ## Goal
 
@@ -12,9 +13,9 @@ E1新prepare和旧折扣共用真实CardRef路径，准备预览合法且纯读�
 
 | 类型 | 路径／符号 | 用途 |
 | --- | --- | --- |
-| 源码 | src/arona-clicker/services/map-card-effects.ts：resolveMapCardEffects；src/arona-clicker/services/gameplay-b-action-preview-resolver.ts：resolvedPrepared/resolvedPreparedEnemyActions card分支 | 两处仍要求旧cardEffects |
-| 源码 | src/arona-clicker/services/map-card-catalog.ts：catalogMapRunCards/parseMapRunCardRef；src/arona-clicker/contracts/map-cards.ts | 沿用真实Scope/Owner/zone |
-| 依赖 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map-effect-planner.ts准备结果 | 统一读取折扣声明 |
+| 源码 | src/arona-clicker/services/map/map-card-effects.ts：resolveMapCardEffects；src/arona-clicker/services/map/gameplay-b-action-preview-resolver.ts：resolvedPrepared/resolvedPreparedEnemyActions card分支 | 两处仍要求旧cardEffects |
+| 源码 | src/arona-clicker/services/map/map-card-catalog.ts：catalogMapRunCards/parseMapRunCardRef；src/arona-clicker/contracts/map/map-cards.ts | 沿用真实Scope/Owner/zone |
+| 依赖 | src/data-services/normalization/gameplay-map-effect-program.ts；src/arona-clicker/services/map/map-effect-planner.ts准备结果 | 统一读取折扣声明 |
 
 ## Context Budget
 
@@ -41,8 +42,8 @@ party和Enemy card预览当前均验证action.cardEffects非空；只改Registry
 
 ## Allowed Files
 
-- `src/arona-clicker/services/map-card-effects.ts`
-- `src/arona-clicker/services/gameplay-b-action-preview-resolver.ts`
+- `src/arona-clicker/services/map/map-card-effects.ts`
+- `src/arona-clicker/services/map/gameplay-b-action-preview-resolver.ts`
 - 新增（执行时才创建）：tests/engine/gameplay-b-effect-card-prepare.test.ts
 - 新增实际Receipt（执行结束/中断后）：docs/plan-work/task-0312-units/receipts/task-0312-u09-receipt.md
 

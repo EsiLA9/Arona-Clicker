@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { getForegroundInteractionStatus } from '../../src/ui/workspace/foreground-interaction';
 import type { GameReadModel } from '../../src/arona-clicker/contracts';
-import type { PanelState } from '../../src/ui/components/app-shell';
+import type { PanelState } from '../../src/ui/components/shared/app-shell';
 
 const state = { conversationVariantId: 'student', storyGate: null };
 function game(options: { interaction?: string | null; movement?: boolean; choices?: boolean } = {}) {

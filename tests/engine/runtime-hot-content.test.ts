@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
-import { AronaClickerRuntime } from '../../src/arona-clicker/runtime';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { defaultDatapack } from '../../src/arona-clicker/content';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
-import type { RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime-content';
+import type { RuntimeSpotInput } from '../../src/arona-clicker/contracts/runtime/runtime-content';
 
 class CountingRuntime extends AronaClickerRuntime {
   reloadCount = 0;

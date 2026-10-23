@@ -2,7 +2,7 @@
 // engine/character-system.test.ts — 原型元数据查询 + roster 解锁语义（F-04）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { CharacterSystem } from '../../src/arona-clicker/services/character-system';
+import { CharacterSystem } from '../../src/arona-clicker/services/character/character-system';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { CharacterData } from '../../src/arona-clicker/types/character';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';

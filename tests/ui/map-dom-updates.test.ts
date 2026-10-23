@@ -71,6 +71,29 @@ describe('Map DOM interaction continuity', () => {
     expect(beforeRemove).toHaveBeenCalledWith(card);
   });
 
+  it('patches keyed Status rows in place inside their owning unit region', () => {
+    const current = markup('<article data-map-region-key="party-member:shiroko"><section data-map-region-key="party-face:shiroko"><div data-map-region-key="unit-statuses:partyCharacter:shiroko" role="list"><span data-map-region-key="status:[burn,source-a]" role="listitem">灼烧 · 1层 · 剩余2轮</span></div></section><button data-map-focus-key="target">目标</button></article>');
+    document.body.append(current);
+    const member = current;
+    const face = current.firstElementChild;
+    const statusHost = current.querySelector('[data-map-region-key="unit-statuses:partyCharacter:shiroko"]');
+    const status = current.querySelector('[data-map-region-key="status:[burn,source-a]"]');
+    const target = current.querySelector('[data-map-focus-key="target"]') as HTMLButtonElement;
+    target.focus();
+    const beforeRemove = vi.fn();
+
+    patchMapDOM(current, markup('<article data-map-region-key="party-member:shiroko"><section data-map-region-key="party-face:shiroko"><div data-map-region-key="unit-statuses:partyCharacter:shiroko" role="list"><span data-map-region-key="status:[burn,source-a]" role="listitem">灼烧 · 2层 · 剩余1轮</span></div></section><button data-map-focus-key="target">目标</button></article>'), beforeRemove);
+
+    expect(current).toBe(member);
+    expect(current.firstElementChild).toBe(face);
+    expect(current.querySelector('[data-map-region-key="unit-statuses:partyCharacter:shiroko"]')).toBe(statusHost);
+    expect(current.querySelector('[data-map-region-key="status:[burn,source-a]"]')).toBe(status);
+    expect(status?.textContent).toBe('灼烧 · 2层 · 剩余1轮');
+    expect(current.querySelector('[data-map-focus-key="target"]')).toBe(target);
+    expect(document.activeElement).toBe(target);
+    expect(beforeRemove).not.toHaveBeenCalled();
+  });
+
   it('does not reuse a removed action button for a different action at the same position', () => {
     const current = markup('<section><button data-map-focus-key="old">旧行动</button></section>');
     document.body.append(current);

@@ -1,4 +1,4 @@
-import type { UIController } from '../controller';
+import type { UIController } from '../controller/controller';
 
 export type RuntimeEditorLauncherAction = string;
 

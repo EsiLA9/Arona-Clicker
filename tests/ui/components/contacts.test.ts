@@ -3,18 +3,18 @@ import type { Datapack } from '../../../src/data-services/contracts/datapack';
 // ui/components/contacts.test.ts — 通讯录 UI（U 组）
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
-import { GameInstance } from '../../../src/arona-clicker/runtime-game-instance';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import type { } from '../../../src/engine/types';
 import { and } from '../../../src/engine/types';
 import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
 import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 import { extra } from '../../../src/engine/extra/index';
 import { baseDatapack } from '../../../src/data/test-datapack';
-import { createUIContext } from '../../../src/ui/context';
-import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story';
-import { renderSendButton } from '../../../src/ui/components/center-panel';
-import { ChatStream } from '../../../src/ui/chat-stream';
-import { renderProductionNodes } from '../../../src/ui/components/production';
+import { createUIContext } from '../../../src/ui/runtime/context';
+import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story/story';
+import { renderSendButton } from '../../../src/ui/components/shared/center-panel';
+import { ChatStream } from '../../../src/ui/presentation/chat-stream';
+import { renderProductionNodes } from '../../../src/ui/components/shared/production';
 import {
   renderContactsTab,
   renderConversationBody,
@@ -22,7 +22,7 @@ import {
   renderCharacterPanel,
   renderGachaBody,
   renderSpotGachaBody,
-} from '../../../src/ui/components/contacts';
+} from '../../../src/ui/components/character/contacts';
 
 function makeDatapack(): Datapack {
   return {
