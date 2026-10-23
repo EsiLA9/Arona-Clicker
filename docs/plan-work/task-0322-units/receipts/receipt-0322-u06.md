@@ -1,0 +1,9 @@
+# Receipt Task 0322-U6
+
+状态：完成。新增createStoryNodePlayback显式factory和真实GameInstance集成测试。Factory装配现有EffectEngine、Registry、Entry服务、旅行及事件总线；选择条件使用本Run的visited集合，不覆盖全局ConditionSystem的链访问器。
+
+实际验证：集成6/6通过。覆盖正文→选择→共同动作→候选批次表达式→插播→返回→非相邻旅行→完成；旧票据不重放、缺目标无写入、新旧visited隔离、异owner入口继续与同owner替换、入口动态解锁及拒绝保留游标、真实资源事件中途抛错停止且不重试。定位Overlay ID/坐标、擦除、标题经真实Runtime reactor产生对应领域事件。
+
+这些是领域行为与事件验证，不是实屏UI验收。未注册到旧播放游标、保存、正式Datapack或奖励结算；新完成不写storyLog，不发storyCompleted/storyRewarded。调用方管理Player生命周期；game.dispose/reset不会自动替新Player取消，接Controller前需明确生命周期。Entry桥接不等于已迁移作者格式。临时表现的story生命周期清理仍待显式新链清理合同；U8在此之前明确拒绝相关Action，不报告假成功。
+
+严格独立复审由Luna MAX对factory、集成与adapter联合执行；发现的静默无效与生命周期/owner缺口已由U8明确拒绝；动态资格和数值政策见Task最终合同。类型及architecture/docs/diff验证亦见Task。GALHCG集中只读changed检查，新增factory和测试为unreferenced_path；未改图、刷新或写freshness。无范围外变更。

@@ -35,6 +35,9 @@ export interface StoryGateState {
   owner: string | null;
   /** 确认后的启动方式：active = startActiveStory / replay = replayStory / card = startCardStory。 */
   mode: 'active' | 'replay' | 'card';
+  sourceRunId?: string;
+  sourceOwner?: string | null;
+  sourceToken?: string;
 }
 
 export interface PanelState {

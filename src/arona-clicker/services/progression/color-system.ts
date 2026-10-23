@@ -12,7 +12,7 @@
 
 import type { ColorGroupDef, ThemeDesignDef } from '../../../data-services/contracts/color';
 import type { ColorGroupId } from '../../types/character';
-import type { Condition, ConditionGroup, Effect } from '../../../engine/types/expression';
+import type { Condition, ConditionGroup, Effect, ThemeEffectValue } from '../../../engine/types/expression';
 import type { BackgroundLayerDef, ThemeDef, ThemeToken } from '../../../engine/types/theme';
 import type { PlayerState } from '../../types/state';
 import type { Registry } from '../../../data-services/registry/registry';
@@ -171,6 +171,10 @@ export class ColorSystem {
   private temporaryThemeLayer: ThemeLayer | null = null;
   private temporaryThemeId: string | null = null;
   private previewThemeLayer: ThemeLayer | null = null;
+  /** 新节点链按 run 隔离；只在 UI 激活匹配 owner 时投影到当前主题。 */
+  private readonly storyNodeThemeLayers = new Map<string, { owner: string | null; layer: ThemeLayer; sequence: number }>();
+  private activeStoryNodeOwner: string | null | undefined;
+  private storyNodeThemeSequence = 0;
 
   constructor(
     private readonly registry: Registry,
@@ -284,9 +288,61 @@ export class ColorSystem {
   }
 
   private syncSingleRuntimeTheme(): void {
-    const layer = this.previewThemeLayer ?? this.temporaryThemeLayer ?? this.selectedThemeLayer;
+    const storyNodeLayer = this.activeStoryNodeThemeLayer();
+    const layer = this.previewThemeLayer ?? storyNodeLayer ?? this.temporaryThemeLayer ?? this.selectedThemeLayer;
     this.selectedRuntime.reset();
     this.selectedRuntime.setPlayer(layer ? { ...layer, scope: 'player' } : null);
+  }
+
+  private activeStoryNodeThemeLayer(): ThemeLayer | null {
+    if (this.activeStoryNodeOwner === undefined) return null;
+    let selected: { layer: ThemeLayer; sequence: number } | undefined;
+    for (const value of this.storyNodeThemeLayers.values()) {
+      if (value.owner !== this.activeStoryNodeOwner) continue;
+      if (!selected || value.sequence > selected.sequence) selected = value;
+    }
+    return selected?.layer ?? null;
+  }
+
+  /** 激活当前UI流对应的节点来源；null为全局流。 */
+  activateStoryNodeThemeOwner(owner: string | null): void {
+    if (this.activeStoryNodeOwner === owner) return;
+    this.activeStoryNodeOwner = owner;
+    this.syncSingleRuntimeTheme();
+  }
+
+  /** 按新播放run写入主题；实体scope仍写持久槽，ephemeral只影响激活的owner流。 */
+  setStoryNodeTheme(runId: string, owner: string | null, value: ThemeEffectValue): boolean {
+    if (!runId.trim()) return false;
+    if (value.scope === 'area' || value.scope === 'student') {
+      return this.handleThemeEffect({ op: 'setTheme', target: '', value });
+    }
+    const id = `story-node:${runId}`;
+    const layer = this.enrichThemeLayer({
+      id,
+      sourceId: id,
+      owner: runId,
+      scope: 'ephemeral',
+      groupId: value.colorGroupId as ColorGroupId | undefined,
+      palette: normalizePalette(value.palette),
+      tokens: value.tokens,
+      nodeOverrides: value.nodes,
+      background: value.background,
+    });
+    this.runtime.pushEphemeral(layer);
+    this.storyNodeThemeLayers.set(runId, { owner, layer, sequence: ++this.storyNodeThemeSequence });
+    if (this.activeStoryNodeOwner === owner) this.syncSingleRuntimeTheme();
+    return true;
+  }
+
+  /** 只移除给定新节点run的临时主题；area/student持久实体槽不会在链结束时撤销。 */
+  clearStoryNodeTheme(runId: string): boolean {
+    const existing = this.storyNodeThemeLayers.get(runId);
+    if (!existing) return false;
+    this.storyNodeThemeLayers.delete(runId);
+    this.runtime.popEphemeral(existing.layer.id!);
+    if (this.activeStoryNodeOwner === existing.owner) this.syncSingleRuntimeTheme();
+    return true;
   }
 
   /** 从状态同步全局主题来源；保留旧门面供调用方迁移，主题仍只会单选。 */
@@ -361,6 +417,9 @@ export class ColorSystem {
     this.selectorThemeLayer = null;
     this.temporaryThemeLayer = null;
     this.temporaryThemeId = null;
+    this.storyNodeThemeLayers.clear();
+    this.activeStoryNodeOwner = undefined;
+    this.storyNodeThemeSequence = 0;
     this.previewThemeLayer = null;
     this.runtime.reset();
     this.selectedRuntime.reset();
@@ -410,7 +469,13 @@ export class ColorSystem {
       // 剧情/Trigger 直接改写实体主题槽（自定义来源，持久至玩家改回）
       this.mutations.setEntityThemeSlot(value.entityKey, {
         kind: 'custom',
-        customTheme: { colorGroupId: value.colorGroupId, palette: value.palette, tokens: value.tokens, nodes: value.nodes },
+        customTheme: {
+          colorGroupId: value.colorGroupId,
+          palette: value.palette,
+          tokens: value.tokens,
+          nodes: value.nodes,
+          background: value.background,
+        },
       });
       return true;
     }

@@ -2,7 +2,85 @@
 
 > 本文回答：正文、choice、底部 Click、回复、效果、跳转、定位气泡和卡片，在 Task 0322 中分别变成什么；它们如何配合，哪里容易重复或误解。
 
-状态：investigation / 设计解读。更新日期：2026-10-23。当前方案见 [[docs/plan-work/task-0322-story-node-model-and-playback-plan]]。以当前源码及 [[docs/plan-work/report-0321-story-talklet-capability-investigation]] 为旧能力依据。**0322 尚未实施；本页包含两轮设计，下面“第二轮覆盖核查”为当前结论，后面的 §1–10 保留为初版方案解读。**
+状态：阶段1–5已实现并完成本轮验收；独立编辑工具为阶段6。更新日期：2026-10-23。当前实现与验证见 [[docs/plan-work/task-0322-story-node-model-and-playback-plan]] §15起；当前机制见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat]]。以下先说明实际落点，后面的折叠部分是此前设计调查记录。
+
+## 现在一条剧情怎样工作
+
+可以把它看作顺序写下的演出脚本。正文只负责把话说完，Click负责等人操作，Operation负责做事，Transfer负责换路线。原来的一个Talklet可以写成“正文A → 正文B → 选择 → 共同动作 → 分支动作 → 插播 → 返回”，不再要求一个旧对象对应一个新对象。
+
+| 原来想做的事 | 现在怎么写 | 容易混淆的边界 |
+| --- | --- | --- |
+| 对话、旁白、图片、头像、左右站位 | Talklet.content/presentation/pacing | 显示完才确认送达；正文里没有藏着的按钮效果 |
+| 底部回复按钮 | Click.button，可声明reply | 按钮文字和聊天回复是两回事；未写reply就不回显 |
+| choice选择 | Click.choice.options，以optionId提交 | sharedActions只跑一次；只跑选中的result，不跑别的候选 |
+| 点N次，然后再确认 | 工作Click.press，再接确认Click | 工作Click正好N次；额外确认是另一个节点，作者看得见 |
+| 改资源、flag、角色、好感等 | Operation.state，或输入result.actions | 单个state批次仍由领域服务处理；不同动作已经按脚本先后执行 |
+| 移动区域 | travel动作 | 沿正式领域移动命令，notice由来源owner接收；不是嵌入地图玩法 |
+| goto/insert | 独立Transfer，或输入result.transfer | insert记住下一节点；回来不重跑刚才的选择和效果 |
+| 在坐标(x,y)放文本/消息/邀请 | overlay.show，带显式id | id用于更新/擦除；owner/run决定归属；它不是一条正文历史 |
+| 点击卡片进入另一剧情 | Click.entryCard，或overlay中的entryCard | 前者是当前等待输入；后者是可同时显示的邀请。都通过正式Entry准入和确认 |
+| 主题、实体表现、开场标题 | presentation命令 | 临时演出按run清理；区域/角色等持久作用域继续走原政策 |
+| 闲聊抽取、好感推送、后续投递、区域接取 | StoryService/Entry层 | 放在节点外调度，不能由另一个按钮推进器绕开当前节点 |
+
+地图与卡牌要分清两层：本轮保留定位文本、消息样式和“进入剧情”的邀请卡片；独立Gameplay Map、战斗卡牌与它们自己的Run没有被塞进Talklet。原Flow呈现类型声明不等于已经存在的Story地图生成链。需要新玩法容器时，应给它明确输入/退出合同，不能仅因旧枚举出现过`map`就宣称Node已实现整个地图。
+
+## 它们怎样避免互相抢工作
+
+正文自动接续时，UI只确认自己刚送达的token。底部按钮、选择和卡片提交当前输入token；读档或切换之后旧token失效。选项只负责选中候选，不另外发一轮“按钮效果”。Operation适合独立时刻，result.actions适合“用户确定了以后”，二者共用动作合同；把同一个动作写在两处就会执行两次，程序不会猜作者想去重。
+
+每个owner有独立演出：你打开星野面板时，后台的全局文本、其他角色奖励或旅行通知仍送回原来的流。清理按run执行，结束旧剧情不会擦掉新剧情。存档保存节点位置、多击随机结果、插播栈和表现快照；恢复重新发票据，不重放之前的资源奖励，已显示正文按逻辑身份去重。
+
+正式43篇Story和运行JSON包已切到新结构，作者工厂、Registry引用与Schema同步更新；旧页解释器已退役，旧存档格式明确拒绝。独立Story编辑工具是下一阶段，当前只有可由类型和结构检查约束的作者合同。
+
+<details>
+<summary>此前的设计拆分、原语首片和调查证据（历史记录）</summary>
+
+## 播放首片：现在已经能运行什么
+
+现在可显式构造新播放器：依次交付正文，每条确认后继续；阶段末尾开放button、choice或entryCard。多击只在入场抽一次工作量，选择按稳定ID提交并重验条件。查询不会执行动作，旧票据不能重复领取。
+
+选择成功后，先做共同动作，再做候选动作，最后跳转。insert记录整个交互之后的返回点，goto保留外层插播返回栈；链尾交付来源与实际末尾两个身份。资源与表达式批次、旅行、定位文本和入口请求接现有领域服务，执行故障停止来源链，已生效的前序动作不自动回滚。
+
+真实GameInstance样例已经覆盖“正文→选择→共同资源动作→分支批次→插播→返回→旅行→完成”，并检查定位文本ID/坐标、显式擦除、标题事件及不同owner入口。更多边界与验收记录在Task§13及U4–U8收据。
+
+当前还没有屏幕播放Controller、保存恢复、正式内容替换或新链奖励结算。Entry桥接目标仍由现有Entry服务启动；新节点不解释旧talklets。旧Entry含本链访问条件时明确拒绝桥接，避免读错旧链。新链完成不发旧storyCompleted，所以此片明确拒绝story生命周期实体表现和ephemeral主题；持久area/student主题携带旧服务不消费的background也明确拒绝。作者声明保留这些能力，后续补新链清理合同后才能执行。Overlay当前只允许null来源发送全局演出事件，非null来源明确拒绝；Overlay卡片一律待Controller正确传递owner后再支持。Click中的入口卡片已能直接发出Entry请求，两者不能混算。标题目前只接受null来源的显式非空文字，默认来源也待Controller接线。演出事件接线不代表已经通过实屏验收。
+
+## 原语首片：已经写成什么
+
+用户完成Git保存后，三个Luna MAX分工落地作者类型、动作参数、关系检查，并交叉复审。主Agent整合了可检查的S01–S07样例与参数实值。本片没有改旧StoryDef成联合，没有新增两套产品播放解释，也没有启动存档和正式内容迁移。
+
+现在一份新作者文档包含：
+
+```text
+StoryNodeDocument
+  stages：每个阶段明确 auto（自动接续）或 input（等待显式输入）
+  nodes：唯一顺序
+    Talklet(stageId)：正文、外观、节奏
+    Click(stageId)：button / choice(options) / entryCard
+    Operation：状态批次 / 旅行 / 覆盖层 / 表现 / 入口请求
+    Transfer：goto / insert
+```
+
+**一个阶段是一段连续正文，加上至多一个末尾Click。** input可以没有正文；auto必须有正文而没有Click。Operation/Transfer可以放在阶段之间，不能夹进同一个stageId的正文与Click之间；要么拆两个明确阶段，要么把成功后的动作放在Click结果里。
+
+例如“阿罗娜连说两句，再让老师选择”，两条Talklet与一个choice Click写同一stageId；“老师先敲门，再进门”，两个button Click分别属于两个input阶段。stages不重复存节点列表，不能靠它的键顺序改变播放顺序。
+
+新的动作声明保留：14种有效状态操作及数值表达式/Extra树；旅行目标与notice；定位ID/坐标/适用样式；主题复合参数；实体表现归属/生命周期；标题默认来源；主动/被动Entry请求与全局/角色归属。卡片请求限定主动入口，系统请求仍可指向被动入口；卡片行为与普通/系统启动不被压成同一个强制规则。
+
+两项限制已经能检查：显式typing/thinking只用于非右侧talk；实体主题的area/student scope必须明确对应实体槽。旁白图片、被动卡片、通用target/value状态外壳、loot等有编译拒绝用例。
+
+| 产物 | 它能证明什么 |
+| --- | --- |
+| `src/data-services/contracts/story-node.ts` | 四节点、阶段与交互结果的声明边界 |
+| `src/data-services/contracts/story-node-actions.ts` | 有限动作与参数形状，不提供执行权限 |
+| `src/data-services/validation/story-node-structure.ts` | 对typed文档检查阶段/身份/多击与节奏基础约束，不解析任意JSON |
+| `tests/data/story-node-authoring.fixtures.ts` | S01–S07等组合及完整状态参数能写成类型实值 |
+| `tests/data/story-node-authoring.test.ts` | 组合结构与编译拒绝证据，不是播放器测试 |
+| `tests/data/story-node-structure.test.ts` | 阶段错误、身份冲突、数字越界、节奏资格及不修改输入的回归 |
+
+**尚未证明的是实际播放。** 自动阶段如何送达、点击工作量状态、混合Effect批次顺序、入口请求成功/拒绝、奖励完成归属、已读与保存，仍按Task第二轮逐项判断。正式Datapack和现有游戏当前仍使用原StoryDef；新增类型索引不代表独立Editor已获得新表单。
+
+完整字段映射与首片Receipt见当前Task§11–12。以下第二轮中“尚待补定阶段/入参”的问题已由本片声明推进，运行结果类留白继续有效。
 
 ## 第二轮覆盖核查：先证明能表达，再讨论引擎
 
@@ -113,7 +191,7 @@ Transfer  = 切到哪个 StoryDef，里面分 goto / insert
 - 未实现的loot、Affector声明型上限、旧click+choices等不可靠组合，不作为必须复刻的旧能力。
 - MapFlow地图概览/地点卡、mapCards渲染基建、Flow marks/id/repeatPolicy不是正式Story Talklet作者字段；本轮不删除外层能力，也不凭空新增Story权限。
 
-本轮新增核对入口：`src/engine/types/expression.ts` 的 Effect/ThemeEffectValue/EntityPresentationEffectValue；`src/arona-clicker/services/runtime/runtime-effect-reactor.ts` 的 storyEffectRequested 分支；`src/arona-clicker/services/story/story-flow.ts` 的 startStory/trackFlagsAndApply/applyStoryTravel；`src/ui/presentation/chat-stream.ts` 的 typingEligible/thinkingDelayOf/chainEligible。这些证明旧功能和参数存在，不证明新模型已经执行。
+本轮新增核对入口：`src/engine/types/expression.ts` 的 Effect/ThemeEffectValue/EntityPresentationEffectValue；`src/arona-clicker/services/runtime/runtime-effect-reactor.ts` 的 storyEffectRequested 分支；`src/arona-clicker/services/story/story-service.ts` 与 `story-node-player.ts` 的入口及节点执行；`src/ui/presentation/chat-stream.ts` 的节奏门控。这些入口用于核对当前实现与旧语义边界。
 
 复审时还核对了 `src/ui/components/shared/center-panel.ts` 的 renderSendButton 与 `src/ui/components/character/contacts.ts` 的选项显示条件：当前choice通过confirmed控制先确认再显示，并不是按sendText有无决定直接显示。阶段组合用于保留这类意图，不在本轮更改旧UI。
 
@@ -522,8 +600,8 @@ Talklet：阿罗娜「我们继续吧。」
 | --- | --- |
 | `src/data-services/contracts/story.ts` | Talklet、StoryChoice、StoryDef 的旧字段全集 |
 | `src/data-services/contracts/story-entry.ts` | Entry 入口条件、奖励、守卫、openingTitle、后续职责 |
-| `src/arona-clicker/services/story/story-flow.ts` | getSendState、clickSend、advanceStory；旧选项确认、多击、闲聊启动与效果顺序 |
-| `src/arona-clicker/services/story/story-jump.ts` | performJump、resolveStoryEnd；跳转与返回 |
+| `src/arona-clicker/services/story/story-service.ts`、`story-node-player.ts` | clickSend、advanceStory与节点执行；显式输入阶段和节点顺序 |
+| `src/arona-clicker/services/story/story-node-player.ts`、`story-service.ts` | transfer、insert及会话完成路径 |
 | `src/ui/presentation/chat-stream.ts` | 内容送达、连发、覆盖层集合与清理 |
 | `src/ui/flow/flow-entry.ts` | Flow 逻辑身份、呈现类型与 Map 载荷边界 |
 | `src/engine/contracts/chat-presentation.ts` | 定位覆盖层与样式契约 |
@@ -533,5 +611,7 @@ Talklet：阿罗娜「我们继续吧。」
 完整旧能力证据见 [[docs/plan-work/reports/story-talklet-investigation/runtime]]、[[docs/plan-work/reports/story-talklet-investigation/position-id-presentation]]、[[docs/plan-work/reports/story-talklet-investigation/flow-map-cards]]、[[docs/plan-work/reports/story-talklet-investigation/authoring-and-validation]]。
 
 本轮只交付调查说明及索引，不改 Task 合同、产品实现、Schema 或存档，不把旧实现测试通过算成新 Node 模型验证。
+
+</details>
 
 </details>

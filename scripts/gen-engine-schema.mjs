@@ -219,7 +219,7 @@ function describeGameplayMapFields(members, decl, active, depth) {
 
 function describeInterface(node, decl, depth, ctx) {
   const fields = [];
-  for (const member of node.members ?? []) {
+  for (const member of interfaceMembers(node, decl)) {
     if (!ts.isPropertySignature(member)) continue;
     const key = member.name.getText();
     const required = !member.questionToken;
@@ -278,6 +278,29 @@ function describeInterface(node, decl, depth, ctx) {
     fields.push(f);
   }
   return fields;
+}
+
+/** Include inherited interface fields in generated table rows, keeping child declarations as overrides. */
+function interfaceMembers(node, decl, active = new Set()) {
+  const name = node.name?.text;
+  if (name && active.has(name)) return node.members ?? [];
+  const next = new Set(active);
+  if (name) next.add(name);
+  const members = new Map();
+  for (const heritage of node.heritageClauses ?? []) {
+    for (const base of heritage.types) {
+      const baseName = base.expression?.getText();
+      const declaration = baseName ? decl.get(baseName) : undefined;
+      if (declaration?.kind !== 'interface') continue;
+      for (const member of interfaceMembers(declaration.node, decl, next)) {
+        if (ts.isPropertySignature(member)) members.set(member.name.getText(), member);
+      }
+    }
+  }
+  for (const member of node.members ?? []) {
+    if (ts.isPropertySignature(member)) members.set(member.name.getText(), member);
+  }
+  return [...members.values()];
 }
 
 /**

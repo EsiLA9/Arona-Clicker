@@ -102,7 +102,7 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
   return `
     <div class="chat-launcher">
       <strong>${hint}</strong>
-      <p>偶尔会出现选项，其余时间点击最下方的回复按钮推进对话。</p>
+      <p>台词会自动继续；出现回复按钮或选项时，请按提示操作。</p>
     </div>`;
 }
 
@@ -115,10 +115,13 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
  * - choice：有选项，按钮让位
  */
 export function renderSendButton(sendState: SendState, gate: SendGatePhase | null = null): string {
+  const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const token = 'token' in sendState && sendState.token
+    ? ` data-story-token="${escape(String(sendState.token))}"` : '';
   if (gate) {
     // send-ghost：隐藏箭头行框占位，节奏点态与一般点击态等高（§4）
     return `
-      <button class="send-button thinking" data-send aria-label="正在输入">
+      <button class="send-button thinking" data-send${token} aria-label="正在输入">
         <span class="send-bubble">
           <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="send-ghost" aria-hidden="true">↗</span>
@@ -166,7 +169,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
   }
 
   // mode === 'advance'：无预设回复文案（旁白/普通对话）时按钮仅作推进 → "点击"
-  const label = sendState.text && sendState.text.trim() ? sendState.text : '点击';
+  const label = sendState.text && sendState.text.trim() ? escape(sendState.text) : '点击';
 
   // 多击任务（clickWork）：进度条从左往右填充，填满（done === total）后按钮切换为"完成"态，
   // 再点一次才结束该 click 页（推进剧情）
@@ -176,7 +179,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
     const filled = total > 1 && done >= total;
     const workLabel = filled ? '完成' : label;
     return `
-      <button class="send-button send-player work${filled ? ' done' : ''}" data-send>
+      <button class="send-button send-player work${filled ? ' done' : ''}" data-send${token}>
         <span class="send-bubble">
           <span class="send-progress" style="--pct: ${pct}%"></span>
           <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -188,7 +191,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
   }
 
   return `
-    <button class="send-button send-player" data-send>
+    <button class="send-button send-player" data-send${token}>
       <span class="send-bubble">
         <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="send-text">${label}</span>

@@ -1,62 +1,51 @@
-// ============================================================
-// arona-clicker/services/story-rewards.ts — 完结奖励 / 冷却 / 对话阻断
-// 从 story-service.ts 拆出：applyCompletionReward / recordPassiveCooldown / maybeBlockConversation
-// ============================================================
-
 import type { PassiveStoryEntry, StoryEntryDef } from '../../../data-services/contracts/story-entry';
-import type { StoryDef } from '../../../data-services/contracts/story';
-import type { StoryRuntime } from './story-context';
+import type { Registry } from '../../../data-services/registry/registry';
+import type { ConditionSystem } from '../../../engine/expression/condition-system';
+import type { EffectEngine } from '../../../engine/effect/effect-engine';
+import type { Effect } from '../../../engine/types/expression';
+import type { PlayerState } from '../../types/state';
+import type { StoryMutationPort } from '../../contracts/runtime/mutation';
 
-/**
- * 完结奖励评估：
- * - conditional 策略：按声明顺序评估 conditionalRewards，首个满足的生效。
- * - simple 策略（缺省，兼容现有行为）：passive 闲聊的 first / repeat。
- */
-export function applyCompletionReward(rt: StoryRuntime, entry: StoryEntryDef, story: StoryDef): void {
-  if (entry.completionStrategy === 'conditional' && entry.conditionalRewards && entry.conditionalRewards.length > 0) {
-    const matched = entry.conditionalRewards.find(r => rt.conditionSystem.evaluateGroup(r.condition, rt.getState()));
-    if (matched && matched.effects.length > 0) {
-      rt.effectEngine.applyEffects(matched.effects);
-      rt.lastRewarded.value = { source: 'conditional', effects: matched.effects };
-    }
-    return;
-  }
-  if (entry.completionReward) {
-    // 该 Story 首次完成发 first，重复完成发 repeat（一般不配置 repeat）
-    const isFirst = !rt.hasCompletedStory(story.id);
-    const reward = isFirst ? entry.completionReward.first : entry.completionReward.repeat;
-    if (reward && reward.length > 0) {
-      rt.effectEngine.applyEffects(reward);
-      rt.lastRewarded.value = { source: isFirst ? 'first' : 'repeat', effects: reward };
-    }
-  }
+export type RewardsSettlement = { source: 'first' | 'repeat' | 'conditional'; effects: Effect[] } | null;
+
+export interface StoryRewardsContext {
+  readonly registry: Registry;
+  readonly conditionSystem: ConditionSystem;
+  readonly effectEngine: Pick<EffectEngine, 'applyEffects'>;
+  readonly mutations: Pick<StoryMutationPort, 'setPassiveCooldowns' | 'setStudentBlock'>;
+  readonly getState: () => PlayerState;
+  readonly hasCompletedStory: (storyId: string) => boolean;
 }
 
-/**
- * 被动闲聊完结后写入冷却帧：entry 自身 + 其归属的池（若池声明了 cooldownFrames）。
- * 抽选时未过冷却期的 entry/池将被剪枝（见 PassivePoolSystem.pick）。
- */
-export function recordPassiveCooldown(rt: StoryRuntime, entry: PassiveStoryEntry): void {
+/** Entry owns reward policy; first/repeat is decided against the terminal Story ID. */
+export function applyCompletionReward(ctx: StoryRewardsContext, entry: StoryEntryDef, terminalStoryId: string): RewardsSettlement {
+  if (entry.completionStrategy === 'conditional' && entry.conditionalRewards?.length) {
+    const matched = entry.conditionalRewards.find(reward => ctx.conditionSystem.evaluateGroup(reward.condition, ctx.getState()));
+    if (!matched?.effects.length) return null;
+    ctx.effectEngine.applyEffects(matched.effects);
+    return { source: 'conditional', effects: matched.effects };
+  }
+  if (!entry.completionReward) return null;
+  const first = !ctx.hasCompletedStory(terminalStoryId);
+  const effects = first ? entry.completionReward.first : entry.completionReward.repeat;
+  if (!effects?.length) return null;
+  ctx.effectEngine.applyEffects(effects);
+  return { source: first ? 'first' : 'repeat', effects };
+}
+
+/** Passive cooldown is rooted in the source Entry and any containing pool declaration. */
+export function recordPassiveCooldown(ctx: StoryRewardsContext, entry: PassiveStoryEntry): void {
   if (!entry.cooldownFrames) return;
-  const frame = rt.getState().totalFrames;
-  const cooldowns = { ...(rt.getState().passiveCooldowns ?? {}) };
-  cooldowns[entry.id] = frame;
-  // 该 entry 被哪些池以子节点形式引用（归属池）：这些池命中后也进入冷却
-  for (const pool of rt.registry.passivePools.values()) {
-    if (!pool.cooldownFrames) continue;
-    if (pool.children.some(child => child.id === entry.id)) {
-      cooldowns[pool.id] = frame;
-    }
+  const state = ctx.getState();
+  const cooldowns = { ...(state.passiveCooldowns ?? {}) };
+  cooldowns[entry.id] = state.totalFrames;
+  for (const pool of ctx.registry.passivePools.values()) {
+    if (pool.cooldownFrames && pool.children.some(child => child.id === entry.id)) cooldowns[pool.id] = state.totalFrames;
   }
-  rt.mutations.setPassiveCooldowns(cooldowns);
+  ctx.mutations.setPassiveCooldowns(cooldowns);
 }
 
-/**
- * 被动闲聊完结后若声明了 block 条件，则锁定该学生对话空间（壁垒重启），
- * 直到条件组满足（由各 tick / 区域进入事件经 StateMutationService 解除）。
- */
-export function maybeBlockConversation(rt: StoryRuntime, entry: PassiveStoryEntry): void {
-  if (entry.owner && entry.block) {
-    rt.mutations.setStudentBlock(entry.owner, entry.id);
-  }
+/** A source passive Entry may block its owning student's conversation after completion. */
+export function maybeBlockConversation(ctx: StoryRewardsContext, entry: PassiveStoryEntry): void {
+  if (entry.owner && entry.block) ctx.mutations.setStudentBlock(entry.owner, entry.id);
 }

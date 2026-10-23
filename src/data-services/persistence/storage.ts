@@ -1,7 +1,7 @@
 import { LocalStorageAdapter, type StorageAdapter } from './storage-adapter';
 
 const SAVE_KEY = 'acprogram_save';
-const SAVE_VERSION = '1.0.0';
+const SAVE_VERSION = '2.0.0';
 
 /** LocalStorage 持久化适配器；不参与 Runtime 生命周期和状态编排。 */
 export class SaveSystem {

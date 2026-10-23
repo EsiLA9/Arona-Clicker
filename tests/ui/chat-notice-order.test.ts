@@ -9,7 +9,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindStoryActions } from '../../src/ui/controller/controller-actions-story';
-import { finishWelcome } from '../engine/story-test-fixtures';
+import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';
 
@@ -79,18 +79,8 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
       vi.advanceTimersByTime(UIController.REWARD_REVEAL_DELAY_MS);
       expect(controller.activeStream().some(e => e.text.includes('测试奖励'))).toBe(false);
       // 播完整条羁绊剧情（尾巴未完结仍会即时推送，一并播完）→ 游标清空
-      const drain = () => {
-        for (let i = 0; i < 30; i++) {
-          const r = game.story.advanceStory(undefined, 'Hoshino');
-          if (!r.success) {
-            if (r.error === 'ChoiceRequired') { game.story.advanceStory(0, 'Hoshino'); continue; }
-            break;
-          }
-          if ('finished' in r && r.finished) break;
-        }
-      };
-      drain();
-      drain();
+      finishStory(game, 0, 'Hoshino');
+      finishStory(game, 0, 'Hoshino');
       expect(game.getStoryView('Hoshino')).toBeNull();
       controller.render();
       vi.advanceTimersByTime(UIController.REWARD_REVEAL_DELAY_MS);

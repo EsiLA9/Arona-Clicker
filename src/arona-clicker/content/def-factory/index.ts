@@ -9,7 +9,6 @@ export * from './item';
 export * from './drop-table';
 export * from './enhancement';
 export * from './passive-pool';
-export * from './talklet';
 export * from './story';
 export * from './story-entry';
 export * from './area';

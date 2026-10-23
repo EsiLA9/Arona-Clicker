@@ -49,7 +49,7 @@ export class StoryAvailabilityDeliveryMount {
     for (const entryId of this.entryIds) {
       const entry = this.registry.activeStories.get(entryId);
       const story = entry ? this.registry.stories.get(entry.storyId) : undefined;
-      if (!entry || !story || story.talklets.length === 0) continue;
+      if (!entry || !story || story.nodes.length === 0) continue;
       if (entry.availableInits.length > 0 && !entry.availableInits.includes(initId)) continue;
       if (state.storyLog.some(completed => completed.storyId === entry.storyId)) continue;
       if (entry.triggerCondition && !this.conditionSystem.evaluateGroup(entry.triggerCondition, state)) continue;

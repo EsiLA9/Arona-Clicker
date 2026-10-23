@@ -1,4 +1,5 @@
 import type { Datapack } from '../../src/data-services/contracts/datapack';
+import type { StoryNode } from '../../src/data-services/contracts/story-node';
 // ============================================================
 // engine/game-instance.test.ts — 集成测试
 // ============================================================
@@ -12,16 +13,26 @@ import { tagPath } from '../../src/engine/core/tag';
 import { extra } from '../../src/engine/extra/index';
 
 /** 推进完当前自动展开的剧情（active 欢迎剧情会锁定移动）。 */
-function finishWelcome(g: GameInstance): void {
-  for (let guard = 0; guard < 200; guard++) {
-    const r = g.story.advanceStory();
-    if (r.success && 'finished' in r && r.finished) break;
-    if (!r.success && r.error === 'ChoiceRequired') {
-      g.story.advanceStory(0);
-      continue;
-    }
-    if (!r.success) break;
+function finishCurrentStory(g: GameInstance): void {
+  for (let guard = 0; guard < 200 && g.getView().currentStory; guard++) {
+    const view = g.getView().currentStory!;
+    const result = view.phase === 'delivery' ? g.story.advanceStory(undefined, undefined, view.token)
+      : view.page.choices ? g.story.advanceStory(0, undefined, view.token) : g.story.clickSend(undefined, view.token);
+    if ('success' in result && !result.success) throw new Error(JSON.stringify(result));
   }
+  if (g.getView().currentStory) throw new Error('Story did not finish within 200 steps');
+}
+
+function moveUntil(g: GameInstance, predicate: (view: NonNullable<ReturnType<GameInstance['getView']>['currentStory']>) => boolean): void {
+  for (let i = 0; i < 200; i++) {
+    const view = g.getView().currentStory;
+    if (!view) throw new Error('Story ended before expected boundary');
+    if (predicate(view)) return;
+    if (view.phase === 'delivery') g.story.advanceStory(undefined, undefined, view.token);
+    else if (view.page.choices) g.story.advanceStory(0, undefined, view.token);
+    else g.story.clickSend(undefined, view.token);
+  }
+  throw new Error('Expected boundary not reached');
 }
 
 describe('GameInstance (integration)', () => {
@@ -125,50 +136,16 @@ describe('GameInstance (integration)', () => {
 
   test('should run an active story with choice, effects, reward, and completion record', () => {
     game.init([baseDatapack]);
-    game.state.resources['base:resource:credit'] = 0;
-
-    // 欢迎剧情因 schale_office 的 startStoryId 自动展开，已处于 page0
-    // 结构：0 开场旁白 / 1 阿罗娜 / 2 老师 / 3 click 交互页 / 4 转场旁白 / 5 选项页 / 6 结尾
-    expect(game.getView().currentStory).toMatchObject({
-      storyId: 'base:activestory:schale_welcome', pageIndex: 0, totalPages: 7,
-    });
-
-    // page0 → page1 → page2 → page3 → page4（连续无选项页：旁白/对话/click 交互页推进）
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 1 } });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 2 } });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 3 } });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 4 } });
-
-    // page4 → page5（选项页）
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false, story: { pageIndex: 5 } });
-    // 选项页必须先选
-    expect(game.story.advanceStory()).toEqual({
-      success: false,
-      storyId: 'base:story:schale_welcome',
-      error: 'ChoiceRequired',
-    });
-
-    const choicePage = game.story.advanceStory(1);
-    expect(choicePage).toMatchObject({ success: true, finished: false, story: { pageIndex: 6 } });
+    game.mutations.setResource('base:resource:credit', 0);
+    expect(game.getView().currentStory).toMatchObject({ storyId: 'base:activestory:schale_welcome', nodeId: 'p1-body', phase: 'delivery' });
+    moveUntil(game, view => Boolean(view.page.choices));
+    expect(game.story.advanceStory()).toMatchObject({ success: false, error: 'ChoiceRequired' });
+    expect(game.story.advanceStory('option2')).toMatchObject({ success: true, finished: false });
     expect(game.state.flags.welcome_choice).toBe('production');
-
-    const finished = game.story.advanceStory();
-    expect(finished).toMatchObject({
-      success: true,
-      finished: true,
-      storyId: 'base:story:schale_welcome',
-      completed: { type: 'active', choiceIndex: 1 },
-    });
+    finishCurrentStory(game);
     expect(game.state.resources['base:resource:credit']).toBe(10);
-    expect(game.state.storyLog).toContainEqual({
-      type: 'active', storyId: 'base:story:schale_welcome', choiceIndex: 1,
-    });
-    expect(game.getView().currentStory).toBeNull();
-    expect(game.story.startActiveStory('base:activestory:schale_welcome')).toEqual({
-      success: false,
-      storyId: 'base:activestory:schale_welcome',
-      error: 'AlreadyCompleted',
-    });
+    expect(game.state.storyLog).toContainEqual({ type: 'active', storyId: 'base:story:schale_welcome', choiceIndex: 1 });
+    expect(game.story.startActiveStory('base:activestory:schale_welcome')).toMatchObject({ success: false, error: 'AlreadyCompleted' });
   });
 
   test('should trigger passive stories without cooldown limits', () => {
@@ -176,13 +153,7 @@ describe('GameInstance (integration)', () => {
     game.state.resources['base:resource:credit'] = 0;
 
     // 先完成自动展开的欢迎剧情（遇选项页选第 0 项），进入剧情空闲状态
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') {
-        game.story.advanceStory(0);
-      }
-    }
+    finishCurrentStory(game);
     expect(game.getView().currentStory).toBeNull();
 
     // 触发一条被动闲聊（多条之一，随机；可能为多页）
@@ -206,28 +177,26 @@ describe('GameInstance (integration)', () => {
 
   test('should grant passive completion rewards: first 15, repeat 5 pyroxene', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     const api = game.story;
 
     // 首次完成被动闲聊 → +15 青辉石（Global）
     expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
-    let r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
-    expect(r.success && 'finished' in r && r.finished).toBe(true);
+    finishCurrentStory(game);
+    expect(game.getView().currentStory).toBeNull();
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(15);
 
     // 完成闲聊 → 无需等待可直接再次触发同一被动闲聊，重复完成只 +5
     expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
-    r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
+    finishCurrentStory(game);
     expect(game.getView().resources[Resource.Pyroxene]).toBe(20);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(20);
   });
 
   test('emits storyRewarded with source and effects on passive completion', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     const api = game.story;
     const events: { source: string; effects: { op: string; value?: unknown }[] }[] = [];
     game.eventBus.on('storyRewarded', e => {
@@ -236,16 +205,14 @@ describe('GameInstance (integration)', () => {
 
     // 首次完成：source=first，效果含青辉石 +15
     expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
-    let r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
+    finishCurrentStory(game);
     expect(events).toHaveLength(1);
     expect(events[0]!.source).toBe('first');
     expect(events[0]!.effects.some(e => e.op === 'addResource' && e.value === 15)).toBe(true);
 
     // 重复完成：source=repeat，效果为 +5
     expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
-    r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
+    finishCurrentStory(game);
     expect(events).toHaveLength(2);
     expect(events[1]!.source).toBe('repeat');
     expect(events[1]!.effects.some(e => e.op === 'addResource' && e.value === 5)).toBe(true);
@@ -253,12 +220,11 @@ describe('GameInstance (integration)', () => {
 
   test('should keep global resources across init switches', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     // 通过闲聊获得青辉石（Global）
     const api = game.story;
     expect(api.startStory('base:passivestory:schale_tea', 'passive').success).toBe(true);
-    let r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
+    finishCurrentStory(game);
     expect(game.getView().resources[Resource.Pyroxene]).toBe(15);
 
     // 保存式重启（快照 + 恢复）：青辉石跨世界线保留
@@ -276,7 +242,7 @@ describe('GameInstance (integration)', () => {
 
   test('should consume global pyroxene when purchasing an init', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     game.mutations.changeResource(Resource.Pyroxene, 30);
     expect(game.state.globalResources?.[Resource.Pyroxene]).toBe(30);
 
@@ -323,7 +289,7 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 3;
 
     const saveData = game.save();
-    expect(saveData.version).toBe('1.0.0');
+    expect(saveData.version).toBe('2.0.0');
     expect(saveData.playerState.resources['base:resource:credit']).toBe(500);
 
     // 加载到新实例
@@ -535,7 +501,7 @@ describe('GameInstance (integration)', () => {
 
   test('should travel to an adjacent area within the current init', () => {
     game.init([baseDatapack]);
-    finishWelcome(game); // 结束 active 欢迎剧情，解除移动锁定
+    finishCurrentStory(game); // 结束 active 欢迎剧情，解除移动锁定
     expect(game.state.currentAreaId).toBe('base:area:schale_main');
 
     // 夏莱主厅 → 资料室（相邻）
@@ -551,7 +517,7 @@ describe('GameInstance (integration)', () => {
 
   test('should reject non-adjacent or cross-init travel', () => {
     game.init([baseDatapack]);
-    finishWelcome(game); // 解除移动锁定
+    finishCurrentStory(game); // 解除移动锁定
     expect(game.state.currentAreaId).toBe('base:area:schale_main');
 
     // 主厅 → 机库：不相邻（必须经过资料室）
@@ -569,7 +535,7 @@ describe('GameInstance (integration)', () => {
 
   test('should persist current area when saving and loading', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     game.travelToArea('base:area:schale_library');
     expect(game.state.currentAreaId).toBe('base:area:schale_library');
 
@@ -582,7 +548,7 @@ describe('GameInstance (integration)', () => {
 
   test('should use an explored route to reach a previously visited area', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     // 主厅 → 资料室 → 机库
     game.travelToArea('base:area:schale_library');
     game.travelToArea('base:area:schale_hangar');
@@ -599,7 +565,7 @@ describe('GameInstance (integration)', () => {
 
   test('should reject travel to a locked area', () => {
     game.init([baseDatapack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
     // 给资料室临时加一个永假 existence 门槛，模拟锁定区域（结束需还原，避免污染共享数据）
     const area = game.registry.areas.get('base:area:schale_library');
     const original = (area as { revealTriggers?: unknown } | undefined)?.revealTriggers;
@@ -705,124 +671,53 @@ describe('GameInstance (integration)', () => {
 
   test('should advance story via single reply button click', () => {
     game.init([baseDatapack]);
-    // 欢迎剧情已自动展开：page0 为无 sendText 的旁白页 → 默认按动（按钮"点击"），不自动流过
-    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
-
-    // 单次点击推进 page0 → page1（阿罗娜，有 sendText，交互页不被吸收）
-    const first = game.story.clickSend();
-    if (first.type !== 'completed') throw new Error('expected completed');
-    expect(first.absorbed).toEqual([]);
+    expect(game.getView().currentStory?.phase).toBe('delivery');
+    game.story.advanceStory(); // narration -> body
+    game.story.advanceStory(); // body -> independent reply input
+    expect(game.getView().currentStory?.phase).toBe('input');
     expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '设备准备完毕，可以开始调度。' });
-
-    // 点击发送 → 推进到 page2（老师，无交互）→ 逐页阻塞（不再吸收）
-    const second = game.story.clickSend();
-    if (second.type !== 'completed') throw new Error('expected completed');
-    expect(second.absorbed).toEqual([]);
-    expect(game.story.getSendState()).toMatchObject({ mode: 'advance' });
-
-    // 再点击 → 推进到 page3(click + clickWork)
-    const third = game.story.clickSend();
-    if (third.type !== 'completed') throw new Error('expected completed');
-    expect(third.absorbed).toEqual([]);
-
-    // clickWork 页：进入时 0/N，前 total 次点击填充进度条
-    const work = game.story.getSendState();
-    if (work.mode !== 'advance' || !work.clickWork) throw new Error('expected advance with clickWork');
-    expect(work.clickWork.done).toBe(0);
-    const total = work.clickWork.total;
-    for (let i = 0; i < total; i++) expect(game.story.clickSend().type).toBe('working');
-
-    // 填满后再点一次：推进 page3 → page4(旁白，逐页阻塞) → 停在 page4
-    expect(game.story.clickSend().type).toBe('completed');
-    expect(game.story.getSendState()).toMatchObject({ mode: 'advance' });
-    // 再点击 → page5(选项页)
-    expect(game.story.clickSend().type).toBe('completed');
-    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
+    const result = game.story.clickSend();
+    expect(result).toMatchObject({ type: 'completed', absorbed: [], echoReply: false });
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p3-body', phase: 'delivery' });
   });
 
   test('should not advance via reply button when current page has choices', () => {
     game.init([baseDatapack]);
-    // 推进到选项页（page5）：逐页阻塞，每页一次点击
-    expect(game.story.clickSend().type).toBe('completed'); // page0 → page1(sendText)
-    expect(game.story.clickSend().type).toBe('completed'); // page1 → page2(老师)
-    expect(game.story.clickSend().type).toBe('completed'); // page2 → page3(clickWork)
-    const work = game.story.getSendState();
-    if (work.mode !== 'advance' || !work.clickWork) throw new Error('expected advance with clickWork');
-    for (let i = 0; i < work.clickWork.total; i++) expect(game.story.clickSend().type).toBe('working');
-    expect(game.story.clickSend().type).toBe('completed'); // 填满后再点一次：page3 → page4(旁白)
-    expect(game.story.clickSend().type).toBe('completed'); // page4 → page5(choice)
-    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
-
-    // 选项页点击回复按钮 → 返回 choice，不推进
+    moveUntil(game, view => Boolean(view.page.choices));
+    const before = game.getView().currentStory;
     expect(game.story.clickSend()).toEqual({ type: 'choice' });
-    expect(game.story.getSendState()).toMatchObject({ mode: 'choice' });
+    expect(game.getView().currentStory).toEqual(before);
   });
 
   test('multi-click Talklet: clickWork fills progress bar then one more click finishes the page', () => {
     game.init([baseDatapack]);
-    // 完成自动展开的欢迎剧情，避免干扰
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
-    expect(game.getView().currentStory).toBeNull();
-
-    // 切到阿比多斯并启动 serika_side_1（第 4 页为 clickWork 页：0 芹香 / 1 芹香 / 2 旁白 / 3 调查 clickWork）
+    finishCurrentStory(game);
     game.inits.enterInit('base:init:abydos');
-    const started = game.story.startActiveStory('base:activestory:serika_side_1');
-    expect(started.success).toBe(true);
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
-
-    // 首次 getSendState 会 roll 随机 total：base 4 + rand 0..1（rand: 2 → 0/1）
+    expect(game.story.startActiveStory('base:activestory:serika_side_1').success).toBe(true);
+    moveUntil(game, view => view.nodeId === 'p4-work');
     const send = game.story.getSendState();
-    if (send.mode !== 'advance') throw new Error('expected advance');
-    const total = send.clickWork!.total;
+    if (send.mode !== 'advance' || !send.clickWork) throw new Error('expected work');
+    const total = send.clickWork.total;
     expect(total).toBeGreaterThanOrEqual(4);
     expect(total).toBeLessThanOrEqual(5);
-    expect(send.clickWork!.done).toBe(0);
-    // 多次调用不重新 roll
-    const again = game.story.getSendState();
-    if (again.mode !== 'advance') throw new Error('expected advance');
-    expect(again.clickWork!.total).toBe(total);
-
-    // 前 total 次点击：返回 working、不推进，进度逐次累加（第 total 次填满 100%）
-    for (let i = 1; i <= total; i++) {
-      const r = game.story.clickSend();
-      expect(r.type).toBe('working');
-      if (r.type === 'working') {
-        expect(r.clicksDone).toBe(i);
-        expect(r.clicksTotal).toBe(total);
-      }
-      expect(game.getView().currentStory!.pageIndex).toBe(3);
-      const st = game.story.getSendState();
-      if (st.mode !== 'advance') throw new Error('expected advance');
-      expect(st.clickWork).toEqual({ total, done: i });
+    for (let i = 1; i < total; i++) {
+      expect(game.story.clickSend()).toMatchObject({ type: 'working', clicksDone: i, clicksTotal: total });
+      expect(game.getView().currentStory?.nodeId).toBe('p4-work');
     }
-
-    // 填满后再点一次：completed 且剧情结束（serika_side_1 共 4 页，clickWork 为最后一页）
-    const last = game.story.clickSend();
-    expect(last.type).toBe('completed');
-    expect(game.story.getSendState().mode).toBe('idle');
+    expect(game.story.clickSend().type).toBe('completed');
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p4-confirm-click', phase: 'input' });
+    expect(game.story.clickSend().type).toBe('completed');
     expect(game.getView().currentStory).toBeNull();
   });
 
   test('multi-click Talklet: clickWork progress persists across save/load', () => {
     game.init([baseDatapack]);
     // 完成欢迎剧情
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishCurrentStory(game);
     // 启动 serika_side_1 并推进到 clickWork 页（前 3 页无选项）
     game.inits.enterInit('base:init:abydos');
     expect(game.story.startActiveStory('base:activestory:serika_side_1').success).toBe(true);
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    moveUntil(game, view => view.nodeId === 'p4-work');
 
     // 点击两次（working），存档
     expect(game.story.clickSend().type).toBe('working');
@@ -834,8 +729,8 @@ describe('GameInstance (integration)', () => {
     const st = game.story.getSendState();
     if (st.mode !== 'advance' || !st.clickWork) throw new Error('expected advance with clickWork');
     expect(st.clickWork.done).toBe(2);
-    expect(st.clickWork.total).toBe(snapshot.pendingTalkletClicks!.total);
-    expect(game.getView().currentStory!.pageIndex).toBe(3);
+    expect(st.clickWork.total).toBe(snapshot.storyPlayback.global.playback.run!.pending.press!.total);
+    expect(game.getView().currentStory!.nodeId).toBe('p4-work');
   });
 
   test('click-kind Talklet: pure button page defaults to 1 click with text as button label', () => {
@@ -855,21 +750,17 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{
-        id: 'test:story:click_flow',
-        name: 'click flow',
-        talklets: [
-          { speaker: '阿罗娜', text: '请按下按钮。' },
-          { kind: 'click', text: '按下按钮' },
-        ],
-      }],
+      stories: [{ id: 'test:story:click_flow', name: 'click flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '请按下按钮。', speaker: '阿罗娜' } },
+  { id: 'p2-work', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '按下按钮', press: { base: 1, } } },
+] }],
       items: [],
       funcletDefs: [],
       characters: [],
       
     };
     game.init([baseDatapack, clickPack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
 
     // 手动启动：第 0 页为 talk 页、无 sendText → 默认按动（按钮"点击"），不自动流过
     expect(game.story.startActiveStory('test:story:click_flow').success).toBe(true);
@@ -891,7 +782,7 @@ describe('GameInstance (integration)', () => {
     expect(game.getView().currentStory).toBeNull();
   });
 
-  test('non-click talklet without sendText keeps default click and absorbs following transition pages', () => {
+  test('auto bodies, reply input, work input and explicit confirmation remain separate boundaries', () => {
     const autoPack: Datapack = {
       name: 'auto-pack',
       version: '0.0.0',
@@ -907,63 +798,43 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{
-        id: 'test:story:auto_flow',
-        name: 'auto flow',
-        talklets: [
-          { speaker: '阿罗娜', text: '过渡一' },
-          { kind: 'narration', text: '过渡二' },
-          { speaker: '阿罗娜', text: '过渡三', sendText: '回复' },
-          { speaker: '阿罗娜', text: '过渡四', clickWork: { base: 2 } },
-          { kind: 'click', text: '按下按钮' },
-        ],
-      }],
+      stories: [{ id: 'test:story:auto_flow', name: 'auto flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '过渡一', speaker: '阿罗娜' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '过渡二' } },
+  { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '过渡三', speaker: '阿罗娜' } },
+  { id: 'p3-button', type: 'click', stageId: 'p3', interaction: { kind: 'button', text: '回复', reply: { kind: 'talk', text: '回复' } } },
+  { id: 'p4-body', type: 'talklet', stageId: 'p4', content: { kind: 'talk', text: '过渡四', speaker: '阿罗娜' } },
+  { id: 'p4-work', type: 'click', stageId: 'p4', interaction: { kind: 'button', text: '', press: { base: 2, } } },
+  { id: 'p4-confirm-click', type: 'click', stageId: 'p4-confirm', interaction: { kind: 'button', text: '' } },
+  { id: 'p5-work', type: 'click', stageId: 'p5', interaction: { kind: 'button', text: '按下按钮', press: { base: 1, } } },
+  { id: 'p5-confirm-click', type: 'click', stageId: 'p5-confirm', interaction: { kind: 'button', text: '按下按钮' } },
+] }],
       items: [],
       funcletDefs: [],
       characters: [],
       
     };
     game.init([baseDatapack, autoPack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
 
     expect(game.story.startActiveStory('test:story:auto_flow').success).toBe(true);
 
-    // talk 页无 sendText → 逐页阻塞（不再自动流过）
-    expect(game.getView().currentStory!.pageIndex).toBe(0);
-    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
-
-    // 点击 → 推进到 page1(narration) → 逐页阻塞（不再吸收）
-    const r1 = game.story.clickSend();
-    if (r1.type !== 'completed') throw new Error('expected completed');
-    expect(r1.absorbed).toEqual([]);
-    expect(game.getView().currentStory!.pageIndex).toBe(1);
-    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '' });
-
-    // 再点击 → page2(有 sendText)
-    const r2 = game.story.clickSend();
-    if (r2.type !== 'completed') throw new Error('expected completed');
-    expect(r2.absorbed).toEqual([]);
-    expect(game.getView().currentStory!.pageIndex).toBe(2);
-    const withText = game.story.getSendState();
-    if (withText.mode !== 'advance') throw new Error('expected advance');
-    expect(withText.text).toBe('回复');
-
-    // 有 sendText 的页点击发送 → page3(clickWork)
-    const r3 = game.story.clickSend();
-    if (r3.type !== 'completed') throw new Error('expected completed');
-    expect(r3.absorbed).toEqual([]);
-    expect(game.getView().currentStory!.pageIndex).toBe(3);
-
-    // 有 clickWork 的页（base 2）：进入时 0/2，前 2 次点击填充，第 3 次结束该页
-    const withWork = game.story.getSendState();
-    if (withWork.mode !== 'advance' || !withWork.clickWork) throw new Error('expected advance with clickWork');
-    expect(withWork.clickWork).toEqual({ total: 2, done: 0 });
-    expect(game.story.clickSend().type).toBe('working');
-    expect(game.story.clickSend().type).toBe('working');
-    expect(game.story.clickSend().type).toBe('completed');
-
-    // 到达 click 页
-    expect(game.getView().currentStory!.page.kind).toBe('click');
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p1-body', phase: 'delivery' });
+    game.story.advanceStory();
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p2-body', phase: 'delivery' });
+    game.story.advanceStory();
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p3-body', phase: 'delivery' });
+    game.story.advanceStory();
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', text: '回复' });
+    game.story.clickSend();
+    expect(game.getView().currentStory).toMatchObject({ nodeId: 'p4-body', phase: 'delivery' });
+    game.story.advanceStory();
+    expect(game.story.getSendState()).toMatchObject({ mode: 'advance', clickWork: { total: 2, done: 0 } });
+    game.story.clickSend();
+    game.story.clickSend();
+    expect(game.getView().currentStory?.nodeId).toBe('p4-confirm-click');
+    game.story.clickSend();
+    expect(game.getView().currentStory?.page.kind).toBe('click');
   });
 
   test('narration/talk without sendText keeps default click when no later click page exists', () => {
@@ -982,22 +853,17 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{
-        id: 'test:story:plain_flow',
-        name: 'plain flow',
-        talklets: [
-          // narration 与普通 talk 交互规则一致：无 sendText、无 clickWork、且后续无 click 页 → 默认点击保留
-          { kind: 'narration', text: '没有后续 click 页的旁白' },
-          { speaker: '阿罗娜', text: '仍然点击推进' },
-        ],
-      }],
+      stories: [{ id: 'test:story:plain_flow', name: 'plain flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '没有后续 click 页的旁白' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '仍然点击推进', speaker: '阿罗娜' } },
+] }],
       items: [],
       funcletDefs: [],
       characters: [],
       
     };
     game.init([baseDatapack, plainPack]);
-    finishWelcome(game);
+    finishCurrentStory(game);
 
     expect(game.story.startActiveStory('test:story:plain_flow').success).toBe(true);
     // narration 无 sendText、无 clickWork、且后续不存在 click 页 → 默认点击保留（与 talk 一致）
@@ -1011,13 +877,7 @@ describe('GameInstance (integration)', () => {
   test('should idle-send trigger a passive talk when no story is active', () => {
     game.init([baseDatapack]);
     // 先完成自动展开的欢迎剧情（遇选项页选第 0 项）
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') {
-        game.story.advanceStory(0);
-      }
-    }
+    finishCurrentStory(game);
     // 剧情空闲 → getSendState idle
     expect(game.story.getSendState()).toMatchObject({ mode: 'idle', reason: 'noStory' });
 
@@ -1056,11 +916,7 @@ describe('GameInstance (integration)', () => {
   test('travel is allowed again once the story finishes', () => {
     game.init([baseDatapack]);
     // 推进完欢迎剧情
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishCurrentStory(game);
     expect(game.getView().currentStory).toBeNull();
 
     const result = game.travelToArea('base:area:schale_library');
@@ -1071,11 +927,7 @@ describe('GameInstance (integration)', () => {
   test('travel is allowed while a passive story is performing', () => {
     game.init([baseDatapack]);
     // 完成欢迎剧情
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishCurrentStory(game);
     // 触发被动闲聊演出
     game.story.clickSend();
     const passiveStory = game.getView().currentStory;
@@ -1088,20 +940,16 @@ describe('GameInstance (integration)', () => {
 
   test('story can require an area move via travelToArea effect during performance', () => {
     game.init([baseDatapack]);
-    // 给欢迎剧情第 0 条 Talklet 注入 travelToArea effect，模拟"Story 自身要求移动"
-    const story = game.registry.stories.get('base:story:schale_welcome')!;
-    const originalEffects = story.talklets[0].effects;
-    (story.talklets[0] as { effects?: unknown[] }).effects = [
-      { op: 'travelToArea', target: 'base:area:schale_library', value: '1' },
-    ];
-
-    // 推进一页（talklet0 无选项，推进时执行 travelToArea effect）
-    const result = game.story.advanceStory();
-    expect(result.success).toBe(true);
+    finishCurrentStory(game);
+    const storyId = 'base:story:schale_welcome';
+    const story = game.registry.stories.get(storyId)!;
+    game.registry.load({ ...baseDatapack, stories: [...baseDatapack.stories.filter(item => item.id !== storyId), { ...story, stages: { body: { advance: 'auto' } }, nodes: [
+      { id: 'move', type: 'operation', action: { kind: 'travel', areaId: 'base:area:schale_library' } },
+      { id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: '抵达。' } },
+    ] }] });
+    expect(game.story.replayStory('base:activestory:schale_welcome').success).toBe(true);
     expect(game.getView().currentAreaId).toBe('base:area:schale_library');
     expect(game.getView().currentStory).not.toBeNull();
-
-    (story.talklets[0] as { effects?: unknown[] }).effects = originalEffects;
   });
 
   test('spots are acquired via purchase / area-grant / story-grant', () => {
@@ -1119,7 +967,7 @@ describe('GameInstance (integration)', () => {
     expect(game.state.resources['base:resource:credit']).toBe(80);
 
     // 进入 schale_library → archive 赠送
-    finishWelcome(game);
+    finishCurrentStory(game);
     game.travelToArea('base:area:schale_library');
     expect(game.state.spotLevels['base:spot:archive']).toBe(1);
     // 购买项 hangar_supply 不因进入赠送
@@ -1130,7 +978,7 @@ describe('GameInstance (integration)', () => {
     game.init([baseDatapack]);
     expect(game.state.spotLevels['base:spot:tactical_desk']).toBeUndefined();
 
-    finishWelcome(game);
+    finishCurrentStory(game);
     expect(game.state.spotLevels['base:spot:tactical_desk']).toBe(1);
   });
 
@@ -1358,39 +1206,12 @@ describe('Extra 引擎消费（M4）', () => {
     ],
     passiveStories: [],
     stories: [
-      {
-        id: 'test:story:story_a',
-        name: 'Extra Story',
-        talklets: [
-          {
-            text: 'page0',
-            effects: [
-              { op: 'addExtra', target: 'meta/kills', value: 2 }, // 5 + 2 = 7
-              {
-                op: 'addExtra',
-                target: 'meta/power',
-                value: Expr.val(value('data', { path: 'meta/kills' })),
-              }, // data 源读全局层 kills=5（批内解析先于写入）→ power = 0 + 5
-            ],
-            choices: [
-              {
-                text: 'A',
-                condition: and(cond('extra', 'meta/kills', '>=', 5)),
-                effects: [{ op: 'addExtra', target: 'meta/kills', value: 3 }], // 7 + 3 = 10
-              },
-              {
-                text: 'B',
-                condition: and(cond('extra', 'meta/kills', '>=', 100)),
-                effects: [{ op: 'addExtra', target: 'meta/kills', value: 99 }],
-              },
-            ],
-          },
-          {
-            text: 'end',
-            effects: [{ op: 'removeExtra', target: 'meta/power', value: 0 }],
-          },
-        ],
-      },
+      { id: 'test:story:story_a', name: 'Extra Story', stages: { 'p1': { advance: 'input' }, 'p2': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: 'page0' } },
+  { id: 'p1-choice', type: 'click', stageId: 'p1', interaction: { kind: 'choice', sharedActions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 2 }, { op: 'addExtra', path: 'meta/power', amount: Expr.val(value('data', { path: 'meta/kills' })) }] }], options: [{ id: 'option1', text: 'A', condition: and(cond('extra', 'meta/kills', '>=', 5)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 3 }] }] } }, { id: 'option2', text: 'B', condition: and(cond('extra', 'meta/kills', '>=', 100)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 99 }] }] } }] } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: 'end' } },
+  { id: 'p2-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'removeExtra', path: 'meta/power' }] } },
+] },
     ],
     items: [],
     funcletDefs: [],
@@ -1410,7 +1231,8 @@ describe('Extra 引擎消费（M4）', () => {
     expect(game.getExtra('init/count')).toEqual(extra.int(11));
     expect(game.getExtra('meta/constant_copy')).toEqual(extra.int(1000));
 
-    // 页面0含选项 → 必须显式选择
+    game.story.advanceStory(); // body delivery precedes the choice input
+    // 必须显式选择
     expect(game.story.advanceStory()).toMatchObject({ success: false, error: 'ChoiceRequired' });
     // 不满足 extra 条件的选项被拒（kills=5 < 100）
     expect(game.story.advanceStory(1)).toMatchObject({ success: false, error: 'ChoiceConditionNotMet' });
@@ -1549,10 +1371,10 @@ describe('Extra 引擎消费（M4）', () => {
 });
 
 /** 在基础包上追加一条单页被动剧情，返回新数据包。 */
-function withSingleTalkletStory(storyId: string, talklet: { text: string; speaker?: string; sendText?: string; muteReply?: boolean; kind?: 'talk' | 'narration' | 'click' }): Datapack {
+function withStoryNodes(storyId: string, nodes: StoryNode[]): Datapack {
   return {
     ...baseDatapack,
-    stories: [...baseDatapack.stories, { id: storyId, name: storyId, talklets: [talklet] }],
+    stories: [...baseDatapack.stories, { id: storyId, name: storyId, stages: { reply: { advance: 'input' } }, nodes }],
     passiveStories: [
       ...baseDatapack.passiveStories,
       { id: storyId, storyId, type: 'passive', triggerCondition: and(), repeatable: true, weight: 1, availableInits: [] },
@@ -1573,17 +1395,17 @@ describe('SendResult.echoReply', () => {
 
   /** 完成自动展开的欢迎剧情，释放剧情游标。 */
   function finishWelcome(): void {
-    while (game.getView().currentStory) {
-      const r = game.story.advanceStory();
-      if (r.success && 'finished' in r && r.finished) break;
-      if (!r.success && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishCurrentStory(game);
   }
 
-  test('talk + sendText（未 mute）→ echoReply true', () => {
-    game.init([withSingleTalkletStory('t:story:echo', { text: '你好', speaker: '阿罗娜', sendText: '收到！' })]);
+  test('正文后Click显式reply产生老师回显', () => {
+    game.init([withStoryNodes('t:story:echo', [
+      { id: 'body', type: 'talklet', stageId: 'reply', content: { kind: 'talk', text: '你好', speaker: '阿罗娜' } },
+      { id: 'reply', type: 'click', stageId: 'reply', interaction: { kind: 'button', text: '收到！', reply: { kind: 'talk', text: '收到！' } } },
+    ])]);
     finishWelcome();
     expect(game.story.startStory('t:story:echo', 'passive').success).toBe(true);
+    game.story.clickSend(); // 确认正文实际送达。
     const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     if (r.type === 'completed') {
@@ -1592,17 +1414,23 @@ describe('SendResult.echoReply', () => {
     }
   });
 
-  test('talk + sendText + muteReply → echoReply false', () => {
-    game.init([withSingleTalkletStory('t:story:muted', { text: '欢迎', speaker: '阿罗娜', sendText: '（推进）', muteReply: true })]);
+  test('正文后无reply的Click不产生老师回显', () => {
+    game.init([withStoryNodes('t:story:muted', [
+      { id: 'body', type: 'talklet', stageId: 'reply', content: { kind: 'talk', text: '欢迎', speaker: '阿罗娜' } },
+      { id: 'reply', type: 'click', stageId: 'reply', interaction: { kind: 'button', text: '（推进）' } },
+    ])]);
     finishWelcome();
     expect(game.story.startStory('t:story:muted', 'passive').success).toBe(true);
+    game.story.clickSend();
     const r = game.story.clickSend();
     expect(r.type).toBe('completed');
     if (r.type === 'completed') expect(r.echoReply).toBe(false);
   });
 
-  test('click 页 + sendText → echoReply false（即便未设 muteReply）', () => {
-    game.init([withSingleTalkletStory('t:story:click', { text: '点一下', kind: 'click', sendText: '推进' })]);
+  test('纯Click按钮文案不隐式生成reply', () => {
+    game.init([withStoryNodes('t:story:click', [
+      { id: 'reply', type: 'click', stageId: 'reply', interaction: { kind: 'button', text: '推进' } },
+    ])]);
     finishWelcome();
     expect(game.story.startStory('t:story:click', 'passive').success).toBe(true);
     const r = game.story.clickSend();

@@ -723,7 +723,7 @@ const storyEntriesTable = (): TableSchema => ({
   ],
 });
 
-/** stories 整表（纯演出：name/talklets/extra，无触发与揭示字段） */
+/** stories 整表（纯演出：name/nodes/stages/extra，无触发与揭示字段） */
 const storiesTable = (): TableSchema => ({
   key: 'stories',
   label: '剧情演出',
@@ -732,47 +732,20 @@ const storiesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
-    a('talklets', {
-      key: 'talklet',
-      label: 'Talklet',
+    a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '节点（四类原语）', { required: true }),
+    {
+      key: 'stages',
+      label: '呈现阶段模式',
       type: {
-        kind: 'object',
-        fields: [
-          s('text', '文本', { required: true }),
-          s('speaker', '说话人'),
-          e('kind', [['talk', '对话'], ['narration', '旁白'], ['click', '点击阻塞']], '类型'),
-          e('align', [['center', '居中'], ['left', '左对齐'], ['right', '右对齐']], '对齐'),
-          s('avatar', '头像'),
-          s('image', '图片（pic 索引或 URL）'),
-          a('choices', {
-            key: 'choice',
-            label: '选项',
-            type: {
-              kind: 'object',
-              fields: [
-                s('text', '文本', { required: true }),
-                effectArray('effects', '效果', true),
-                cg('condition', '条件'),
-                r('jumpToStory', 'stories', '跳转目标'),
-                e('jumpMode', [['goto', '转移（不返回）'], ['insert', '插入（返回原地）']], '跳转模式'),
-              ],
-            },
-          }, '选项'),
-          effectArray('effects', '效果'),
-          s('sendText', '发送文本'),
-          b('muteReply', '静默回复（不回显玩家气泡）'),
-          o('clickWork', [i('base', '基础次数', { required: true }), i('rand', '随机附加')], '点击工作'),
-          e('side', [['left', '靠左'], ['right', '靠右']], '气泡侧'),
-          b('noAvatar', '隐藏头像'),
-          b('showAvatar', '强制显示头像（连发分组中完整显示头像与名称）'),
-          n('typing', '输入中提示（秒）', { description: '页级「正在输入」省略号：缺省 = 非右侧对话页默认 0.9 秒；0 = 关闭；自定义值上限 10 秒。仅对话页生效（旁白/点击/羁绊页忽略）。' }),
-          n('thinking', '想回复（秒）', { description: '底部回复按钮的「想回复」停顿：内容送达后、按钮文字出现前仅显示节奏点（点击可加速）。缺省 0.9 秒；0 = 关闭；上限 10 秒。资格同输入中提示。' }),
-          divider('跳转'),
-          r('jumpToStory', 'stories', '跳转目标'),
-          e('jumpMode', [['goto', '转移（不返回）'], ['insert', '插入（返回原地）']], '跳转模式'),
-        ],
+        kind: 'record',
+        value: {
+          key: '$',
+          label: '阶段声明',
+          type: { kind: 'object', fields: [e('advance', [['auto', '自动'], ['input', '等待输入']], '阶段推进', { required: true })] },
+        },
       },
-    }, 'Talklet', { required: true }),
+      required: true,
+    },
     extraF(),
   ],
 });

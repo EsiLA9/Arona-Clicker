@@ -10,6 +10,7 @@
 | 世界线和区域 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]] | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] |
 | 角色获取与成长 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]] | [[gacha-cultivation]] |
 | 剧情与聊天 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat]] | 代码入口见该页 |
+| Gameplay B 地图战斗卡牌 | — | [[docs/docs-829/04-mechanisms/arona-clicker/gameplay-b-cards]] |
 
 概念模块边界见 [[docs/docs-829/02-modules/arona-clicker]]；UI 读取结构见 [[docs/docs-829/03-data-structures/game-view]]。
 

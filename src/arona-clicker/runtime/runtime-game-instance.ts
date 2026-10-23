@@ -29,6 +29,7 @@ import type { RuntimeAreaTopologyConnection } from '../contracts/runtime/runtime
 import type { TickResult } from '../../engine/contracts/tick';
 import type { TravelResult } from '../contracts/runtime/results';
 import { StoryService } from '../services/story/story-service';
+import { StoryNodePresentationHost } from '../services/story/story-node-presentation-host';
 import { SpotService } from '../services/world/spot-service';
 import { InitService } from '../services/world/init-service';
 import { ItemService } from '../services/economy/item-service';
@@ -387,6 +388,8 @@ export class GameInstance {
   readonly availabilityService!: CharacterAvailabilityService;
   readonly colorSystem!: ColorSystem;
   readonly entityPresentation!: EntityPresentationQueryPort;
+  /** 新节点Run的owner激活与演出生命周期，命令层使用。 */
+  readonly storyPresentation!: StoryNodePresentationHost;
   readonly colorEquipmentSystem!: ColorEquipmentSystem;
   readonly gearSystem!: GearSystem;
   readonly gachaService!: GachaService;
@@ -1796,8 +1799,7 @@ export class GameInstance {
     const saveData = this.saveCodec({
       state: this._state,
       visibility: () => this.visibilityEngine.getVisibility(this._state),
-      storyCursor: () => this.storyService.saveCursor(),
-      chatCursors: () => this.storyService.saveChatCursors(),
+      storyCursors: () => this.storyService.saveCursors(),
       persistedStats: () => this.statsService.getPersistable(),
       activeModNames: this.registry.loadedModNames,
       retainedTagResidue: this._tagResidue,
@@ -1810,6 +1812,8 @@ export class GameInstance {
 
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
+    if (saveData.version !== '2.0.0' || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
+    this.storyService.validateCursors(saveData.storyPlayback);
     this.operationObservationStore.clear();
     this.#operationRuntimeOwner.reset();
     this.replaceMapRunOwner();

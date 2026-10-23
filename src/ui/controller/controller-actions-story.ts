@@ -63,15 +63,25 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const gate = ctrl.panelState.storyGate;
       if (!gate) return;
       ctrl.panelState.storyGate = null;
+      if (gate.sourceRunId) {
+        const current = gate.sourceOwner ? ctrl.game.getStoryView(gate.sourceOwner) : ctrl.game.getView().currentStory;
+        if (current?.runId !== gate.sourceRunId) { ctrl.refreshChatPanel(); return; }
+      }
       ctrl.deliverPendingRewardsBeforeStory();
       const owner = gate.owner ?? undefined;
       let result: StoryStartResult;
+      if (gate.sourceToken) {
+        const submitted = ctrl.commands.clickSend(gate.sourceOwner, gate.sourceToken);
+        logStoryFailure(ctrl, submitted);
+        ctrl.refreshChatPanel();
+        return;
+      }
       if (gate.mode === 'card') result = ctrl.commands.startCardStory(gate.storyId, owner);
       else if (gate.mode === 'replay') result = ctrl.commands.replayStory(gate.storyId, owner);
       else result = ctrl.commands.startActiveStory(gate.storyId, owner);
       logStoryFailure(ctrl, result);
       if (result.success && ctrl.panelState.workspace?.type === 'story') {
-        ctrl.panelState.workspace.mode = 'playing';
+        ctrl.panelState.workspace.mode = result.finished ? 'overview' : 'playing';
       }
       ctrl.refreshChatPanel();
     });
@@ -141,7 +151,8 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     ctrl.refreshChatPanel();
   });
   // 底部发送按钮：本质是带发送交互的 Talklet 的演出形态
-  scope.querySelector<HTMLButtonElement>('[data-send]')?.addEventListener('click', () => {
+  const sendButton = scope.querySelector<HTMLButtonElement>('[data-send]');
+  sendButton?.addEventListener('click', () => {
     // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
     const sel = document.getSelection();
     if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
@@ -156,7 +167,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
     const owner = ctrl.panelState.conversationVariantId ?? undefined;
     ctrl.deliverPendingRewardsBeforeStory();
-    const result = ctrl.commands.clickSend(owner);
+    const result = ctrl.commands.clickSend(owner, sendButton.dataset.storyToken);
     if (result.type === 'completed') {
       // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
       // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
@@ -178,8 +189,20 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
       const owner = ctrl.panelState.conversationVariantId ?? undefined;
-      const result = ctrl.commands.advanceStory(Number(button.dataset.storyChoice), owner);
+      const result = ctrl.commands.advanceStory(button.dataset.storyChoiceId ?? Number(button.dataset.storyChoice), owner, button.dataset.storyToken);
+      if (result.success && result.reply?.text) ctrl.chat.pushPlayerReply(ctrl.panelState, result.reply.text);
       logStoryFailure(ctrl, result);
+      ctrl.refreshChatPanel();
+    });
+  });
+  scope.querySelectorAll<HTMLElement>('[data-story-card-token]').forEach(button => {
+    button.addEventListener('click', () => {
+      if (ctrl.chat.bannerBlocking(ctrl.panelState) || ctrl.chat.activeGate(ctrl.panelState)) return;
+      const owner = ctrl.panelState.conversationVariantId;
+      const view = owner ? ctrl.game.getStoryView(owner) : ctrl.game.getView().currentStory;
+      if (!view?.page.kizuna || view.token !== button.dataset.storyCardToken) return;
+      ctrl.panelState.storyGate = { storyId: view.page.kizuna.storyId, owner, mode: 'card',
+        sourceOwner: owner, sourceRunId: view.runId, sourceToken: view.token };
       ctrl.refreshChatPanel();
     });
   });
@@ -190,9 +213,17 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       // 开幕横幅展示/淡出期间阻断剧情推进类点击
       if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
       const storyId = el.dataset.kizuna!;
-      const owner = ctrl.panelState.conversationVariantId ?? null;
+      const binding = el.closest<HTMLElement>('[data-story-card-owner]');
+      const owner = binding ? binding.dataset.storyCardOwner || null : ctrl.panelState.conversationVariantId;
+      const source = el.closest<HTMLElement>('[data-story-source-run]');
+      const sourceOwner = source ? source.dataset.storySourceOwner || null : undefined;
+      if (source) {
+        const current = sourceOwner ? ctrl.game.getStoryView(sourceOwner) : ctrl.game.getView().currentStory;
+        if (current?.runId !== source.dataset.storySourceRun) return;
+      }
       ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
-      ctrl.panelState.storyGate = { storyId, owner, mode: 'card' };
+      ctrl.panelState.storyGate = { storyId, owner, mode: 'card',
+        ...(source ? { sourceRunId: source.dataset.storySourceRun, sourceOwner } : {}) };
       ctrl.refreshPanels(['center']);
     });
   });

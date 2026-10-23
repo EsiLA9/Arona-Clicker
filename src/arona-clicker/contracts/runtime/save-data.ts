@@ -1,6 +1,6 @@
 import type { VisibilitySnapshot } from '../../../engine/contracts/reveal';
 import type { PersistedStats } from '../../../engine/contracts/stats';
-import type { StoryCursorSnapshot } from '../../../engine/contracts/story-cursor';
+import type { StoryCursorCollection } from '../../../engine/contracts/story-cursor';
 import type { PlayerState } from '../../types/state';
 import type { TagOverrideResidue } from '../../state/tag-residue';
 import type { OperationRunSaveSnapshot } from '../operation/operation-save';
@@ -13,16 +13,8 @@ export interface SaveData {
   playerState: PlayerState;
   visibility: VisibilitySnapshot;
   timers?: Record<string, unknown>;
-  pendingStoryId: string | null;
-  pendingStoryEntryType?: 'active' | 'passive' | null;
-  pendingStoryPageIndex: number;
-  pendingStoryChoiceIndex?: number;
-  pendingTalkletClicks?: { total: number; done: number } | null;
-  pendingStoryDefId?: string | null;
-  pendingInsertStack?: { storyId: string; pageIndex: number }[];
-  pendingVisitedStoryIds?: string[];
-  pendingIsReplay?: boolean;
-  chatCursors?: Record<string, StoryCursorSnapshot>;
+  /** 每owner的新节点执行快照；开发期全量替换，不解释旧pendingStory字段。 */
+  storyPlayback: StoryCursorCollection;
   chatHistories?: Record<string, unknown[]>;
   stats?: PersistedStats;
   /** 当前 Registry 不识别的动态 Tag 覆盖；原样保留，供重新启用 mod 后复活。 */

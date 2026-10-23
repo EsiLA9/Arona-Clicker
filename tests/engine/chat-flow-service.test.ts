@@ -15,30 +15,16 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameEvent } from '../../src/engine/types';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
-import { finishWelcome } from './story-test-fixtures';
+import { finishWelcome, finishStory } from './story-test-fixtures';
 
-const chatShowStory: StoryDef = {
-  id: 'test:story:chat_show',
-  name: '演出文本演示',
-  talklets: [
-    {
-      kind: 'narration',
-      text: '—— 舞台拉开 ——',
-      effects: [
-        { op: 'showChatText', target: 'perf:title', value: { text: '夏莱·前夜祭', x: 0.5, y: 0.85, align: 'center' } },
-        { op: 'showChatText', target: 'perf:sub', value: { text: '—— 现在开始 ——', x: 0.2, y: 0.7 } },
-      ],
-    },
-    {
-      kind: 'narration',
-      text: '—— 中场清理 ——',
-      effects: [
-        { op: 'clearAllChatFlow', target: '', value: 0 },
-        { op: 'clearIdChatFlow', target: 'perf:title', value: 0 },
-      ],
-    },
-  ],
-};
+const chatShowStory: StoryDef = { id: 'test:story:chat_show', name: '演出文本演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 舞台拉开 ——' } },
+  { id: 'p1-op1', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'perf:title', x: 0.5, y: 0.85, align: 'center', content: { kind: 'text', text: '夏莱·前夜祭' } } } },
+  { id: 'p1-op2', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'perf:sub', x: 0.2, y: 0.7, content: { kind: 'text', text: '—— 现在开始 ——' } } } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '—— 中场清理 ——' } },
+  { id: 'p2-op1', type: 'operation', action: { kind: 'overlay', command: { command: 'clearFlow' } } },
+  { id: 'p2-op2', type: 'operation', action: { kind: 'overlay', command: { command: 'clearId', id: 'perf:title' } } },
+] };
 
 const chatShowEntry: ActiveStoryEntry = {
   id: 'test:story:chat_show',
@@ -48,14 +34,11 @@ const chatShowEntry: ActiveStoryEntry = {
   triggerCondition: { type: 'AND', conditions: [] },
 };
 
-const openingStory: StoryDef = {
-  id: 'test:story:opening_title',
-  name: '开幕标题演示',
-  talklets: [
-    { kind: 'narration', text: '—— 开幕 ——', effects: [{ op: 'showOpeningTitle', target: '', value: '星野 · 午后的堤防' }] },
-    { kind: 'narration', text: '—— 第二页 ——' },
-  ],
-};
+const openingStory: StoryDef = { id: 'test:story:opening_title', name: '开幕标题演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+  { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 开幕 ——' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '—— 第二页 ——' } },
+] };
 
 const openingEntry: ActiveStoryEntry = {
   id: 'test:story:opening_title',
@@ -163,10 +146,14 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     finishWelcome(game);
     game.story.startActiveStory('test:story:chat_show');
     // 第 0 页：showChatText × 2
-    expect(game.story.advanceStory().success).toBe(true);
+    const first = game.story.getCurrentStoryView()!;
+    expect(first.phase).toBe('delivery');
+    expect(game.story.advanceStory(undefined, null, first.token).success).toBe(true);
     expect(events.filter(e => e.type === 'chatTextShown')).toHaveLength(2);
     // 第 1 页：clearAllChatFlow + clearIdChatFlow
-    expect(game.story.advanceStory().success).toBe(true);
+    const second = game.story.getCurrentStoryView()!;
+    expect(second.phase).toBe('delivery');
+    expect(game.story.advanceStory(undefined, null, second.token).success).toBe(true);
     expect(events.some(e => e.type === 'chatFlowCleared')).toBe(true);
     const cleared = events.find(e => e.type === 'chatTextCleared') as
       | { type: 'chatTextCleared'; id: string }
@@ -183,25 +170,14 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     const shown = events.filter(e => e.type === 'openingTitleShown').at(-1) as { title?: string };
     expect(shown.title).toBe('星野 · 午后的堤防');
     // 推进离开首页：跳过该 op 防重复
-    expect(game.story.advanceStory().success).toBe(true);
+    const first = game.story.getCurrentStoryView()!;
+    expect(game.story.advanceStory(undefined, null, first.token).success).toBe(true);
     expect(events.filter(e => e.type === 'openingTitleShown').length).toBe(afterStart);
   });
 
   test('卡片入口对已完结剧情 = goto 重开：成功、分支可探索、不重复发放奖励', () => {
     finishWelcome(game);
-    const playBond = (choice: number) => {
-      for (let i = 0; i < 30; i++) {
-        const r = game.story.advanceStory(undefined, 'Hoshino');
-        if (!r.success) {
-          if (r.error === 'ChoiceRequired') {
-            game.story.advanceStory(choice, 'Hoshino');
-            continue;
-          }
-          break;
-        }
-        if ('finished' in r && r.finished) break;
-      }
-    };
+    const playBond = (choice: number) => finishStory(game, choice, 'Hoshino');
     // 一周目：完结羁绊剧情（第一支选项）
     expect(game.story.startCardStory('base:activestory:bond_hoshino_1', 'Hoshino').success).toBe(true);
     playBond(0);
@@ -290,11 +266,7 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
   test('Story 完结默认触发 storyCompleted（UI 据此自动删除全部演出文本）', () => {
     finishWelcome(game);
     game.story.startActiveStory('base:activestory:schale_flow_show');
-    for (let guard = 0; guard < 60; guard++) {
-      const r = game.story.advanceStory();
-      if (!r.success) break;
-      if ('finished' in r && r.finished) break;
-    }
+    finishStory(game);
     expect(game.getView().currentStory).toBeNull();
     expect(events.some(e => e.type === 'storyCompleted' && e.storyId === 'base:story:schale_flow_show')).toBe(true);
   });
@@ -303,19 +275,11 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     finishWelcome(game);
     // 完成一次
     game.story.startActiveStory('base:activestory:schale_flow_show');
-    for (let guard = 0; guard < 60; guard++) {
-      const r = game.story.advanceStory();
-      if (!r.success) break;
-      if ('finished' in r && r.finished) break;
-    }
+    finishStory(game);
     const beforeReplay = events.filter(e => e.type === 'storyCompleted').length;
     // 重读走完整条链
     expect(game.story.replayStory('base:activestory:schale_flow_show').success).toBe(true);
-    for (let guard = 0; guard < 60; guard++) {
-      const r = game.story.advanceStory();
-      if (!r.success) break;
-      if ('finished' in r && r.finished) break;
-    }
+    finishStory(game);
     // 重读不再产生完成事件
     expect(events.filter(e => e.type === 'storyCompleted').length).toBe(beforeReplay);
   });
@@ -324,11 +288,7 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     finishWelcome(game);
     expect(game.story.startActiveStory('base:activestory:schale_flow_show').success).toBe(true);
     // 逐页推进到剧情结束
-    for (let guard = 0; guard < 60; guard++) {
-      const r = game.story.advanceStory();
-      if (!r.success) break;
-      if ('finished' in r && r.finished) break;
-    }
+    finishStory(game);
     expect(game.getView().currentStory).toBeNull();
     // 10 条 showChatText：title / cast / gold / noBg / small / multiline / note / act2 / talklet / kizuna
     const shown = events.filter(e => e.type === 'chatTextShown') as { type: 'chatTextShown'; id: string; talklet?: unknown }[];

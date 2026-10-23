@@ -4,7 +4,7 @@ import { mergeTagEffects, mergeTagOverrides, splitTagEffects, splitTagOverrides 
 
 /** 组装 AronaClicker Runtime 快照；不负责恢复引擎子系统。 */
 export function buildSaveData(ctx: SaveBuildContext): SaveData {
-  const storyCursor = ctx.storyCursor();
+  const storyPlayback = ctx.storyCursors();
   const allTagOverrides = mergeTagOverrides(ctx.state.spotTagOverrides, ctx.retainedTagResidue);
   const tagOverrides = splitTagOverrides(allTagOverrides, ctx.activeModNames ?? new Set(['base']));
   const allTagEffects = mergeTagEffects(ctx.state.tagEffects, ctx.retainedTagResidue);
@@ -12,22 +12,13 @@ export function buildSaveData(ctx: SaveBuildContext): SaveData {
   const operationRun = ctx.operationRun?.() ?? null;
   const mapRun = ctx.mapRun?.() ?? null;
   return {
-    version: '1.0.0',
+    version: '2.0.0',
     timestamp: Date.now(),
     playerState: JSON.parse(JSON.stringify({ ...ctx.state, spotTagOverrides: tagOverrides.active, tagEffects: tagEffects.active })),
     visibility: JSON.parse(JSON.stringify(ctx.visibility())),
-    pendingStoryId: storyCursor.currentStoryId,
-    pendingStoryEntryType: storyCursor.currentStoryEntryType,
-    pendingStoryPageIndex: storyCursor.currentStoryPageIndex,
-    pendingStoryChoiceIndex: storyCursor.currentStoryChoiceIndex,
-    pendingTalkletClicks: storyCursor.talkletClickWork,
-    pendingStoryDefId: storyCursor.currentStoryDefId,
-    pendingInsertStack: storyCursor.insertStack,
-    pendingVisitedStoryIds: storyCursor.visitedStoryIds,
-    pendingIsReplay: storyCursor.isReplay,
+    storyPlayback: structuredClone(storyPlayback),
     ...(operationRun ? { operationRun } : {}),
     ...(mapRun ? { mapRun: JSON.parse(JSON.stringify(mapRun)) as typeof mapRun } : {}),
-    chatCursors: ctx.chatCursors(),
     stats: ctx.persistedStats(),
     retained: { ...tagOverrides.residue, ...(Object.keys(tagEffects.residue).length ? { tagEffects: tagEffects.residue } : {}) },
   };

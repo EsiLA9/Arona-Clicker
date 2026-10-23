@@ -98,7 +98,8 @@ describe('聊天流图片与头像（pic 系统集成）', () => {
   test('星野自拍 story 的 talklet 携带 avatar + image', () => {
     const story = ctx.game.registry.stories.get('base:story:hoshino_selfie');
     expect(story).toBeDefined();
-    expect(story!.talklets[0].avatar).toBe('base:avatar(pic):hoshino');
-    expect(story!.talklets[0].image).toBe('base:sticker(pic):hoshino_selfie');
+    const body = story!.nodes.find(node => node.type === 'talklet');
+    expect(body?.type === 'talklet' && body.presentation?.avatar).toBe('base:avatar(pic):hoshino');
+    expect(body?.type === 'talklet' && body.content.kind === 'talk' && body.content.image).toBe('base:sticker(pic):hoshino_selfie');
   });
 });

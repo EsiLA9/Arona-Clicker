@@ -1,16 +1,18 @@
-# Task 0322：Story 第一轮作者语义拆分与旧能力覆盖核对
+# Task 0322：Story Node原语与阶段1–5全量替换
 
-状态：semantic-review — 第一轮语义方案与静态覆盖调查已更新；尚未进入引擎设计冻结或产品施工。更新日期：2026-10-23。
+状态：阶段1–5完成；正式Node/UI/生命周期/结算/保存、43篇内容与旧解释器替换已验收。本轮测试通过，全量仍有8项范围外既有失败。阶段6独立Story编辑工具未施工。更新日期：2026-10-23。
+
+> 阅读顺序：§15起是用户后续授权的全量切换范围与最新实现。§1–14保留前阶段设计和验收历史，其中“尚未接UI/保存”等描述只适用于当时首片，不代表当前状态。
 
 > 本轮回答：把旧 Talklet 拆成多类 Node 及其内部成分后，作者还能不能表达原有功能？允许一条旧 Talklet 拆成多个节点、多个阶段，也允许组合改写；不要求逐页一一转换。
 
 ## 1. 本轮方向与结论
 
-用户最新要求是：先考虑第一轮拆分语义，随后再考虑详细引擎判断。**本 Task 据此收回上一版把作者拆分、玩法变化、编译器、Runtime、保存与全量内容切换一次冻结的范围。** 本轮只交付作者语义边界、能力覆盖证据、组合示例与后续问题。
+用户要求先拆分语义、随后判断引擎，并在Git保存后授权多个Luna MAX以新原语模式推进。**本 Task 保持收回上一版把作者拆分、玩法变化、编译器、Runtime、保存与全量内容切换一次冻结的范围。** 当前已把首轮语义落实为可由TypeScript检查的独立作者声明、阶段关系校验与组合样例；施工记录见§10起。
 
-用户此前允许开发期全量替换、不保留版本兼容，仍作为未来落地的可选约束保留；它不代表必须现在重写整个引擎，也不代表可以默认丢掉旧功能。本轮不新增兼容层、不迁移内容、不清档、不修改产品代码。
+用户此前允许开发期全量替换、不保留版本兼容，仍作为未来落地的可选约束保留；它不代表必须现在重写整个引擎，也不代表可以默认丢掉旧功能。本片没有新增运行兼容层、迁移正式内容或清档；首片修改为新作者原语、结构校验、测试和生成类型索引；后续获授权的播放首片范围见§13。
 
-**核查结论：四类顶层 Node 有继续承载旧有效能力的可行方向，但现在不能回答“已经完全支持”。** 上一版需要改为显式交互组，补上入口启动请求、旅行提示、共同结果动作与多阶段输入，还需要明确正文与交互的阶段归属、完整动作参数目录。当前可以给已核查单项能力和所列组合提供表达方案；尚不能宣称作者合同已经完整、新引擎已支持、全部实际内容迁移无损，或任意旧字段混搭都应继续有效。
+**结论：四类顶层Node现在已有闭合作者声明，显式阶段与S01–S07可由代码检查；这仍不是“游戏运行层已完整支持”。** 入口请求、旅行提示、共同结果、多阶段输入与旧有效动作参数均有声明落点。尚未证明混合Effect批次的执行等价、全部实际内容迁移无损、保存恢复或任意旧字段混搭有效。
 
 本轮优先保住作者意图，例如“先确认再选择”“多击之后再确认”“选择后共同扣资源再分支”，而不是保住旧对象的形状、旧按钮处理函数或偶然失败副作用。
 
@@ -24,7 +26,7 @@
 2. **组合意图能表达**：能标明先后、互斥、共同结果与分支结果，不因字段拆开就漏掉动作或改变分支含义。
 3. **运行行为待验证**：什么时候算送达、具体点击几次、效果批次求值、失败保护、保存恢复等，另做引擎合同和行为测试。
 
-前两层是本轮交付。第三层未完成不能用文档示例冒充；发现会影响作者表达的第三层问题，应留下语义需求，再交后续设计处理。
+前两层已交付；第三层新增§13限定的内存播放首片，不代表整个运行层完成。未完成部分不能用文档示例冒充；发现会影响作者表达的第三层问题，应留下语义需求，再交后续设计处理。
 
 允许通过以下方式支持：一条旧 Talklet 拆为正文、输入、行为、转移多个节点；旧选项转为一个交互点内的多个候选；共同效果显式分组；确认和多击拆为先后阶段；复用现有 Effect、入口和演出服务。
 
@@ -63,9 +65,9 @@ StoryDef：id、name、extra
 
 顺序用于说明作者意图。正文与输入的作者归属见下节；它们怎样投影到一个 UI Step、是否存在系统默认按钮、引擎如何推进，本轮不靠“相邻吸附”预先决定。
 
-### 3.0 呈现阶段归属：还需有一个明确的编排关系
+### 3.0 呈现阶段归属：已采用显式stageId与阶段模式
 
-只写A→B→Click还不够说明：A、B一起呈现后给选项，还是A先等待、再显示B并给选项。**这是作者语义缺口，不能全推给引擎。** 本轮提出需要一个明确的“呈现阶段/交互归属”概念，把一条或多条正文与一个交互点关联起来：
+只写A→B→Click还不够说明：A、B一起呈现后给选项，还是A先等待、再显示B并给选项。**这项作者缺口现以stageId+stages解决。** 一条或多条正文与至多一个交互点组成显式连续阶段：
 
 ```text
 同一阶段：[正文A，正文B] + 交互C
@@ -73,9 +75,9 @@ StoryDef：id、name、extra
 纯交互阶段：无正文 + 交互C
 ```
 
-此关系不是第五类可执行Node，不藏效果或转移。可用阶段声明、正文引用或其他明确结构实现，具体schema尚未确定；本轮不先增加一个复杂容器。节点移动或插入Operation不能无声把两道输入合并成选择组。
+nodes仍是唯一顺序；stages仅按ID声明advance=auto/input，不再重复列成员。auto阶段有正文无Click，input阶段可无正文但末尾恰有一个Click。每个阶段只占一个连续区段，Operation/Transfer在阶段之间；若插入同阶段成员之间，校验会拒绝，要求作者明确拆阶段或把后果放进交互结果。
 
-在此关系冻结前，本文例子证明的是顺序与分支意图，**没有完全证明正文/选项显示分组的覆盖**。后续首先补定这个作者层问题，再进入引擎时序。
+阶段不是第五类可执行Node，不藏效果或转移。当前已验证正文/交互的声明归属，而具体UI显示、auto计时、input按钮状态机仍由后续引擎/UI轮验证。
 
 ### 3.1 Talklet：内容、外观、节奏
 
@@ -134,7 +136,7 @@ Operation 是节点；Action/行为段是内部载荷。**共享的是行为数�
 
 这一表是已有执行能力覆盖表，不是向所有业务开放任意 Effect.op。set/removeSpotMaxLevel 属于 Affector 声明，loot 前轮未找到执行接线，不因为出现在 EffectOp 就承诺 Story 运行能力。
 
-表内是必须承接的参数目录，**不是所有op已完成最终字段映射**。作者合同冻结前，还需逐op登记 target、value形状、顶层owner/notice和执行来源：owner/notice在旧Effect顶层，不是任意value内字段；theme的palette/tokens/nodes/background与ExtraValue也不能漏。clearFlow当前服务实际只处理活跃UI流，不能从旧注释的target推导出有效的后台定向清理。
+本片已按§11逐op登记旧target/value、owner/notice及新命名字段，并以类型实值覆盖这些载荷；它不是执行适配器或完整JSON值验证器。clearFlow当前服务实际只处理活跃UI流，不能从旧注释的target推导出有效的后台定向清理。
 
 Overlay.show 的内部内容分 text（普通/title/badge/note）、message（对话/旁白呈现片段）、entryCard。包装器负责 x/y、临时 ID、适用 style；内容片段不执行自己的 choices/effects/jump。卡片不消费的通用样式组合不能假称支持。
 
@@ -277,8 +279,8 @@ Talklet：「到了。」
 | 当前文件/符号 | 核实的事实 | 影响 |
 | --- | --- | --- |
 | `src/data-services/contracts/story.ts`：Talklet / StoryChoice / StoryDef | 所有旧字段、choice嵌套 | 拆分必须覆盖显示、输入、行为、流向四组 |
-| `src/arona-clicker/services/story/story-flow.ts`：getSendState / clickSend / advanceStory | 多击与确认、共同效果先于选项效果、外层闲聊入口 | 显式交互阶段和共同结果必需 |
-| `src/arona-clicker/services/story/story-jump.ts`：performJump / resolveStoryEnd | goto/insert及返回；当前完成身份 | 保留转移能力，完成身份另议 |
+| `src/arona-clicker/services/story/story-service.ts`、`story-node-player.ts`：clickSend / advanceStory / 节点执行 | 多击与确认、共同效果先于选项效果、外层闲聊入口 | 显式交互阶段和共同结果必需 |
+| `src/arona-clicker/services/story/story-node-player.ts`、`story-service.ts` | transfer/insert及会话完成；当前完成身份 | 保留转移能力，完成身份另议 |
 | `src/engine/types/expression.ts`：Effect / ThemeEffectValue / EntityPresentationEffectValue | owner、notice、主题scope、表现lifetime等 | 不只迁移op名字，要保留附带参数 |
 | `src/arona-clicker/services/runtime/runtime-effect-reactor.ts`：onEvent | triggerStory推断active/passive、传owner并force；演出请求路由 | 卡片启动不能代替所有入口请求 |
 | `src/ui/presentation/chat-stream.ts`：typingEligible / thinkingDelayOf / chainEligible | 对方节奏适用范围、自动连发 | 不把节奏字段扩大成任意延时节点 |
@@ -318,11 +320,12 @@ Talklet：「到了。」
 - [x] 给出显式交互组及行为/入口请求的最小修订方向。
 - [x] 提供S01–S07组合样例，区分可表达与待验证。
 - [x] 将详细引擎、保存、统一卡片/奖励等旧建议移回待议。
-- [x] 更新Task、说明稿及索引，不进行产品施工。
-- [ ] 补定呈现阶段/交互归属的作者表达，再冻结第一轮作者合同。
-- [ ] 完成逐op参数映射与Entry请求模式/结果目录，不把字段目录当作完整覆盖。
+- [x] 更新Task、说明稿及索引，原语首片未进入播放引擎施工。
+- [x] 采用stageId/stages声明并验证呈现阶段/交互归属。
+- [x] 完成逐op入参映射、Entry请求来源/目标/owner的作者声明；不把请求声明当作启动成功保证。
+- [ ] 后续引擎轮明确Entry请求成功/拒绝/阻断的结果与对来源链的影响。
 
-第一轮调查结论可供继续讨论，剩余两个作者层缺口在上面明确保留；不等于作者schema已最终冻结。显式内部choice是本轮推荐方案；若用户改变方向，继续在此Task修订，不让早期示例自动升级成正式协议。
+本片作者合同有独立代码和组合验证，但未成为正式Datapack导入/运行协议。新的模型可继续修订；引擎、保存和全量内容切换仍须独立核实，不能由声明测试自动获得准入。
 
 ### 第二轮：后续引擎判断，当前未开始
 
@@ -339,8 +342,243 @@ Talklet：「到了。」
 - 当前源码和现行机制仍以 `docs/docs-829/` 与实际文件为准；Task表达下一步方案。
 - 前轮 [[docs/plan-work/report-0321-story-talklet-capability-investigation]] 及四分册是旧能力调查快照，不改写成新实现。
 - [[docs/plan-work/report-0322-story-node-semantics-explained]] 保留初版解读作为设计演进记录，顶部明确新旧差别；后续判断以本Task与报告最新覆盖核查为准。
-- 不改dist、生成Schema、历史快照或其他并行任务内容；本轮未编正式Patch Unit、未提交产品实现。
+- 不改dist、历史快照或其他并行任务内容；Schema仅通过命令生成，当前只增加原语类型索引；正式Patch Units与Receipt见下。
 - 检查采用npm run check:docs、文档范围diff空白检查及集中GALHCG只读changed复核；不写图、不刷新、不写freshness。
 - 后续正式施工再依 [[docs/ai/PROJECT-CONSTITUTION]] 建立Read Set、Allowed Files、预算和Receipt。
 
 相关入口：[[docs/ai/goal-workflow]]、[[docs/docs-829/05-conventions/doc-maintenance]]、[[docs/docs-829/05-conventions/architecture-discipline]]、[[docs/docs-829/05-conventions/testing]]。
+
+## 10. 原语落地首片（用户授权后，2026-10-23）
+
+用户已完成Git保存并要求多个Luna MAX以新原语模式工作。本片据此推进**独立作者声明、typed关系检查和组合样例**。这是§8第一轮的源码验证，不启动第二轮播放引擎，也不把当前Datapack的StoryDef改成旧新联合。
+
+### 本片采用的具体作者选择
+
+- `StoryNodeDocument`：id/name/extra、nodes、stages；新声明尚未接入Datapack、Registry和Runtime。
+- nodes为唯一顺序。stages为以阶段ID为键的声明，只标advance=auto/input，不再复制成员或顺序。
+- 节点、阶段及选项局部ID采用1–64位ASCII名：首位字母，后续为字母、数字、下划线或连字符。节点ID在文档内唯一；阶段ID是stages的键；选项ID仅在所属choice内唯一，可在另一choice复用。
+- Talklet/Click必须显式stageId；一个stage只占nodes中的一个连续区段。auto有正文且无Click；input末尾恰有一个Click，可无正文。Operation/Transfer是阶段边界，插入同阶段成员之间应报错。
+- 一个Click.interaction明确为button/choice/entryCard；候选属于choice内部，连续两个Click是两个独立input阶段。
+- choice.sharedActions先于被选候选result；result.actions之后才是result.transfer。共享的是Action载荷，不把带ID的执行Node嵌套进结果。
+- EntryRequest保留entryId、entryType、owner（null明确表示全局）、intent；system/ordinary可请求active/passive，card仅active。intent描述来源，未承诺成功/拒绝/替换/奖励规则。
+- 本片校验只接受已类型化的StoryNodeDocument，检查作者关系和基本数字约束；不是不可信JSON解析器、完整Effect值验证器、引用Registry或实际执行器。
+- 稳定作者ID、stage关系与动作参数已成为此片的可检验合同；计时、输入次数状态机、完成身份、保存和播放器选择仍未裁定。
+
+### 正式Patch Units
+
+三个Unit均依[[docs/ai/PROJECT-CONSTITUTION]]执行；不扩至Runtime、正式内容迁移或编辑器表单。每Unit预算3–5文件、约300–500行净变更；类型/测试过大时拆分并回报，不临时扩白名单。文档记账由主Agent在Task/索引/说明稿完成。
+
+Unit总数增加后按施工纪律拆出；U1–U3首片Receipt仍见§12。
+
+- [[docs/plan-work/task-0322-units/task-0322-u01]]
+- [[docs/plan-work/task-0322-units/task-0322-u02]]
+- [[docs/plan-work/task-0322-units/task-0322-u03]]
+
+## 11. 旧动作入参 → 首片原语字段
+
+这是作者字段映射，不是已执行的转换器。旧被忽略的target/value不进入新动作；旧数字字符串可以在内容改写时写成数字，保留其功能而不保留宽外壳。完整类型见 `src/data-services/contracts/story-node-actions.ts`，实值样例见 `tests/data/story-node-authoring.fixtures.ts`。
+
+| 旧op | 旧有效入参 | 新声明 |
+| --- | --- | --- |
+| set/addResource | target资源、value数值/表达式 | state.effects：resourceId、amount |
+| set/addSpotLevel | target地点、value数值/表达式 | spotId、amount |
+| setManager | target地点、value经理身份 | spotId、managerId |
+| addEnhancement | value强化ID；target忽略 | enhancementId |
+| addItem | target物品、value数量 | itemId、amount |
+| unlockInit | value世界线ID；target忽略 | initId |
+| setFlag | target标记、value最终转字符串 | flagId、value；保留字面值与ValueExpression |
+| setExtra | target路径、value为ExtraValue/字面值/表达式 | path、value；保留递归Extra树 |
+| addExtra | target路径、value数值增量 | path、amount |
+| removeExtra | target路径；value忽略 | path |
+| grantCharacter | target角色差分；value忽略 | variantId |
+| addAffectionExp | target角色差分、value增量 | variantId、amount |
+| travelToArea | target区域、顶层notice；value忽略 | travel.areaId、notice |
+| triggerStory | target为Entry、顶层owner、目标类型由Registry推断 | entryRequest.request的entryId/entryType/owner/intent；不再藏在state.effects |
+| showChatText | target临时ID、value位置/样式/内容 | overlay.show的id/x/y/align/content；text/message/entryCard显式分支 |
+| clearIdChatFlow | target临时ID；value忽略 | overlay.clearId.id |
+| clearAllChatText | target/value忽略 | overlay.clearAllTexts |
+| clearAllChatFlow | 当前执行链丢弃target/value | overlay.clearFlow，不承诺后台定向清流 |
+| setTheme | value完整ThemeEffectValue | presentation.theme.value；保留色组/色板/tokens/nodes/background，area/student必须带对应entityKey |
+| setEntityPresentation | target实体、value.optionId/owner/lifetime，owner可回退Effect.owner | target/optionId/owner/lifetime；归一后的有效owner显式必填 |
+| clearEntityPresentation | target实体、有效owner | target/owner；缺归属的旧无效请求不作为必须复刻功能 |
+| showOpeningTitle | 非空value文字，否则宿主默认来源 | openingTitle.title可省略；时机、默认来源优先级后议 |
+| loot | Mutation为空分支 | 不纳入已执行原语 |
+| set/removeSpotMaxLevel | Affector声明消费者 | 不纳入Story状态动作 |
+
+同一组state.effects作为批次数据保留；这不说明“将旧混合Effect批次拆成state/presentation/entryRequest等动作”已经执行等价。混合批次的表达式统一求值、运行请求发出与状态安装顺序，必须在第二轮核对。
+
+readonly约束针对新声明的属性与容器；复用的ConditionGroup、ExtraValue、ValueExpression、Theme基础字段和ChatTextStyle仍沿用原契约的嵌套类型。本片不提供深冻结/复制服务，关系校验器经测试不修改有效或无效输入。
+
+## 12. 首片Receipt
+
+| Unit | 实际结果 | 实际验证 | 剩余边界 |
+| --- | --- | --- | --- |
+| U1 | 新增story-node.ts与story-node-actions.ts；四节点、显式阶段、闭合状态/演出/入口请求；生成Schema只增加类型索引和时间 | 类型检查通过；Schema同步测试通过；generated diff未改变Datapack表/旧StoryDef字段 | 未注册正式包；不执行行为；未定入口请求结果 |
+| U2 | 新增story-node-structure.ts与对应测试；关系、ID、press范围、节奏数值/资格与纯读取检查 | 定向11项通过，tsc通过 | 非JSON解析器；不验引用存在、完整Action值语法或运行时生命周期 |
+| U3 | 新增S01–S07及多正文/纯转移样例、14种状态参数与复合演出实值；编译拒绝用例；本文/说明稿/索引同步 | 组合/类型及Schema联合验证见下；独立Luna MAX复审 | 测试证明声明组合，不证明实际播放、奖励、历史或存档 |
+
+独立复审发现并已修正：卡片Extract联合误成never、goto注释误导、旁白/右侧节奏资格遗漏、有效输入不可变测试缺例；另明确了ID词法与option的局部唯一范围。实体表现owner必填表示把旧有效归属显式化，主题实体scope也需明确对应槽。
+
+工作树未提交；用户Git保存之前的内容未回退或改写。未运行游戏实屏；此片没有可展示的新播放UI，也不把真实浏览器播放作为已通过项。集中GALHCG只读复核不修改图或freshness；未关联新文件不当作语义验证通过。
+
+### 联合验证记录（2026-10-23）
+
+- `npx vitest run tests/data/story-node-structure.test.ts tests/data/story-node-authoring.test.ts tools/datapack-editor/schema/engine-schema.sync.test.ts`：3文件39/39通过（11结构、13作者组合、15Schema同步）。
+- `npx tsc --noEmit`：通过；测试文件中的编译拒绝断言也在include范围内。
+- `npm run gen:schema`：通过；差异仅generatedAt和新原语indexedTypes，Datapack表与现行StoryDef字段没有变化。
+- `npm run check:architecture`：通过；基础层无禁止的向外依赖。
+- `npm run check:docs`与`git diff --check`：通过；仅既有CRLF转LF提示，无空白错误。
+- 未运行全量游戏测试或实屏播放：没有改现有运行调用方，此片不包含可播放的新UI。39项不代表新Runtime/存档/实际内容切换通过。
+
+
+## 13. 纵向播放首片执行合同（2026-10-23）
+
+用户已确认执行下一片。目标为可调用、可行为验证的新节点内存播放器，复用现有EffectEngine/领域服务，打通正文→输入→动作→goto/insert→链尾。此片仍不切正式StoryDef、旧游标、存档、全量内容或UI。新入口由显式factory构造，集成测试使用真实GameInstance；没有“返回成功但未执行”的占位端口。
+
+1. 新Player持有独立内存Run，来源固定为entryId/rootStoryId/owner；新文档进入时复制并做typed关系检查，不借旧talklets播放。每个Player同一时刻只播一条链。
+2. 每条Talklet逐条交付，ackDelivery确认当前正文后才进入下一节点；input阶段全部正文送达后才给Click，纯Click直接进入输入。auto没有隐式按钮，最后一条正文确认后继续。
+3. getView纯读取，可重验选项条件，但不抽随机、不执行行为。每次交付/输入携带不持久化票据；旧票据、重复ack、重复成功输入不得重放动作。工作量每次有效提交更新票据。
+4. press只在进入button时抽一次，base+floor(random*rand)，rand省略/0不增加；第N次完成。需要额外确认用下一input阶段。choice只按optionId提交，提交时重验条件；全部不可用仍等待。
+5. 操作按nodes顺序自动执行；choice顺序为sharedActions→候选actions→可选transfer，按钮为actions→可选transfer。每个state批次一次调用既有EffectEngine，批内统一求值规则保留；不同Action顺序执行，不宣称旧混合Effect批次逐项等价。
+6. 输入先对所有Action做静态引用/能力支持预检，并检查转移目标。该预检失败保留当前等待、无本次动作/回复/前进。入口资格、Spot当前Init可写性和好感目标拥有资格等动态条件按每个Action执行前的最新状态检查，允许前一Action解锁后一Action；动态拒绝属于执行失败，前序动作可能已生效，停止新链且不通用回滚、不自动重试。Operation运行到自身时检查，不承诺整分支动态资格预测或整条未来链事务。
+7. 同步命令执行期间拒绝嵌套start/ack/submit；允许cancel作废来源。行为回调取消后旧循环不能续写或继续后续动作。晚到UI提交只能拿到过期结果。
+8. insert返回点为当前节点/整个交互点之后；goto不新增返回点并保留已有insert栈。控制转移累计上限32，每次自动推进预算256，超限停止并诊断。
+9. EntryRequest仅桥接现有Entry服务：ordinary保留普通准入，system用现有force但仍检查Init/条件；新card邀请明确采用现有startCardStory的启动合同，不把旧inline路径也宣称等价。预检先核目标存在/类型/非空；资格、占用等可能被前序动作改变，实际执行前再纯读核对，避免调用旧路径先清游标后拒绝。相同owner成功返回replaced结束新来源链；异owner成功继续；执行时拒绝按晚失败处理。旧Entry目标仍是现行内容，此复用是领域服务适配，不是作者格式兼容编译。含visitedStoryInChain准入的旧Entry此片明确拒绝桥接，防止读取旧global链；新choice的该条件必须读取本新链visited集合。
+10. 旅行复用领域旅行，notice只在成功后发；Overlay/Presentation复用现有服务路由，当前Overlay只允许null来源发送全局演出事件；非null来源、所有Overlay.entryCard都明确拒绝，因为旧UI无法传递请求owner。Click.entryCard直接执行入口请求不受此展示限制。openingTitle仅接受null来源与显式非空标题，默认来源待Controller接线。当前未接新链清理，所以ephemeral主题和story lifetime实体表现明确拒绝；area/student主题带现有服务不消费的background也拒绝。作者类型保留这些意图，后续接完整生命周期再放行。状态批次执行前核当前Init的Spot可写资格与好感目标拥有资格；批内先grant再加好感仍可执行，且保留一次Engine调用。服务不支持的组合不能静默报告成功。
+11. 新链结束只交付本地completion，包含来源entryId/rootStoryId/owner及terminalStoryId；来源身份与实际链尾不混用。**本片不写旧完成日志、不发链尾奖励/FollowUp/reactions、不注册旧storyCompleted事件。** 这明确限制首片结算范围，不提前替旧系统选择根/尾完成身份。
+12. 命令事件序列先列源reply，再列新播放器目标视图；实际旧UI/Entry事件跨系统排序尚无Controller接线，本片不声称完成屏幕交付或历史恢复。
+
+### 本片Unit与验收
+
+- [[docs/plan-work/task-0322-units/task-0322-u04]]：端口合同与真实领域Action适配。
+- [[docs/plan-work/task-0322-units/task-0322-u05]]：播放器推进、输入与转移行为。
+- [[docs/plan-work/task-0322-units/task-0322-u06]]：GameInstance构造入口与真实状态纵向样例。
+
+- [[docs/plan-work/task-0322-units/task-0322-u07]]：独立边界测试，补足取消、预检、预算与快照隔离。
+
+- [[docs/plan-work/task-0322-units/task-0322-u08]]：状态动态准入与未支持表现生命周期的明确拒绝。
+
+Receipt见各Unit的receipts目录。本片已实现上述内存播放合同；未接UI/存档/旧奖励部分不计完成。
+
+## 14. 播放首片Receipt（2026-10-23）
+
+U4–U8完成：显式factory构造独立内存播放器；逐条正文确认、稳定选择ID、一次随机多击、顺序动作、goto/insert返回栈、来源/链尾分离回执，以及实际领域服务接线。尚不切换正式包、UI、旧游标、保存、历史、奖励或FollowUp。
+
+严格Luna MAX独立复审发现并已处理：自动推进同步cancel回执不一致；非当前Init的Spot和未拥有角色好感被旧Engine静默忽略；临时主题/表现没有新链清理；Overlay卡片与后台owner无法经旧UI保留路由；标题默认来源缺失。前者修复并回归，动态状态资格在执行前明确拒绝，其余未支持组合在静态预检明确拒绝，作者类型保留未来语义。Action静态预检与动态资格分开；前序动作可改变后序资格，不宣称动态失败能回滚。已补跨Action的grant→好感回归；数值零增量/上限等沿用既有领域政策，字面与表达式一致，applied不保证数值增长。
+
+验收证据：
+
+- 联合13个测试文件 **107/107通过**：作者结构/组合、Schema同步、播放器、边界、Action适配/准入、真实GameInstance集成，以及旧Story flow/entry/replay/rewards/chat-flow回归。新运行部分为29项（6核心、8边界、5适配、4准入、6集成）。
+- `npx tsc --noEmit`通过；`npm run check:architecture`、`npm run check:docs`与`git diff --check`均通过；没有运行实屏UI验收。
+- Schema此播放片没有新修改；工作树内既有Schema变化属于U1作者类型索引，不代表正式StoryDef切换。
+- GALHCG按直接影响路径集中只读changed核对：新增源码/测试、Task/Report与Unit/Receipt均无直接关联（unreferenced_path）；索引的9个owner分两页检查，6项旧Evidence标记content_changed。未写图、刷新或写freshness，地图结果不替代行为验证。
+- 工作树保留未提交；未回退用户修改、清档或实施全量内容替换。每Unit详情在各Receipt中。
+
+下一片应先明确新Controller的owner定向、主题/实体表现清理与标题默认来源，再接实屏正文/输入；保存与完成结算另立合同。本片的有限执行能力不能等同“全部旧Talklet场景已替换”。
+
+## 15. 全量切换阶段1–5（用户授权持续施工）
+
+用户授权持续完成：①现有UI实际播放；②owner/run演出归属及生命周期；③根Entry/终端Story完成结算；④节点进度保存恢复；⑤正式内容和调用入口全量替换。独立Story编辑工具为阶段6，不在本轮范围。
+
+本轮决策：正式StoryDef仅nodes/stages，不运行旧talklets编译兼容；当前聊天视觉DTO可复用现有窗口字段但不承担执行。每GameInstance按owner管理独立Run和票据；同owner替换前先核入口，不清错游标。完成策略源自根Entry，完成记录及首次/重复判定沿既有终端Story身份；来源Entry另用于区域交付、冷却和阻断。replay不重复奖励或完成日志，保留阅读前置分支守卫。
+
+存档采用2.0.0与节点等待快照，明确拒绝旧格式、不读取迁移、不删除用户磁盘存档。正文/输入节点、返回栈、visited、多击随机结果和Run结算元数据保存；恢复新票据与运行身份，不执行此前资源/入口动作。临时主题、story实体表现和Overlay有独立表现快照恢复，不用重放Operation补演出。
+
+UI沿现有聊天风格与所属区域刷新；正文真实送达后按捕获的token确认，输入按稳定optionId提交，卡片确认绑定来源run。演出事件显式owner/runId，后台剧情不能写到用户当前打开的流。旧页面推断推进器和游标在正式接线验证后退役。
+
+施工单元：U9节点快照；U10–12正式服务/结算/选择与旧解释器退役；U15–16保存合同与接线；U17–19输入/送达/演出UI；U20–23表现宿主、事件及表现快照；U24组合根和命令；U25卡片来源确认；U26通知队列；U30起数据合同与正式内容。各Unit的状态与实际检查以对应Receipt为准，此处不提前宣称五阶段完成。
+
+
+## 16. 阶段1–5交付与联合验收
+
+本轮采用开发期全量替换；没有双版本Story解释器，没有旧存档迁移。独立Story编辑工具是阶段6，尚未施工。
+
+| 阶段 | 已落地的行为 | 主要证据 |
+| --- | --- | --- |
+| 1：现有UI播放 | 正文实际送达后确认token；按钮/多击/选择/卡片作为独立输入；沿现有聊天DOM与局部刷新 | UI输入/送达/卡片/历史恢复回归；浏览器真实欢迎剧情 |
+| 2：演出生命周期 | owner/run路由；主题/实体/Overlay/标题按来源管理；关闭旧Run不擦掉新Run或其他空间 | PresentationHost、生命周期与消息路由回归 |
+| 3：完成结算 | 根Entry负责准入/冷却/阻断/交付，终端Story负责完成日志和首次/重复奖励；重读守卫；同步后续不被旧完成覆盖 | StoryService、奖励、被动池、Flow/Replay回归 |
+| 4：保存恢复 | 2.0.0节点快照；稳定返回点、visited、工作量、choice归属及表现快照；恢复新票据/Run，保留historyId；全游标纯预检先于状态替换 | snapshot/save/preflight/Init/历史恢复回归 |
+| 5：全量替换 | 43篇作者源与运行JSON包、工厂、Registry引用、Schema同步；旧页解释器/旧工厂与相关工具退役 | 43篇结构校验、HEAD离线转换对照、bundle check、Schema同步测试 |
+
+### 验证结果
+
+- 本轮实际变更的43个测试文件：**428/428通过**（包含最终左栏移动锁回归）。测试集合来自 `git diff --name-only --diff-filter=ACM` 与新增 `.test.ts` 的合并列表；没有排除其中失败来计算通过数。
+- 最终全量：`npx vitest run --silent --maxWorkers=4 --minWorkers=1 --reporter=json`，319文件中315通过、4失败；**3237项通过、8项失败，共3245项**。全部Story相关回归通过；全量不是全绿。
+- 范围外8项：`tests/data/gameplay-b-map-registry.test.ts` 1项缺新增地图version预期；`tests/engine/gameplay-b-basic-map-p0-p3.test.ts` 2项旧Edge精确断言缺kind；`tests/engine/gameplay-b-map-source-transactions.test.ts` 1项旧Item草稿断言缺显式additionalTarget:null；`tests/ui/presentation-text-color-css.test.ts` 4项读取旧拆分前文件位置导致ENOENT。未为通过而修改这些断言或玩法源码，诊断见U39与UI回执。
+- `npx tsc --noEmit --pretty false`、`npm run check:architecture`、`npm run check:docs`、`git diff --check`：通过。
+- `npm run gen:schema` 后再次运行显示unchanged；全量中的Schema同步回归通过。`node scripts/sync-base-datapack-bundle.mjs --check`：43篇运行包与TS源一致。
+- 生产内容审查：旧HEAD作者内容经离线转换重放，43篇、0 issues、0 mismatches；43篇结构均有效。迁移器7项行为测试通过；测试目录旧作者形状预览0待转换/0问题。
+
+浏览器实测采用正式运行JSON包，经世界线正常入口进入夏莱：正文自动投递 → 回复 → 实际随机总量4和5的工作Click（不同次正常开局） → 独立确认 → 正文 → 生产分支选择 → 结尾 → 设施奖励与解除移动锁定。浏览器未出现error日志。UI历史保留，按钮与选择不会重复投递正文；完成后左栏说明和区域准入同步解锁，旧推进提示已更正。
+
+### 已明确的行为边界
+
+- `base:story:abydos_siesta`旧混合批次会先发主题请求、后写资源；新节点按作者声明先加资源、后切主题。两者没有状态依赖，但事件/投影顺序可观察；采用本轮显式顺序语义，未宣称逐位复刻旧EffectEngine调度。
+- 旅行继续使用正式领域命令。AlreadyThere、NotInThisInit等正常失败结果沿旧Story政策跳过，剧情继续；成功且notice才发来源通知。异常仍停止执行并报告错误。
+- 离线迁移工具对静态总量1只生成单Click，对总量始终大于1生成工作加确认；随机范围可能同时产生1和多击时报告`ambiguous-click-confirm`，要求人工改写，不建立运行兼容层。
+- 不同Operation按脚本顺序生效。后续动作失败不会自动回滚此前的不同动作；同一个state批次仍保留领域批次求值。
+- 保存恢复不重放资源动作、入口请求或开场标题。临时表现从纯数据快照恢复；非法后一个owner或表现快照在替换当前状态前被拒绝。复用同一存档也生成新的运行身份。
+- `pageIndex/totalPages`、显示Talklet与`absorbed:[]`只是保留的显示投影合同，不承担旧格式解释；执行和保存均依赖稳定节点与新票据。
+
+### GALHCG只读收尾
+
+按项目`acprogram`核实身份后，对212个本Task直接路径做合并changed核对；另补查U31/U61直接路径及U62新增测试/文档、U60回执；后者均无直接关联。73个路径有关联，其中64个内容变化、119条已存Evidence仍引用旧版本；owner与Evidence分页完整。9个旧工厂/解释器/工具测试路径已删除但仍有地图关联，12个新节点合同/播放器/宿主路径尚无直接关联。这是地图尚未维护，不是实现缺失。
+
+未改图、刷新清单或写freshness；新Unit/receipt与新测试多数本就无直接映射。未来需要地图回填时按维护指南单独取得并复验依据，当前不把缓存摘要当成新实现事实。未提交Git、未回退用户改动、未删除用户磁盘存档。
+
+### Unit与Receipt索引
+
+| Unit | 验收回执 |
+| --- | --- |
+| [[docs/plan-work/task-0322-units/task-0322-u01]] | 见Unit内阶段记录 |
+| [[docs/plan-work/task-0322-units/task-0322-u02]] | 见Unit内阶段记录 |
+| [[docs/plan-work/task-0322-units/task-0322-u03]] | 见Unit内阶段记录 |
+| [[docs/plan-work/task-0322-units/task-0322-u04]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u04]] |
+| [[docs/plan-work/task-0322-units/task-0322-u05]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u05]] |
+| [[docs/plan-work/task-0322-units/task-0322-u06]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u06]] |
+| [[docs/plan-work/task-0322-units/task-0322-u07]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u07]] |
+| [[docs/plan-work/task-0322-units/task-0322-u08]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u08]] |
+| [[docs/plan-work/task-0322-units/task-0322-u09]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u09]] |
+| [[docs/plan-work/task-0322-units/task-0322-u10]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u10]] |
+| [[docs/plan-work/task-0322-units/task-0322-u11]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u11]] |
+| [[docs/plan-work/task-0322-units/task-0322-u12]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u12]] |
+| [[docs/plan-work/task-0322-units/task-0322-u15]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u15]] |
+| [[docs/plan-work/task-0322-units/task-0322-u16]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u16]] |
+| [[docs/plan-work/task-0322-units/task-0322-u17]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u17]] |
+| [[docs/plan-work/task-0322-units/task-0322-u18]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u18]] |
+| [[docs/plan-work/task-0322-units/task-0322-u19]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u19]] |
+| [[docs/plan-work/task-0322-units/task-0322-u20]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u20]] |
+| [[docs/plan-work/task-0322-units/task-0322-u21]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u21]] |
+| [[docs/plan-work/task-0322-units/task-0322-u22]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u22]] |
+| [[docs/plan-work/task-0322-units/task-0322-u23]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u23]] |
+| [[docs/plan-work/task-0322-units/task-0322-u24]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u24]] |
+| [[docs/plan-work/task-0322-units/task-0322-u25]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u25]] |
+| [[docs/plan-work/task-0322-units/task-0322-u26]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u26]] |
+| [[docs/plan-work/task-0322-units/task-0322-u27]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u27]] |
+| [[docs/plan-work/task-0322-units/task-0322-u28]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u28]] |
+| [[docs/plan-work/task-0322-units/task-0322-u29]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u29]] |
+| [[docs/plan-work/task-0322-units/task-0322-u30]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u30]] |
+| [[docs/plan-work/task-0322-units/task-0322-u31]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u31]] |
+| [[docs/plan-work/task-0322-units/task-0322-u32]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u32]] |
+| [[docs/plan-work/task-0322-units/task-0322-u33]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u33]] |
+| [[docs/plan-work/task-0322-units/task-0322-u34]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u34]] |
+| [[docs/plan-work/task-0322-units/task-0322-u35]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u35]] |
+| [[docs/plan-work/task-0322-units/task-0322-u36]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u36]] |
+| [[docs/plan-work/task-0322-units/task-0322-u37]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u37]] |
+| [[docs/plan-work/task-0322-units/task-0322-u38]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u38]] |
+| [[docs/plan-work/task-0322-units/task-0322-u39]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u39]] |
+| [[docs/plan-work/task-0322-units/task-0322-u40]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u40]] |
+| [[docs/plan-work/task-0322-units/task-0322-u41]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u41]] |
+| [[docs/plan-work/task-0322-units/task-0322-u42]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u42]] |
+| [[docs/plan-work/task-0322-units/task-0322-u43]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u43]] |
+| [[docs/plan-work/task-0322-units/task-0322-u44]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u44]] |
+| [[docs/plan-work/task-0322-units/task-0322-u45]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u45]] |
+| [[docs/plan-work/task-0322-units/task-0322-u46]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u46]] |
+| [[docs/plan-work/task-0322-units/task-0322-u47]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u47]] |
+| [[docs/plan-work/task-0322-units/task-0322-u48]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u48]] |
+| [[docs/plan-work/task-0322-units/task-0322-u49]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u49]] |
+| [[docs/plan-work/task-0322-units/task-0322-u50]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u50]] |
+| [[docs/plan-work/task-0322-units/task-0322-u60]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u60]] |
+| [[docs/plan-work/task-0322-units/task-0322-u61]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u61]] |
+| [[docs/plan-work/task-0322-units/task-0322-u62]] | [[docs/plan-work/task-0322-units/receipts/receipt-0322-u62]] |

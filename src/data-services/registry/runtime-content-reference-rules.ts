@@ -35,9 +35,9 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.affectorPackIds\[\d+\]$/, 'Affector Pack', ['affectorPacks']],
   ],
   stories: [
-    [/^\$\.talklets\[\d+\]\.jumpToStory$/, '剧情跳转', ['stories']],
-    [/^\$\.talklets\[\d+\]\.choices\[\d+\]\.jumpToStory$/, '选项剧情跳转', ['stories']],
-    [/^\$\.talklets\[\d+\]\.kizuna\.storyId$/, '羁绊剧情入口', ['activeStories']],
+    [/^\$\.nodes\[\d+\]\.transfer\.storyId$/, '剧情转移', ['stories']],
+    [/^\$\.nodes\[\d+\]\.interaction\.result\.transfer\.storyId$/, '按钮结果剧情转移', ['stories']],
+    [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.transfer\.storyId$/, '选项结果剧情转移', ['stories']],
   ],
   storyEntries: [
     [/^\$\.storyId$/, '所属 Story', ['stories']],
@@ -84,7 +84,7 @@ const EFFECT_PATHS: Readonly<Record<string, readonly RegExp[]>> = {
   spots: [/^\$\.levelUpgrades\[\d+\]\.effects\[\d+\]$/, /^\$\.triggers\[\d+\]\.effects\[\d+\]$/],
   enhancements: [/^\$\.effects\[\d+\]$/],
   items: [/^\$\.(useEffects|pickupEffects)\[\d+\]$/],
-  stories: [/^\$\.talklets\[\d+\]\.effects\[\d+\]$/, /^\$\.talklets\[\d+\]\.choices\[\d+\]\.effects\[\d+\]$/],
+  stories: [],
   storyEntries: [/^\$\.conditionalRewards\[\d+\]\.effects\[\d+\]$/, /^\$\.completionReward\.(first|repeat)\[\d+\]$/, /^\$\.reactions\[\d+\]\.effects\[\d+\]$/],
   characters: [/^\$\.bond\.milestones\[\d+\]\.effects\[\d+\]$/],
   characterVariants: [/^\$\.progression\.skills\[\d+\]\.levelEffects\[\d+\]$/],
@@ -100,7 +100,7 @@ const CONDITION_ROOTS: Readonly<Record<string, readonly RegExp[]>> = {
   areas: [/^\$\.enterEffects\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
   spots: [/^\$\.purchaseOptions\[\d+\]\.condition$/, /^\$\.levelUpgrades\[\d+\]\.condition$/, /^\$\.levelUpgrades\[\d+\]\.paymentOptions\[\d+\]\.condition$/, /^\$\.functionalities\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
   inits: [/^\$\.enterEffects\[\d+\]\.condition$/, /^\$\.triggers\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
-  stories: [/^\$\.talklets\[\d+\]\.choices\[\d+\]\.condition$/],
+  stories: [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.condition$/],
   storyEntries: [/^\$\.triggerCondition$/, /^\$\.conditionalRewards\[\d+\]\.condition$/, /^\$\.reactions\[\d+\]\.condition$/, /^\$\.block$/],
   gachaPools: [/^\$\.closeWhen$/],
   enhancements: [/^\$\.revealTriggers\[\d+\]\.condition$/, /^\$\.addsFunctionalities\[\d+\]\.condition$/],
@@ -163,6 +163,35 @@ const EFFECT_TARGETS: Readonly<Record<string, readonly [string, string, 'target'
 
 const ENTITY_KINDS: Readonly<Record<string, string>> = {
   init: 'inits', area: 'areas', spot: 'spots', enhancement: 'enhancements', variant: 'characterVariants',
+};
+
+const STORY_ACTION_PATHS = [
+  /^\$\.nodes\[\d+\]\.action$/,
+  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]$/,
+  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]$/,
+  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]$/,
+];
+
+const STORY_INTERACTION_PATH = /^\$\.nodes\[\d+\]\.interaction$/;
+const STORY_IMAGE_PATHS = [
+  /^\$\.nodes\[\d+\]\.content\.image$/,
+  /^\$\.nodes\[\d+\]\.action\.command\.content\.content\.image$/,
+  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]\.command\.content\.content\.image$/,
+  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]\.command\.content\.content\.image$/,
+  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]\.command\.content\.content\.image$/,
+];
+
+const STORY_STATE_REFERENCE_RULES: Readonly<Record<string, readonly [string, string, string]>> = {
+  setResource: ['resourceId', '设置资源', 'resourceDisplays'],
+  addResource: ['resourceId', '增加资源', 'resourceDisplays'],
+  setSpotLevel: ['spotId', '设置Spot等级', 'spots'],
+  addSpotLevel: ['spotId', '增加Spot等级', 'spots'],
+  setManager: ['spotId', '分配管理者的Spot', 'spots'],
+  addEnhancement: ['enhancementId', '获得强化', 'enhancements'],
+  addItem: ['itemId', '增加物品', 'items'],
+  unlockInit: ['initId', '解锁Init', 'inits'],
+  grantCharacter: ['variantId', '获得角色差分', 'characterVariants'],
+  addAffectionExp: ['variantId', '增加好感', 'characterVariants'],
 };
 
 function isRecord(value: unknown): value is RecordValue {
@@ -278,10 +307,81 @@ export function collectDefinitionReferences(
     if (confidence === 'declared') declaredPaths.add(path);
   };
   const kind = source.definitionKind;
+  const addStoryEntryRequest = (requestPath: string, request: unknown) => {
+    if (!isRecord(request)) return;
+    const value = safeRecord(request);
+    const targetKinds = value.entryType === 'active'
+      ? ['activeStories']
+      : value.entryType === 'passive' ? ['passiveStories'] : undefined;
+    if (targetKinds) add(`${requestPath}.entryId`, value.entryId, '剧情入口请求', targetKinds);
+    if (typeof value.owner === 'string' && value.owner) add(`${requestPath}.owner`, value.owner, '剧情沙盒角色', ['characterVariants']);
+  };
 
   walk(value, '$', (node, path, parent, parentPath) => {
     const rule = rulesFor(FIELD_RULES, kind).find(([pattern]) => pattern.test(path));
     if (rule) add(path, node, rule[1], rule[2]);
+
+    if (kind === 'stories' && matches(path, STORY_IMAGE_PATHS) && typeof node === 'string' && isQualifiedId(node)) {
+      add(path, node, '剧情图片', ['pics']);
+    }
+
+    if (kind === 'stories' && STORY_INTERACTION_PATH.test(path) && isRecord(node)) {
+      const interaction = safeRecord(node);
+      if (interaction.kind === 'entryCard' && isRecord(interaction.card)) {
+        const card = safeRecord(interaction.card);
+        addStoryEntryRequest(`${path}.card.request`, card.request);
+      }
+    }
+
+    if (kind === 'stories' && matches(path, STORY_ACTION_PATHS) && isRecord(node)) {
+      const action = safeRecord(node);
+      if (action.kind === 'state' && Array.isArray(action.effects)) {
+        for (let index = 0; index < action.effects.length; index += 1) {
+          const effect = action.effects[index];
+          if (!isRecord(effect)) continue;
+          const state = safeRecord(effect);
+          const reference = typeof state.op === 'string' ? STORY_STATE_REFERENCE_RULES[state.op] : undefined;
+          if (reference) {
+            const [field, relation, targetKind] = reference;
+            add(`${path}.effects[${index}].${field}`, state[field], relation, [targetKind]);
+          }
+          if (state.op === 'setManager') add(`${path}.effects[${index}].managerId`, state.managerId, '管理者角色', ['characters']);
+        }
+      } else if (action.kind === 'travel') {
+        add(`${path}.areaId`, action.areaId, '剧情移动Area', ['areas']);
+      } else if (action.kind === 'entryRequest') {
+        addStoryEntryRequest(`${path}.request`, action.request);
+      } else if (action.kind === 'overlay' && isRecord(action.command)) {
+        const command = safeRecord(action.command);
+        const content = isRecord(command.content) ? safeRecord(command.content) : undefined;
+        if (command.command === 'show' && content?.kind === 'entryCard' && isRecord(content.card)) {
+          addStoryEntryRequest(`${path}.command.content.card.request`, safeRecord(content.card).request);
+        }
+      } else if (action.kind === 'presentation' && isRecord(action.command)) {
+        const command = safeRecord(action.command);
+        if (command.command === 'theme' && isRecord(command.value)) {
+          const theme = safeRecord(command.value);
+          themeEffectRoots.add(`${path}.command`);
+          if ((theme.scope === 'area' || theme.scope === 'student') && typeof theme.entityKey === 'string') {
+            const entity = targetKindOfEntityKey(theme.entityKey);
+            const expectedKind = theme.scope === 'area' ? 'areas' : 'characterVariants';
+            if (entity?.kind === expectedKind) add(`${path}.command.value.entityKey`, entity.id, '实体主题目标', [expectedKind]);
+          }
+        }
+        if ((command.command === 'setEntityPresentation' || command.command === 'clearEntityPresentation') && typeof command.target === 'string') {
+          const entity = targetKindOfEntityKey(command.target);
+          if (entity) {
+            const targetRef = { definitionKind: entity.kind, fullId: entity.id };
+            add(`${path}.command.target`, entity.id, '实体表现目标', [entity.kind]);
+            if (command.command === 'setEntityPresentation' && typeof command.optionId === 'string') {
+              const owner = entries.find(entry => entry.ref.definitionKind === entity.kind && entry.ref.fullId === entity.id);
+              add(`${path}.command.optionId`, command.optionId, '实体表现选项', undefined, 'local', targetRef, entityPresentationLocations(owner, command.optionId));
+            }
+          }
+          if (typeof command.owner === 'string' && command.owner) add(`${path}.command.owner`, command.owner, '表现Owner角色', ['characterVariants']);
+        }
+      }
+    }
 
     if (kind === 'spots' && isRecord(node) && /^\$\.purchaseOptions\[\d+\]\.costs\[\d+\]$|^\$\.levelUpgrades\[\d+\]\.paymentOptions\[\d+\]\.costs\[\d+\]$/.test(path)) {
       const type = node.type;

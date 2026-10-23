@@ -54,9 +54,7 @@ export function restoreThemeFloat(ctrl: UIController): void {
  * Init 主题只投影到外部 Init 选择页；通讯录学生对话会临时完整替代普通界面选择。
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
-  if (!ctrl.game.getView().currentStory) {
-    ctrl.game.colorSystem.clearStoryTheme();
-  }
+  ctrl.game.storyPresentation.activate(ctrl.panelState.conversationVariantId);
   ctrl.game.colorSystem.syncSelectedThemeFromState(
     ctrl.game.state,
     ctrl.game.userThemeService.capability().active,

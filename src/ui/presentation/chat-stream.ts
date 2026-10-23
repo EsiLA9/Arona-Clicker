@@ -42,6 +42,7 @@ interface GateState {
 
 /** 开幕标题横幅（streamKey → 横幅）：到期自动清除并触发重渲染。 */
 interface BannerState {
+  runId?: string;
   title: string;
   /** 呼出时刻：render 重建元素时按此时长换算负 animation-delay 断点续播（不闪动）。 */
   startedAt: number;
@@ -53,6 +54,9 @@ export class ChatStream {
   private chatId = 1;
   /** 各流最后同步的剧情页指纹（Entry / StoryDef / 页码，按流隔离）。 */
   private streamFingerprints = new Map<string, string | null>();
+  private deliveryTokens = new Map<string, string>();
+  private streamRuns = new Map<string, string>();
+  private beforeInput = new Map<string, boolean>();
   /** 进行中的节奏门控（streamKey → gate）。 */
   private gates = new Map<string, GateState>();
   /** 待执行的连发推进（streamKey → 0ms 计时器）。 */
@@ -62,11 +66,14 @@ export class ChatStream {
   /** 节奏阶段流转 / 到期后的重渲染回调（controller 注入）。 */
   onChange: (() => void) | null = null;
   /** 链式连发推进回调（controller 注入）：对 streamKey 的沙盒执行一次 clickSend 单页推进。 */
-  onAutoAdvance: ((streamKey: string) => void) | null = null;
+  onAutoAdvance: ((streamKey: string, token?: string) => void) | null = null;
 
   /** 会话重置（新游戏 / 读档 / 重启）：清剧情指纹与门控状态，ID 无需归零。 */
   reset(): void {
     this.streamFingerprints.clear();
+    this.deliveryTokens.clear();
+    this.streamRuns.clear();
+    this.beforeInput.clear();
     for (const key of [...this.gates.keys()]) this.removeGate(key);
     for (const key of [...this.autoAdvances.keys()]) this.cancelAutoAdvance(key);
     for (const key of [...this.banners.keys()]) this.clearBanner(key);
@@ -83,10 +90,14 @@ export class ChatStream {
       for (const entry of entries) this.chatId = Math.max(this.chatId, entry.id + 1);
       const story = streamKey === '#global' ? game.getView().currentStory : game.getStoryView(streamKey);
       if (!story) continue;
+      // endRun must still be able to cancel timers rebuilt from a restored page.
+      if (story.runId) this.streamRuns.set(streamKey, story.runId);
       const lastPage = [...entries].reverse().find(entry => entry.storyPageKey);
       const fingerprint = storyPageKey(story);
       if (lastPage?.storyPageKey !== fingerprint) continue;
       this.streamFingerprints.set(streamKey, fingerprint);
+      this.beforeInput.set(streamKey, story.nextIsInput === true);
+      if (story.phase === 'delivery' && story.token) this.deliveryTokens.set(streamKey, story.token);
       this.afterDelivery(streamKey, story.page);
     }
   }
@@ -95,14 +106,14 @@ export class ChatStream {
    * 呼出开幕标题横幅（openingTitleShown 事件）：写入指定流并在到期后自动清除
    * （onChange 触发重渲染移除 DOM）；同流重复呼出先清旧计时器。
    */
-  showBanner(streamKey: string, title: string): void {
+  showBanner(streamKey: string, title: string, runId?: string): void {
     this.clearBanner(streamKey);
     const startedAt = Date.now();
     const timer = setTimeout(() => {
       this.banners.delete(streamKey);
       this.onChange?.();
     }, BANNER_ANIMATION_MS);
-    this.banners.set(streamKey, { title, startedAt, timer });
+    this.banners.set(streamKey, { title, startedAt, timer, runId });
   }
 
   /** 当前活跃流的开幕横幅快照（无则 null；render 前写入 PanelState.openingBanner）。 */
@@ -175,6 +186,7 @@ export class ChatStream {
     const streamKey = convId ?? '#global';
     const story = convId ? game.getStoryView(convId) : game.getView().currentStory;
     if (!story) {
+      this.deliveryTokens.delete(streamKey);
       // 本流剧情清空（完结/打断）：仍在打字的上一页内容立即落流（不丢消息）；门控与连发一并解除
       const gate = this.gates.get(streamKey);
       if (gate?.phase === 'typing') this.deliverTyping(streamKey);
@@ -186,11 +198,16 @@ export class ChatStream {
     const fingerprint = storyPageKey(story);
     if (this.streamFingerprints.get(streamKey) === fingerprint) return;
     this.streamFingerprints.set(streamKey, fingerprint);
+    this.beforeInput.set(streamKey, story.nextIsInput === true);
+    if (story.runId) this.streamRuns.set(streamKey, story.runId);
     // 同流推进（防御路径：门控期间按钮已阻断推进）：旧页内容立即落流、旧门控与旧连发解除
     const staleGate = this.gates.get(streamKey);
     if (staleGate?.phase === 'typing') this.deliverTyping(streamKey);
     else if (staleGate) this.removeGate(streamKey);
     this.cancelAutoAdvance(streamKey);
+    this.deliveryTokens.delete(streamKey);
+    if (story.phase === 'input') return;
+    if (story.token) this.deliveryTokens.set(streamKey, story.token);
     // click 页为纯底部按钮交互页（text 作按钮文案），不进入聊天流
     if (story.page.kind === 'click') return;
     const payload: Omit<ChatEntry, 'id' | 'timestamp'> = {
@@ -250,6 +267,11 @@ export class ChatStream {
     this.append((panelState.studentChats[variantId] ??= []), entry);
   }
 
+  /** 显式owner路由；undefined仅供非剧情旧事件沿当前UI流投递。 */
+  pushToOwner(panelState: PanelState, owner: string | null | undefined, entry: Omit<ChatEntry, 'id' | 'timestamp'>): void {
+    this.append(owner === undefined ? this.activeStream(panelState) : owner === null ? panelState.chatEntries : (panelState.studentChats[owner] ??= []), entry);
+  }
+
   /** 向后吸收的过渡页（推进后自动跳过的纯展示页）同步进聊天流（不参与节奏门控）。 */
   pushAbsorbed(panelState: PanelState, views: StoryView[]): void {
     this.appendAbsorbed(this.activeStream(panelState), views);
@@ -283,33 +305,33 @@ export class ChatStream {
   }
 
   /** 当前活跃流的演出专用文本覆盖层。 */
-  activeChatTexts(panelState: PanelState): ChatTextEntry[] {
-    const convId = panelState.conversationVariantId;
+  activeChatTexts(panelState: PanelState, owner?: string | null): ChatTextEntry[] {
+    const convId = owner === undefined ? panelState.conversationVariantId : owner;
     if (!convId) return panelState.chatTexts;
     return (panelState.studentChatTexts[convId] ??= []);
   }
 
   /** 清理聊天流全部内容（含演出专用文本覆盖层）。 */
-  clearAll(panelState: PanelState): void {
-    const stream = this.activeStream(panelState);
+  clearAll(panelState: PanelState, owner?: string | null): void {
+    const streamKey = (owner === undefined ? panelState.conversationVariantId : owner) ?? '#global';
+    const stream = streamKey === '#global' ? panelState.chatEntries : (panelState.studentChats[streamKey] ??= []);
     stream.length = 0;
     // 引擎显式清流：该流节奏内容不再需要，解除门控与连发（区别于正常送达的落内容）
-    const streamKey = panelState.conversationVariantId ?? '#global';
     this.removeGate(streamKey);
     this.cancelAutoAdvance(streamKey);
-    const texts = this.activeChatTexts(panelState);
+    const texts = this.activeChatTexts(panelState, owner);
     texts.length = 0;
   }
 
   /** 删除全部可变位置的演出文本覆盖层（保留聊天历史）。 */
-  clearAllTexts(panelState: PanelState): void {
-    const texts = this.activeChatTexts(panelState);
+  clearAllTexts(panelState: PanelState, owner?: string | null): void {
+    const texts = this.activeChatTexts(panelState, owner);
     texts.length = 0;
   }
 
   /** 添加演出专用文本覆盖层到当前活跃流（同 id 覆盖更新）。 */
-  pushChatText(panelState: PanelState, entry: ChatTextEntry): void {
-    const texts = this.activeChatTexts(panelState);
+  pushChatText(panelState: PanelState, entry: ChatTextEntry, owner?: string | null): void {
+    const texts = this.activeChatTexts(panelState, owner);
     const existing = texts.findIndex(t => t.id === entry.id);
     if (existing >= 0) {
       texts[existing] = entry;
@@ -319,10 +341,23 @@ export class ChatStream {
   }
 
   /** 按临时 id 擦除演出专用文本覆盖层。 */
-  clearChatText(panelState: PanelState, id: string): void {
-    const texts = this.activeChatTexts(panelState);
+  clearChatText(panelState: PanelState, id: string, owner?: string | null): void {
+    const texts = this.activeChatTexts(panelState, owner);
     const idx = texts.findIndex(t => t.id === id);
     if (idx >= 0) texts.splice(idx, 1);
+  }
+
+  /** 结束旧链时只撤下它自己的临时演出和未送达计时，不影响新链。 */
+  endRun(panelState: PanelState, owner: string | null, runId: string): void {
+    const texts = this.activeChatTexts(panelState, owner);
+    for (let i = texts.length - 1; i >= 0; i--) if (texts[i].runId === runId) texts.splice(i, 1);
+    const key = owner ?? '#global';
+    if (this.banners.get(key)?.runId === runId) this.clearBanner(key);
+    if (this.streamRuns.get(key) !== runId) return;
+    this.removeGate(key);
+    this.cancelAutoAdvance(key);
+    this.deliveryTokens.delete(key);
+    this.streamRuns.delete(key);
   }
 
   /** 追加条目到指定流：分配自增 id / 时间戳，并走共享投递策略与上限。返回新条目 id。 */
@@ -343,7 +378,7 @@ export class ChatStream {
       if (page) this.afterDelivery(streamKey, page);
     } else {
       this.removeGate(streamKey);
-      if (gate.phase === 'pause') this.scheduleAutoAdvance(streamKey);
+      if (gate.phase === 'pause' || this.deliveryTokens.has(streamKey)) this.scheduleAutoAdvance(streamKey);
     }
     this.onChange?.();
   }
@@ -375,11 +410,13 @@ export class ChatStream {
 
   /** 内容送达后的节奏决策（§4）：无按钮要求的左侧页先停顿一拍再连发下一页；否则进入按钮"想回复"门控。 */
   private afterDelivery(streamKey: string, page: Talklet): void {
-    if (chainEligible(page)) {
-      const pauseMs = CHAIN_PAUSE_SECONDS * 1000;
+    if (this.deliveryTokens.has(streamKey)) {
+      const thinking = page.thinking !== undefined || this.beforeInput.get(streamKey) === true;
+      const pauseMs = (thinking ? thinkingDelayOf(page) : CHAIN_PAUSE_SECONDS) * 1000;
+      if (pauseMs <= 0) { this.scheduleAutoAdvance(streamKey); return; }
       this.gates.set(streamKey, {
         streamKey,
-        phase: 'pause',
+        phase: thinking ? 'thinking' : 'pause',
         endsAt: Date.now() + pauseMs,
         timer: setTimeout(() => this.fireGate(streamKey), pauseMs),
       });
@@ -398,12 +435,13 @@ export class ChatStream {
   /** 连发推进：0ms 后交还 controller 对该流执行一次 clickSend（指纹守卫防外部剧情变动竞态）。 */
   private scheduleAutoAdvance(streamKey: string): void {
     const fingerprint = this.streamFingerprints.get(streamKey);
+    const token = this.deliveryTokens.get(streamKey);
     const prev = this.autoAdvances.get(streamKey);
     if (prev) clearTimeout(prev);
     this.autoAdvances.set(streamKey, setTimeout(() => {
       this.autoAdvances.delete(streamKey);
       if (this.streamFingerprints.get(streamKey) !== fingerprint) return;
-      this.onAutoAdvance?.(streamKey);
+      this.onAutoAdvance?.(streamKey, token);
     }, 0));
   }
 
@@ -418,7 +456,7 @@ export class ChatStream {
 
 /** Entry 在跳转 / insert 中保持不变，必须带上实际 StoryDef 才能区分同页码。 */
 function storyPageKey(story: StoryView): string {
-  return JSON.stringify([story.storyId, story.storyDefId, story.pageIndex]);
+  return JSON.stringify([story.historyId ?? story.runId, story.storyId, story.storyDefId, story.nodeId ?? story.pageIndex, story.waitSequence]);
 }
 
 /** 页级"正在输入"延迟（秒）：缺省 = 非右侧 talk 页默认 0.9s；0 = 显式关闭；自定义夹取上限 10s。 */
@@ -450,9 +488,3 @@ function typingEligible(page: Talklet): boolean {
  * 无选项、无按动次数（clickWork）。命中页送达后跳过"想回复"阶段，自动推进下一页，
  * 形成"省略号-发出-省略号-发出"的连发节奏，直到需要玩家接话的页为止。
  */
-function chainEligible(page: Talklet): boolean {
-  return typingEligible(page)
-    && !page.sendText?.trim()
-    && (page.choices?.length ?? 0) === 0
-    && !page.clickWork;
-}

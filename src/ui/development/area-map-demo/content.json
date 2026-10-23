@@ -521,19 +521,10 @@
     {
       "id": "area-map-demo:story:arrival",
       "name": "抵达广场",
-      "talklets": [
-        {
-          "text": "你穿过街道，抵达了中央广场。",
-          "kind": "narration",
-          "typing": 0,
-          "thinking": 0
-        },
-        {
-          "text": "接下来，去哪里看看呢？",
-          "kind": "narration",
-          "typing": 0,
-          "thinking": 0
-        }
+      "stages": { "arrival": { "advance": "auto" } },
+      "nodes": [
+        { "id": "arrival-first", "type": "talklet", "stageId": "arrival", "content": { "kind": "narration", "text": "你穿过街道，抵达了中央广场。" } },
+        { "id": "arrival-next", "type": "talklet", "stageId": "arrival", "content": { "kind": "narration", "text": "接下来，去哪里看看呢？" } }
       ]
     }
   ],

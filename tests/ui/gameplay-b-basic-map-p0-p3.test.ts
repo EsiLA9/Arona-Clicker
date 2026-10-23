@@ -4,6 +4,7 @@ import { createAppRuntime, DEFAULT_INIT_ID, loadDefaultDatapack } from '../../sr
 import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { SpotDef } from '../../src/data-services/contracts/world';
 import { UIController } from '../../src/ui/controller/controller';
+import { finishWelcome } from '../engine/story-test-fixtures';
 
 const PARTY = ['shiroko', 'serika'] as const;
 const DAMAGE_ACTION_LABEL = /普通射击|瞄准射击/;
@@ -39,12 +40,7 @@ function acquireMapParty(game: GameInstance, characterIds: readonly string[]): v
 }
 
 function finishGlobalStory(game: GameInstance): void {
-  let guard = 0;
-  while (game.getView().currentStory && guard++ < 80) {
-    const result = game.story.advanceStory();
-    if (!result.success && 'error' in result && result.error === 'ChoiceRequired') game.story.advanceStory(0);
-    else if (!result.success) break;
-  }
+  finishWelcome(game);
 }
 
 /** Boots the default Datapack, enters the default Init, and opens the Map entry Spot. */

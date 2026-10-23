@@ -4529,6 +4529,241 @@
       "navigationMapId": "base:area-map:theme_showcase"
     }
   ],
+  "areaMaps": [
+    {
+      "id": "base:area-map:schale_office",
+      "name": "夏莱办公室区域图",
+      "nodes": [
+        {
+          "id": "schale_main",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_main"
+          }
+        },
+        {
+          "id": "schale_library",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_library"
+          }
+        },
+        {
+          "id": "schale_hangar",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_hangar"
+          }
+        },
+        {
+          "id": "schale_rooftop",
+          "position": {
+            "x": 0,
+            "y": 180
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_rooftop"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "schale_library",
+          "toNodeId": "schale_main"
+        },
+        {
+          "fromNodeId": "schale_main",
+          "toNodeId": "schale_rooftop"
+        },
+        {
+          "fromNodeId": "schale_hangar",
+          "toNodeId": "schale_library"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:millennium",
+      "name": "千禧年学院区域图",
+      "nodes": [
+        {
+          "id": "millennium_lab",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_lab"
+          }
+        },
+        {
+          "id": "millennium_canteen",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_canteen"
+          }
+        },
+        {
+          "id": "millennium_server",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_server"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_lab"
+        },
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_server"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:abydos",
+      "name": "阿比多斯学院区域图",
+      "nodes": [
+        {
+          "id": "abydos_campus",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_campus"
+          }
+        },
+        {
+          "id": "abydos_pool",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_pool"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "abydos_campus",
+          "toNodeId": "abydos_pool"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:trinity",
+      "name": "崔妮蒂学院区域图",
+      "nodes": [
+        {
+          "id": "trinity_cathedral",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_cathedral"
+          }
+        },
+        {
+          "id": "trinity_tea_room",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_tea_room"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "trinity_cathedral",
+          "toNodeId": "trinity_tea_room"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:gehenna",
+      "name": "盖赫纳学园区域图",
+      "nodes": [
+        {
+          "id": "gehenna_council",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_council"
+          }
+        },
+        {
+          "id": "gehenna_district",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_district"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "gehenna_council",
+          "toNodeId": "gehenna_district"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:theme_showcase",
+      "name": "主题系统展示 Init区域图",
+      "nodes": [
+        {
+          "id": "theme_showcase",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:theme_showcase"
+          }
+        }
+      ],
+      "edges": []
+    }
+  ],
   "spots": [
     {
       "id": "base:spot:credit_printer",
@@ -13431,360 +13666,828 @@
     {
       "id": "base:story:schale_welcome",
       "name": "欢迎来到夏莱",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 夏莱办公室 · 清晨 ——",
-          "kind": "narration",
-          "align": "center"
-        },
-        {
-          "text": "欢迎回来，老师。夏莱的设备已经准备好了。",
-          "speaker": "阿罗娜",
-          "sendText": "设备准备完毕，可以开始调度。",
-          "muteReply": true
-        },
-        {
-          "text": "那就先把这里运转起来吧。",
-          "speaker": "老师"
-        },
-        {
-          "text": "Arona检查了一下......。",
-          "kind": "click",
-          "clickWork": {
-            "base": 4,
-            "rand": 2
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 夏莱办公室 · 清晨 ——"
+          },
+          "presentation": {
+            "align": "center"
           }
         },
         {
-          "text": "* 阿罗娜在平板上划出设备清单，一项项核对。*",
-          "kind": "narration",
-          "align": "center"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "欢迎回来，老师。夏莱的设备已经准备好了。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "清单确认完毕，可以开始调度了。",
-          "speaker": "老师",
-          "choices": [
-            {
-              "text": "从整理办公室开始",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "welcome_choice",
-                  "value": "office"
-                }
-              ]
-            },
-            {
-              "text": "先查看生产设备",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "welcome_choice",
-                  "value": "production"
-                }
-              ]
-            }
-          ]
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "设备准备完毕，可以开始调度。"
+          }
         },
         {
-          "text": "好的。设备会在每个 Tick 自动结算，资源足够后就能继续升级。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 10
-            },
-            {
-              "op": "addItem",
-              "target": "base:item:energy_drink",
-              "value": 1
-            },
-            {
-              "op": "setSpotLevel",
-              "target": "base:spot:tactical_desk",
-              "value": "1"
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "那就先把这里运转起来吧。",
+            "speaker": "老师"
+          }
+        },
+        {
+          "id": "p4-work",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "button",
+            "text": "Arona检查了一下......。",
+            "press": {
+              "base": 4,
+              "rand": 2
             }
-          ]
+          }
+        },
+        {
+          "id": "p4-confirm-click",
+          "type": "click",
+          "stageId": "p4-confirm",
+          "interaction": {
+            "kind": "button",
+            "text": "Arona检查了一下......。"
+          }
+        },
+        {
+          "id": "p5-body",
+          "type": "talklet",
+          "stageId": "p5",
+          "content": {
+            "kind": "narration",
+            "text": "* 阿罗娜在平板上划出设备清单，一项项核对。*"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p6-body",
+          "type": "talklet",
+          "stageId": "p6",
+          "content": {
+            "kind": "talk",
+            "text": "清单确认完毕，可以开始调度了。",
+            "speaker": "老师"
+          }
+        },
+        {
+          "id": "p6-choice",
+          "type": "click",
+          "stageId": "p6",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "从整理办公室开始",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "welcome_choice",
+                          "value": "office"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "option2",
+                "text": "先查看生产设备",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "welcome_choice",
+                          "value": "production"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p7-body",
+          "type": "talklet",
+          "stageId": "p7",
+          "content": {
+            "kind": "talk",
+            "text": "好的。设备会在每个 Tick 自动结算，资源足够后就能继续升级。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p7-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 10
+              },
+              {
+                "op": "addItem",
+                "itemId": "base:item:energy_drink",
+                "amount": 1
+              },
+              {
+                "op": "setSpotLevel",
+                "spotId": "base:spot:tactical_desk",
+                "amount": 1
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p4-confirm": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "auto"
+        },
+        "p6": {
+          "advance": "input"
+        },
+        "p7": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:schale_briefing",
       "name": "设备简报",
-      "talklets": [
+      "nodes": [
         {
-          "text": "· 例行设备简报 ·",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "· 例行设备简报 ·"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "设备状态稳定。今天也会按统一 Tick 继续工作。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 2
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "设备状态稳定。今天也会按统一 Tick 继续工作。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "了解，阿罗娜。",
+            "reply": {
+              "kind": "talk",
+              "text": "了解，阿罗娜。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 2
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "了解，阿罗娜。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_flow_show",
       "name": "流剧场预演",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 夏莱 · 流剧场 ——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:title",
-              "value": {
-                "text": "夏莱 · 流剧场预演",
-                "x": 0.5,
-                "y": 0.88,
-                "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 夏莱 · 流剧场 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p1-op1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:title",
+              "x": 0.5,
+              "y": 0.88,
+              "align": "center",
+              "content": {
+                "kind": "text",
+                "text": "夏莱 · 流剧场预演"
               }
             }
-          ]
+          }
         },
         {
-          "text": "舞台灯光亮起，演出文本浮现在聊天窗格上。",
-          "kind": "narration",
-          "align": "left"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "narration",
+            "text": "舞台灯光亮起，演出文本浮现在聊天窗格上。"
+          },
+          "presentation": {
+            "align": "left"
+          }
         },
         {
-          "text": "老师，这是「可定位的演出专用文本」。每个都带临时 id，可以单独擦除。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:cast",
-              "value": {
-                "text": "—— 出演：阿罗娜 ——",
-                "x": 0.12,
-                "y": 0.7,
-                "align": "left"
-              }
-            }
-          ],
-          "sendText": "我看到了，位置很精准。"
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "老师，这是「可定位的演出专用文本」。每个都带临时 id，可以单独擦除。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "演出文本还能设置字型、颜色、背景、字号。你看这条衬线金字，无背景的注释。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:gold",
-              "value": {
-                "text": "—— 深夜剧场 · 开幕 ——",
-                "x": 0.5,
-                "y": 0.75,
-                "align": "center",
-                "style": {
-                  "font": "serif",
-                  "fontSize": "26px",
-                  "color": "#ffd700",
-                  "backgroundColor": "#3a2a00"
-                }
-              }
+          "id": "p3-button",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "button",
+            "text": "我看到了，位置很精准。",
+            "reply": {
+              "kind": "talk",
+              "text": "我看到了，位置很精准。"
             },
-            {
-              "op": "showChatText",
-              "target": "perf:noBg",
-              "value": {
-                "text": "（无背景的弱化注释）",
-                "x": 0.3,
-                "y": 0.6,
-                "align": "left",
-                "style": {
-                  "background": false,
-                  "color": "#8a8a8a"
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:cast",
+                    "x": 0.12,
+                    "y": 0.7,
+                    "align": "left",
+                    "content": {
+                      "kind": "text",
+                      "text": "—— 出演：阿罗娜 ——"
+                    }
+                  }
                 }
-              }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "演出文本还能设置字型、颜色、背景、字号。你看这条衬线金字，无背景的注释。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p4-button",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "button",
+            "text": "很雅致。",
+            "reply": {
+              "kind": "talk",
+              "text": "很雅致。"
             },
-            {
-              "op": "showChatText",
-              "target": "perf:small",
-              "value": {
-                "text": "极小字号 · mono 等宽",
-                "x": 0.8,
-                "y": 0.85,
-                "align": "right",
-                "style": {
-                  "font": "mono",
-                  "fontSize": "10px",
-                  "color": "#7fb3ff"
-                }
-              }
-            }
-          ],
-          "sendText": "很雅致。"
-        },
-        {
-          "text": "旁白还能自由换行：多行文本会按原文断行显示。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:multiline",
-              "value": {
-                "text": "—— 第一幕 · 开场 ——\n月光洒进夏莱的落地窗。\n远处传来学生的脚步声。",
-                "x": 0.5,
-                "y": 0.7,
-                "align": "center",
-                "style": {
-                  "font": "sans",
-                  "fontSize": "16px",
-                  "color": "#e8e0d0",
-                  "backgroundColor": "#26324a"
-                }
-              }
-            }
-          ],
-          "sendText": "一目了然。"
-        },
-        {
-          "text": "比如这条在右下角的提示，稍后我会用它的 id 单独擦掉。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:note",
-              "value": {
-                "text": "TIP · 右下角提示",
-                "x": 0.85,
-                "y": 0.18,
-                "align": "right"
-              }
-            }
-          ],
-          "sendText": "好，期待你的操作。"
-        },
-        {
-          "text": "阿罗娜挥了挥手，右下角那条提示消失了，其余文本仍在。",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "clearIdChatFlow",
-              "target": "perf:note",
-              "value": 0
-            }
-          ]
-        },
-        {
-          "text": "接下来是全剧场清场。舞台上下的聊天内容都会被清空。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "clearAllChatFlow",
-              "target": "",
-              "value": 0
-            }
-          ],
-          "sendText": "见证一下。"
-        },
-        {
-          "text": "—— 第二幕 · 清场之后 ——",
-          "kind": "narration",
-          "align": "center"
-        },
-        {
-          "text": "清场后只剩新写的文本。这就是「清理流」的用法。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:act2",
-              "value": {
-                "text": "第二幕 · 重新开始",
-                "x": 0.5,
-                "y": 0.5,
-                "align": "center"
-              }
-            }
-          ],
-          "sendText": "比想象中干净利落。"
-        },
-        {
-          "text": "还可以把一段完整的对话直接「贴」到窗格上，复用它的气泡样式。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:talklet",
-              "value": {
-                "talklet": {
-                  "speaker": "阿罗娜",
-                  "text": "定位气泡：这是被贴到窗格左下角的完整对话。",
-                  "side": "left"
-                },
-                "x": 0.1,
-                "y": 0.15,
-                "align": "left"
-              }
-            }
-          ],
-          "sendText": "连头像和名字都有。"
-        },
-        {
-          "text": "羁绊入口卡片也能这样定位。试试点它？",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "perf:kizuna",
-              "value": {
-                "talklet": {
-                  "speaker": "阿罗娜",
-                  "text": "羁绊入口",
-                  "kizuna": {
-                    "storyId": "base:activestory:run_chain_1",
-                    "title": "羁绊剧情 · 深夜巡逻（一）",
-                    "buttonText": "进入羁绊剧情"
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:gold",
+                    "x": 0.5,
+                    "y": 0.75,
+                    "align": "center",
+                    "content": {
+                      "kind": "text",
+                      "text": "—— 深夜剧场 · 开幕 ——",
+                      "style": {
+                        "font": "serif",
+                        "fontSize": "26px",
+                        "color": "#ffd700",
+                        "backgroundColor": "#3a2a00"
+                      }
+                    }
                   }
                 },
-                "x": 0.5,
-                "y": 0.35,
-                "align": "center"
-              }
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:noBg",
+                    "x": 0.3,
+                    "y": 0.6,
+                    "align": "left",
+                    "content": {
+                      "kind": "text",
+                      "text": "（无背景的弱化注释）",
+                      "style": {
+                        "background": false,
+                        "color": "#8a8a8a"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:small",
+                    "x": 0.8,
+                    "y": 0.85,
+                    "align": "right",
+                    "content": {
+                      "kind": "text",
+                      "text": "极小字号 · mono 等宽",
+                      "style": {
+                        "font": "mono",
+                        "fontSize": "10px",
+                        "color": "#7fb3ff"
+                      }
+                    }
+                  }
+                }
+              ]
             }
-          ],
-          "sendText": "我来点。"
+          }
         },
         {
-          "text": "以上就是流剧场预演的全部内容。演出文本清场，谢幕。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "clearAllChatFlow",
-              "target": "",
-              "value": 0
+          "id": "p5-body",
+          "type": "talklet",
+          "stageId": "p5",
+          "content": {
+            "kind": "talk",
+            "text": "旁白还能自由换行：多行文本会按原文断行显示。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p5-button",
+          "type": "click",
+          "stageId": "p5",
+          "interaction": {
+            "kind": "button",
+            "text": "一目了然。",
+            "reply": {
+              "kind": "talk",
+              "text": "一目了然。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:multiline",
+                    "x": 0.5,
+                    "y": 0.7,
+                    "align": "center",
+                    "content": {
+                      "kind": "text",
+                      "text": "—— 第一幕 · 开场 ——\n月光洒进夏莱的落地窗。\n远处传来学生的脚步声。",
+                      "style": {
+                        "font": "sans",
+                        "fontSize": "16px",
+                        "color": "#e8e0d0",
+                        "backgroundColor": "#26324a"
+                      }
+                    }
+                  }
+                }
+              ]
             }
-          ],
-          "sendText": "辛苦了。"
+          }
+        },
+        {
+          "id": "p6-body",
+          "type": "talklet",
+          "stageId": "p6",
+          "content": {
+            "kind": "talk",
+            "text": "比如这条在右下角的提示，稍后我会用它的 id 单独擦掉。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p6-button",
+          "type": "click",
+          "stageId": "p6",
+          "interaction": {
+            "kind": "button",
+            "text": "好，期待你的操作。",
+            "reply": {
+              "kind": "talk",
+              "text": "好，期待你的操作。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:note",
+                    "x": 0.85,
+                    "y": 0.18,
+                    "align": "right",
+                    "content": {
+                      "kind": "text",
+                      "text": "TIP · 右下角提示"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p7-body",
+          "type": "talklet",
+          "stageId": "p7",
+          "content": {
+            "kind": "narration",
+            "text": "阿罗娜挥了挥手，右下角那条提示消失了，其余文本仍在。"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p7-op1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearId",
+              "id": "perf:note"
+            }
+          }
+        },
+        {
+          "id": "p8-body",
+          "type": "talklet",
+          "stageId": "p8",
+          "content": {
+            "kind": "talk",
+            "text": "接下来是全剧场清场。舞台上下的聊天内容都会被清空。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p8-button",
+          "type": "click",
+          "stageId": "p8",
+          "interaction": {
+            "kind": "button",
+            "text": "见证一下。",
+            "reply": {
+              "kind": "talk",
+              "text": "见证一下。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "clearFlow"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p9-body",
+          "type": "talklet",
+          "stageId": "p9",
+          "content": {
+            "kind": "narration",
+            "text": "—— 第二幕 · 清场之后 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p10-body",
+          "type": "talklet",
+          "stageId": "p10",
+          "content": {
+            "kind": "talk",
+            "text": "清场后只剩新写的文本。这就是「清理流」的用法。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p10-button",
+          "type": "click",
+          "stageId": "p10",
+          "interaction": {
+            "kind": "button",
+            "text": "比想象中干净利落。",
+            "reply": {
+              "kind": "talk",
+              "text": "比想象中干净利落。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:act2",
+                    "x": 0.5,
+                    "y": 0.5,
+                    "align": "center",
+                    "content": {
+                      "kind": "text",
+                      "text": "第二幕 · 重新开始"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p11-body",
+          "type": "talklet",
+          "stageId": "p11",
+          "content": {
+            "kind": "talk",
+            "text": "还可以把一段完整的对话直接「贴」到窗格上，复用它的气泡样式。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p11-button",
+          "type": "click",
+          "stageId": "p11",
+          "interaction": {
+            "kind": "button",
+            "text": "连头像和名字都有。",
+            "reply": {
+              "kind": "talk",
+              "text": "连头像和名字都有。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:talklet",
+                    "x": 0.1,
+                    "y": 0.15,
+                    "align": "left",
+                    "content": {
+                      "kind": "message",
+                      "content": {
+                        "kind": "talk",
+                        "text": "定位气泡：这是被贴到窗格左下角的完整对话。",
+                        "speaker": "阿罗娜"
+                      },
+                      "presentation": {
+                        "side": "left"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p12-body",
+          "type": "talklet",
+          "stageId": "p12",
+          "content": {
+            "kind": "talk",
+            "text": "羁绊入口卡片也能这样定位。试试点它？",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p12-button",
+          "type": "click",
+          "stageId": "p12",
+          "interaction": {
+            "kind": "button",
+            "text": "我来点。",
+            "reply": {
+              "kind": "talk",
+              "text": "我来点。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "show",
+                    "id": "perf:kizuna",
+                    "x": 0.5,
+                    "y": 0.35,
+                    "align": "center",
+                    "content": {
+                      "kind": "entryCard",
+                      "card": {
+                        "request": {
+                          "entryId": "base:activestory:run_chain_1",
+                          "entryType": "active",
+                          "owner": null,
+                          "intent": "card"
+                        },
+                        "title": "羁绊剧情 · 深夜巡逻（一）",
+                        "buttonText": "进入羁绊剧情"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p13-body",
+          "type": "talklet",
+          "stageId": "p13",
+          "content": {
+            "kind": "talk",
+            "text": "以上就是流剧场预演的全部内容。演出文本清场，谢幕。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p13-button",
+          "type": "click",
+          "stageId": "p13",
+          "interaction": {
+            "kind": "button",
+            "text": "辛苦了。",
+            "reply": {
+              "kind": "talk",
+              "text": "辛苦了。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "clearFlow"
+                  }
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        },
+        "p3": {
+          "advance": "input"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "input"
+        },
+        "p6": {
+          "advance": "input"
+        },
+        "p7": {
+          "advance": "auto"
+        },
+        "p8": {
+          "advance": "input"
+        },
+        "p9": {
+          "advance": "auto"
+        },
+        "p10": {
+          "advance": "input"
+        },
+        "p11": {
+          "advance": "input"
+        },
+        "p12": {
+          "advance": "input"
+        },
+        "p13": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_theme_lite_test",
       "name": "夏莱主厅·主题演出压力测试",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 夏莱主厅 · 主题演出压力测试 ——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "setTheme",
-              "target": "",
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 夏莱主厅 · 主题演出压力测试 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p1-op1",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
               "value": {
                 "colorGroupId": "base:colorgroup:coral",
                 "palette": [
@@ -13819,15 +14522,23 @@
                   }
                 ]
               }
-            },
-            {
-              "op": "showChatText",
-              "target": "theme-test:banner",
-              "value": {
+            }
+          }
+        },
+        {
+          "id": "p1-op2",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "theme-test:banner",
+              "x": 0.5,
+              "y": 0.12,
+              "align": "center",
+              "content": {
+                "kind": "text",
                 "text": "THEME LITE / OPEN",
-                "x": 0.5,
-                "y": 0.12,
-                "align": "center",
                 "style": {
                   "font": "mono",
                   "fontSize": "13px",
@@ -13836,61 +14547,135 @@
                 }
               }
             }
-          ]
-        },
-        {
-          "text": "老师，欢迎来到主题演出压力测试。当前先覆盖夏莱主厅的全屏背景、聊天气泡和状态色。",
-          "speaker": "阿罗娜",
-          "sendText": "开始测试。"
-        },
-        {
-          "text": "场景一：基础覆盖。主题临时层应高于主厅默认主题。",
-          "kind": "narration",
-          "align": "left"
-        },
-        {
-          "text": "这一页会再次写入同一个剧情主题槽，检查重复设定是否完整重写，而不是偷偷叠加旧值。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "setTheme",
-              "target": "",
-              "value": {
-                "colorGroupId": "base:colorgroup:momotalk-pink",
-                "tokens": {
-                  "primary": "#db2777",
-                  "bg": "#fff1f7",
-                  "playerBubble": "#9d174d"
-                },
-                "nodes": {
-                  "active": "#be185d"
-                }
-              }
-            }
-          ],
-          "sendText": "继续。"
-        },
-        {
-          "text": "场景二：多击页面。用于观察主题覆盖期间的进度条、按钮 active 与禁用态。",
-          "kind": "click",
-          "clickWork": {
-            "base": 3,
-            "rand": 2
           }
         },
         {
-          "text": "隐藏的配置页也完成了。它只推进演出，不应该改变跳转链和主题 Owner。",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "showChatText",
-              "target": "theme-test:hidden",
-              "value": {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师，欢迎来到主题演出压力测试。当前先覆盖夏莱主厅的全屏背景、聊天气泡和状态色。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "开始测试。",
+            "reply": {
+              "kind": "talk",
+              "text": "开始测试。"
+            }
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "场景一：基础覆盖。主题临时层应高于主厅默认主题。"
+          },
+          "presentation": {
+            "align": "left"
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "这一页会再次写入同一个剧情主题槽，检查重复设定是否完整重写，而不是偷偷叠加旧值。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p4-button",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "button",
+            "text": "继续。",
+            "reply": {
+              "kind": "talk",
+              "text": "继续。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "presentation",
+                  "command": {
+                    "command": "theme",
+                    "value": {
+                      "colorGroupId": "base:colorgroup:momotalk-pink",
+                      "tokens": {
+                        "primary": "#db2777",
+                        "bg": "#fff1f7",
+                        "playerBubble": "#9d174d"
+                      },
+                      "nodes": {
+                        "active": "#be185d"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "p5-work",
+          "type": "click",
+          "stageId": "p5",
+          "interaction": {
+            "kind": "button",
+            "text": "场景二：多击页面。用于观察主题覆盖期间的进度条、按钮 active 与禁用态。",
+            "press": {
+              "base": 3,
+              "rand": 2
+            }
+          }
+        },
+        {
+          "id": "p5-confirm-click",
+          "type": "click",
+          "stageId": "p5-confirm",
+          "interaction": {
+            "kind": "button",
+            "text": "场景二：多击页面。用于观察主题覆盖期间的进度条、按钮 active 与禁用态。"
+          }
+        },
+        {
+          "id": "p6-body",
+          "type": "talklet",
+          "stageId": "p6",
+          "content": {
+            "kind": "narration",
+            "text": "隐藏的配置页也完成了。它只推进演出，不应该改变跳转链和主题 Owner。"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p6-op1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "theme-test:hidden",
+              "x": 0.18,
+              "y": 0.76,
+              "align": "left",
+              "content": {
+                "kind": "text",
                 "text": "hidden talklet counted",
-                "x": 0.18,
-                "y": 0.76,
-                "align": "left",
                 "style": {
                   "background": false,
                   "color": "#9d174d",
@@ -13899,104 +14684,238 @@
                 }
               }
             }
-          ]
+          }
         },
         {
-          "text": "现在测试范围裁定：你想把临时主题送进哪条演出分支？",
-          "speaker": "老师",
-          "choices": [
-            {
-              "text": "插入一段短演出，之后回到主线",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "theme_test_route",
-                  "value": "insert"
-                }
-              ],
-              "jumpToStory": "base:story:schale_theme_lite_insert",
-              "jumpMode": "insert"
-            },
-            {
-              "text": "直接切换到收束分支",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "theme_test_route",
-                  "value": "goto"
-                }
-              ],
-              "jumpToStory": "base:story:schale_theme_lite_finish",
-              "jumpMode": "goto"
-            }
-          ]
+          "id": "p7-body",
+          "type": "talklet",
+          "stageId": "p7",
+          "content": {
+            "kind": "talk",
+            "text": "现在测试范围裁定：你想把临时主题送进哪条演出分支？",
+            "speaker": "老师"
+          }
         },
         {
-          "text": "插入返回或 goto 转移都不应重置主题计时；回到这里后我们继续验证剩余层的恢复。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "setTheme",
-              "target": "",
-              "value": {
-                "colorGroupId": "base:colorgroup:sky",
-                "background": [
-                  {
-                    "id": "scene",
-                    "kind": "gradient",
-                    "value": "linear-gradient(135deg, #e0f2fe, #dbeafe)",
-                    "opacity": 1,
-                    "position": "center",
-                    "size": "cover",
-                    "attachment": "fixed"
+          "id": "p7-choice",
+          "type": "click",
+          "stageId": "p7",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "插入一段短演出，之后回到主线",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "theme_test_route",
+                          "value": "insert"
+                        }
+                      ]
+                    }
+                  ],
+                  "transfer": {
+                    "mode": "insert",
+                    "storyId": "base:story:schale_theme_lite_insert"
                   }
-                ]
+                }
+              },
+              {
+                "id": "option2",
+                "text": "直接切换到收束分支",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "theme_test_route",
+                          "value": "goto"
+                        }
+                      ]
+                    }
+                  ],
+                  "transfer": {
+                    "mode": "goto",
+                    "storyId": "base:story:schale_theme_lite_finish"
+                  }
+                }
               }
-            }
-          ],
-          "sendText": "我记下了。"
+            ]
+          }
         },
         {
-          "text": "场景三：覆盖层撤回后的恢复。主厅默认主题、区域主题与仍有效的演出层应重新解析。",
-          "kind": "narration",
-          "align": "center"
+          "id": "p8-body",
+          "type": "talklet",
+          "stageId": "p8",
+          "content": {
+            "kind": "talk",
+            "text": "插入返回或 goto 转移都不应重置主题计时；回到这里后我们继续验证剩余层的恢复。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "最后清理演出专用文本。主题结果应该只剩夏莱主厅自己的声明，不写入玩家主题槽。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "clearIdChatFlow",
-              "target": "theme-test:banner",
-              "value": 0
+          "id": "p8-button",
+          "type": "click",
+          "stageId": "p8",
+          "interaction": {
+            "kind": "button",
+            "text": "我记下了。",
+            "reply": {
+              "kind": "talk",
+              "text": "我记下了。"
             },
-            {
-              "op": "clearIdChatFlow",
-              "target": "theme-test:hidden",
-              "value": 0
-            },
-            {
-              "op": "clearAllChatText",
-              "target": "",
-              "value": 0
+            "result": {
+              "actions": [
+                {
+                  "kind": "presentation",
+                  "command": {
+                    "command": "theme",
+                    "value": {
+                      "colorGroupId": "base:colorgroup:sky",
+                      "background": [
+                        {
+                          "id": "scene",
+                          "kind": "gradient",
+                          "value": "linear-gradient(135deg, #e0f2fe, #dbeafe)",
+                          "opacity": 1,
+                          "position": "center",
+                          "size": "cover",
+                          "attachment": "fixed"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             }
-          ],
-          "sendText": "测试完成。"
+          }
+        },
+        {
+          "id": "p9-body",
+          "type": "talklet",
+          "stageId": "p9",
+          "content": {
+            "kind": "narration",
+            "text": "场景三：覆盖层撤回后的恢复。主厅默认主题、区域主题与仍有效的演出层应重新解析。"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p10-body",
+          "type": "talklet",
+          "stageId": "p10",
+          "content": {
+            "kind": "talk",
+            "text": "最后清理演出专用文本。主题结果应该只剩夏莱主厅自己的声明，不写入玩家主题槽。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p10-button",
+          "type": "click",
+          "stageId": "p10",
+          "interaction": {
+            "kind": "button",
+            "text": "测试完成。",
+            "reply": {
+              "kind": "talk",
+              "text": "测试完成。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "clearId",
+                    "id": "theme-test:banner"
+                  }
+                },
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "clearId",
+                    "id": "theme-test:hidden"
+                  }
+                },
+                {
+                  "kind": "overlay",
+                  "command": {
+                    "command": "clearAllTexts"
+                  }
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "input"
+        },
+        "p5-confirm": {
+          "advance": "input"
+        },
+        "p6": {
+          "advance": "auto"
+        },
+        "p7": {
+          "advance": "input"
+        },
+        "p8": {
+          "advance": "input"
+        },
+        "p9": {
+          "advance": "auto"
+        },
+        "p10": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_theme_lite_insert",
       "name": "夏莱主题测试·插入支线",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 插入支线：局部 Host / Region 检查 ——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "setTheme",
-              "target": "",
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 插入支线：局部 Host / Region 检查 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p1-op1",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
               "value": {
                 "colorGroupId": "base:colorgroup:ink",
                 "tokens": {
@@ -14010,32 +14929,79 @@
                 }
               }
             }
-          ]
+          }
         },
         {
-          "text": "这是 insert 子剧情。深色临时主题只属于当前演出上下文，返回主线时应由剩余层重新解析。",
-          "speaker": "阿罗娜",
-          "sendText": "继续观察。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "这是 insert 子剧情。深色临时主题只属于当前演出上下文，返回主线时应由剩余层重新解析。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "插入支线结束，返回主线。",
-          "kind": "narration",
-          "align": "center"
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "继续观察。",
+            "reply": {
+              "kind": "talk",
+              "text": "继续观察。"
+            }
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "插入支线结束，返回主线。"
+          },
+          "presentation": {
+            "align": "center"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:schale_theme_lite_finish",
       "name": "夏莱主题测试·直接收束",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— goto 分支：直接收束 ——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "setTheme",
-              "target": "",
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— goto 分支：直接收束 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
+        },
+        {
+          "id": "p1-op1",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
               "value": {
                 "colorGroupId": "base:colorgroup:indigo",
                 "nodes": {
@@ -14056,1062 +15022,2883 @@
                 ]
               }
             }
-          ]
+          }
         },
         {
-          "text": "goto 分支会直接结束原 Story 的剩余页面。请检查主题清理仍然走统一的 execution disposal。",
-          "speaker": "阿罗娜",
-          "sendText": "确认收束。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "goto 分支会直接结束原 Story 的剩余页面。请检查主题清理仍然走统一的 execution disposal。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "确认收束。",
+            "reply": {
+              "kind": "talk",
+              "text": "确认收束。"
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_tea",
       "name": "阿罗娜的茶点",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师，杯子里只剩下一层茶渍了。要不要我准备一些新茶？",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 3
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师，杯子里只剩下一层茶渍了。要不要我准备一些新茶？",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "那就麻烦你了。",
+            "reply": {
+              "kind": "talk",
+              "text": "那就麻烦你了。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 3
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "那就麻烦你了。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_printer",
       "name": "打印机的抱怨",
-      "talklets": [
+      "nodes": [
         {
-          "text": "信用点制造机又卡纸了……不过它其实只是在用这种方式抗议加班。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 4
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "信用点制造机又卡纸了……不过它其实只是在用这种方式抗议加班。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "让它休息一下吧。",
+            "reply": {
+              "kind": "talk",
+              "text": "让它休息一下吧。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 4
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "让它休息一下吧。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_archive",
       "name": "档案室的尘埃",
-      "talklets": [
+      "nodes": [
         {
-          "text": "资料室的卷宗堆得比我还高了。老师，也许该归档一下？",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 3
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "资料室的卷宗堆得比我还高了。老师，也许该归档一下？",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "明天再说吧。",
+            "reply": {
+              "kind": "talk",
+              "text": "明天再说吧。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 3
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "明天再说吧。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_sunset",
       "name": "窗边的晚霞",
-      "talklets": [
+      "nodes": [
         {
-          "text": "太阳要下山了。夏莱的窗户正好能看见整片晚霞。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "太阳要下山了。夏莱的窗户正好能看见整片晚霞。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "很适合停下来看看。",
+            "reply": {
+              "kind": "talk",
+              "text": "很适合停下来看看。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "很适合停下来看看。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_planner",
       "name": "日程表攻防",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师，明天的日程已经排好了……虽然您八成会全部推迟。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 3
-            }
-          ],
-          "sendText": "说得这么直白真的好吗。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师，明天的日程已经排好了……虽然您八成会全部推迟。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "那就把最难的报告安排在深夜时段吧——反正您那个时候反而很有精神！",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 2
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "说得这么直白真的好吗。",
+            "reply": {
+              "kind": "talk",
+              "text": "说得这么直白真的好吗。"
             },
-            {
-              "op": "setFlag",
-              "target": "night_mode",
-              "value": "1"
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 3
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "那就这么定了。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "那就把最难的报告安排在深夜时段吧——反正您那个时候反而很有精神！",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "那就这么定了。",
+            "reply": {
+              "kind": "talk",
+              "text": "那就这么定了。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 2
+                    },
+                    {
+                      "op": "setFlag",
+                      "flagId": "night_mode",
+                      "value": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_vending",
       "name": "贩卖机的秘密",
-      "talklets": [
+      "nodes": [
         {
-          "text": "走廊尽头的自动贩卖机，第三排的咖啡罐……其实是装了能量饮料的伪装版。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 4
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "走廊尽头的自动贩卖机，第三排的咖啡罐……其实是装了能量饮料的伪装版。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "谁干的？",
+            "reply": {
+              "kind": "talk",
+              "text": "谁干的？"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 4
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "谁干的？"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:schale_night",
       "name": "深夜的夏莱",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师，都这个时间了还不休息吗？……好吧，那我把台灯调暗一点。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 6
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师，都这个时间了还不休息吗？……好吧，那我把台灯调暗一点。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "再十分钟就好。",
+            "reply": {
+              "kind": "talk",
+              "text": "再十分钟就好。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 6
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "再十分钟就好。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:abydos_welcome",
       "name": "沙漠中的学园",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 阿比多斯学院 · 对策委员会室 ——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 阿比多斯学院 · 对策委员会室 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "……你来了。阿比多斯对策委员会，欢迎你的加入。",
-          "speaker": "白子",
-          "sendText": "请多关照，白子。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "……你来了。阿比多斯对策委员会，欢迎你的加入。",
+            "speaker": "白子"
+          }
         },
         {
-          "text": "* 门边探出半个脑袋，星野正打着哈欠。*",
-          "kind": "narration",
-          "align": "right"
-        },
-        {
-          "text": "呼啊～又多了一个人呢。不过大叔我今天想偷懒……让野乃美带你转转吧。",
-          "speaker": "星野",
-          "sendText": "星野前辈，请认真一点！"
-        },
-        {
-          "text": "老师，这边是校舍和泳池。虽然设施有点旧了，但大家都很努力在维护。",
-          "speaker": "野乃美",
-          "sendText": "先从校舍开始视察吧。",
-          "choices": [
-            {
-              "text": "先去对策委员会室看看",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "abydos_choice",
-                  "value": "committee"
-                }
-              ]
-            },
-            {
-              "text": "去泳池那边巡逻",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "abydos_choice",
-                  "value": "pool"
-                }
-              ]
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "请多关照，白子。",
+            "reply": {
+              "kind": "talk",
+              "text": "请多关照，白子。"
             }
-          ]
+          }
         },
         {
-          "text": "老师，请多帮忙了！我们一定会把学园恢复成以前的样子！",
-          "speaker": "芹香",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 15
-            },
-            {
-              "op": "addItem",
-              "target": "base:item:tactical_kit",
-              "value": 1
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "* 门边探出半个脑袋，星野正打着哈欠。*"
+          },
+          "presentation": {
+            "align": "right"
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "呼啊～又多了一个人呢。不过大叔我今天想偷懒……让野乃美带你转转吧。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p4-button",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "button",
+            "text": "星野前辈，请认真一点！",
+            "reply": {
+              "kind": "talk",
+              "text": "星野前辈，请认真一点！"
             }
-          ]
+          }
+        },
+        {
+          "id": "p5-body",
+          "type": "talklet",
+          "stageId": "p5",
+          "content": {
+            "kind": "talk",
+            "text": "老师，这边是校舍和泳池。虽然设施有点旧了，但大家都很努力在维护。",
+            "speaker": "野乃美"
+          }
+        },
+        {
+          "id": "p5-choice",
+          "type": "click",
+          "stageId": "p5",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "先去对策委员会室看看",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "abydos_choice",
+                          "value": "committee"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "option2",
+                "text": "去泳池那边巡逻",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "abydos_choice",
+                          "value": "pool"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p6-body",
+          "type": "talklet",
+          "stageId": "p6",
+          "content": {
+            "kind": "talk",
+            "text": "老师，请多帮忙了！我们一定会把学园恢复成以前的样子！",
+            "speaker": "芹香"
+          }
+        },
+        {
+          "id": "p6-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 15
+              },
+              {
+                "op": "addItem",
+                "itemId": "base:item:tactical_kit",
+                "amount": 1
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "input"
+        },
+        "p6": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:abydos_daily_committee",
       "name": "对策委员会的日常",
-      "talklets": [
+      "nodes": [
         {
-          "text": "今天的巡逻报告都整理好了。野乃美前辈说沙漠方向的设备状态良好。",
-          "speaker": "彩奈",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 4
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "今天的巡逻报告都整理好了。野乃美前辈说沙漠方向的设备状态良好。",
+            "speaker": "彩奈"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "做得好，彩奈。",
+            "reply": {
+              "kind": "talk",
+              "text": "做得好，彩奈。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 4
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "做得好，彩奈。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:abydos_siesta",
       "name": "星野的午睡",
-      "talklets": [
+      "nodes": [
         {
-          "text": "呼……沙发真是人类最伟大的发明之一啊。老师要不要也躺一会？",
-          "speaker": "星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 6
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "呼……沙发真是人类最伟大的发明之一啊。老师要不要也躺一会？",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "不行，工作还没做完。",
+            "reply": {
+              "kind": "talk",
+              "text": "不行，工作还没做完。"
             },
-            {
-              "op": "setTheme",
-              "target": "",
-              "value": {
-                "colorGroupId": "base:colorgroup:hoshino-swim"
-              }
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 6
+                    }
+                  ]
+                },
+                {
+                  "kind": "presentation",
+                  "command": {
+                    "command": "theme",
+                    "value": {
+                      "colorGroupId": "base:colorgroup:hoshino-swim"
+                    }
+                  }
+                }
+              ]
             }
-          ],
-          "sendText": "不行，工作还没做完。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:abydos_serika_shift",
       "name": "芹香的兼职",
-      "talklets": [
+      "nodes": [
         {
-          "text": "打工结束了！老师，今天便利店有过期便当，我顺便带了一些回来……省一点是一点嘛。",
-          "speaker": "芹香",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 3
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "打工结束了！老师，今天便利店有过期便当，我顺便带了一些回来……省一点是一点嘛。",
+            "speaker": "芹香"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "辛苦了，芹香。",
+            "reply": {
+              "kind": "talk",
+              "text": "辛苦了，芹香。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 3
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "辛苦了，芹香。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:abydos_money",
       "name": "还债日记",
-      "talklets": [
+      "nodes": [
         {
-          "text": "这个月的还债计划比上个月多完成了 3%。老师，阿比多斯的债务正在一点点减少呢。",
-          "speaker": "野乃美",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 7
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "这个月的还债计划比上个月多完成了 3%。老师，阿比多斯的债务正在一点点减少呢。",
+            "speaker": "野乃美"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "一步一步来。",
+            "reply": {
+              "kind": "talk",
+              "text": "一步一步来。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 7
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "一步一步来。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_calculation",
       "name": "优香的财务报告",
-      "talklets": [
+      "nodes": [
         {
-          "text": "本期的信用点收入比上期增加了 8.5%。虽然数据很好看，但请不要因此放松管理。",
-          "speaker": "优香",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "本期的信用点收入比上期增加了 8.5%。虽然数据很好看，但请不要因此放松管理。",
+            "speaker": "优香"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "放心，优香。",
+            "reply": {
+              "kind": "talk",
+              "text": "放心，优香。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "放心，优香。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_dev",
       "name": "游戏开发部的坚持",
-      "talklets": [
+      "nodes": [
         {
-          "text": "姐姐，游戏引擎又崩溃了。不过别担心，数据都自动备份了。",
-          "speaker": "美依",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 6
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "姐姐，游戏引擎又崩溃了。不过别担心，数据都自动备份了。",
+            "speaker": "美依"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "需要帮忙调试吗？",
+            "reply": {
+              "kind": "talk",
+              "text": "需要帮忙调试吗？"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 6
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "需要帮忙调试吗？"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_hack",
       "name": "小雪的恶作剧",
-      "talklets": [
+      "nodes": [
         {
-          "text": "嘿嘿，我发现了一个系统漏洞……不过老师放心，我只是用那个算力挖了一些信用点！",
-          "speaker": "小雪",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 8
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "嘿嘿，我发现了一个系统漏洞……不过老师放心，我只是用那个算力挖了一些信用点！",
+            "speaker": "小雪"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "记得报告给乃爱。",
+            "reply": {
+              "kind": "talk",
+              "text": "记得报告给乃爱。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 8
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "记得报告给乃爱。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_server",
       "name": "服务器的秘密",
-      "talklets": [
+      "nodes": [
         {
-          "text": "服务器机房的利用率已经达到了 94%。按照这个趋势，我们需要在下个月申请扩容预算。",
-          "speaker": "乃爱",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 7
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "服务器机房的利用率已经达到了 94%。按照这个趋势，我们需要在下个月申请扩容预算。",
+            "speaker": "乃爱"
+          }
+        },
+        {
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "让优香批一下。",
+            "reply": {
+              "kind": "talk",
+              "text": "让优香批一下。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 7
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "让优香批一下。"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_welcome",
       "name": "数据与新生",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 千禧年学院 · 研究楼 ——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 千禧年学院 · 研究楼 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "老师，欢迎来到千禧年学院。我是财务担当早濑优香，这边是研究楼的数据分析站。",
-          "speaker": "优香",
-          "sendText": "效率很高，不愧是千禧年。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师，欢迎来到千禧年学院。我是财务担当早濑优香，这边是研究楼的数据分析站。",
+            "speaker": "优香"
+          }
         },
         {
-          "text": "* 优香翻开预算表，投影屏上跳出一串数据。*",
-          "kind": "narration",
-          "align": "left"
-        },
-        {
-          "text": "根据优香前辈的预算表，实验室的信用点产出效率还有 12% 的优化空间。",
-          "speaker": "乃爱",
-          "sendText": "那就先从优化开始吧。",
-          "choices": [
-            {
-              "text": "让优香负责财务优化",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "millennium_choice",
-                  "value": "yuuka"
-                }
-              ]
-            },
-            {
-              "text": "去游戏开发部看看",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "millennium_choice",
-                  "value": "game"
-                }
-              ]
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "效率很高，不愧是千禧年。",
+            "reply": {
+              "kind": "talk",
+              "text": "效率很高，不愧是千禧年。"
             }
-          ]
+          }
         },
         {
-          "text": "老师老师！我们的游戏马上就要完成了！啊，不过在这之前得先把信用点赚够……",
-          "speaker": "桃依",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 12
-            },
-            {
-              "op": "addItem",
-              "target": "base:item:data_chip",
-              "value": 2
-            }
-          ]
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "* 优香翻开预算表，投影屏上跳出一串数据。*"
+          },
+          "presentation": {
+            "align": "left"
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "根据优香前辈的预算表，实验室的信用点产出效率还有 12% 的优化空间。",
+            "speaker": "乃爱"
+          }
+        },
+        {
+          "id": "p4-choice",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "让优香负责财务优化",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "millennium_choice",
+                          "value": "yuuka"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "option2",
+                "text": "去游戏开发部看看",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "millennium_choice",
+                          "value": "game"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p5-body",
+          "type": "talklet",
+          "stageId": "p5",
+          "content": {
+            "kind": "talk",
+            "text": "老师老师！我们的游戏马上就要完成了！啊，不过在这之前得先把信用点赚够……",
+            "speaker": "桃依"
+          }
+        },
+        {
+          "id": "p5-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 12
+              },
+              {
+                "op": "addItem",
+                "itemId": "base:item:data_chip",
+                "amount": 2
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_crisis_intro",
       "name": "游戏开发部的危机 · 开场",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 千禧年学院 · 游戏开发部 ——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 千禧年学院 · 游戏开发部 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "老师！游戏引擎又出 bug 了！发行日期就在明天！",
-          "speaker": "桃依",
-          "sendText": "冷静一下，桃依。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师！游戏引擎又出 bug 了！发行日期就在明天！",
+            "speaker": "桃依"
+          }
         },
         {
-          "text": "姐姐说她自己能搞定，但已经连续调试 12 个小时了……",
-          "speaker": "美依",
-          "jumpToStory": "base:story:millennium_game_crisis_whisper",
-          "jumpMode": "insert"
-        },
-        {
-          "text": "好，我来想办法。",
-          "speaker": "老师",
-          "choices": [
-            {
-              "text": "亲自上手调试",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "game_crisis_route",
-                  "value": "debug"
-                }
-              ],
-              "jumpToStory": "base:story:millennium_game_crisis_debug",
-              "jumpMode": "goto"
-            },
-            {
-              "text": "买冰淇淋犒劳大家",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "game_crisis_route",
-                  "value": "bribe"
-                }
-              ],
-              "jumpToStory": "base:story:millennium_game_crisis_bribe",
-              "jumpMode": "goto"
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "冷静一下，桃依。",
+            "reply": {
+              "kind": "talk",
+              "text": "冷静一下，桃依。"
             }
-          ]
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "姐姐说她自己能搞定，但已经连续调试 12 个小时了……",
+            "speaker": "美依"
+          }
+        },
+        {
+          "id": "p3-transfer",
+          "type": "transfer",
+          "transfer": {
+            "mode": "insert",
+            "storyId": "base:story:millennium_game_crisis_whisper"
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "好，我来想办法。",
+            "speaker": "老师"
+          }
+        },
+        {
+          "id": "p4-choice",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "亲自上手调试",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "game_crisis_route",
+                          "value": "debug"
+                        }
+                      ]
+                    }
+                  ],
+                  "transfer": {
+                    "mode": "goto",
+                    "storyId": "base:story:millennium_game_crisis_debug"
+                  }
+                }
+              },
+              {
+                "id": "option2",
+                "text": "买冰淇淋犒劳大家",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "game_crisis_route",
+                          "value": "bribe"
+                        }
+                      ]
+                    }
+                  ],
+                  "transfer": {
+                    "mode": "goto",
+                    "storyId": "base:story:millennium_game_crisis_bribe"
+                  }
+                }
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_crisis_whisper",
       "name": "美依的悄悄话",
-      "talklets": [
+      "nodes": [
         {
-          "text": "（小声）其实姐姐昨天偷偷哭了一场……她压力很大的。",
-          "speaker": "美依",
-          "noAvatar": true
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "（小声）其实姐姐昨天偷偷哭了一场……她压力很大的。",
+            "speaker": "美依"
+          },
+          "presentation": {
+            "avatarMode": "hide"
+          }
         },
         {
-          "text": "（小声）别说出去啊老师！这是我们开发部的秘密！",
-          "speaker": "桃依",
-          "noAvatar": true
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "（小声）别说出去啊老师！这是我们开发部的秘密！",
+            "speaker": "桃依"
+          },
+          "presentation": {
+            "avatarMode": "hide"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_crisis_debug",
       "name": "游戏开发部的危机 · 调试",
-      "talklets": [
+      "nodes": [
         {
-          "text": "我看看这个报错……原来是内存泄漏。",
-          "speaker": "老师",
-          "sendText": "我来修。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "我看看这个报错……原来是内存泄漏。",
+            "speaker": "老师"
+          }
         },
         {
-          "text": "老师太厉害了！修好了！",
-          "speaker": "美依",
-          "jumpToStory": "base:story:millennium_game_crisis_end"
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "我来修。",
+            "reply": {
+              "kind": "talk",
+              "text": "我来修。"
+            }
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师太厉害了！修好了！",
+            "speaker": "美依"
+          }
+        },
+        {
+          "id": "p2-transfer",
+          "type": "transfer",
+          "transfer": {
+            "mode": "goto",
+            "storyId": "base:story:millennium_game_crisis_end"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_crisis_bribe",
       "name": "游戏开发部的危机 · 补给",
-      "talklets": [
+      "nodes": [
         {
-          "text": "先吃点东西休息一下吧。",
-          "speaker": "老师",
-          "sendText": "我请客。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "先吃点东西休息一下吧。",
+            "speaker": "老师"
+          }
         },
         {
-          "text": "哇，是冰淇淋！吃完就有干劲了！",
-          "speaker": "桃依",
-          "jumpToStory": "base:story:millennium_game_crisis_end"
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "我请客。",
+            "reply": {
+              "kind": "talk",
+              "text": "我请客。"
+            }
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "哇，是冰淇淋！吃完就有干劲了！",
+            "speaker": "桃依"
+          }
+        },
+        {
+          "id": "p2-transfer",
+          "type": "transfer",
+          "transfer": {
+            "mode": "goto",
+            "storyId": "base:story:millennium_game_crisis_end"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:millennium_game_crisis_end",
       "name": "游戏开发部的危机 · 收尾",
-      "talklets": [
+      "nodes": [
         {
-          "text": "游戏完成！明天一定能顺利发行！",
-          "speaker": "桃依",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 20
-            }
-          ]
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "游戏完成！明天一定能顺利发行！",
+            "speaker": "桃依"
+          }
         },
         {
-          "text": "感谢老师！没有你的话我们都不知道该怎么办了。",
-          "speaker": "美依",
-          "sendText": "这是老师应该做的。"
+          "id": "p1-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 20
+              }
+            ]
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "感谢老师！没有你的话我们都不知道该怎么办了。",
+            "speaker": "美依"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "这是老师应该做的。",
+            "reply": {
+              "kind": "talk",
+              "text": "这是老师应该做的。"
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:serika_side_1",
       "name": "芹香的烦恼 (上)",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师……其实我最近在便利店遇到了一点麻烦。有个顾客总是说我的找零不对。",
-          "speaker": "芹香",
-          "sendText": "怎么回事？"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师……其实我最近在便利店遇到了一点麻烦。有个顾客总是说我的找零不对。",
+            "speaker": "芹香"
+          }
         },
         {
-          "text": "我也不确定是不是自己的问题……但店长已经开始注意到了。",
-          "speaker": "芹香",
-          "sendText": "我会帮你查清楚的。"
-        },
-        {
-          "text": "* 你翻开收银记录，一条条核对当晚的找零流水。*",
-          "kind": "narration",
-          "align": "left"
-        },
-        {
-          "text": "（调查中……）",
-          "speaker": "老师",
-          "kind": "click",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "怎么回事？",
+            "reply": {
+              "kind": "talk",
+              "text": "怎么回事？"
             }
-          ],
-          "clickWork": {
-            "base": 4,
-            "rand": 2
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "我也不确定是不是自己的问题……但店长已经开始注意到了。",
+            "speaker": "芹香"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "我会帮你查清楚的。",
+            "reply": {
+              "kind": "talk",
+              "text": "我会帮你查清楚的。"
+            }
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "* 你翻开收银记录，一条条核对当晚的找零流水。*"
+          },
+          "presentation": {
+            "align": "left"
+          }
+        },
+        {
+          "id": "p4-work",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "button",
+            "text": "（调查中……）",
+            "press": {
+              "base": 4,
+              "rand": 2
+            }
+          }
+        },
+        {
+          "id": "p4-confirm-click",
+          "type": "click",
+          "stageId": "p4-confirm",
+          "interaction": {
+            "kind": "button",
+            "text": "（调查中……）",
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
+            }
           }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "auto"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p4-confirm": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:serika_side_2",
       "name": "芹香的烦恼 (下)",
-      "talklets": [
+      "nodes": [
         {
-          "text": "芹香，我查过了——那个顾客在好几家便利店都投诉过找零问题，是惯犯了。",
-          "speaker": "老师",
-          "sendText": "真的吗？"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "芹香，我查过了——那个顾客在好几家便利店都投诉过找零问题，是惯犯了。",
+            "speaker": "老师"
+          }
         },
         {
-          "text": "原来不是我的错……太好了。谢谢老师专门去调查！",
-          "speaker": "芹香",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 8
-            },
-            {
-              "op": "addItem",
-              "target": "base:item:tactical_kit",
-              "value": 1
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "真的吗？",
+            "reply": {
+              "kind": "talk",
+              "text": "真的吗？"
             }
-          ],
-          "sendText": "不用谢，这是老师应该做的。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "原来不是我的错……太好了。谢谢老师专门去调查！",
+            "speaker": "芹香"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "不用谢，这是老师应该做的。",
+            "reply": {
+              "kind": "talk",
+              "text": "不用谢，这是老师应该做的。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 8
+                    },
+                    {
+                      "op": "addItem",
+                      "itemId": "base:item:tactical_kit",
+                      "amount": 1
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:run_chain_1",
       "name": "深夜巡逻 (一)",
-      "talklets": [
+      "nodes": [
         {
-          "text": "—— 深夜 · 夏莱走廊 ——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "—— 深夜 · 夏莱走廊 ——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "老师，这么晚了还不休息吗？走廊里的灯已经调暗了。",
-          "speaker": "阿罗娜",
-          "sendText": "我想再巡视一圈。"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师，这么晚了还不休息吗？走廊里的灯已经调暗了。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "那我和你一起去。两人走比一个人安全。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "我想再巡视一圈。",
+            "reply": {
+              "kind": "talk",
+              "text": "我想再巡视一圈。"
             }
-          ],
-          "sendText": "走吧，阿罗娜。"
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "那我和你一起去。两人走比一个人安全。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p3-button",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "button",
+            "text": "走吧，阿罗娜。",
+            "reply": {
+              "kind": "talk",
+              "text": "走吧，阿罗娜。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:run_chain_2",
       "name": "深夜巡逻 (二)",
-      "talklets": [
+      "nodes": [
         {
-          "text": "档案室的门开着。我记得下班前明明锁好了的……",
-          "speaker": "阿罗娜",
-          "sendText": "进去看看。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "档案室的门开着。我记得下班前明明锁好了的……",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "啊，只是窗户没关好，风吹开了门。吓我一跳呢。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 6
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "进去看看。",
+            "reply": {
+              "kind": "talk",
+              "text": "进去看看。"
             }
-          ],
-          "sendText": "虚惊一场。关好窗户吧。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "啊，只是窗户没关好，风吹开了门。吓我一跳呢。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "虚惊一场。关好窗户吧。",
+            "reply": {
+              "kind": "talk",
+              "text": "虚惊一场。关好窗户吧。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 6
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:run_chain_3",
       "name": "深夜巡逻 (三)",
-      "talklets": [
+      "nodes": [
         {
-          "text": "天快亮了。老师，巡逻结束了，一切都正常。",
-          "speaker": "阿罗娜",
-          "sendText": "辛苦了，阿罗娜。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "天快亮了。老师，巡逻结束了，一切都正常。",
+            "speaker": "阿罗娜"
+          }
         },
         {
-          "text": "老师才辛苦了。明天也请多多指教。",
-          "speaker": "阿罗娜",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 10
-            },
-            {
-              "op": "addItem",
-              "target": "base:item:energy_drink",
-              "value": 2
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "辛苦了，阿罗娜。",
+            "reply": {
+              "kind": "talk",
+              "text": "辛苦了，阿罗娜。"
             }
-          ],
-          "sendText": "晚安（早安），阿罗娜。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师才辛苦了。明天也请多多指教。",
+            "speaker": "阿罗娜"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "晚安（早安），阿罗娜。",
+            "reply": {
+              "kind": "talk",
+              "text": "晚安（早安），阿罗娜。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 10
+                    },
+                    {
+                      "op": "addItem",
+                      "itemId": "base:item:energy_drink",
+                      "amount": 2
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:hoshino_tea_time",
       "name": "星野的茶点时间",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师，茶要趁热喝哦。食堂今天的点心也特别好吃。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
-            }
-          ],
-          "sendText": "那我不客气了。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师，茶要趁热喝哦。食堂今天的点心也特别好吃。",
+            "speaker": "小鸟游星野"
+          }
         },
         {
-          "text": "嘿嘿，能和老师一起喝茶，感觉一天都会很顺利呢。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "那我不客气了。",
+            "reply": {
+              "kind": "talk",
+              "text": "那我不客气了。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "我也是。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "嘿嘿，能和老师一起喝茶，感觉一天都会很顺利呢。",
+            "speaker": "小鸟游星野"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "我也是。",
+            "reply": {
+              "kind": "talk",
+              "text": "我也是。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:hoshino_rooftop_hint",
       "name": "星野的天台邀约",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师……天台的风景，现在一定很好看吧。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
-            }
-          ],
-          "sendText": "想去看看。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师……天台的风景，现在一定很好看吧。",
+            "speaker": "小鸟游星野"
+          }
         },
         {
-          "text": "那、那我去天台等您。您也来吗？……不来我也不怪您哦。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "想去看看。",
+            "reply": {
+              "kind": "talk",
+              "text": "想去看看。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "这就来。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "那、那我去天台等您。您也来吗？……不来我也不怪您哦。",
+            "speaker": "小鸟游星野"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "这就来。",
+            "reply": {
+              "kind": "talk",
+              "text": "这就来。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:hoshino_rooftop_meet",
       "name": "天台的相遇",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师，您真的来了……！晚霞把天空染成橘色，像我们第一次见面那天一样。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 10
-            }
-          ],
-          "sendText": "我答应过你呀。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师，您真的来了……！晚霞把天空染成橘色，像我们第一次见面那天一样。",
+            "speaker": "小鸟游星野"
+          }
         },
         {
-          "text": "……能和老师并肩看这片晚霞，就是我最想做的事。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 10
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "我答应过你呀。",
+            "reply": {
+              "kind": "talk",
+              "text": "我答应过你呀。"
             },
-            {
-              "op": "travelToArea",
-              "target": "base:area:schale_main",
-              "value": 0,
-              "notice": true
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 10
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "以后也要一起来。"
+          }
         },
         {
-          "text": "天台风大，我们去图书馆吧。那里有你说的那本旧童话……我还想听老师讲一遍。",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 10
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "……能和老师并肩看这片晚霞，就是我最想做的事。",
+            "speaker": "小鸟游星野"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "以后也要一起来。",
+            "reply": {
+              "kind": "talk",
+              "text": "以后也要一起来。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 10
+                    }
+                  ]
+                },
+                {
+                  "kind": "travel",
+                  "areaId": "base:area:schale_main",
+                  "notice": true
+                }
+              ]
             }
-          ],
-          "sendText": "好，边走边讲。"
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "天台风大，我们去图书馆吧。那里有你说的那本旧童话……我还想听老师讲一遍。",
+            "speaker": "小鸟游星野"
+          }
+        },
+        {
+          "id": "p3-button",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "button",
+            "text": "好，边走边讲。",
+            "reply": {
+              "kind": "talk",
+              "text": "好，边走边讲。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 10
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:hoshino_selfie",
       "name": "星野的自拍",
-      "talklets": [
+      "nodes": [
         {
-          "text": "老师老师！给你看我刚拍的自拍！",
-          "speaker": "小鸟游星野",
-          "avatar": "base:avatar(pic):hoshino",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
-            }
-          ],
-          "sendText": "哦？我看看。",
-          "image": "base:sticker(pic):hoshino_selfie"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "老师老师！给你看我刚拍的自拍！",
+            "speaker": "小鸟游星野",
+            "image": "base:sticker(pic):hoshino_selfie"
+          },
+          "presentation": {
+            "avatar": "base:avatar(pic):hoshino"
+          }
         },
         {
-          "text": "嘿嘿，是不是超可爱？下次也帮老师拍一张！",
-          "speaker": "小鸟游星野",
-          "effects": [
-            {
-              "op": "addResource",
-              "target": "base:resource:credit",
-              "value": 5
+          "id": "p1-button",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "button",
+            "text": "哦？我看看。",
+            "reply": {
+              "kind": "talk",
+              "text": "哦？我看看。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
             }
-          ],
-          "sendText": "好呀，那就说定了。"
+          }
+        },
+        {
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "嘿嘿，是不是超可爱？下次也帮老师拍一张！",
+            "speaker": "小鸟游星野"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "好呀，那就说定了。",
+            "reply": {
+              "kind": "talk",
+              "text": "好呀，那就说定了。"
+            },
+            "result": {
+              "actions": [
+                {
+                  "kind": "state",
+                  "effects": [
+                    {
+                      "op": "addResource",
+                      "resourceId": "base:resource:credit",
+                      "amount": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "input"
+        },
+        "p2": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:hoshino_bond_invite",
       "name": "羁绊邀请",
-      "talklets": [
+      "nodes": [
         {
-          "text": "——星野似乎有话想说……——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "——星野似乎有话想说……——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "老师，有件事想跟你说……",
-          "speaker": "星野",
-          "sendText": "嗯？什么事？"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "老师，有件事想跟你说……",
+            "speaker": "星野"
+          }
         },
         {
-          "text": "星野酝酿了一下情绪……",
-          "kizuna": {
-            "storyId": "base:activestory:bond_hoshino_evening",
-            "title": "傍晚的河堤",
-            "buttonText": "进入羁绊剧情"
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "嗯？什么事？",
+            "reply": {
+              "kind": "talk",
+              "text": "嗯？什么事？"
+            }
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "星野酝酿了一下情绪……"
+          }
+        },
+        {
+          "id": "p3-entry",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "entryCard",
+            "card": {
+              "request": {
+                "entryId": "base:activestory:bond_hoshino_evening",
+                "entryType": "active",
+                "owner": "Hoshino",
+                "intent": "card"
+              },
+              "title": "傍晚的河堤",
+              "buttonText": "进入羁绊剧情"
+            }
           }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "input"
+        }
+      }
     },
     {
       "id": "base:story:bond_hoshino_1",
       "name": "羁绊剧情 · 星野：午后的堤防",
-      "talklets": [
+      "nodes": [
         {
-          "text": "——阿比多斯 · 堤防 · 午后——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "showOpeningTitle",
-              "target": "",
-              "value": "星野 · 午后的堤防"
+          "id": "p1-opening-0",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "openingTitle",
+              "title": "星野 · 午后的堤防"
             }
-          ]
+          }
         },
         {
-          "text": "唔……老师也来吹风吗……海风很舒服哦……",
-          "speaker": "星野"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "——阿比多斯 · 堤防 · 午后——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "（在她旁边坐下）",
-          "speaker": "老师",
-          "sendText": "（默默坐下）"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "唔……老师也来吹风吗……海风很舒服哦……",
+            "speaker": "星野"
+          }
         },
         {
-          "text": "说起来……队长还记得第一次见面的时候吗？",
-          "speaker": "星野",
-          "choices": [
-            {
-              "text": "当然记得，就在对策委员会室。",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "bond_hoshino_choice",
-                  "value": "committee"
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "（在她旁边坐下）",
+            "speaker": "老师"
+          }
+        },
+        {
+          "id": "p3-button",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "button",
+            "text": "（默默坐下）",
+            "reply": {
+              "kind": "talk",
+              "text": "（默默坐下）"
+            }
+          }
+        },
+        {
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "说起来……队长还记得第一次见面的时候吗？",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p4-choice",
+          "type": "click",
+          "stageId": "p4",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "当然记得，就在对策委员会室。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "bond_hoshino_choice",
+                          "value": "committee"
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "text": "抱歉……有点记不清了。",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "bond_hoshino_choice",
-                  "value": "forget"
+              },
+              {
+                "id": "option2",
+                "text": "抱歉……有点记不清了。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "bond_hoshino_choice",
+                          "value": "forget"
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            }
-          ]
+              }
+            ]
+          }
         },
         {
-          "text": "呵呵……没关系哦。反正以后的日子还长着呢，队长。",
-          "speaker": "星野",
-          "effects": [
-            {
-              "op": "setFlag",
-              "target": "bond_hoshino_done",
-              "value": "1"
-            }
-          ]
+          "id": "p5-body",
+          "type": "talklet",
+          "stageId": "p5",
+          "content": {
+            "kind": "talk",
+            "text": "呵呵……没关系哦。反正以后的日子还长着呢，队长。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p5-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_hoshino_done",
+                "value": "1"
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        },
+        "p3": {
+          "advance": "input"
+        },
+        "p4": {
+          "advance": "input"
+        },
+        "p5": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:bond_hoshino_evening",
       "name": "羁绊剧情 · 星野：傍晚的河堤",
-      "talklets": [
+      "nodes": [
         {
-          "text": "——阿比多斯 · 河堤 · 黄昏——",
-          "kind": "narration",
-          "align": "center",
-          "effects": [
-            {
-              "op": "showOpeningTitle",
-              "target": "",
-              "value": "星野 · 傍晚的河堤"
+          "id": "p1-opening-0",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "openingTitle",
+              "title": "星野 · 傍晚的河堤"
             }
-          ]
+          }
         },
         {
-          "text": "……老师，其实我一直想找机会单独跟您聊聊。",
-          "speaker": "星野",
-          "sendText": "我也有话想跟你说。"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "——阿比多斯 · 河堤 · 黄昏——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "最近总觉得一个人发呆的时候，会想起很多以前的事。",
-          "speaker": "星野",
-          "choices": [
-            {
-              "text": "回忆过去也很重要呢。",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "bond_evening_choice",
-                  "value": "memory"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "……老师，其实我一直想找机会单独跟您聊聊。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p2-button",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "button",
+            "text": "我也有话想跟你说。",
+            "reply": {
+              "kind": "talk",
+              "text": "我也有话想跟你说。"
+            }
+          }
+        },
+        {
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "最近总觉得一个人发呆的时候，会想起很多以前的事。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p3-choice",
+          "type": "click",
+          "stageId": "p3",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "option1",
+                "text": "回忆过去也很重要呢。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "bond_evening_choice",
+                          "value": "memory"
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "text": "那就多创造新的回忆吧。",
-              "effects": [
-                {
-                  "op": "setFlag",
-                  "target": "bond_evening_choice",
-                  "value": "new"
+              },
+              {
+                "id": "option2",
+                "text": "那就多创造新的回忆吧。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "state",
+                      "effects": [
+                        {
+                          "op": "setFlag",
+                          "flagId": "bond_evening_choice",
+                          "value": "new"
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            }
-          ]
+              }
+            ]
+          }
         },
         {
-          "text": "嗯……说得对。不管是过去的还是未来的，只要和老师一起，就都是好时光。",
-          "speaker": "星野",
-          "effects": [
-            {
-              "op": "setFlag",
-              "target": "bond_evening_done",
-              "value": "1"
-            }
-          ]
+          "id": "p4-body",
+          "type": "talklet",
+          "stageId": "p4",
+          "content": {
+            "kind": "talk",
+            "text": "嗯……说得对。不管是过去的还是未来的，只要和老师一起，就都是好时光。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p4-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_evening_done",
+                "value": "1"
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "input"
+        },
+        "p3": {
+          "advance": "input"
+        },
+        "p4": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:affinity_hoshino_1",
       "name": "好感台阶 · 星野：午后的便当",
-      "talklets": [
+      "nodes": [
         {
-          "text": "……队长，便当还合口味吗？",
-          "speaker": "星野"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "……队长，便当还合口味吗？",
+            "speaker": "星野"
+          }
         },
         {
-          "text": "呵呵，那就好。下次……也一起吃吧。",
-          "speaker": "星野",
-          "effects": [
-            {
-              "op": "addAffectionExp",
-              "target": "Hoshino",
-              "value": 50
-            }
-          ]
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "呵呵，那就好。下次……也一起吃吧。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p2-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addAffectionExp",
+                "variantId": "Hoshino",
+                "amount": 50
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:affinity_hoshino_2",
       "name": "好感台阶 · 星野：黄昏的堤防",
-      "talklets": [
+      "nodes": [
         {
-          "text": "——阿比多斯 · 堤防 · 黄昏——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "——阿比多斯 · 堤防 · 黄昏——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "黄昏的海，总会让人想起点什么……",
-          "speaker": "星野"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "黄昏的海，总会让人想起点什么……",
+            "speaker": "星野"
+          }
         },
         {
-          "text": "能这样并肩看海，就已经很满足了哦，队长。",
-          "speaker": "星野",
-          "effects": [
-            {
-              "op": "addAffectionExp",
-              "target": "Hoshino",
-              "value": 50
-            }
-          ]
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "能这样并肩看海，就已经很满足了哦，队长。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "p3-op1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addAffectionExp",
+                "variantId": "Hoshino",
+                "amount": 50
+              }
+            ]
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        },
+        "p3": {
+          "advance": "auto"
+        }
+      }
     },
     {
       "id": "base:story:affinity_hoshino_bond_tail",
       "name": "羁绊尾巴 · 星野：堤防之后",
-      "talklets": [
+      "nodes": [
         {
-          "text": "——阿比多斯 · 堤防 · 归途——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p1-body",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "narration",
+            "text": "——阿比多斯 · 堤防 · 归途——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         },
         {
-          "text": "……剧情就到这里。剩下的，我们边走边说吧，队长。",
-          "speaker": "星野"
+          "id": "p2-body",
+          "type": "talklet",
+          "stageId": "p2",
+          "content": {
+            "kind": "talk",
+            "text": "……剧情就到这里。剩下的，我们边走边说吧，队长。",
+            "speaker": "星野"
+          }
         },
         {
-          "text": "——羁绊剧情 · 午后的堤防 完——",
-          "kind": "narration",
-          "align": "center"
+          "id": "p3-body",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "narration",
+            "text": "——羁绊剧情 · 午后的堤防 完——"
+          },
+          "presentation": {
+            "align": "center"
+          }
         }
-      ]
+      ],
+      "stages": {
+        "p1": {
+          "advance": "auto"
+        },
+        "p2": {
+          "advance": "auto"
+        },
+        "p3": {
+          "advance": "auto"
+        }
+      }
     }
   ],
   "activeStories": [
@@ -15797,14 +18584,6 @@
     },
     {
       "id": "base:affectorpack:foundation_mult",
-      "capabilities": [
-        {
-          "kind": "graph",
-          "graphId": "base:graph:foundation",
-          "nodeId": "init:base:init:millennium",
-          "mode": "enable"
-        }
-      ],
       "entries": [
         {
           "id": "base:affector:foundation_mult",
@@ -15822,6 +18601,14 @@
               "value": 2
             }
           ]
+        }
+      ],
+      "capabilities": [
+        {
+          "kind": "graph",
+          "graphId": "base:graph:foundation",
+          "nodeId": "init:base:init:millennium",
+          "mode": "enable"
         }
       ]
     },
@@ -15892,240 +18679,5 @@
       "v": 0
     }
   },
-  "modName": "base",
-  "areaMaps": [
-    {
-      "id": "base:area-map:schale_office",
-      "name": "夏莱办公室区域图",
-      "nodes": [
-        {
-          "id": "schale_main",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:schale_main"
-          }
-        },
-        {
-          "id": "schale_library",
-          "position": {
-            "x": 240,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:schale_library"
-          }
-        },
-        {
-          "id": "schale_hangar",
-          "position": {
-            "x": 480,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:schale_hangar"
-          }
-        },
-        {
-          "id": "schale_rooftop",
-          "position": {
-            "x": 0,
-            "y": 180
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:schale_rooftop"
-          }
-        }
-      ],
-      "edges": [
-        {
-          "fromNodeId": "schale_library",
-          "toNodeId": "schale_main"
-        },
-        {
-          "fromNodeId": "schale_main",
-          "toNodeId": "schale_rooftop"
-        },
-        {
-          "fromNodeId": "schale_hangar",
-          "toNodeId": "schale_library"
-        }
-      ]
-    },
-    {
-      "id": "base:area-map:millennium",
-      "name": "千禧年学院区域图",
-      "nodes": [
-        {
-          "id": "millennium_lab",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:millennium_lab"
-          }
-        },
-        {
-          "id": "millennium_canteen",
-          "position": {
-            "x": 240,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:millennium_canteen"
-          }
-        },
-        {
-          "id": "millennium_server",
-          "position": {
-            "x": 480,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:millennium_server"
-          }
-        }
-      ],
-      "edges": [
-        {
-          "fromNodeId": "millennium_canteen",
-          "toNodeId": "millennium_lab"
-        },
-        {
-          "fromNodeId": "millennium_canteen",
-          "toNodeId": "millennium_server"
-        }
-      ]
-    },
-    {
-      "id": "base:area-map:abydos",
-      "name": "阿比多斯学院区域图",
-      "nodes": [
-        {
-          "id": "abydos_campus",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:abydos_campus"
-          }
-        },
-        {
-          "id": "abydos_pool",
-          "position": {
-            "x": 240,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:abydos_pool"
-          }
-        }
-      ],
-      "edges": [
-        {
-          "fromNodeId": "abydos_campus",
-          "toNodeId": "abydos_pool"
-        }
-      ]
-    },
-    {
-      "id": "base:area-map:trinity",
-      "name": "崔妮蒂学院区域图",
-      "nodes": [
-        {
-          "id": "trinity_cathedral",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:trinity_cathedral"
-          }
-        },
-        {
-          "id": "trinity_tea_room",
-          "position": {
-            "x": 240,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:trinity_tea_room"
-          }
-        }
-      ],
-      "edges": [
-        {
-          "fromNodeId": "trinity_cathedral",
-          "toNodeId": "trinity_tea_room"
-        }
-      ]
-    },
-    {
-      "id": "base:area-map:gehenna",
-      "name": "盖赫纳学园区域图",
-      "nodes": [
-        {
-          "id": "gehenna_council",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:gehenna_council"
-          }
-        },
-        {
-          "id": "gehenna_district",
-          "position": {
-            "x": 240,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:gehenna_district"
-          }
-        }
-      ],
-      "edges": [
-        {
-          "fromNodeId": "gehenna_council",
-          "toNodeId": "gehenna_district"
-        }
-      ]
-    },
-    {
-      "id": "base:area-map:theme_showcase",
-      "name": "主题系统展示 Init区域图",
-      "nodes": [
-        {
-          "id": "theme_showcase",
-          "position": {
-            "x": 0,
-            "y": 0
-          },
-          "action": {
-            "kind": "attemptAreaTravel",
-            "areaId": "base:area:theme_showcase"
-          }
-        }
-      ],
-      "edges": []
-    }
-  ]
+  "modName": "base"
 }

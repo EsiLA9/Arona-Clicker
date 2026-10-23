@@ -7,6 +7,9 @@ import type { ExtraPath, ExtraValue } from './extra';
 import type { EngineTalklet } from '../contracts/talklet';
 import type { ActiveThemeSelection } from './theme';
 
+/** Why a StoryNode playback source released its temporary presentation resources. */
+export type StoryRunEndReason = 'completed' | 'replaced' | 'cancelled' | 'failed';
+
 export type GameEvent =
   | { type: 'resourceChanged'; resource: string; delta: number; newValue: number }
   | { type: 'spotLevelChanged'; spotId: string; newLevel: number; oldLevel?: number }
@@ -27,10 +30,11 @@ export type GameEvent =
   | { type: 'initEntered'; initId: string }
   | { type: 'initUnlocked'; initId: string }
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
-  | { type: 'storyAreaTraveled'; areaId: string }
-  | { type: 'storyTriggered'; storyId: string }
+  | { type: 'storyAreaTraveled'; areaId: string; owner?: string | null; runId?: string }
+  | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string }
+  | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason }
   | { type: 'storyCompleted'; storyId: string }
-  | { type: 'storyRewarded'; storyId: string; source: 'first' | 'repeat' | 'conditional'; effects: Effect[]; flags: string[] }
+  | { type: 'storyRewarded'; storyId: string; source: 'first' | 'repeat' | 'conditional'; effects: Effect[]; flags: string[]; owner?: string | null; runId?: string }
   | { type: 'poolGateChanged'; poolId: string; available: boolean }
   | { type: 'tick'; frame: number }
   | { type: 'flagChanged'; flag: string; value: string }
@@ -63,11 +67,18 @@ export type GameEvent =
   | { type: 'themeEffectRequested'; effect: Effect }
   | { type: 'storyEffectRequested'; effect: Effect }
   | { type: 'chatFlowEffectRequested'; effect: Effect }
-  | { type: 'chatFlowCleared' }
-  | { type: 'chatTextClearedAll' }
-  | { type: 'chatTextShown'; id: string; text?: string; talklet?: EngineTalklet; x?: number; y?: number; align?: 'left' | 'center' | 'right'; kind?: ChatTextKind; style?: ChatTextStyle; title?: string; buttonText?: string; targetStoryId?: string }
-  | { type: 'chatTextCleared'; id: string }
-  | { type: 'openingTitleShown'; title?: string }
+  | { type: 'chatFlowCleared'; owner?: string | null; runId?: string }
+  | { type: 'chatTextClearedAll'; owner?: string | null; runId?: string }
+  | {
+      type: 'chatTextShown'; id: string; text?: string; talklet?: EngineTalklet; x?: number; y?: number;
+      align?: 'left' | 'center' | 'right'; kind?: ChatTextKind; style?: ChatTextStyle; title?: string;
+      buttonText?: string; targetStoryId?: string;
+      /** Minimal engine-side request shape; it deliberately does not import the data-services contract. */
+      cardRequest?: { entryId: string; entryType: 'active'; owner: string | null; intent: 'card' };
+      owner?: string | null; runId?: string;
+    }
+  | { type: 'chatTextCleared'; id: string; owner?: string | null; runId?: string }
+  | { type: 'openingTitleShown'; title?: string; owner?: string | null; runId?: string }
   & { stats?: StatsContext };
 
 export type EventHandler = (event: GameEvent) => void;

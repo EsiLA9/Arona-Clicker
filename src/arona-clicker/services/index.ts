@@ -47,8 +47,7 @@ export { LootSystem } from './economy/loot-system';
 export { PassivePoolSystem } from './economy/passive-pool-system';
 export { ColorUnlockReactor } from './progression/color-unlock-reactor';
 export { SpotFunctionalitySystem } from './world/spot-functionality';
-export { StoryCursorState } from './story/story-cursor-state';
-export type { StoryCursor } from './story/story-cursor-state';
+export type { StoryCursor } from './story/story-service';
 export { condLabel, triggerLabel } from './runtime/debug-labels';
 export {
   buildDatapackWorkspaceView,
@@ -69,9 +68,4 @@ export type {
   PackIssue,
   PackMoveAvailability,
 } from './runtime/datapack-workspace-view';
-export * from './story/story-context';
-export * from './story/story-flow';
-export * from './story/story-jump';
-export * from './story/story-replay';
 export * from './story/story-rewards';
-export * from './story/story-interaction';

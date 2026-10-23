@@ -200,7 +200,7 @@ describe('Talklet 形态输入', () => {
 
   it('click 页不进入信息流', () => {
     expect(flowEntryFromTalklet({
-      streamKey: '#global', instanceKey: 'click', talklet: { kind: 'click', text: '点击', clickWork: { base: 3 } },
+      streamKey: '#global', instanceKey: 'click', talklet: { kind: 'click', text: '点击' },
     })).toBeNull();
   });
 });

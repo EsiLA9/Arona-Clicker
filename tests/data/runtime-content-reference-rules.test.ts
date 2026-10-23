@@ -93,7 +93,12 @@ describe('collectDefinitionReferences', () => {
     expect(atPath(characterRequests, '$.progression.initialTraits[0]')).toMatchObject({ targetKinds: ['traits'] });
     expect(atPath(characterRequests, '$.theme.background[0].value')).toMatchObject({ targetKinds: ['pics'] });
     expect(atPath(characterRequests, '$.theme.presentation.components[0].asset')).toMatchObject({ targetKinds: ['pics'] });
-    expect(atPath(collect('stories', { talklets: [{ kizuna: { storyId: 'base:activestory:bond' } }] }), '$.talklets[0].kizuna.storyId')).toMatchObject({ targetKinds: ['activeStories'] });
+    const cardStory = collect('stories', { nodes: [{
+      id: 'card', type: 'click', stageId: 'p1',
+      interaction: { kind: 'entryCard', card: { request: { entryId: 'base:activestory:bond', entryType: 'active', owner: 'base:variant:hoshino', intent: 'card' } } },
+    }] });
+    expect(atPath(cardStory, '$.nodes[0].interaction.card.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
+    expect(atPath(cardStory, '$.nodes[0].interaction.card.request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
     expect(atPath(collect('activeStories', { storyId: 'world:story:active', pushAfterStory: 'world:story:prologue' }), '$.storyId')).toMatchObject({ targetKinds: ['stories'] });
     expect(atPath(collect('passiveStories', { pushAfterStory: 'world:story:prologue' }), '$.pushAfterStory')).toMatchObject({ targetKinds: ['stories'] });
     expect(atPath(poolRequests, '$.members[0]')).toMatchObject({ targetKinds: ['characterVariants'] });
@@ -124,15 +129,19 @@ describe('collectDefinitionReferences', () => {
   it('resolves presentation option references inside the target definition context', () => {
     const targetRef = { definitionKind: 'characterVariants', fullId: 'world:variant:alice' } as const;
     const requests = collect('stories', {
-      talklets: [{ effects: [{ op: 'setEntityPresentation', target: `variant:${targetRef.fullId}`, value: { optionId: 'world:option:winter' } }] }],
+      nodes: [{ id: 'presentation', type: 'operation', action: {
+        kind: 'presentation', command: {
+          command: 'setEntityPresentation', target: `variant:${targetRef.fullId}`, optionId: 'world:option:winter', owner: 'world:variant:alice',
+        },
+      } }],
     }, [{ ref: targetRef, value: { presentation: { additions: [{ id: 'world:option:winter' }] } } }]);
 
-    expect(atPath(requests, '$.talklets[0].effects[0].target')).toMatchObject({ value: targetRef.fullId, targetKinds: ['characterVariants'], scope: 'global' });
-    expect(atPath(requests, '$.talklets[0].effects[0].value.optionId')).toMatchObject({
+    expect(atPath(requests, '$.nodes[0].action.command.target')).toMatchObject({ value: targetRef.fullId, targetKinds: ['characterVariants'], scope: 'global' });
+    expect(atPath(requests, '$.nodes[0].action.command.optionId')).toMatchObject({
       value: 'world:option:winter', scope: 'local', confidence: 'declared', context: targetRef,
       locations: [{ ref: targetRef, path: '$.presentation.additions[0]' }],
     });
-    expect(requests.filter(request => request.path === '$.talklets[0].effects[0].value.optionId')).toHaveLength(1);
+    expect(requests.filter(request => request.path === '$.nodes[0].action.command.optionId')).toHaveLength(1);
   });
 
   it('covers supplemental trigger and affector paths and passive pool members', () => {
@@ -169,16 +178,52 @@ describe('collectDefinitionReferences', () => {
   });
 
   it('resolves setTheme entity keys only for persistent entity scopes', () => {
-    const requests = collect('stories', { talklets: [{ effects: [
-      { op: 'setTheme', target: '', value: { scope: 'area', entityKey: 'area:world:area:office' } },
-      { op: 'setTheme', target: '', value: { scope: 'student', entityKey: 'variant:world:variant:alice' } },
-      { op: 'setTheme', target: '', value: { scope: 'ephemeral', entityKey: 'area:world:area:temporary' } },
-      { op: 'setTheme', target: '', value: { entityKey: 'area:world:area:defaulted' } },
-    ] }] });
+    const requests = collect('stories', { nodes: [
+      { id: 'area-theme', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { scope: 'area', entityKey: 'area:world:area:office' } } } },
+      { id: 'student-theme', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { scope: 'student', entityKey: 'variant:world:variant:alice' } } } },
+      { id: 'ephemeral-theme', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { scope: 'ephemeral', entityKey: 'area:world:area:temporary' } } } },
+      { id: 'implicit-theme', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { entityKey: 'area:world:area:defaulted' } } } },
+    ] });
 
-    expect(atPath(requests, '$.talklets[0].effects[0].value.entityKey')).toMatchObject({ value: 'world:area:office', targetKinds: ['areas'] });
-    expect(atPath(requests, '$.talklets[0].effects[1].value.entityKey')).toMatchObject({ value: 'world:variant:alice', targetKinds: ['characterVariants'] });
+    expect(atPath(requests, '$.nodes[0].action.command.value.entityKey')).toMatchObject({ value: 'world:area:office', targetKinds: ['areas'] });
+    expect(atPath(requests, '$.nodes[1].action.command.value.entityKey')).toMatchObject({ value: 'world:variant:alice', targetKinds: ['characterVariants'] });
     expect(requests.some(request => request.value === 'world:area:temporary' || request.value === 'world:area:defaulted')).toBe(false);
+  });
+
+  it('scans Story transfer, condition, named state, travel, and entry request paths under nodes', () => {
+    const requests = collect('stories', { nodes: [
+      { id: 'direct', type: 'transfer', transfer: { mode: 'goto', storyId: 'world:story:direct' } },
+      { id: 'button', type: 'click', stageId: 'button', interaction: { kind: 'button', text: 'Continue', result: {
+        actions: [
+          { kind: 'state', effects: [
+            { op: 'setResource', resourceId: 'world:resource:credit', amount: 1 },
+            { op: 'setManager', spotId: 'world:spot:desk', managerId: 'world:character:arona' },
+          ] },
+          { kind: 'travel', areaId: 'world:area:office' },
+          { kind: 'entryRequest', request: { entryId: 'world:activestory:system', entryType: 'active', owner: 'world:variant:arona', intent: 'system' } },
+        ],
+        transfer: { mode: 'insert', storyId: 'world:story:insert' },
+      } } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{
+        id: 'route', text: 'Route',
+        condition: { type: 'AND', conditions: [{ target: 'hasReadStory', key: 'world:story:condition', comparator: '==', value: 1 }] },
+        result: { transfer: { mode: 'goto', storyId: 'world:story:choice' } },
+      }] } },
+      { id: 'overlay-card', type: 'operation', action: { kind: 'overlay', command: {
+        command: 'show', id: 'card', content: { kind: 'entryCard', card: { request: { entryId: 'world:activestory:card', entryType: 'active', owner: null, intent: 'card' } } },
+      } } },
+    ] });
+
+    expect(atPath(requests, '$.nodes[0].transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.actions[0].effects[0].resourceId')).toMatchObject({ targetKinds: ['resourceDisplays'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.actions[0].effects[1].managerId')).toMatchObject({ targetKinds: ['characters'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.actions[1].areaId')).toMatchObject({ targetKinds: ['areas'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.actions[2].request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
+    expect(atPath(requests, '$.nodes[1].interaction.result.actions[2].request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
+    expect(atPath(requests, '$.nodes[2].interaction.options[0].condition.conditions[0].key')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[2].interaction.options[0].result.transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[3].action.command.content.card.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
   });
 
   it('skips accessors and terminates safely on cyclic input', () => {

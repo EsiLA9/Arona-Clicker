@@ -11,6 +11,8 @@ import type { UIController } from './controller';
 /** 绑定引擎 EventBus 事件 → UI 响应（mount 时调用一次）。 */
 export function bindEvents(ctrl: UIController): void {
   let achievementRefreshQueued = false;
+  let storyMovementRefreshQueued = false;
+  let storyMovementBlocked = ctrl.game.story.isBlockingMovement();
   const scheduleAchievementRefresh = (): void => {
     if (!ctrl.started || ctrl.panelState.service !== 'records' || achievementRefreshQueued) return;
     achievementRefreshQueued = true;
@@ -19,6 +21,20 @@ export function bindEvents(ctrl: UIController): void {
       refreshAchievementRows(ctrl);
     });
   };
+  // Story 状态事件可能在同一同步结算里成对重入（旧 run replaced → 新 run triggered，
+  // 或完成后即时推送尾巴）。等领域同步栈结束后读取最终锁状态，只在可见门控变化时更新左栏。
+  const scheduleStoryMovementRefresh = (): void => {
+    if (storyMovementRefreshQueued) return;
+    storyMovementRefreshQueued = true;
+    queueMicrotask(() => {
+      storyMovementRefreshQueued = false;
+      const next = ctrl.game.story.isBlockingMovement();
+      if (next === storyMovementBlocked) return;
+      storyMovementBlocked = next;
+      if (ctrl.started) ctrl.refreshPanels(['left']);
+    });
+  };
+  ctrl.game.eventBus.on('storyTriggered', () => scheduleStoryMovementRefresh());
 
   // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
   ctrl.game.eventBus.onAny(event => {
@@ -82,7 +98,8 @@ export function bindEvents(ctrl: UIController): void {
       summary || '无奖励',
       ...(event.flags.length > 0 ? [`解锁标记 ${event.flags.join('、')}`] : []),
     ];
-    ctrl.pendingRewardChats.push(parts.join(' · '));
+    const text = parts.join(' · ');
+    ctrl.pendingRewardChats.push(event.owner === undefined ? text : { text, owner: event.owner });
   });
   // 池 gate 解锁 → 奖励样式通知（如「日程表攻防」开启深夜闲聊）
   ctrl.game.eventBus.on('poolGateChanged', event => {
@@ -95,7 +112,8 @@ export function bindEvents(ctrl: UIController): void {
   ctrl.game.eventBus.on('storyAreaTraveled', event => {
     if (event.type !== 'storyAreaTraveled') return;
     const ctx = createUIContext(ctrl.game);
-    ctrl.pendingTravelChats.push(`移动到了 ${ctx.nameOf('area', event.areaId)}`);
+    const text = `移动到了 ${ctx.nameOf('area', event.areaId)}`;
+    ctrl.pendingTravelChats.push(event.owner === undefined ? text : { text, owner: event.owner });
   });
   // 好感跨级 → 该角色对话空间聊天流 reward 风格提示行（第一迭代唯一升级播报）
   ctrl.game.eventBus.on('characterProgressChanged', event => {
@@ -108,34 +126,33 @@ export function bindEvents(ctrl: UIController): void {
     });
   });
   // 聊天流演出服务（Talklet）：清理全部聊天内容
-  ctrl.game.eventBus.on('chatFlowCleared', () => {
-    ctrl.chat.clearAll(ctrl.panelState);
+  ctrl.game.eventBus.on('chatFlowCleared', event => {
+    if (event.type === 'chatFlowCleared') ctrl.chat.clearAll(ctrl.panelState, event.owner);
   });
   // 聊天流演出服务（Talklet）：删除全部可变位置的演出文本（保留聊天历史）
-  ctrl.game.eventBus.on('chatTextClearedAll', () => {
-    ctrl.chat.clearAllTexts(ctrl.panelState);
+  ctrl.game.eventBus.on('chatTextClearedAll', event => {
+    if (event.type === 'chatTextClearedAll') ctrl.chat.clearAllTexts(ctrl.panelState, event.owner);
   });
   // Story 开始前默认清理：避免中途进入（如羁绊卡片 startCardStory）时残留上一场的演出文本
-  ctrl.game.eventBus.on('storyTriggered', () => {
-    ctrl.chat.clearAllTexts(ctrl.panelState);
-  });
   // 开幕标题横幅（showOpeningTitle 效果呼出）：挂到当前活跃流；标题优先级
   // effect.value → entry.openingTitle → StoryDef.name。发起方管线随后必 render，此处只写状态
   ctrl.game.eventBus.on('openingTitleShown', event => {
     if (event.type !== 'openingTitleShown') return;
-    const convId = ctrl.panelState.conversationVariantId;
+    const convId = event.owner === undefined ? ctrl.panelState.conversationVariantId : event.owner;
     const view = convId ? ctrl.game.getStoryView(convId) : ctrl.game.getView().currentStory;
     let title = event.title;
     if (!title && view) {
-      const entry = [...ctrl.game.registry.storyEntries.values()].find(e => e.storyId === view.storyId);
-      title = entry?.openingTitle ?? ctrl.game.registry.stories.get(view.storyId)?.name;
+      const entry = ctrl.game.registry.storyEntries.get(view.storyId);
+      title = entry?.openingTitle ?? ctrl.game.registry.stories.get(view.storyDefId)?.name;
     }
     if (!title) return;
-    ctrl.chat.showBanner(convId ?? '#global', title);
+    ctrl.chat.showBanner(convId ?? '#global', title, event.runId);
   });
   // Story 完结默认清理：结束后自动删除全部演出文本覆盖层（与 clearAllChatText 一致）
-  ctrl.game.eventBus.on('storyCompleted', () => {
-    ctrl.chat.clearAllTexts(ctrl.panelState);
+  ctrl.game.eventBus.on('storyRunEnded', event => {
+    if (event.type !== 'storyRunEnded') return;
+    ctrl.chat.endRun(ctrl.panelState, event.owner, event.runId);
+    scheduleStoryMovementRefresh();
   });
   // §3 羁绊尾巴：完结剧情的关联尾巴在玩家正在观看该角色对话空间时立即推送；
   // 不在该空间则留在就绪队列顶（通讯录徽标提示，打开时经输入中提示送达）
@@ -161,6 +178,9 @@ export function bindEvents(ctrl: UIController): void {
     if (event.type !== 'chatTextShown') return;
     ctrl.chat.pushChatText(ctrl.panelState, {
       id: event.id,
+      runId: event.runId,
+      sourceOwner: event.owner,
+      cardRequest: event.cardRequest,
       text: event.text,
       talklet: event.talklet,
       x: event.x ?? 0,
@@ -172,13 +192,13 @@ export function bindEvents(ctrl: UIController): void {
       buttonText: event.buttonText,
       targetStoryId: event.targetStoryId,
       timestamp: Date.now(),
-    });
+    }, event.owner);
     ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：按临时 id 擦除演出专用文本
   ctrl.game.eventBus.on('chatTextCleared', event => {
     if (event.type !== 'chatTextCleared') return;
-    ctrl.chat.clearChatText(ctrl.panelState, event.id);
+    ctrl.chat.clearChatText(ctrl.panelState, event.id, event.owner);
     ctrl.refreshChatPanel();
   });
 }

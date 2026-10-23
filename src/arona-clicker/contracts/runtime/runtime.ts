@@ -702,8 +702,8 @@ export interface GameCommands {
   setMapItemAdditionalTarget(runId: string, target: MapRunEncounterSourceTarget | null, draft: MapRunEncounterDraftToken): MapRun;
   previewMapEncounterSources(runId: string): MapRunEncounterSourcePreview | null;
   commitMapEncounterRound(command: MapRunEncounterCommitCommand): MapRun;
-  advanceStory(choiceIndex?: number, owner?: string | null): StoryAdvanceResult;
-  clickSend(owner?: string | null): SendResult;
+  advanceStory(choiceIndex?: number | string, owner?: string | null, token?: string): StoryAdvanceResult;
+  clickSend(owner?: string | null, token?: string): SendResult;
   useItem(itemId: string): UseItemResult;
   purchaseEnhancement(enhancementId: string): EnhancementPurchaseResult;
   removeEnhancement(enhancementId: string): boolean;

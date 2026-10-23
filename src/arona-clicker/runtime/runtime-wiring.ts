@@ -41,6 +41,7 @@ import { StatsService } from '../../engine/stats/stats';
 import { TagStatService } from '../../engine/stats/tag-stats';
 import { ImageStore } from '../../data-services/assets/image-store';
 import { StoryService } from '../services/story/story-service';
+import { StoryNodePresentationHost } from '../services/story/story-node-presentation-host';
 import { SpotService } from '../services/world/spot-service';
 import { InitService } from '../services/world/init-service';
 import { StoryEntryReactionMount } from '../services/story/story-entry-reaction-mount';
@@ -213,7 +214,13 @@ export function wireGameInstance(
   g.triggerSystem = new TriggerSystem(g.eventBus, g.conditionSystem, g.effectEngine);
   g.lootSystem = new LootSystem(g.registry, g.conditionSystem);
   g.visibilityEngine = new VisibilityEngine(g.registry, g.conditionSystem, g.eventBus);
-  g.entityPresentation = new EntityPresentationService(g.registry, g.colorSystem, g.conditionSystem, g.visibilityEngine, g.eventBus);
+  const entityPresentation = new EntityPresentationService(g.registry, g.colorSystem, g.conditionSystem, g.visibilityEngine, g.eventBus);
+  g.entityPresentation = entityPresentation;
+  g.storyPresentation = new StoryNodePresentationHost({
+    registry: g.registry, eventBus: g.eventBus, colorSystem: g.colorSystem, entityPresentation,
+    getTitle: source => g.registry.storyEntries.get(source.entryId)?.openingTitle
+      ?? g.registry.stories.get(source.rootStoryId)?.name,
+  });
   g.mutations.setEntityPresentationSelectionValidator((state, entityKey, optionId) =>
     g.entityPresentation.options(state, entityKey as EntityPresentationKey).some(option => option.id === optionId && option.available));
   g.tagStatService = new TagStatService(
@@ -244,8 +251,9 @@ export function wireGameInstance(
     mutations: g.mutations,
     eventBus: g.eventBus,
     passivePools: g.passivePoolSystem,
+    presentation: g.storyPresentation,
     getState: hooks.getState,
-    travelToArea: (areaId, allowDuringStory) => g.travelToArea(areaId, allowDuringStory),
+    travelToArea: (areaId, allowDuringStory, checkAdjacency) => g.travelToArea(areaId, allowDuringStory, checkAdjacency),
   });
   const storyEntryReactions = new StoryEntryReactionMount(
     g.registry,
@@ -386,7 +394,7 @@ export function wireGameInstance(
   g.userThemeService = new UserThemeService(g.mutations, g.affectorEngine, g.picService, hooks.getState);
   g.shopService = new ShopService(g.registry, g.conditionSystem, g.valueSystem, g.mutations, g.spotFunctionalitySystem, hooks.getState);
   // 演出类 op 请求事件 → 领域服务分派（替代 EffectEngine 反向 handler，docs-824/08 T7）
-  new RuntimeEffectReactor(g.eventBus, g.registry, g.colorSystem, g.entityPresentation as EntityPresentationService, g.storyService, g.chatFlowService);
+  new RuntimeEffectReactor(g.eventBus, g.registry, g.colorSystem, entityPresentation, g.storyService, g.chatFlowService);
 
   const initialState = createDefaultPlayerState();
   hooks.setState(initialState);

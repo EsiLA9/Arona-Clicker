@@ -18,7 +18,7 @@
 | --- | --- |
 | 作者字段 | [story.ts](../../../../src/data-services/contracts/story.ts)，`StoryChoice:5 / Talklet:13 / StoryDef:35` |
 | Entry 字段 | [story-entry.ts](../../../../src/data-services/contracts/story-entry.ts)，`StoryEntryBase:26 / ActiveStoryEntry:33 / PassiveStoryEntry:36` |
-| Builder | [talklet.ts](../../../../src/arona-clicker/content/def-factory/talklet.ts)、[story.ts](../../../../src/arona-clicker/content/def-factory/story.ts)、[story-entry.ts](../../../../src/arona-clicker/content/def-factory/story-entry.ts) |
+| Builder（本报告形成后已迁移到节点合同） | [story.ts](../../../../src/arona-clicker/content/def-factory/story.ts)、[story-entry.ts](../../../../src/arona-clicker/content/def-factory/story-entry.ts)、[story-node.ts](../../../../src/data-services/contracts/story-node.ts) |
 | 主流程 | [story-flow.ts](../../../../src/arona-clicker/services/story/story-flow.ts)，`beginStory:27 / startStory:65 / advanceStory:233 / getSendState:331 / clickSend:389` |
 | 跳转与完成 | [story-jump.ts](../../../../src/arona-clicker/services/story/story-jump.ts)，`performJump:17 / resolveStoryEnd:48` |
 | 重读 | [story-replay.ts](../../../../src/arona-clicker/services/story/story-replay.ts)，`guardPrereqsMet:12 / replayStory:32` |
@@ -285,7 +285,7 @@ recordStoryRead 按 StoryDef ID 保存已读页索引排序去重；chosenChoice
 
 ## 14. 已有测试证据与本轮未覆盖项
 
-本轮根 Agent 实际执行并通过：`tests/engine/def-factory/talklet.test.ts`、`tests/engine/story-flow.test.ts`、`tests/engine/story-replay.test.ts`、`tests/engine/chat-flow-service.test.ts`、`tests/ui/flow-entry.test.ts`、`tests/ui/chat-typing.test.ts`、`tests/ui/story-history-resume.test.ts`、`tests/ui/components/chat-text.test.ts`、`tests/ui/components/chat-image.test.ts`。合计120/120，通过耗时14.96s；未宣称全量测试通过。
+本报告记录的那轮定向测试包含当时存在的旧作者工厂用例；节点合同迁移后，其当前作者工厂验证位于 [story.test.ts](../../../../tests/engine/def-factory/story.test.ts)，播放行为由 [story-node-playback.integration.test.ts](../../../../tests/engine/story-node-playback.integration.test.ts) 覆盖。其余历史执行记录为 `tests/engine/story-flow.test.ts`、`tests/engine/story-replay.test.ts`、`tests/engine/chat-flow-service.test.ts`、`tests/ui/flow-entry.test.ts`、`tests/ui/chat-typing.test.ts`、`tests/ui/story-history-resume.test.ts`、`tests/ui/components/chat-text.test.ts`、`tests/ui/components/chat-image.test.ts`；报告中的120/120与14.96s是原快照记录，不代表当前节点合同测试的运行结果。
 
 | 测试 | 已读断言范围 |
 | --- | --- |
@@ -294,7 +294,7 @@ recordStoryRead 按 StoryDef ID 保存已读页索引排序去重；chosenChoice
 | [story-rewards.test.ts](../../../../tests/engine/story-rewards.test.ts) | flag分歧奖励；声明顺序条件兜底；visitedStoryInChain决定奖励 |
 | [story-replay.test.ts](../../../../tests/engine/story-replay.test.ts) | replayable准入；未读分支拒绝/读后放行；重读不重复完成奖励；阅读累积 |
 | [init-global-lifecycle.test.ts](../../../../tests/engine/init-global-lifecycle.test.ts) | 全局与进行中insert游标跨Init快照恢复，不复用旧运行时 |
-| [def-factory/talklet.test.ts](../../../../tests/engine/def-factory/talklet.test.ts) | 最小talk、narration、click、choiceJump、效果、头像、kizuna、缺省字段省略 |
+| [def-factory/story.test.ts](../../../../tests/engine/def-factory/story.test.ts) | 节点版Story工厂与作者合同（旧Talklet工厂用例已随节点迁移退役） |
 | [def-factory/story-entry.test.ts](../../../../tests/engine/def-factory/story-entry.test.ts) | Active/Passive默认值、奖励/守卫/reaction/owner/冷却/阻断/标题 |
 | [story-history-resume.test.ts](../../../../tests/ui/story-history-resume.test.ts) | 全局/owner历史恢复、相同文本不同页、insert同页码不同StoryDef、typing未送达与已送达连发恢复 |
 

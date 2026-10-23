@@ -7,6 +7,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { and, TriggerDef } from '../../src/engine/types';
 import { TriggerSystem } from '../../src/engine/effect/trigger-system';
 import type { EffectEngine } from '../../src/engine/effect/effect-engine';
+import { finishWelcome } from './story-test-fixtures';
 
 const CREDIT = 'base:resource:credit';
 const OFFICE = 'base:init:schale_office';
@@ -26,14 +27,8 @@ describe('TriggerSystem (对外 DSL)', () => {
 
   test('registers base trigger defs and fires on story completion', () => {
     // 完成欢迎剧情 → welcome_reward 触发，发放能量饮料
-    // 推进循环用 advanceStory 跳过全部演出页（含 clickWork 页），选项页选第 0 项
-    const advanceable = () => game.story.getSendState().mode === 'advance';
     expect(game.state.inventory['base:item:energy_drink'] ?? 0).toBe(0);
-    while (advanceable()) game.story.advanceStory();
-    if (game.story.getSendState().mode === 'choice') {
-      game.story.advanceStory(0);
-      while (advanceable()) game.story.advanceStory();
-    }
+    finishWelcome(game);
     expect(game.state.inventory['base:item:energy_drink'] ?? 0).toBeGreaterThanOrEqual(1);
   });
 

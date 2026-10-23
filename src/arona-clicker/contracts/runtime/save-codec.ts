@@ -1,6 +1,6 @@
 import type { VisibilitySnapshot } from '../../../engine/contracts/reveal';
 import type { PersistedStats } from '../../../engine/contracts/stats';
-import type { StoryCursorSnapshot } from '../../../engine/contracts/story-cursor';
+import type { StoryCursorCollection } from '../../../engine/contracts/story-cursor';
 import type { PlayerState } from '../../types/state';
 import type { SaveData } from './save-data';
 import type { TagOverrideResidue } from '../../state/tag-residue';
@@ -11,8 +11,7 @@ import type { MapRunSaveSnapshot } from '../map/map-run';
 export interface SaveBuildContext {
   state: Readonly<PlayerState>;
   visibility: () => Readonly<VisibilitySnapshot>;
-  storyCursor: () => StoryCursorSnapshot;
-  chatCursors: () => Record<string, StoryCursorSnapshot>;
+  storyCursors: () => StoryCursorCollection;
   persistedStats: () => PersistedStats;
   activeModNames?: ReadonlySet<string>;
   retainedTagResidue?: TagOverrideResidue;

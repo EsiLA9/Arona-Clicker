@@ -8,9 +8,9 @@
 
 ## 当前推进
 
-- [[docs/plan-work/report-0322-story-node-semantics-explained]]：investigation；新增第二轮旧能力覆盖核查，区分显式交互组、连续输入、多阶段确认、共同结果与入口请求，补triggerStory/owner与旅行notice；初版引擎解读标记为演进记录，不代表已实施。
+- [[docs/plan-work/report-0322-story-node-semantics-explained]]：阶段1–5新Node人话说明；正文、输入、动作、转移、定位覆盖/邀请、owner及保存如何配合，保留前轮设计记录。
 
-- [[docs/plan-work/task-0322-story-node-model-and-playback-plan]]：semantic-review；按最新要求收敛为第一轮作者语义拆分与旧功能组合覆盖；保留四类Node，改为Click内部显式choice，补共同动作/入口请求/旅行提示，详细引擎、保存、奖励与全仓切换后议；未实施。
+- [[docs/plan-work/task-0322-story-node-model-and-playback-plan]]：阶段1–5完成与验收回执；正式UI/生命周期/结算/节点保存、43篇内容与旧解释器替换，阶段6编辑器未施工。
 
 - [[docs/plan-work/report-0321-story-talklet-capability-investigation]]：investigation；Story–Talklet 大整改与后续 Story 编辑工具的现状调查，含运行时、定位/ID/演出、Flow/地图/卡牌、作者/校验四篇分册；区分已接线能力与基建，供上层 chat 推演，尚未批准整改设计或实施。
 

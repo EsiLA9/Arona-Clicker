@@ -5,6 +5,7 @@ import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-
 import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { UIController } from '../../src/ui/controller/controller';
+import { finishWelcome } from '../engine/story-test-fixtures';
 
 function actionE2EDatapack(): typeof gameplayBMapDatapack {
   const source = gameplayBMapDatapack.maps?.[0];
@@ -83,12 +84,7 @@ function acquireMapParty(game: GameInstance, characterIds: readonly string[]): v
 }
 
 function finishGlobalStory(game: GameInstance): void {
-  let guard = 0;
-  while (game.getView().currentStory && guard++ < 80) {
-    const result = game.story.advanceStory();
-    if (!result.success && 'error' in result && result.error === 'ChoiceRequired') game.story.advanceStory(0);
-    else if (!result.success) break;
-  }
+  finishWelcome(game);
 }
 
 function moveToMapNode(root: HTMLElement, nodeId: string): void {

@@ -327,9 +327,9 @@ export class UIController {
   /** 悬浮详情弹层（body 级，事件委托一次绑定）。 */
   readonly popovers: PopoverManager;
   /** @internal 待落账的奖励通知（storyRewarded 排队，延迟入流见 scheduleRewardChats）。 */
-  pendingRewardChats: string[] = [];
+  pendingRewardChats: (string | { text: string; owner: string | null })[] = [];
   /** @internal 待落账的进入 Area 通知（render 时先于剧情内容入流）。 */
-  pendingTravelChats: string[] = [];
+  pendingTravelChats: (string | { text: string; owner: string | null })[] = [];
   /** @internal 待落账通知存在时，避免连续 Tick 重复触发 full render。 */
   notificationFallbackRendered = false;
   /** @internal 奖励通知延迟入流计时器（Story 末尾留一拍）。 */
@@ -465,16 +465,16 @@ export class UIController {
     this.chat.onChange = () => this.refreshChatPanel();
     // 链式连发（§4）：无按钮要求的左侧页送达后自动推进一页（引擎 clickSend 每次恰好
     // 推进一页；选项/按动/回复页不满足连发谓词，不会进入自动推进）
-    this.chat.onAutoAdvance = (streamKey) => {
+    this.chat.onAutoAdvance = (streamKey, token) => {
       const owner = streamKey === '#global' ? undefined : streamKey;
       const view = owner ? this.game.getStoryView(owner) : this.game.getView().currentStory;
-      if (!view) return; // 剧情已结束：链终止
-      const result = this.commands.clickSend(owner);
+      if (!view || view.phase !== 'delivery' || view.token !== token) return;
+      const result = this.commands.clickSend(owner, token);
       logStoryFailure(this, result);
       if (result.type === 'completed') {
         this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
       }
-      this.scheduleRender();
+      if ((this.panelState.conversationVariantId ?? '#global') === streamKey) this.refreshChatPanel();
     };
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
@@ -577,13 +577,15 @@ export class UIController {
     if (this.pendingRewardChats.length === 0 || this.rewardTimer !== null) return;
     this.rewardTimer = setTimeout(() => {
       this.rewardTimer = null;
-      const convId = this.panelState.conversationVariantId;
-      const playing = convId ? this.game.getStoryView(convId) : this.game.getView().currentStory;
-      if (playing) {
-        this.scheduleRewardChats();
-        return;
+      const waiting: typeof this.pendingRewardChats = [];
+      for (const notice of this.pendingRewardChats) {
+        const owner = typeof notice === 'string' ? this.panelState.conversationVariantId : notice.owner;
+        const playing = owner ? this.game.getStoryView(owner) : this.game.getView().currentStory;
+        if (playing) waiting.push(notice);
+        else this.deliverOwnedNotice(notice);
       }
-      this.flushRewardChatsNow();
+      this.pendingRewardChats = waiting;
+      this.scheduleRewardChats();
       this.refreshChatPanel();
     }, UIController.REWARD_REVEAL_DELAY_MS);
   }
@@ -594,10 +596,13 @@ export class UIController {
       clearTimeout(this.rewardTimer);
       this.rewardTimer = null;
     }
-    for (const text of this.pendingRewardChats) {
-      this.pushChat({ kind: 'reward', text });
-    }
+    for (const notice of this.pendingRewardChats) this.deliverOwnedNotice(notice);
     this.pendingRewardChats = [];
+  }
+
+  private deliverOwnedNotice(notice: string | { text: string; owner: string | null }): void {
+    this.chat.pushToOwner(this.panelState, typeof notice === 'string' ? undefined : notice.owner,
+      { kind: 'reward', text: typeof notice === 'string' ? notice : notice.text });
   }
 
   /**
@@ -935,11 +940,12 @@ export class UIController {
       return;
     }
     // 与全量 render 保持一致：移动通知必须先于新剧情页进入当前流。
-    for (const text of this.pendingTravelChats) this.pushChat({ kind: 'reward', text });
+    for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
     this.pendingTravelChats = [];
     this.chat.syncCurrentStory(this.panelState, this.game);
-    this.panelState.sendGate = this.chat.activeGate(this.panelState)
-      ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
+    this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
+      ? 'typing'
+      : this.chat.activeGate(this.panelState);
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     this.scheduleRewardChats();
     if (this.panelState.workspaceNavigation?.current.kind === 'map-entry') {
@@ -1143,16 +1149,15 @@ export class UIController {
     this.popovers.retainIfAnchored();
     // 进入 Area 的「移动到了」迷你条目先于剧情内容入流：移动触发的故事与通知
     // 落在同一次 render，通知必须先落账（否则故事首内容会排在通知之前）
-    for (const text of this.pendingTravelChats) {
-      this.pushChat({ kind: 'reward', text });
-    }
+    for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
     this.pendingTravelChats = [];
     // 当前剧情页先同步进聊天流（以指纹去重），再重建 DOM
     this.chat.syncCurrentStory(this.panelState, this.game);
     // 底部按钮门控阶段（§4）：同步后按当前活跃流计算，供 renderSendButton 隐藏回复文案；
     // 开幕横幅展示/淡出期间呈阻断态（点击由 data-send 处理器忽略）
-    this.panelState.sendGate = this.chat.activeGate(this.panelState)
-      ?? (this.chat.bannerBlocking(this.panelState) ? 'typing' : null);
+    this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
+      ? 'typing'
+      : this.chat.activeGate(this.panelState);
     // 开幕标题横幅：按当前活跃流读取（showBanner 状态由 openingTitleShown 事件写入）
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）；

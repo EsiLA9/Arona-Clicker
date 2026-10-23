@@ -44,6 +44,8 @@ export interface RestoreContext {
 }
 
 export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
+  if (saveData.version !== '2.0.0' || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
+  ctx.storyService.validateCursors(saveData.storyPlayback);
   const state = clonePlayerState(saveData.playerState);
   const tagOverrides = splitTagOverrides(
     mergeTagOverrides(state.spotTagOverrides, saveData.retained),
@@ -74,18 +76,7 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   ctx.visibilityEngine.recomputeAll(state);
   if (saveData.stats) ctx.statsService.restore(saveData.stats);
   else ctx.statsService.beginSession();
-  ctx.storyService.restoreCursor({
-    currentStoryId: saveData.pendingStoryId,
-    currentStoryEntryType: saveData.pendingStoryEntryType,
-    currentStoryDefId: saveData.pendingStoryDefId ?? null,
-    currentStoryPageIndex: saveData.pendingStoryPageIndex,
-    currentStoryChoiceIndex: saveData.pendingStoryChoiceIndex ?? -1,
-    talkletClickWork: saveData.pendingTalkletClicks ? { ...saveData.pendingTalkletClicks } : null,
-    insertStack: saveData.pendingInsertStack ? saveData.pendingInsertStack.map(s => ({ ...s })) : [],
-    visitedStoryIds: saveData.pendingVisitedStoryIds ? [...saveData.pendingVisitedStoryIds] : [],
-    isReplay: saveData.pendingIsReplay ?? false,
-  });
-  ctx.storyService.restoreChatCursors(saveData.chatCursors);
+  ctx.storyService.restoreCursors(saveData.storyPlayback);
   ctx.sessionService.setLastTick(saveData.timestamp);
   ctx.effectEngine.setState(state);
   ctx.tickSystem.setState(state);

@@ -91,7 +91,7 @@ describe('Init 生命周期：Global 数据与 per-Init 数据分离', () => {
 
     expect(game.story.getCurrentStoryId()).toBe(officeStory);
     expect(game.inits.resumeInit(MILLENNIUM)).toBe(true);
-    expect(game.state.initSnapshots?.[OFFICE]?.storyCursors?.global.currentStoryId).toBe(officeStory);
+    expect(game.state.initSnapshots?.[OFFICE]?.storyCursors?.global.playback.run?.source.entryId).toBe(officeStory);
     expect(game.story.getCurrentStoryId()).toBeNull();
 
     expect(game.inits.resumeInit(OFFICE)).toBe(true);
@@ -111,8 +111,8 @@ describe('Init 生命周期：Global 数据与 per-Init 数据分离', () => {
 
     expect(game.inits.resumeInit(MILLENNIUM)).toBe(true);
     const snapshot = game.state.initSnapshots?.[OFFICE];
-    expect(snapshot?.storyCursors?.global.insertStack).toEqual([
-      { storyId: 'test:story:whisper_click_main', pageIndex: 1 },
+    expect(snapshot?.storyCursors?.global.playback.run?.stack).toEqual([
+      { storyId: 'test:story:whisper_click_main', nextNodeId: 'p2-body' },
     ]);
 
     expect(game.inits.resumeInit(OFFICE)).toBe(true);

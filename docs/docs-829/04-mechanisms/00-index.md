@@ -15,6 +15,8 @@
 
 ## AronaClicker
 
+- [[arona-clicker/gameplay-b-cards]] — Gameplay B MapRun Encounter Hand、行动卡身份、Swap / PlayerCommand、卡牌目标与整轮结算。
+- [[arona-clicker/story-node-playback]] — StoryNode 作者类型、节点播放器、动作宿主与 StoryService 会话生命周期。
 - [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]] — 玩家业务状态提交与事件。
 - [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] — Init、Area、Spot 生命周期。
 - [[gacha-cultivation]] — 招募和角色培养入口。

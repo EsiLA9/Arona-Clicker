@@ -100,7 +100,7 @@ export class StoryFollowUpMount {
       const area = this.registry.areas.get(areaId);
       if (!area || area.initId !== initId || !this.isAvailableInInit(target, initId)) continue;
       const targetStory = this.registry.stories.get(target.storyId);
-      if (!targetStory || targetStory.talklets.length === 0) continue;
+      if (!targetStory || targetStory.nodes.length === 0) continue;
       if (this.hasCompleted(target.storyId)) {
         this.triggerSystem.commitOnce(id);
         this.mounted.delete(id);

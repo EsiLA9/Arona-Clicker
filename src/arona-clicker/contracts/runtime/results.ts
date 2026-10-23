@@ -4,6 +4,7 @@
 
 import type { StoryId, ItemId, SpotId, AreaId, EnhancementId } from '../../../engine/types/ids';
 import type { Talklet } from '../../../data-services/contracts/story';
+import type { StoryContent } from '../../../data-services/contracts/story-node';
 import type { CompletedStory } from '../../types/story-state';
 
 export type UseItemResult =
@@ -55,6 +56,17 @@ export interface StoryView {
   totalPages: number;
   page: Talklet;
   availableChoiceIndexes: number[];
+  /** Stable presentation boundary and unforgeable command ticket for the current wait. */
+  nodeId: string;
+  token: string;
+  phase: 'delivery' | 'input';
+  runId: string;
+  /** Stable logical delivery identity retained when restore assigns a fresh visual runId. */
+  historyId?: string;
+  /** One checkpoint counter per run; the same node may be legitimately delivered more than once. */
+  waitSequence?: number;
+  /** The next authored node is a Click input; read-only cue for the default short typing pause. */
+  nextIsInput?: boolean;
 }
 
 /** Read-only AreaHero offer derived from the current Init's pending delivery records. */
@@ -77,6 +89,8 @@ export type StoryError =
   | 'ChoiceRequired'
   | 'InvalidChoice'
   | 'ChoiceConditionNotMet'
+  /** The UI submitted a delivery/input ticket that is no longer current. */
+  | 'StaleToken'
   /** 当前页有点击需求（click / clickWork）且尚未完成确认，不能直接推进或跳转。 */
   | 'ClickRequired'
   /** 重阅读模式：分歧点准入守卫拒绝进入目标 Story（见 StoryEntryDef.branchGuards）。 */
@@ -84,25 +98,30 @@ export type StoryError =
   /** 跳转深度超过上限（32），强制终止演出。 */
   | 'JumpLimitExceeded'
   /** 重阅读入口不可用（entry.replayable = false）。 */
-  | 'NotReplayable';
+  | 'NotReplayable'
+  /** New-node playback stopped on an unsupported or failed action/document. */
+  | 'PlaybackFailed';
 
 export type StoryStartResult =
-  | { success: true; story: StoryView }
-  | { success: false; storyId?: StoryId; error: StoryError };
-
-export type StoryAdvanceResult =
   | { success: true; finished: false; story: StoryView }
   | { success: true; finished: true; storyId: StoryId; completed: CompletedStory }
+  | { success: false; storyId?: StoryId; error: StoryError; detail?: string };
+
+export type StoryAdvanceResult =
+  | { success: true; finished: false; story: StoryView; reply?: StoryContent }
+  | { success: true; finished: true; storyId: StoryId; completed: CompletedStory; reply?: StoryContent }
   | {
       success: false;
       storyId?: StoryId;
       error: StoryError;
       /** BranchGuardDenied 时的拒绝提示文本（branchGuard.denialMessage）。 */
       denialMessage?: string;
+      /** Engine/action diagnostic for a playback failure. */
+      detail?: string;
     };
 
 /**
- * 底部"回复按钮"（本质上是一条承载推进的 Talklet）的当前状态。
+ * 当前 Story 等待点对应的底部发送控件状态。
  */
 export type SendState =
   | {
@@ -110,12 +129,13 @@ export type SendState =
       /** 当前进行中的 StoryId（若处于剧情演出中） */
       storyId: StoryId | null;
       pageIndex: number;
-      /** 预设回复文案（仅 Talklet.sendText；旁白/普通对话为空串 → 按钮显示"点击"） */
+      /** 当前 button Click 的显示文案；Talklet delivery 阶段为空串。 */
       text: string;
+      /** Current delivery/input ticket; every formal StoryService projection supplies it. */
+      token?: string;
       /**
-       * 点击工作进度（Talklet.clickWork 存在时）。
-       * done 为已点击次数（进入该页时为 0），total 为需完成的总次数；
-       * 前 total 次点击填充进度条，填满后还需再点一次才结束该页。
+       * 当前 button Click 的按击工作量。done 为已完成次数，total 为所需次数；
+       * 第 total 次有效输入会立即提交并推进，不需要额外确认。
        */
       clickWork?: { total: number; done: number };
     }
@@ -123,10 +143,10 @@ export type SendState =
   | {
       mode: 'choice';
       /**
-       * 选项页的文本确认状态：false = 尚未确认本页 text（选项被 text 阻塞，UI 先显示文本
-       * + "继续"按钮，点击确认后才显示选项）；true = 已确认，可渲染选项卡片。
+       * Choice input 是否已就绪。StoryNodePlayer 正式投影恒为 true，字段为保留的显示接口。
        */
       confirmed: boolean;
+      token?: string;
     }
   | {
       mode: 'kizuna';
@@ -141,13 +161,14 @@ export type SendState =
       buttonText?: string;
       /** 卡片对齐（left | right，不允许居中）。 */
       align?: 'left' | 'right';
+      token?: string;
     };
 
 /**
  * 玩家点击一次回复按钮的结果。
- * - completed：本次推进已发生
- * - working：点击工作进度 +1（多击任务需填满进度条后额外再点一次才结束），尚未推进（仅刷新进度条）
- * - choice：当前 Talklet 有选项，回复按钮让位
+ * - completed：已提交一次 delivery ack 或 Click input；是否成功推进查看 advance.success。
+ * - working：button Click 的按击次数尚未满足；最后一次所需输入会立即提交并推进。
+ * - choice：当前等待点是 Choice input，按钮发送入口让位给候选项。
  * - idle：无进行中剧情，触发/尝试触发 PassiveTalk
  */
 export type SendResult =
@@ -155,17 +176,15 @@ export type SendResult =
       type: 'completed';
       storyId: StoryId | null;
       finished: boolean;
-      /** 玩家本次点击发送的回复文案（按钮上的文本）。 */
+      /** 本次交互的 UI 发送文案；button 有 reply 时取 reply.text，否则取按钮文案；卡片取配置的按钮文案。 */
       sentText: string;
       /**
-       * 是否应把 sentText 以「老师」身份气泡回显到聊天流。
-       * click 页恒 false；非 click 页遇 Talklet.muteReply = true 也为 false。
+       * 是否应把显式 button reply 以「老师」身份回显到聊天流；仅成功提交且声明 reply 时为 true。
        */
       echoReply: boolean;
       advance: StoryAdvanceResult;
       /**
-       * 本次推进后向后吸收的过渡页（非 click、无选项、无 sendText、无 clickWork 的纯展示页）。
-       * 这些页自动跳过、不要求玩家逐页点击，UI 需将其文本同步进聊天流。
+       * 保留的显示结果字段。StoryNode 流程不隐式吸收后续节点，正式结果恒为空数组。
        */
       absorbed: StoryView[];
     }

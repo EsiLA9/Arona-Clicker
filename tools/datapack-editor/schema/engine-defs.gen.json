@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T02:45:35.064Z",
+  "generatedAt": "2026-10-23T11:10:55.291Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -583,6 +583,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -1868,6 +1957,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -3213,6 +3391,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -16084,6 +16351,95 @@
                     "kind": "object",
                     "fields": [
                       {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
+                      {
                         "key": "region",
                         "required": true,
                         "kind": "hand",
@@ -16993,6 +17349,250 @@
     "ActiveStoryEntry": {
       "fields": [
         {
+          "key": "id",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "table": "stories"
+        },
+        {
+          "key": "storyId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "table": "stories"
+        },
+        {
+          "key": "availableInits",
+          "required": true,
+          "kind": "array",
+          "tsType": "InitId[]",
+          "item": {
+            "key": "$",
+            "kind": "ref",
+            "table": "inits",
+            "tsType": "InitId"
+          }
+        },
+        {
+          "key": "tags",
+          "required": false,
+          "kind": "array",
+          "tsType": "TagPath[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "TagPath"
+          }
+        },
+        {
+          "key": "triggerCondition",
+          "required": true,
+          "kind": "hand",
+          "tsType": "ConditionGroup"
+        },
+        {
+          "key": "revealTriggers",
+          "required": false,
+          "kind": "array",
+          "tsType": "RevealTrigger[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "RevealTrigger"
+          }
+        },
+        {
+          "key": "replayable",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean"
+        },
+        {
+          "key": "completionStrategy",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'simple' | 'conditional'",
+          "options": [
+            "simple",
+            "conditional"
+          ]
+        },
+        {
+          "key": "conditionalRewards",
+          "required": false,
+          "kind": "array",
+          "tsType": "ConditionalReward[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "condition",
+                "required": true,
+                "kind": "hand",
+                "tsType": "ConditionGroup"
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "ConditionalReward"
+          }
+        },
+        {
+          "key": "branchGuards",
+          "required": false,
+          "kind": "array",
+          "tsType": "BranchGuard[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "storyId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "StoryId",
+                "table": "stories"
+              },
+              {
+                "key": "prerequisites",
+                "required": true,
+                "kind": "array",
+                "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "{ storyId: StoryId; talkletIndex: number }"
+                }
+              },
+              {
+                "key": "denialMessage",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              }
+            ],
+            "tsType": "BranchGuard"
+          }
+        },
+        {
+          "key": "openingTitle",
+          "required": false,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
+        },
+        {
+          "key": "reactions",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryReaction[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "activation",
+                "required": false,
+                "kind": "hand",
+                "tsType": "'after-completion'"
+              },
+              {
+                "key": "lifetime",
+                "required": false,
+                "kind": "enum",
+                "tsType": "'current-init' | 'until-consumed'",
+                "options": [
+                  "current-init",
+                  "until-consumed"
+                ]
+              },
+              {
+                "key": "on",
+                "required": true,
+                "kind": "hand",
+                "tsType": "TriggerEventDef"
+              },
+              {
+                "key": "condition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "Condition | ConditionGroup"
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "once",
+                "required": false,
+                "kind": "bool",
+                "tsType": "boolean"
+              }
+            ],
+            "tsType": "StoryEntryReaction"
+          }
+        },
+        {
+          "key": "followUps",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryFollowUp[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "waitFor",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }"
+              },
+              {
+                "key": "outcome",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }"
+              }
+            ],
+            "tsType": "StoryFollowUp"
+          }
+        },
+        {
           "key": "type",
           "required": true,
           "kind": "hand",
@@ -17014,6 +17614,250 @@
     },
     "PassiveStoryEntry": {
       "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "table": "stories"
+        },
+        {
+          "key": "storyId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "table": "stories"
+        },
+        {
+          "key": "availableInits",
+          "required": true,
+          "kind": "array",
+          "tsType": "InitId[]",
+          "item": {
+            "key": "$",
+            "kind": "ref",
+            "table": "inits",
+            "tsType": "InitId"
+          }
+        },
+        {
+          "key": "tags",
+          "required": false,
+          "kind": "array",
+          "tsType": "TagPath[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "TagPath"
+          }
+        },
+        {
+          "key": "triggerCondition",
+          "required": true,
+          "kind": "hand",
+          "tsType": "ConditionGroup"
+        },
+        {
+          "key": "revealTriggers",
+          "required": false,
+          "kind": "array",
+          "tsType": "RevealTrigger[]",
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "RevealTrigger"
+          }
+        },
+        {
+          "key": "replayable",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean"
+        },
+        {
+          "key": "completionStrategy",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'simple' | 'conditional'",
+          "options": [
+            "simple",
+            "conditional"
+          ]
+        },
+        {
+          "key": "conditionalRewards",
+          "required": false,
+          "kind": "array",
+          "tsType": "ConditionalReward[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "condition",
+                "required": true,
+                "kind": "hand",
+                "tsType": "ConditionGroup"
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "ConditionalReward"
+          }
+        },
+        {
+          "key": "branchGuards",
+          "required": false,
+          "kind": "array",
+          "tsType": "BranchGuard[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "storyId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "StoryId",
+                "table": "stories"
+              },
+              {
+                "key": "prerequisites",
+                "required": true,
+                "kind": "array",
+                "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "{ storyId: StoryId; talkletIndex: number }"
+                }
+              },
+              {
+                "key": "denialMessage",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              }
+            ],
+            "tsType": "BranchGuard"
+          }
+        },
+        {
+          "key": "openingTitle",
+          "required": false,
+          "kind": "string",
+          "tsType": "string"
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound"
+        },
+        {
+          "key": "reactions",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryReaction[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "activation",
+                "required": false,
+                "kind": "hand",
+                "tsType": "'after-completion'"
+              },
+              {
+                "key": "lifetime",
+                "required": false,
+                "kind": "enum",
+                "tsType": "'current-init' | 'until-consumed'",
+                "options": [
+                  "current-init",
+                  "until-consumed"
+                ]
+              },
+              {
+                "key": "on",
+                "required": true,
+                "kind": "hand",
+                "tsType": "TriggerEventDef"
+              },
+              {
+                "key": "condition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "Condition | ConditionGroup"
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "once",
+                "required": false,
+                "kind": "bool",
+                "tsType": "boolean"
+              }
+            ],
+            "tsType": "StoryEntryReaction"
+          }
+        },
+        {
+          "key": "followUps",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryFollowUp[]",
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string"
+              },
+              {
+                "key": "waitFor",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }"
+              },
+              {
+                "key": "outcome",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }"
+              }
+            ],
+            "tsType": "StoryFollowUp"
+          }
+        },
         {
           "key": "type",
           "required": true,
@@ -17172,30 +18016,36 @@
           "required": true,
           "kind": "ref",
           "tsType": "StoryId",
+          "description": "剧情身份，与现有 StoryDef 使用同一 StoryId 域。",
           "table": "stories"
         },
         {
           "key": "name",
           "required": true,
           "kind": "string",
-          "tsType": "string"
+          "tsType": "string",
+          "description": "作者可读名称。"
         },
         {
-          "key": "talklets",
+          "key": "nodes",
           "required": true,
-          "kind": "array",
-          "tsType": "Talklet[]",
-          "item": {
-            "key": "$",
-            "kind": "hand",
-            "tsType": "Talklet"
-          }
+          "kind": "hand",
+          "tsType": "readonly StoryNode[]",
+          "description": "按执行顺序排列的四类顶层节点。"
+        },
+        {
+          "key": "stages",
+          "required": true,
+          "kind": "hand",
+          "tsType": "Readonly<Record<StoryStageId, StoryStageDeclaration>>",
+          "description": "以 stageId 为键的阶段模式声明；键的枚举顺序不表示播放顺序。"
         },
         {
           "key": "extra",
           "required": false,
           "kind": "extra",
-          "tsType": "ExtraCompound"
+          "tsType": "ExtraCompound",
+          "description": "剧情附加数据。"
         }
       ]
     },
@@ -18081,6 +18931,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -19991,6 +20930,95 @@
                     "kind": "object",
                     "fields": [
                       {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
+                      {
                         "key": "region",
                         "required": true,
                         "kind": "hand",
@@ -20768,6 +21796,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -21684,6 +22801,95 @@
                     "key": "$",
                     "kind": "object",
                     "fields": [
+                      {
+                        "key": "id",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "层 ID；同一运行时主题层内可用来覆盖已有背景层。"
+                      },
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "kind": "hand",
+                        "tsType": "BackgroundLayerKind",
+                        "label": "背景类型"
+                      },
+                      {
+                        "key": "value",
+                        "required": true,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景值；image 使用 Pic 引用或受控 URL。"
+                      },
+                      {
+                        "key": "opacity",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "透明度"
+                      },
+                      {
+                        "key": "position",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景位置"
+                      },
+                      {
+                        "key": "size",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "背景尺寸"
+                      },
+                      {
+                        "key": "repeat",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "重复方式"
+                      },
+                      {
+                        "key": "blendMode",
+                        "required": false,
+                        "kind": "string",
+                        "tsType": "string",
+                        "label": "混合模式"
+                      },
+                      {
+                        "key": "attachment",
+                        "required": false,
+                        "kind": "enum",
+                        "tsType": "'scroll' | 'fixed' | 'local'",
+                        "label": "附着方式",
+                        "options": [
+                          "scroll",
+                          "fixed",
+                          "local"
+                        ]
+                      },
+                      {
+                        "key": "scale",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "缩放比例"
+                      },
+                      {
+                        "key": "rotation",
+                        "required": false,
+                        "kind": "float",
+                        "tsType": "number",
+                        "label": "旋转角度"
+                      },
+                      {
+                        "key": "enabled",
+                        "required": false,
+                        "kind": "bool",
+                        "tsType": "boolean",
+                        "label": "是否参与渲染；缺省为 true，false 表示保留数据但隐藏。"
+                      },
                       {
                         "key": "region",
                         "required": true,
@@ -22899,18 +24105,59 @@
     "StatsQueryContext",
     "StatsSnapshot",
     "StatsState",
+    "StoryAction",
+    "StoryButtonInteraction",
     "StoryChoice",
+    "StoryChoiceInteraction",
+    "StoryChoiceOption",
+    "StoryClickInteraction",
+    "StoryClickNode",
+    "StoryClickPress",
     "StoryCompletionState",
+    "StoryContent",
     "StoryCursorCollection",
     "StoryCursorSnapshot",
     "StoryDef",
     "StoryEffectPort",
+    "StoryEntityPresentationSnapshot",
     "StoryEntryBase",
+    "StoryEntryCard",
+    "StoryEntryCardInteraction",
     "StoryEntryDef",
     "StoryEntryId",
     "StoryEntryReaction",
+    "StoryEntryRequest",
+    "StoryEphemeralThemeSnapshot",
     "StoryFollowUp",
     "StoryId",
+    "StoryNarrationContent",
+    "StoryNode",
+    "StoryNodeBase",
+    "StoryNodeDocument",
+    "StoryNodeId",
+    "StoryNodeResult",
+    "StoryNodeSnapshot",
+    "StoryNumericValue",
+    "StoryOperationNode",
+    "StoryOverlayCommand",
+    "StoryOverlayContent",
+    "StoryOverlayTextTemplate",
+    "StoryPacing",
+    "StoryPresentation",
+    "StoryPresentationCardRequest",
+    "StoryPresentationCommand",
+    "StoryPresentationOverlaySnapshot",
+    "StoryPresentationSnapshot",
+    "StoryRunEndReason",
+    "StoryStageAdvance",
+    "StoryStageDeclaration",
+    "StoryStageId",
+    "StoryStateAction",
+    "StoryTalkContent",
+    "StoryTalkletNode",
+    "StoryThemeValue",
+    "StoryTransfer",
+    "StoryTransferNode",
     "StudentOperationProfileDef",
     "TagDef",
     "Talklet",

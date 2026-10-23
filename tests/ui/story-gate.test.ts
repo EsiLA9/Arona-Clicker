@@ -9,7 +9,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindStoryActions } from '../../src/ui/controller/controller-actions-story';
-import { finishWelcome } from '../engine/story-test-fixtures';
+import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';
 const HOSHINO = 'Hoshino';
@@ -155,8 +155,9 @@ describe('UIController 剧情入口确认浮层', () => {
       vi.advanceTimersByTime(30001);
       expect(root.querySelector('[data-story-banner]')).toBeNull();
       expect(panel.sendGate).toBeNull();
+      const pageBeforeSend = game.getStoryView(HOSHINO)!.pageIndex;
       root.querySelector<HTMLButtonElement>('[data-send]')!.click();
-      expect(game.getStoryView(HOSHINO)!.pageIndex).toBe(pageBefore + 1);
+      expect(game.getStoryView(HOSHINO)!.pageIndex).toBe(pageBeforeSend + 1);
     } finally {
       vi.useRealTimers();
     }
@@ -166,22 +167,9 @@ describe('UIController 剧情入口确认浮层', () => {
     panel.conversationVariantId = HOSHINO;
     controller.render();
     // 播完整条羁绊剧情（选项页选第一项）；完结后尾巴即时推送，一并播完腾出游标
-    const drain = () => {
-      for (let guard = 0; guard < 30; guard++) {
-        const r = game.story.advanceStory(undefined, HOSHINO);
-        if (!r.success) {
-          if ((r as { error?: string }).error === 'ChoiceRequired') {
-            game.story.advanceStory(0, HOSHINO);
-            continue;
-          }
-          break;
-        }
-        if ('finished' in r && r.finished) break;
-      }
-    };
     game.story.startCardStory(BOND, HOSHINO);
-    drain();
-    drain(); // 第二轮：尾巴即时推送的演出播完
+    finishStory(game, 0, HOSHINO);
+    finishStory(game, 0, HOSHINO); // 第二轮：尾巴即时推送的演出播完
     expect(game.getStoryView(HOSHINO)).toBeNull();
     controller.chat.reset(); // 清掉开局呼出横幅的阻断期（真实计时），否则卡片点击被守卫吞掉
     controller.render();

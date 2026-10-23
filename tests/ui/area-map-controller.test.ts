@@ -62,7 +62,9 @@ describe('AreaMap real Controller flow', () => {
     const button = root.querySelector<HTMLButtonElement>('[data-area-map-open]')!;
     const hero = root.querySelector<HTMLButtonElement>('[data-area-workspace-open]')!;
     const render = vi.spyOn(ctrl, 'render');
-    game.story.startStory('area-map-demo:activestory:arrival', 'active'); ctrl.refreshLight();
+    const arrivalStart = game.story.startStory('area-map-demo:activestory:arrival', 'active');
+    expect(arrivalStart).toMatchObject({ success: true, finished: false, story: { storyId: 'area-map-demo:activestory:arrival', pageIndex: 0 } });
+    ctrl.refreshLight();
     expect(button.disabled).toBe(true); expect(hero.disabled).toBe(true);
     game.story.clearAllCurrentStories(); ctrl.refreshLight();
     expect(button.disabled).toBe(false); expect(hero.disabled).toBe(false);
@@ -92,7 +94,9 @@ describe('AreaMap real Controller flow', () => {
   });
 
   test('real passive leaveArea:false permits browsing but blocks travel, and a protected owner blocks entry', () => {
-    game.registry.load({ ...mergeFragments([]), stories: [{ id: 'area-map-demo:story:passive', name: '闲聊', talklets: [{ text: '暂时留在这里。' }] }],
+    game.registry.load({ ...mergeFragments([]), stories: [{ id: 'area-map-demo:story:passive', name: '闲聊', stages: { 'p1': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '暂时留在这里。' } },
+] }],
       passiveStories: [
         { id: 'area-map-demo:passivestory:safe', storyId: 'area-map-demo:story:passive', type: 'passive', repeatable: true, weight: 1, availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, leaveArea: false },
         { id: 'area-map-demo:passivestory:owner', storyId: 'area-map-demo:story:passive', type: 'passive', repeatable: true, weight: 1, availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, owner: 'student', blocksInteraction: true },

@@ -7,6 +7,7 @@ import { createUIContext } from '../../src/ui/runtime/context';
 import { UIController } from '../../src/ui/controller/controller';
 import { renderShopWorkspace } from '../../src/ui/components/inventory/shop';
 import { createInventoryWorkspaceState } from '../../src/ui/utilities/inventory-view';
+import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
 
 describe('Workspace 页面生命周期', () => {
   let game: GameInstance;
@@ -298,15 +299,10 @@ describe('Workspace 页面生命周期', () => {
   });
 
   it('AreaHero 交付接取后立即返回一般界面，并在 Entry owner 聊天流播放', () => {
-    let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const advance = game.story.advanceStory();
-      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishWelcome(game);
     const invite = game.story.startStory('base:passivestory:hoshino_conv_2', 'passive', 'Hoshino');
     expect(invite.success).toBe(true);
-    let inviteGuard = 0;
-    while (game.getStoryView('Hoshino') && inviteGuard++ < 30) game.story.advanceStory(undefined, 'Hoshino');
+    finishStory(game, 0, 'Hoshino');
     game.mutations.acquireCharacter('Hoshino', 'story');
 
     const entryId = 'base:activestory:hoshino_rooftop_meet';

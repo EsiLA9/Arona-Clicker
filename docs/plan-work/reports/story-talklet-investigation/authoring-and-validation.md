@@ -8,8 +8,8 @@
 
 | 入口 | 当前能力 | 边界与证据 |
 | --- | --- | --- |
-| TypeScript 内容 Builder | `story().scene()` 接受 Talklet 或 TalkletBuilder；支持对话、旁白、点击、效果、跳转、选项等 | `src/arona-clicker/content/def-factory/story.ts` 与 `talklet.ts`；Builder 不是完整字段编辑器 |
-| Datapack JSON | `stories`、`activeStories`、`passiveStories` 三张正式表；Story 内联 Talklet 数组 | `src/data-services/contracts/datapack.ts`、`story.ts`、`story-entry.ts` |
+| TypeScript 内容 Builder | `story().nodes().stages()` 接受明确的 StoryNode 原语文档 | `src/arona-clicker/content/def-factory/story.ts`、`src/data-services/contracts/story-node.ts` |
+| Datapack JSON | `stories`、`activeStories`、`passiveStories` 三张正式表；Story 使用 `nodes/stages` | `src/data-services/contracts/datapack.ts`、`story.ts`、`story-node.ts`、`story-entry.ts` |
 | 正式内置数据 | `defaultDatapack` 直接导入 `base-pack/content.json` | `src/arona-clicker/content/default-datapack.ts`；不能假定修改旧 TS 内容文件就自动改变产品内容 |
 | 独立 Datapack Editor | stories 整表自定义 Schema、嵌套 Talklet/choice 字段表单、通用数据模型和撤销重做 | `tools/datapack-editor/schema/editor-extras.ts:726`、`model/editor-model.ts` |
 | 游戏内 Runtime Editor | 可浏览和检查 Story 定义、关系和内容字段树；正式作者策略目前只有 Init/Area/Spot/Enhancement | `src/ui/runtime-editor/codex-details/`、`src/data-services/authoring/content-policies.ts:373` |
@@ -49,7 +49,7 @@
 - `.scene()` 追加页面，不生成页 ID；StoryBuilder 本身没有按 ID 建图、重排进度迁移或复杂语义校验。
 - Builder 的 effects 与 choices 数组直接交给 build 结果，不能将其理解为深冻结的不可变作者模型。
 
-证据：`src/arona-clicker/content/def-factory/talklet.ts`、`story.ts`、`tests/engine/def-factory/talklet.test.ts`。本轮此测试 8/8 通过。
+当前实现证据：`src/arona-clicker/content/def-factory/story.ts`、`src/data-services/contracts/story-node.ts`、`tests/engine/def-factory/story.test.ts` 与 `tests/data/story-node-authoring.test.ts`。旧 Talklet Builder 及其测试已随节点合同迁移退役。
 
 ## 4. 独立编辑器的手写 Story Schema
 

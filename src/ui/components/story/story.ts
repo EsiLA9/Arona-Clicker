@@ -59,6 +59,9 @@ export interface ChatEntry {
 /** 演出专用文本条目（showChatText）：以聊天窗格百分比坐标定位，带临时 id 供 clearIdChatFlow 擦除。 */
 export interface ChatTextEntry {
   id: string;
+  runId?: string;
+  sourceOwner?: string | null;
+  cardRequest?: import('../../../data-services/contracts/story-node-actions').StoryEntryCard['request'];
   /** 直接文本内容（无 talklet 时使用）。 */
   text?: string;
   /** 嵌入的标准 Talklet（复用其 speaker/avatar/kind/side/kizuna 渲染，优先于 text）。 */
@@ -216,12 +219,13 @@ function renderReplyCard(
   choices: NonNullable<StoryView['page']['choices']>,
   availableIndexes: number[],
   align: NonNullable<StoryView['page']['align']>,
+  token?: string,
 ): string {
   const rows = choices
     .map((choice, index) => {
       const available = availableIndexes.includes(index);
       return `
-      <button class="reply-choice" data-story-choice="${index}" ${available ? '' : 'disabled'}>
+      <button class="reply-choice" data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''} ${available ? '' : 'disabled'}>
         <span class="reply-choice-text">${ctx.escapeHtml(choice.text)}</span>
         ${available ? '<span class="reply-choice-arrow">↗</span>' : '<small class="reply-choice-locked">LOCKED</small>'}
       </button>`;
@@ -395,11 +399,12 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
  * 页体（旁白/对话）由聊天流呈现，推进交互统一由底部 send-button 承担。
  */
 export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
+  if (story.phase === 'delivery') return '';
   const choices = story.page.choices ?? [];
-  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right')}</div>`;
+  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`;
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
-    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna)}</div>`;
+    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token)}</div>`;
   }
   return '';
 }
@@ -417,7 +422,7 @@ export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[]): strin
         ? renderOverlayTalklet(ctx, entry.talklet, entry.targetStoryId, inline)
         : renderOverlayText(ctx, entry, inline);
       return `
-      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}" style="left: ${pctX}%; bottom: ${pctY}%;">
+      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}"${entry.cardRequest ? ` data-story-card-owner="${ctx.escapeHtml(entry.cardRequest.owner ?? '')}"` : ''}${entry.runId ? ` data-story-source-run="${ctx.escapeHtml(entry.runId)}" data-story-source-owner="${ctx.escapeHtml(entry.sourceOwner ?? '')}"` : ''} style="left: ${pctX}%; bottom: ${pctY}%;">
         ${body}
       </div>`;
     })
@@ -498,13 +503,14 @@ function renderOverlayTalklet(ctx: UIContext, tl: import('../../../data-services
 function renderKizunaCard(
   ctx: UIContext,
   kizuna: NonNullable<StoryView['page']['kizuna']>,
+  token?: string,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText ?? '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
   return `
-    <div class="kizuna-card${alignCls}" data-kizuna="${entryId}">
+    <div class="kizuna-card${alignCls}" ${token ? `data-story-card-token="${ctx.escapeHtml(token)}"` : `data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">

@@ -5,6 +5,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
+import { finishStory } from '../../engine/story-test-fixtures';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderStoryGate, renderOpeningBanner, storyDisplayTitle, BANNER_ANIMATION_MS } from '../../../src/ui/components/story/story-gate';
 
@@ -67,17 +68,7 @@ describe('renderStoryGate / renderOpeningBanner', () => {
   test('浮层：已完结剧情确认文案为「重新开始」（卡片 = 正常重开）；重读入口仍为「重新观看」', () => {
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     game.story.startCardStory('base:activestory:bond_hoshino_1', 'Hoshino');
-    for (let guard = 0; guard < 30; guard++) {
-      const r = game.story.advanceStory(undefined, 'Hoshino');
-      if (!r.success) {
-        if ((r as { error?: string }).error === 'ChoiceRequired') {
-          game.story.advanceStory(0, 'Hoshino');
-          continue;
-        }
-        break;
-      }
-      if ('finished' in r && r.finished) break;
-    }
+    finishStory(game, 0, 'Hoshino');
     expect(game.story.hasCompletedStory('base:story:bond_hoshino_1')).toBe(true);
     const ctx = createUIContext(game);
     const html = renderStoryGate(ctx, { storyId: 'base:activestory:bond_hoshino_1', owner: 'Hoshino', mode: 'card' });

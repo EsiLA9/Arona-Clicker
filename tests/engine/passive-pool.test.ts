@@ -1,3 +1,4 @@
+import { finishStory } from './story-test-fixtures';
 // ============================================================
 // engine/passive-pool.test.ts — 被动闲聊池系统
 // 覆盖：树状抽取（路径权重连乘）、gate 剪枝与 reactor 反射、
@@ -211,10 +212,7 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
 
   function finishWelcome(): void {
     let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishStory(game);
   }
 
   // 用临时数据包注入一个带 block 的被动闲聊（要求学生到达某区域/满足某 flag 才解锁对话空间）
@@ -233,9 +231,8 @@ describe('对话空间阻断态全链路（GameInstance）', () => {
     // 抽中并播完 → 应写入 studentBlocks[owner]（聊天沙盒游标内推进）
     const res = game.story.triggerPassiveStory('base:init:schale_office', owner);
     expect(res.success).toBe(true);
-    let r = game.story.advanceStory(undefined, owner);
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory(undefined, owner);
-    expect(r.success && 'finished' in r && r.finished).toBe(true);
+    finishStory(game, 0, owner);
+    expect(game.story.getCurrentStoryView(owner)).toBeNull();
 
     expect(game.state.studentBlocks?.[owner]).toBeDefined();
     expect(game.state.studentBlocks?.[owner].entryId).toBe('base:passivestory:schale_tea');
@@ -268,10 +265,7 @@ describe('基础数据包池树（schale_office）', () => {
   /** 排干自动展开的欢迎剧情，进入剧情空闲状态。 */
   function finishWelcome(): void {
     let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishStory(game);
   }
 
   /** 在星野聊天空间播完天台邀约（hoshino_conv_2 → hoshino_rooftop_hint 已读），武装天台 Trigger。 */
@@ -279,7 +273,7 @@ describe('基础数据包池树（schale_office）', () => {
     const r = g.story.startStory('base:passivestory:hoshino_conv_2', 'passive', 'Hoshino');
     expect(r.success).toBe(true);
     let rg = 0;
-    while (g.getStoryView('Hoshino') && rg++ < 20) g.story.advanceStory(undefined, 'Hoshino');
+    finishStory(g, 0, 'Hoshino');
     expect(g.state.storyLog.some(s => s.storyId === 'base:story:hoshino_rooftop_hint')).toBe(true);
   }
 
@@ -330,10 +324,7 @@ describe('基础数据包池树（schale_office）', () => {
   test('壁垒·真实数据：星野对话空间抽取不泄漏外部闲聊', () => {
     game.inits.startNewGame('base:init:millennium');
     let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishStory(game);
     const owner = 'Hoshino';
     const seen = new Set<string>();
     for (let i = 0; i < 300; i++) {
@@ -426,10 +417,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.inits.startNewGame('base:init:schale_office');
     // 排干初始 welcome 剧情
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     expect(g.getView().currentStory).toBeNull();
     // 播完聊天空间邀约 → hoshino_rooftop_hint 已读 → 天台 Trigger 激活
     readRooftopInvite(g);
@@ -451,20 +439,14 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
 
     let finishGuard = 0;
-    while (g.getView().currentStory && finishGuard++ < 50) {
-      const advance = g.story.advanceStory();
-      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
       .toBe('completed');
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toEqual([]);
     const completedCount = g.state.storyLog.length;
     expect(g.story.replayStory('base:activestory:hoshino_rooftop_meet').success).toBe(true);
     let replayGuard = 0;
-    while (g.getView().currentStory && replayGuard++ < 50) {
-      const advance = g.story.advanceStory();
-      if (!advance.success && 'error' in advance && advance.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     expect(g.state.storyLog).toHaveLength(completedCount);
     expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
       .toBe('completed');
@@ -475,7 +457,9 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     const sourceId = 'base:passivestory:hoshino_conv_2';
     const source = g.registry.passiveStories.get(sourceId)!;
-    const parallelStory: StoryDef = { id: 'test:story:parallel_offer', name: '并行邀约', talklets: [{ text: '并行剧情。' }] };
+    const parallelStory: StoryDef = { id: 'test:story:parallel_offer', name: '并行邀约', stages: { 'p1': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '并行剧情。' } },
+] };
     const parallelActive: ActiveStoryEntry = {
       id: 'test:activestory:parallel_offer',
       storyId: parallelStory.id,
@@ -515,10 +499,7 @@ describe('基础数据包池树（schale_office）', () => {
     registrySet(g.registry.storyEntries, sourceId, updatedSource as StoryEntryDef);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
 
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
@@ -538,10 +519,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
 
     const deliveriesBefore = structuredClone(g.state.areaStoryDeliveries ?? []);
     g.effectEngine.applyEffects([{ op: 'triggerStory', target: 'base:activestory:schale_flow_show', value: 0 }]);
@@ -555,11 +533,10 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
-    const story: StoryDef = { id: 'test:story:condition_gate', name: '条件剧情', talklets: [{ text: '条件已达成。' }] };
+    finishStory(g);
+    const story: StoryDef = { id: 'test:story:condition_gate', name: '条件剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '条件已达成。' } },
+] };
     const entry: ActiveStoryEntry = {
       id: 'test:activestory:condition_gate',
       storyId: story.id,
@@ -590,11 +567,10 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
-    const story: StoryDef = { id: 'test:story:shared_delivery', name: '共用剧情', talklets: [{ text: '同一份剧情。' }] };
+    finishStory(g);
+    const story: StoryDef = { id: 'test:story:shared_delivery', name: '共用剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '同一份剧情。' } },
+] };
     const makeEntry = (id: string): ActiveStoryEntry => ({
       id,
       storyId: story.id,
@@ -646,10 +622,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     const active = g.registry.activeStories.get('base:activestory:hoshino_rooftop_meet')!;
     const ownerEntry: ActiveStoryEntry = { ...active, owner: 'Hoshino' };
     registrySet(g.registry.activeStories, ownerEntry.id, ownerEntry);
@@ -679,10 +652,7 @@ describe('基础数据包池树（schale_office）', () => {
     restored.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
     expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
 
@@ -705,10 +675,7 @@ describe('基础数据包池树（schale_office）', () => {
     playing.init([baseDatapack]);
     source.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (source.getView().currentStory && guard++ < 50) {
-      const r = source.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') source.story.advanceStory(0);
-    }
+    finishStory(source);
     readRooftopInvite(source);
     expect(source.travelToArea('base:area:schale_rooftop').success).toBe(true);
 
@@ -728,10 +695,7 @@ describe('基础数据包池树（schale_office）', () => {
       .toBe('pending');
 
     let finishGuard = 0;
-    while (playing.getView().currentStory && finishGuard++ < 50) {
-      const r = playing.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') playing.story.advanceStory(0);
-    }
+    finishStory(playing);
     expect(playing.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
       .toBe('completed');
     expect(playing.state.storyLog.some(row => row.storyId === 'base:story:hoshino_rooftop_meet')).toBe(true);
@@ -746,10 +710,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
     const deliveriesBeforeLibrary = structuredClone(g.state.areaStoryDeliveries ?? []);
     expect(g.travelToArea('base:area:schale_library').success).toBe(true);
@@ -767,10 +728,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
     readRooftopInvite(g);
     expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
@@ -788,10 +746,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
     g.inits.unmountInitTriggers();
     expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('inactive');
@@ -811,10 +766,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
     expect(g.story.startStory('base:activestory:schale_flow_show', 'active').success).toBe(true);
     setCurrentArea(g, 'base:area:schale_rooftop');
@@ -833,10 +785,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     readRooftopInvite(g);
     // 在一般聊天触发一条外部 passive 闲聊，占住全局游标
     const ext = g.story.triggerPassiveStory('base:init:schale_office');
@@ -865,10 +814,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
-    while (g.getView().currentStory && guard++ < 50) {
-      const r = g.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') g.story.advanceStory(0);
-    }
+    finishStory(g);
     // 播完聊天空间邀约（hoshino_conv_2）→ hoshino_rooftop_hint 已读
     readRooftopInvite(g);
     // 前往天台只投递，不自动开播。
@@ -957,9 +903,8 @@ describe('基础数据包池树（schale_office）', () => {
 
     // 完成两页闲聊（第二页 Talklet 效果置 night_mode）
     expect(api.startStory('base:passivestory:schale_planner', 'passive').success).toBe(true);
-    let r = game.story.advanceStory();
-    while (r.success && 'finished' in r && !r.finished) r = game.story.advanceStory();
-    expect(r.success && 'finished' in r && r.finished).toBe(true);
+    finishStory(game);
+    expect(game.story.getCurrentStoryView()).toBeNull();
 
     expect(game.state.flags['night_mode']).toBe('1');
     expect(rewarded.some(e => e.flags.includes('night_mode'))).toBe(true);

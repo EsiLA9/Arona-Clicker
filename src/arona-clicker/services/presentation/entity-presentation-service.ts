@@ -22,6 +22,14 @@ interface RuntimePresentationOverride {
   owner: string;
   lifetime: EntityPresentationOverrideLifetime;
   sequence: number;
+  /** 新StoryNode的story生命周期覆写只由对应run关闭；不复用旧storyCompleted故事ID。 */
+  runId?: string;
+}
+
+function runtimeOwnerKey(owner: string, lifetime: EntityPresentationOverrideLifetime, runId?: string): string {
+  return lifetime === 'story' && runId !== undefined
+    ? `\u0000story-node:${JSON.stringify([runId, owner])}`
+    : owner;
 }
 
 function splitKey(key: EntityPresentationKey): { kind: string; id: string } {
@@ -118,32 +126,55 @@ export class EntityPresentationService implements EntityPresentationQueryPort {
     });
   }
 
-  setRuntimeOverride(key: EntityPresentationKey, optionId: string, owner: string, lifetime: EntityPresentationOverrideLifetime = 'manual'): boolean {
-    if (!owner || !this.targetOf(key)?.presentation?.additions?.some(option => option.id === optionId)) return false;
+  setRuntimeOverride(key: EntityPresentationKey, optionId: string, owner: string, lifetime: EntityPresentationOverrideLifetime = 'manual', runId?: string): boolean {
+    if (!owner || lifetime === 'story' && runId !== undefined && !runId.trim()
+      || !this.targetOf(key)?.presentation?.additions?.some(option => option.id === optionId)) return false;
     const owners = this.runtimeOverrides.get(key) ?? new Map<string, RuntimePresentationOverride>();
-    const current = owners.get(owner);
-    if (current?.optionId === optionId && current.lifetime === lifetime) return true;
-    owners.set(owner, { optionId, owner, lifetime, sequence: ++this.runtimeSequence });
+    const keyOwner = runtimeOwnerKey(owner, lifetime, runId);
+    const current = owners.get(keyOwner);
+    if (current?.optionId === optionId && current.lifetime === lifetime && current.runId === runId) return true;
+    owners.set(keyOwner, { optionId, owner, lifetime, sequence: ++this.runtimeSequence, ...(runId === undefined ? {} : { runId }) });
     this.runtimeOverrides.set(key, owners);
     this.emitRuntimeChange(key);
     return true;
   }
 
-  clearRuntimeOverride(key: EntityPresentationKey, owner: string): boolean {
+  clearRuntimeOverride(key: EntityPresentationKey, owner: string, runId?: string): boolean {
     const owners = this.runtimeOverrides.get(key);
-    if (!owners?.delete(owner)) return false;
+    if (!owners) return false;
+    let removed = false;
+    if (runId !== undefined) {
+      for (const [keyOwner, override] of owners) {
+        if (override.owner === owner && override.lifetime === 'story' && override.runId === runId) {
+          owners.delete(keyOwner);
+          removed = true;
+          break;
+        }
+      }
+      // A new StoryNode may still clear a matching manual/area/init owner, but
+      // cannot erase a story override attached to another run.
+      if (!removed) {
+        const unscoped = owners.get(owner);
+        if (unscoped && unscoped.owner === owner && (unscoped.lifetime !== 'story' || unscoped.runId === undefined)) {
+          owners.delete(owner);
+          removed = true;
+        }
+      }
+    } else removed = owners.delete(owner);
+    if (!removed) return false;
     if (owners.size === 0) this.runtimeOverrides.delete(key);
     this.emitRuntimeChange(key);
     return true;
   }
 
-  clearRuntimeOverrides(filter: { owner?: string; lifetime?: EntityPresentationOverrideLifetime } = {}): number {
+  clearRuntimeOverrides(filter: { owner?: string; lifetime?: EntityPresentationOverrideLifetime; runId?: string } = {}): number {
     let cleared = 0;
     for (const [key, owners] of [...this.runtimeOverrides.entries()]) {
       let clearedForKey = 0;
       for (const [owner, override] of [...owners.entries()]) {
-        if (filter.owner !== undefined && filter.owner !== owner) continue;
+        if (filter.owner !== undefined && filter.owner !== override.owner) continue;
         if (filter.lifetime !== undefined && filter.lifetime !== override.lifetime) continue;
+        if (filter.runId !== undefined && filter.runId !== override.runId) continue;
         owners.delete(owner);
         cleared += 1;
         clearedForKey += 1;

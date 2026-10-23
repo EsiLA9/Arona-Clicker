@@ -1,40 +1,31 @@
-import type { ExtraCompound } from '../../engine/types/extra';
-import type { ConditionGroup, Effect } from '../../engine/types/expression';
-import type { StoryId } from '../../engine/types/ids';
-import type { PicId } from './pic';
-export interface StoryChoice {
-  text: string;
-  effects: Effect[];
-  condition?: ConditionGroup;
-  jumpToStory?: StoryId;
-  jumpMode?: 'goto' | 'insert';
-}
+import type { StoryNodeDocument } from './story-node';
 
+/**
+ * Temporary UI projection DTO. It carries display data only; story authors use StoryDef nodes.
+ * Runtime input, options, actions, jumps, work counts, and card requests live in the playback view.
+ */
 export interface Talklet {
-  text: string;
-  speaker?: string;
-  choices?: StoryChoice[];
-  effects?: Effect[];
-  sendText?: string;
-  muteReply?: boolean;
-  clickWork?: { base: number; rand?: number };
-  kind?: 'talk' | 'narration' | 'click';
-  align?: 'center' | 'left' | 'right';
-  avatar?: string;
-  side?: 'left' | 'right';
-  noAvatar?: boolean;
-  showAvatar?: boolean;
-  image?: string;
-  typing?: number;
-  thinking?: number;
-  jumpToStory?: StoryId;
-  jumpMode?: 'goto' | 'insert';
-  kizuna?: { storyId: StoryId; title?: string; buttonText?: string; align?: 'left' | 'right' };
+  readonly text: string;
+  readonly speaker?: string;
+  readonly choices?: readonly StoryChoice[];
+  /** Display projection for a new entryCard interaction; never an authoring/runtime request. */
+  readonly kizuna?: { readonly storyId: string; readonly title?: string; readonly buttonText?: string; readonly align?: 'left' | 'right' };
+  readonly kind?: 'talk' | 'narration' | 'click';
+  readonly align?: 'center' | 'left' | 'right';
+  readonly avatar?: string;
+  readonly side?: 'left' | 'right';
+  readonly noAvatar?: boolean;
+  readonly showAvatar?: boolean;
+  readonly image?: string;
+  readonly typing?: number;
+  readonly thinking?: number;
 }
 
-export interface StoryDef {
-  id: StoryId;
-  name: string;
-  talklets: Talklet[];
-  extra?: ExtraCompound;
+/** Read-only labels for a projected choice group; no condition or executable branch data. */
+export interface StoryChoice {
+  readonly id: string;
+  readonly text: string;
 }
+
+/** The production StoryDef has one authoring format: StoryNodeDocument. */
+export interface StoryDef extends StoryNodeDocument {}

@@ -23,10 +23,10 @@ describe('Story 历史恢复', () => {
     game.init([baseDatapack, makePack([
       { id: ENTRY, storyId: STORY, type: 'active', availableInits: [], triggerCondition: and(), replayable: true },
     ], [
-      { id: STORY, name: '历史恢复', talklets: [
-        { speaker: '阿罗娜', text: TEXT, typing: 0, thinking: 0, sendText: '继续' },
-        { speaker: '阿罗娜', text: TEXT, typing: 0, thinking: 0, sendText: '完成' },
-      ] },
+      { id: STORY, name: '历史恢复', stages: { body: { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
+  { id: 'p2-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
+] },
     ]), supplyPack]);
     game.inits.startNewGame('base:init:schale_office');
     finishWelcome(game);
@@ -100,7 +100,7 @@ describe('Story 历史恢复', () => {
 
   it('相邻页台词相同时，存档中未送达的打字页仍正常投递', () => {
     const story = game.registry.stories.get(STORY)!;
-    story.talklets[1].typing = 1;
+    game.registry.load(makePack([], [{ ...story, nodes: story.nodes.map((node, i) => i === 1 && node.type === 'talklet' ? { ...node, pacing: { typing: 1 } } : node) }]));
     expect(game.story.startActiveStory(ENTRY).success).toBe(true);
     controller.render();
     game.story.advanceStory();
@@ -117,8 +117,6 @@ describe('Story 历史恢复', () => {
   });
 
   it('已送达的连发页读档后继续推进，不重复投递本页', async () => {
-    const story = game.registry.stories.get(STORY)!;
-    delete story.talklets[0].sendText;
     expect(game.story.startActiveStory(ENTRY).success).toBe(true);
     controller.render();
     const saved = JSON.parse(JSON.stringify(controller.withHistories(game.save())));

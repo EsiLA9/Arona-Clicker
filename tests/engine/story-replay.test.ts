@@ -14,6 +14,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { cond, and } from '../../src/engine/types';
 import type { StoryEntryDef } from '../../src/data-services/contracts/story-entry';
 import { Resource } from '../../src/arona-clicker/types/ids';
+import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 import {
   finishWelcome,
   finishStory,
@@ -26,6 +27,31 @@ import {
   desertEpilogue,
   makePack,
 } from './story-test-fixtures';
+
+function advanceToChoice(game: GameInstance): StoryView {
+  for (let guard = 0; guard < 200; guard++) {
+    const view = game.story.getCurrentStoryView();
+    if (!view) throw new Error('Story ended before its choice input');
+    if (view.phase === 'delivery') {
+      const result = game.story.advanceStory(undefined, null, view.token);
+      if (!result.success) throw new Error(`delivery failed: ${result.error}`);
+      continue;
+    }
+    if (view.page.choices?.length) return view;
+    const result = game.story.clickSend(null, view.token);
+    if (result.type === 'idle' || result.type === 'choice'
+      || result.type === 'completed' && !result.advance.success) {
+      throw new Error('Story stopped before its choice input');
+    }
+  }
+  throw new Error('Story choice loop exceeded its guard');
+}
+
+function choose(game: GameInstance, view: StoryView, index: number) {
+  const optionId = view.page.choices?.[index]?.id;
+  if (!optionId) throw new Error(`Choice ${index} is unavailable`);
+  return game.story.advanceStory(optionId, null, view.token);
+}
 
 describe('重阅读与分歧点准入守卫', () => {
   let game: GameInstance;
@@ -58,20 +84,19 @@ describe('重阅读与分歧点准入守卫', () => {
     finishStory(game, 1);
     expect(game.getView().currentStory).toBeNull();
 
-    // 重阅读：先推进到选项页，再选"正面突击" → 守卫拦截
+    // 重阅读：逐个确认正文 delivery 到达 choice Click，再选“正面突击”。
     expect(game.story.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1（选项页）
-    const blocked = game.story.advanceStory(0);
+    const choice = advanceToChoice(game);
+    const blocked = choose(game, choice, 0);
     expect(blocked).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     if ('denialMessage' in blocked) {
       expect(blocked.denialMessage).toBe('你还没有真正走过突击路线，无法进入该分歧。');
     }
     // 页面未推进、效果未应用：仍停在选项页
-    expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_intro');
-    expect(game.getView().currentStory!.pageIndex).toBe(1);
+    expect(game.story.getCurrentStoryView()).toMatchObject({ storyDefId: 'test:story:desert_intro', nodeId: choice.nodeId, token: choice.token });
 
     // 改选"迂回谈判"（已真读）→ 放行
-    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    expect(choose(game, choice, 1)).toMatchObject({ success: true, finished: false });
     expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_negotiate');
   });
 
@@ -84,10 +109,9 @@ describe('重阅读与分歧点准入守卫', () => {
     finishStory(game, 0);
     expect(game.getView().currentStory).toBeNull();
 
-    // 重阅读：先推进到选项页，选突击 → 已读 → 放行
+    // 重阅读：逐个确认正文 delivery 到达 choice Click，选突击 → 已读 → 放行。
     game.story.replayStory('test:story:desert_mission');
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false }); // t0 → t1
-    expect(game.story.advanceStory(0)).toMatchObject({ success: true, finished: false });
+    expect(choose(game, advanceToChoice(game), 0)).toMatchObject({ success: true, finished: false });
     expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_assault');
   });
 
@@ -126,17 +150,17 @@ describe('重阅读与分歧点准入守卫', () => {
     game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 1);
     game.story.replayStory('test:story:desert_mission');
-    game.story.advanceStory(); // t0 → t1
-    expect(game.story.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    const firstChoice = advanceToChoice(game);
+    expect(choose(game, firstChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     // 改走谈判完成本次重阅读（真实读完谈判分支）
-    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    expect(choose(game, firstChoice, 1)).toMatchObject({ success: true, finished: false });
     finishStory(game, 1);
 
     // 第二次重阅读：走谈判分支时经过的 negotiate 已完整读过，仍放行；
     // 突击分支从未被真实阅读 → 仍被拒
     game.story.replayStory('test:story:desert_mission');
-    game.story.advanceStory();
-    expect(game.story.advanceStory(0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    expect(game.story.advanceStory(1)).toMatchObject({ success: true, finished: false });
+    const secondChoice = advanceToChoice(game);
+    expect(choose(game, secondChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    expect(choose(game, secondChoice, 1)).toMatchObject({ success: true, finished: false });
   });
 });

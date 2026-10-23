@@ -10,6 +10,7 @@ import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
 import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 import { extra } from '../../../src/engine/extra/index';
 import { baseDatapack } from '../../../src/data/test-datapack';
+import { finishStory, finishWelcome } from '../../engine/story-test-fixtures';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story/story';
 import { renderSendButton } from '../../../src/ui/components/shared/center-panel';
@@ -77,14 +78,10 @@ function makeDatapack(): Datapack {
       },
     ],
     stories: [
-      {
-        id: 'test:story:bond_hoshino_1',
-        name: '羁绊剧情 · 星野：测试',
-        talklets: [
-          { kind: 'narration', align: 'center', text: '——测试——' },
-          { speaker: '星野', text: '老师……' },
-        ],
-      },
+      { id: 'test:story:bond_hoshino_1', name: '羁绊剧情 · 星野：测试', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——测试——' }, presentation: { align: 'center' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师……', speaker: '星野' } },
+] },
     ],
   };
 }
@@ -144,11 +141,7 @@ describe('通讯录 UI（U 组）', () => {
     const view = game.getView().currentStory!;
     expect(view.storyDefId).toBe('test:story:bond_hoshino_1');
     // 完成后再次触发 → goto 重开成功（force 跳过 AlreadyCompleted，isReplay=false 分支自由）
-    let guard = 0;
-    while (game.getView().currentStory && guard++ < 20) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishStory(game, 0, null);
     expect(game.getView().currentStory).toBeNull();
     const retry = game.story.startCardStory('test:story:bond_hoshino_1');
     expect(retry.success).toBe(true);
@@ -337,11 +330,7 @@ describe('对话空间流壁垒（ChatStream 隔离外部故事）', () => {
     game = new GameInstance();
     game.init([baseDatapack]);
     game.inits.startNewGame('base:init:schale_office');
-    let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishWelcome(game);
   });
 
   function panel(conv: string | null) {
@@ -349,8 +338,8 @@ describe('对话空间流壁垒（ChatStream 隔离外部故事）', () => {
   }
 
   test('外部故事进行中，打开角色空间不把其页同步进角色流（不意外继续外部内容）', () => {
-    // 在一般聊天触发一个无 owner 的外部被动闲聊（作为进行中故事）
-    const r = game.story.triggerPassiveStory('base:init:schale_office'); // owner=null → 全局
+    // 启动一个无 owner 的外部主动故事（owner=null → 全局）。
+    const r = game.story.startCardStory('base:activestory:schale_flow_show', null);
     expect(r.success).toBe(true);
     expect(game.getView().currentStory).toBeTruthy();
 
@@ -368,11 +357,7 @@ describe('夏莱办公室 gacha Spot（生产面板招募入口）', () => {
     game = new GameInstance();
     game.init([baseDatapack]);
     game.inits.startNewGame('base:init:schale_office');
-    let guard = 0;
-    while (game.getView().currentStory && guard++ < 50) {
-      const r = game.story.advanceStory();
-      if (!r.success && 'error' in r && r.error === 'ChoiceRequired') game.story.advanceStory(0);
-    }
+    finishWelcome(game);
   });
 
   test('信用点制造机渲染"招募"按钮（gacha 功能）', () => {

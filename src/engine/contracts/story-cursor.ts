@@ -1,20 +1,20 @@
-/** 剧情游标的持久化快照；不包含运行时瞬态。 */
+import type { StoryNodeSnapshot } from './story-node-snapshot';
+import type { StoryPresentationSnapshot } from './story-presentation-snapshot';
+
+/** One owner-scoped new-node playback checkpoint and its completion metadata. */
 export interface StoryCursorSnapshot {
-  /** Source StoryEntry ID; stable while the playback jumps between Story definitions. */
-  currentStoryId: string | null;
-  /** Type of the source StoryEntry for the active playback; absent in older saves. */
-  currentStoryEntryType?: 'active' | 'passive' | null;
-  currentStoryDefId?: string | null;
-  currentStoryPageIndex: number;
-  currentStoryChoiceIndex: number;
-  talkletClickWork: { total: number; done: number } | null;
-  insertStack?: { storyId: string; pageIndex: number }[];
-  visitedStoryIds?: string[];
-  isReplay?: boolean;
+  readonly playback: StoryNodeSnapshot;
+  readonly isReplay: boolean;
+  readonly lastChoiceIndex: number;
+  /** Story document whose Choice supplied lastChoiceIndex, even after insert transfers. */
+  readonly lastChoiceStoryId: string | null;
+  readonly flags: readonly string[];
+  /** Run-scoped visual state, restored under the new runId; never replays gameplay actions. */
+  readonly presentation?: StoryPresentationSnapshot;
 }
 
-/** 一个 Init 的全部剧情执行游标；只保存可序列化数据，不包含 StoryService 对象。 */
+/** A global session plus independent chat-owner sessions for one Init. */
 export interface StoryCursorCollection {
-  global: StoryCursorSnapshot;
-  chats: Record<string, StoryCursorSnapshot>;
+  readonly global: StoryCursorSnapshot;
+  readonly chats: Readonly<Record<string, StoryCursorSnapshot>>;
 }

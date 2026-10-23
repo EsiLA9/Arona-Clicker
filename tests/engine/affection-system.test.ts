@@ -13,13 +13,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import type { GameEvent } from '../../src/engine/types';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { CharacterVariantDef } from '../../src/arona-clicker/types/character';
-import {
-  activeStory,
-  line,
-  narrate,
-  passiveStory,
-  story,
-} from '../../src/arona-clicker/content/def-factory';
+import { activeStory, passiveStory, story } from '../../src/arona-clicker/content/def-factory';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { DEFAULT_AFFECTION_EXP_CURVE, affectionLevelCapOf, resolveAffectionConfig } from '../../src/arona-clicker/services/character/affection-system';
 
@@ -37,29 +31,37 @@ function makeVariant(id: string, proto: Character): CharacterVariantDef[] {
   }];
 }
 
-const stepStory1 = story('test:story:s1', '台阶一').scene(
-  line('星野', '台阶一 · 第一页'),
-  line('星野', '台阶一 · 完').effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
-).build();
+const stepStory1 = story('test:story:s1', '台阶一').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶一 · 第一页', speaker: '星野' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '台阶一 · 完', speaker: '星野' } },
+  { id: 'p2-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'Hoshino', amount: 50 }] } },
+]).build();
 
-const stepStory2 = story('test:story:s2', '台阶二').scene(
-  line('星野', '台阶二 · 完').effects({ op: 'addAffectionExp', target: 'Hoshino', value: 50 }),
-).build();
+const stepStory2 = story('test:story:s2', '台阶二').stages({ 'p1': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶二 · 完', speaker: '星野' } },
+  { id: 'p1-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'Hoshino', amount: 50 }] } },
+]).build();
 
-const stepStoryA = story('test:story:sa', '台阶A').scene(line('星野', '台阶A · 完')).build();
-const stepStoryB = story('test:story:sb', '台阶B').scene(line('星野', '台阶B · 完')).build();
+const stepStoryA = story('test:story:sa', '台阶A').stages({ 'p1': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶A · 完', speaker: '星野' } },
+]).build();
+const stepStoryB = story('test:story:sb', '台阶B').stages({ 'p1': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶B · 完', speaker: '星野' } },
+]).build();
 
-const chatterStory = story('test:story:chatter', '日常闲聊').scene(line('星野', '唔……闲聊……')).build();
+const chatterStory = story('test:story:chatter', '日常闲聊').stages({ 'p1': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '唔……闲聊……', speaker: '星野' } },
+]).build();
 
-const kizunaStory = story('test:story:kizuna_story', '羁绊剧情').scene(
-  narrate('——羁绊演出——', 'center'),
-  line('星野', '羁绊剧情 · 完'),
-).build();
+const kizunaStory = story('test:story:kizuna_story', '羁绊剧情').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——羁绊演出——' }, presentation: { align: 'center' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '羁绊剧情 · 完', speaker: '星野' } },
+]).build();
 
-const tailStory = story('test:story:tail', '羁绊尾巴').scene(
-  narrate('——归途——', 'center'),
-  line('星野', '尾巴 · 完'),
-).build();
+const tailStory = story('test:story:tail', '羁绊尾巴').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——归途——' }, presentation: { align: 'center' } },
+  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '尾巴 · 完', speaker: '星野' } },
+]).build();
 
 function makePack(overrides: Partial<Datapack> = {}): Datapack {
   return {

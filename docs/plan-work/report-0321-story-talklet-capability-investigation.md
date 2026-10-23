@@ -157,7 +157,7 @@ flowchart TD
 
 | 文件 | 核验主题 |
 | --- | --- |
-| `tests/engine/def-factory/talklet.test.ts` | Builder 输出与辅助字段 |
+| `tests/engine/def-factory/story.test.ts` | 当前节点 Story Builder 输出；旧 Talklet Builder 测试已退役 |
 | `tests/engine/story-flow.test.ts` | click/goto/insert/选项文本确认 |
 | `tests/engine/story-replay.test.ts` | 重读准入、分支守卫、完成奖励不重复 |
 | `tests/engine/chat-flow-service.test.ts` | 演出事件桥与不直接改 PlayerState |
