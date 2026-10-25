@@ -10,14 +10,14 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/02-modules/color]]
-- [[docs/docs-828/02-modules/ui]]
-- [[docs/docs-828/04-mechanisms/color-derivation]]
-- [[docs/docs-828/01-architecture/design-constraints]]（背景层叠、系统颜色层归属等仍生效约束）
+- [[docs/docs-829/06-wiki/50-ui/presentation-theme]]
+- [[docs/docs-829/02-modules/ui]]
+- [[docs/docs-829/06-wiki/50-ui/presentation-theme]]（色彩派生）
+- [[docs/docs-829/05-conventions/architecture-discipline]]（背景层叠、系统颜色层归属等仍生效约束）
 
 ## 仍生效的设计约束
 
-见 [[docs/docs-828/01-architecture/design-constraints]] 的「UI 背景层叠」一节；未落地的部分（编辑器专用预览、表现层调试视图、簇—区域深合并等）见 [[docs/plan-work/00-index]] 的「未决方向 · UI / 主题表现层」。
+见 [[docs/docs-829/05-conventions/architecture-discipline]] 的「UI 背景层叠」一节；未落地的部分（编辑器专用预览、表现层调试视图、簇—区域深合并等）见 [[docs/plan-work/00-index]] 的「未决方向 · UI / 主题表现层」。
 
 ## 历史来源与设计理由
 

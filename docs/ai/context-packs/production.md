@@ -20,7 +20,7 @@
 - [[docs/docs-829/01-architecture/run-logic]]
 - [[docs/docs-829/06-wiki/40-engine/expressions-and-game-num]]
 
-旧 `docs-828/07-audit/affector-performance` 是历史审计快照，不代表当前性能状态；性能结论须依据当前源码、测试和测量重新确认。
+旧 `docs/archive/docs-828-snapshot/07-audit/affector-performance` 是历史审计快照，不代表当前性能状态；性能结论须依据当前源码、测试和测量重新确认。
 
 ## 默认不读
 

@@ -33,6 +33,10 @@ CardRef Modifier 目标复用同一 keyed 目标按钮组：Runtime 只投影另
 
 ## 内容与结构
 
+通讯录角色页的简易培养沿用 `.char-stats` 与 `.primary-button`，`character-cultivation.ts` 以独立section承载等级/好感经验、消耗与反馈。普通训练、交流和突破通过Controller命令后按字段补文字与disabled，不替换培养按钮、角色页、联系人行或滚动宿主；范围缺失时只恢复右栏。证明入口为 `tests/ui/character-cultivation.test.ts`。不增加独立配色或字体。
+
+转译演练场 Spot 沿用 `.mini-action`，点击后直接进入现有 MapWorkspace，不打开训练 Modal 或 MapEntry。战次、来源和构筑说明来自可信节点的 title/description；Hand、Prepared、目标、AG-1预览及回执复用既有卡牌区域与局部更新。返回保留来源场所位置，再入续行。旧 `components/character/variant-training-panel.ts` 仅供开发诊断。证明入口为 `tests/ui/variant-training-spot-entry.test.ts`；开发面板验证独立见 `variant-training-panel.test.ts`。
+
 区域导航图复用游戏三栏 Frame/Titlebar 和左侧真实 Area rail；中栏为平面 SVG 节点画布，右栏为独立详情滚动区与操作反馈。point/landmark/portal 仅区分外观，选中/Focus 用既有 cyan 与主题文字色，行为来自领域脱敏投影。复用入口：src/ui/components/map/area-map-workspace.ts、src/ui/css/area-map.css；当前状态为已实现并经桌面浏览器验收。稳定节点/刷新与会话语义见 [[docs/docs-829/04-mechanisms/arona-clicker/area-map-navigation]]；不复制 Init/GlobalEnh 的母子图层级。
 
 选择页右侧详情通过稳定的收起／展开按钮切换 `hidden` 与 `aria-expanded`，不替换工作台、滚动容器或画布。Init 的进入 CTA 先打开左侧世界线概览中转页（`renderInitOverview`），隐藏星图与右侧详情，保留顶栏、相机、子图历史和选中项；背景沿用 Init 投影，不叠加恢复区域的 Area 背景。概览只读取当前 View 或对应 Init 快照，确认进入才调用既有新建／恢复命令；返回星图或 Escape 恢复原按钮焦点与原画布。从世界线的结束游戏或硬重置入口离开时，也先停留在刚离开的 Init 概览；玩家主动返回星图后再展开节点图，排队的页面刷新保留该停留状态。该状态只由 `SelectorPage` 持有，不进入存档。复用与行为入口：`src/ui/components/world/init-select.ts`、`src/ui/controller/controller-panels.ts`、`tests/ui/controller-init-select.test.ts`、`tests/ui/selector-graph-navigation.test.ts`。

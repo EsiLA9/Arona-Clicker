@@ -55,7 +55,7 @@ export function applyAffectionExp(config: AffectionConfigView, entry: VariantPro
   let exp = entry.affectionExp ?? 0;
   if (delta <= 0 || level >= cap) return { ok: false, entry, leveledUp: false };
   let leveledUp = false;
-  let remaining = delta;
+  let remaining = exp + delta;
   while (level < cap) {
     const need = affectionExpToNext(config, level);
     if (!Number.isFinite(need) || remaining < need) break;
@@ -63,6 +63,6 @@ export function applyAffectionExp(config: AffectionConfigView, entry: VariantPro
     level += 1;
     leveledUp = true;
   }
-  exp = level >= cap ? 0 : exp + remaining;
+  exp = level >= cap ? 0 : remaining;
   return { ok: true, entry: { ...entry, affectionLevel: level, affectionExp: exp }, leveledUp };
 }

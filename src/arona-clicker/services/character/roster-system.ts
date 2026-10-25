@@ -3,8 +3,9 @@ import type { PlayerState } from '../../types/state';
 import type { CharacterVariantDef, ProtoStat, VariantProgress } from '../../types/character';
 import { Character, CharacterRarity, CharacterSchool } from '../../types/ids';
 import type { Registry } from '../../../data-services/registry/registry';
-import { affectionLevelCapOf, resolveAffectionConfig } from './affection-system';
-import type { RosterContactGroup, RosterContactEntry, RosterQueryPort } from '../../contracts/character/roster-query';
+import { affectionExpToNext, affectionLevelCapOf as resolveAffectionLevelCap, resolveAffectionConfig } from './affection-system';
+import { checkBreakthrough, expToNext, resolveCurve, resolveVariantLevelCap } from '../progression/cultivate-system';
+import type { CharacterCultivationView, RosterContactGroup, RosterContactEntry, RosterQueryPort } from '../../contracts/character/roster-query';
 
 export type ContactGroup = RosterContactGroup;
 export type ContactEntry = RosterContactEntry;
@@ -18,6 +19,41 @@ const RARITY_ORDER: Record<CharacterRarity, number> = {
 /** AronaClicker 通讯录与角色持有只读服务。 */
 export class RosterSystem implements RosterQueryPort {
   constructor(private readonly registry: Registry) {}
+  cultivationOf(state: PlayerState, variantId: VariantId): CharacterCultivationView | null {
+    const entry = this.getOwned(state, variantId);
+    const variant = this.getVariant(variantId);
+    if (!entry || !variant) return null;
+
+    const curve = resolveCurve(variant.curve ? this.registry.cultivateCurves.get(variant.curve) : undefined);
+    const levelCap = resolveVariantLevelCap(curve, state.accountLevelCap);
+    const level = entry.level;
+    const affectionLevel = entry.affectionLevel ?? 1;
+    const affectionConfig = resolveAffectionConfig(this.registry.affectionConfig);
+    const affectionLevelCap = resolveAffectionLevelCap(affectionConfig, variant, entry.stars);
+    const breakthrough = checkBreakthrough(curve, state, variant, entry);
+    const nextLevelExp = level < levelCap ? expToNext(curve, level) : Number.POSITIVE_INFINITY;
+    const nextAffectionExp = affectionLevel < affectionLevelCap
+      ? affectionExpToNext(affectionConfig, affectionLevel)
+      : Number.POSITIVE_INFINITY;
+
+    return Object.freeze({
+      level,
+      exp: entry.exp,
+      levelCap,
+      expToNext: Number.isFinite(nextLevelExp) ? nextLevelExp : null,
+      canTrain: level < levelCap && Number.isFinite(nextLevelExp),
+      affectionLevel,
+      affectionExp: entry.affectionExp ?? 0,
+      affectionLevelCap,
+      affectionExpToNext: Number.isFinite(nextAffectionExp) ? nextAffectionExp : null,
+      canInteract: affectionLevel < affectionLevelCap,
+      stars: entry.stars,
+      shards: state.fragments?.[variantId] ?? 0,
+      starCost: breakthrough.cost ?? null,
+      canBreakthrough: breakthrough.ok,
+      ...(!breakthrough.ok && breakthrough.reason ? { breakthroughReason: breakthrough.reason } : {}),
+    });
+  }
   affectionLevelOf(state: PlayerState, variantId: VariantId): number {
     const entry = this.getOwned(state, variantId);
     return entry ? entry.affectionLevel ?? 1 : 0;
@@ -26,7 +62,7 @@ export class RosterSystem implements RosterQueryPort {
   affectionLevelCapOf(state: PlayerState, variantId: VariantId): number {
     const entry = this.getOwned(state, variantId);
     if (!entry) return 0;
-    return affectionLevelCapOf(resolveAffectionConfig(this.registry.affectionConfig), this.getVariant(variantId), entry.stars);
+    return resolveAffectionLevelCap(resolveAffectionConfig(this.registry.affectionConfig), this.getVariant(variantId), entry.stars);
   }
   getVariant(variantId: VariantId): CharacterVariantDef | undefined { return this.registry.characterVariants.get(variantId); }
   getAllVariants(): CharacterVariantDef[] { return [...this.registry.characterVariants.values()]; }

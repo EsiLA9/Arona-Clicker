@@ -1,7 +1,7 @@
 # docs/ai/PROJECT-CONSTITUTION — AI 施工纪律
 
 > 本文定义受范围约束的施工 Unit 如何工作，**从属于 [[AGENTS.md]]**，不是第二事实源。
-> 架构边界、Schema 同步、文档维护与测试验证分别以 [[docs/docs-829/05-conventions/architecture-discipline]]、[[docs/docs-829/05-conventions/schema-sync]]、[[docs/docs-829/05-conventions/doc-maintenance]]、[[docs/docs-829/05-conventions/testing]] 为权威；命令以 `package.json` 为准，禁改路径见 `AGENTS.md`。本文**不复述**；需要时按路径读取原文。docs-828 保留为历史快照，不作为当前规则来源。
+> 架构边界、Schema 同步、文档维护与测试验证分别以 [[docs/docs-829/05-conventions/architecture-discipline]]、[[docs/docs-829/05-conventions/schema-sync]]、[[docs/docs-829/05-conventions/doc-maintenance]]、[[docs/docs-829/05-conventions/testing]] 为权威；命令以 `package.json` 为准，禁改路径见 `AGENTS.md`。本文**不复述**；需要时按路径读取原文。docs-828 已退役删除（历史原文在 `docs/archive/docs-828-snapshot/`），不作为当前规则来源。
 > 本文只补充 `AGENTS.md` 未覆盖的**Unit 施工纪律**。两者冲突时，以 `AGENTS.md` 为准；GALHCG 的项目发现与地图维护按 [[docs/ai/galhcg-project-map]]。
 
 ## 适用与权威

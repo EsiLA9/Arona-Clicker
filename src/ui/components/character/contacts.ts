@@ -20,6 +20,7 @@ import { renderAvatarSvg } from '../../presentation/avatar-renderer';
 import { entityKeyOf, renderEntityThemeOptions } from '../presentation/entity-theme-options';
 import { buildConditionView, renderConditionTree } from '../../presentation/condition-presentation';
 import { resolveEntityPresentation, renderEntityPresentationOptions } from '../presentation/entity-presentation';
+import { renderCharacterCultivation } from './character-cultivation';
 
 /** 未读消息计数接口：后续接入未读系统时由调用方提供。 */
 export type UnreadResolver = (variantId: string) => number;
@@ -184,7 +185,7 @@ function renderContactRow(
       <span class="contact-info">
         <span class="contact-line1">
           <span class="contact-name">${ctx.escapeHtml(displayName)}</span>
-          <span class="contact-meta">Lv.${entry.level} · ${RARITY_LABEL[variant.rarity] ?? ''}</span>
+          <span class="contact-meta"><span data-contact-level="${ctx.escapeHtml(variant.id)}">Lv.${entry.level}</span> · ${RARITY_LABEL[variant.rarity] ?? ''}</span>
         </span>
         <span class="contact-line2">${ctx.escapeHtml(preview)}</span>
       </span>
@@ -333,7 +334,6 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
   const variant = game.rosterSystem.getVariant(variantId)!;
   const displayName = resolveEntityPresentation(ctx, 'variant', variant.id)?.name ?? variant.displayName;
   const entry = game.rosterSystem.getOwned(game.state, variantId)!;
-  const shards = game.rosterSystem.shardsOf(game.state, variantId);
 
   const gearView = game.gearSystem.viewOf(game.state, variantId);
   const gearHtml = gearView.length
@@ -362,16 +362,7 @@ export function renderCharacterPanel(ctx: UIContext, variantId: string | null): 
           : '';
       })()}
       ${renderEntityPresentationOptions(ctx, 'variant', variant.id)}
-      <dl class="char-stats">
-        <dt>等级</dt><dd>Lv.${entry.level} <small>（exp ${Math.floor(entry.exp)}）</small></dd>
-        <dt>星级</dt><dd>${'★'.repeat(entry.stars) || '—'}</dd>
-        <dt>碎片</dt><dd>${shards}</dd>
-        <dt>累计获得</dt><dd>${game.rosterSystem.acquiredCountOf(game.state, variantId)} 次</dd>
-      </dl>
-      <div class="char-actions">
-        <button class="primary-button" data-add-exp="${ctx.escapeHtml(variantId)}">经验 +100</button>
-        <button class="primary-button" data-breakthrough="${ctx.escapeHtml(variantId)}">星级突破</button>
-      </div>
+      ${renderCharacterCultivation(ctx, variantId)}
       ${gearHtml}
       <h4>色彩装备</h4>
       <div class="equipment-slots">${equippedHtml}</div>

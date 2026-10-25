@@ -13,6 +13,8 @@ Spot 招募入口是 Spot 的 `gacha` 功能项，不在通讯录。
 | 招募 / 卡池 | [[gacha-cultivation]]、[[docs/docs-829/03-data-structures/player-state]] |
 | 通讯录 / 拥有关系 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]]、[[docs/docs-829/03-data-structures/player-state]] |
 | 培养 / 成长 | [[gacha-cultivation]]、[[docs/docs-829/03-data-structures/player-state]] |
+| 培养进度接入结构向卡牌玩法 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/card-systems-and-cultivation-bridge]]，再按目标玩法读 [[docs/docs-829/04-mechanisms/arona-clicker/gameplay-b-cards]] 或 [[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]] |
+| Variant 固定模式转译 / 场景版本切片 | [[docs/docs-829/04-mechanisms/arona-clicker/variant-translation]]；正式 Spot 直入主 MapRun 的持有/普通/高级三战，逐场构筑与主存档恢复；普通静态地图未全面迁移 |
 | 装备 | 当前文档没有专门的装备机制页；从 [[docs/docs-829/06-wiki/30-arona-clicker-domain/00-index]] 定位后核对目标源码与测试 |
 | 好感 | 当前文档没有专门的好感机制页；从 [[docs/docs-829/02-modules/arona-clicker]] 定位并核对目标源码，历史设计理由按需查 [[affection-planning]] |
 

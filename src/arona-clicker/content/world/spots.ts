@@ -15,6 +15,14 @@ export const baseSpots: SpotDef[] = [
     .maxLevel(1)
     .build(),
   spot('base:spot:comms_terminal', 'base:area:schale_main').name('通讯终端').desc('连接联邦网络的终端设备。可以安全结束当前世界线的经营活动，回到世界线选择。').cost(0).flow('base:flow:base', Resource.Credit, 3).tags(tagPath('office'), tagPath('tech')).restartInit('base:funclet:comms_restart').genericUpgrade(30, 2, 1).build(),
+  spot('base:spot:variant_training', 'base:area:schale_main')
+    .name('转译演练场')
+    .desc('在这里检查当前持有角色与场景切片的转译差异，并进行短回合实战演练。')
+    .cost(0)
+    .maxLevel(1)
+    .tags(tagPath('office'), tagPath('combat'))
+    .variantTrainingEntry('base:funclet:variant_training_entry')
+    .build(),
   spot('base:spot:data_wiper', 'base:area:schale_main').name('数据清除装置').desc('一台带有⚡警示标志的重置设备。可以彻底抹除当前世界线的运营记录，下次进入时为崭新状态。注意：这会删除快照，但会保留所有统计数据。').cost(0).flow('base:flow:base', Resource.Credit, 2).tags(tagPath('tech'), tagPath('defense')).hardResetInit('base:funclet:data_wiper_hard_reset').genericUpgrade(25, 2, 1).build(),
   spot('base:spot:field_work', 'base:area:schale_main').name('野外调查站').desc('阿比多斯风格的小型户外作业点，适合野外探索型学生。').cost(20).flow('base:flow:base', Resource.Credit, 8).tags(tagPath('field'), tagPath('combat')).revealResource('name', Resource.Credit, 10).revealResource('utility', Resource.Credit, 40).linearYieldWhen('base:funclet:field_work_conditioned', Resource.Credit, 1, and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>', 100))).levelUpTo(3).genericUpgrade(80, 1.8, 1).build(),
   spot('base:spot:tactical_desk', 'base:area:schale_main').name('战术指挥台').desc('配备通讯设备和地图的指挥站，适合战术型学生。').cost(30).flow('base:flow:base', Resource.Credit, 10).tags(tagPath('tactical'), tagPath('intel'), tagPath('office')).revealResource('name', Resource.Credit, 20).revealResource('utility', Resource.Credit, 60).levelUpTo(3).genericUpgrade(120, 1.8, 1).build(),

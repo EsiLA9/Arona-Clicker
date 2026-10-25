@@ -124,7 +124,8 @@ export interface SpotFunctionalityDef {
   requiresOwned?: boolean;
   condition?: ConditionGroup;
   /** operationEntry 指向旧 Operation Event；mapEntry 单独指向新 Map。 */
-  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop' | 'operationEntry' | 'mapEntry';
+  /** `variantTrainingEntry` always opens the built-in Variant training scene; it accepts no scene ID or custom payload. */
+  kind: 'flow' | 'linearYield' | 'restartInit' | 'hardResetInit' | 'gacha' | 'shop' | 'operationEntry' | 'mapEntry' | 'variantTrainingEntry';
   /** @ref shops */
   shopId?: ShopId;
   /** operationEntry 的目标关卡；阵容、标题与准入状态由行动入口查询提供。 @ref operationEvents */

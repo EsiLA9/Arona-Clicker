@@ -86,6 +86,7 @@ export function renderProductionNodes(ctx: UIContext, spotId?: string): string {
       const functionalities = reveal.utilityKnown
         ? game.spotFunctionalitySystem.functionalitiesOf(spot, game.state)
         : [];
+      const variantTrainingEntries = functionalities.filter(fn => fn.kind === 'variantTrainingEntry');
       const operationFunctions = reveal.utilityKnown
         ? renderOperationSpotFunctions(ctx, spot.id, functionalities) : '';
       const mapFunctions = reveal.utilityKnown
@@ -142,6 +143,7 @@ export function renderProductionNodes(ctx: UIContext, spotId?: string): string {
               ${shop
                 ? `<button class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-open-spot-shop="${spot.id}" title="打开商店">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">商店</span></button>`
                 : ''}
+              ${variantTrainingEntries.map(fn => `<button type="button" class="mini-action presentation-host-target" data-theme-host-id="card.action" data-theme-state="inactive" data-theme-text-mode="${ctx.textColorModeForHost?.('card.action', 'inactive') ?? 'auto'}" data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost('card.action')}" data-open-variant-training="${ctx.escapeHtml(spot.id)}" data-variant-training-functionality="${ctx.escapeHtml(fn.id)}" title="进入转译演练">${renderPresentationHostBackground(ctx, 'card.action', 'presentation-host-background', 'inactive')}<span class="presentation-host-content">进入演练场</span></button>`).join('')}
               ${isRuntimeSpot
                 ? `<button class="mini-action" data-runtime-spot-edit="${spot.id}">编辑</button><button class="mini-action" data-runtime-spot-delete="${spot.id}">删除</button>`
                 : ''}

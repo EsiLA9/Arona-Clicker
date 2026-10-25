@@ -1,6 +1,8 @@
 import type { GameInstance } from '../../arona-clicker/runtime/runtime-game-instance';
 import type { MapRunEncounterSourceTarget } from '../../arona-clicker/contracts/map/map-run';
 import type { GameCommands, MapRunQuery } from '../../arona-clicker/contracts/runtime/runtime';
+import type { VariantTrainingPort } from '../../arona-clicker/contracts/character/variant-training';
+import { mountVariantTrainingPanel } from './variant-training-panel';
 import '../css/gameplay-b-quick-test-console.css';
 
 const SCHALE_OFFICE_INIT_ID = 'base:init:schale_office';
@@ -296,7 +298,7 @@ export function applyGameplayBQuickTestMapOperations(
 
 /** Attach a small, opt-in dialog for local browser acceptance; no persistent state is written. */
 export function mountGameplayBQuickTestConsole(
-  game: Pick<GameInstance, 'state' | 'mutations' | 'registry' | 'mapRun'>,
+  game: Pick<GameInstance, 'state' | 'mutations' | 'registry' | 'mapRun'> & { readonly variantTraining?: VariantTrainingPort },
   onApplied?: () => void,
   onStartMap?: (mapId: string, operations?: GameplayBQuickTestMapOperations) => string | void,
   onEnterOffice?: () => boolean,
@@ -334,8 +336,13 @@ export function mountGameplayBQuickTestConsole(
   const close = dialog.querySelector<HTMLButtonElement>('[data-test-console-close]')!;
   const run = dialog.querySelector<HTMLButtonElement>('[data-test-console-run]')!;
 
+  const refreshTrainingPanel = game.variantTraining
+    ? mountVariantTrainingPanel(dialog, game.variantTraining, onEnterOffice)
+    : undefined;
+
   toggle.addEventListener('click', () => {
     if (dialog.open) return;
+    refreshTrainingPanel?.();
     dialog.showModal();
     textarea.focus();
   });

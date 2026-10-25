@@ -6,6 +6,8 @@
 
 Gameplay B 每个 Encounter 回合为固定队伍的角色和敌人生成各自的短手牌。每个存活角色通常最多有 3 张行动卡；第一张是默认准备行动。玩家可以免费把本角色的默认行动换成手牌里的另一张，或支付 1 点 `PlayerCost`，命令角色使用当前手牌外的一项合法行动。选好角色行动、目标、Ability / Item 等回合输入后，玩家提交一整轮；运行时按行动计划结算，Encounter 若继续则生成下一轮新手牌。
 
+项目的其它卡牌模型及其与角色培养数据的接入边界见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/card-systems-and-cultivation-bridge]]。
+
 ```text
 Map 内容定义 Actions / Candidate Pools / Encounter 候选
   → Encounter 入场或上一轮提交后，确定性抽取 Party 与 Enemy Hands

@@ -668,6 +668,8 @@ export interface MapRunSaveSnapshot {
   readonly mapId: string;
   readonly resumeVersion: number;
   readonly run: MapRun;
+  /** Frozen trusted content binding for the fixed Variant training scenario only. */
+  readonly scenario?: import('../character/variant-training-scenario').VariantTrainingScenarioBinding;
 }
 
 export type MapRunRestoreFailureReason =

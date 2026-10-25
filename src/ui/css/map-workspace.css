@@ -710,9 +710,38 @@
   min-height: 50px;
 }
 
+.map-workspace__commit-actions {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .map-workspace__complete {
   align-self: flex-start;
   min-height: 30px;
+}
+
+.map-workspace__complete-secondary {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius, 10px);
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.map-workspace__complete-secondary:hover {
+  background: var(--panel-mid);
+}
+
+.map-workspace__complete-secondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .map-workspace__party-list {

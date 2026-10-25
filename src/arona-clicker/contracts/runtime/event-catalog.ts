@@ -17,7 +17,7 @@ export const EVENT_CATALOG: Record<GameEvent['type'], EventCatalogEntry> = {
   enhancementAdded: { purpose: '强化获得（Affector 挂载 + 区表失效）', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'game-num', 'tag-stats'] },
   enhancementRemoved: { purpose: '强化移除（Affector 卸载 + 区表失效）', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'game-num', 'tag-stats'] },
   itemCollected: { purpose: '物品收集（Affector 挂载 + Trigger）', emit: ['state-mutation-service'], subscribe: ['affector-engine', 'condition-deps', 'trigger-system'] },
-  initEntered: { purpose: '进入世界线', emit: ['init-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system'] },
+  initEntered: { purpose: '进入世界线', emit: ['init-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system', 'variant-translation', 'variant-training', 'map-run'] },
   initUnlocked: { purpose: '世界线解锁', emit: ['state-mutation-service'], subscribe: ['condition-deps', 'tag-stats'] },
   areaEntered: { purpose: '进入区域', emit: ['init-service'], subscribe: ['condition-deps', 'tag-stats', 'trigger-system'] },
   storyAreaTraveled: { purpose: 'Story 的区域移动成功；StoryNode事件可带 owner/runId 路由', emit: ['story-node-action-host'], subscribe: ['ui-controller-events'] },

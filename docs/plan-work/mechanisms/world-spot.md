@@ -8,10 +8,10 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/02-modules/world]]
-- [[docs/docs-828/02-modules/visibility]]
-- [[docs/docs-828/04-mechanisms/production]]
-- [[docs/docs-828/03-data-structures/player-state]]
+- [[docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]]
+- [[docs/docs-829/06-wiki/40-engine/visibility-stats-extra]]
+- [[docs/docs-829/04-mechanisms/engine/production]]
+- [[docs/docs-829/03-data-structures/player-state]]
 
 ## 历史来源与设计理由
 

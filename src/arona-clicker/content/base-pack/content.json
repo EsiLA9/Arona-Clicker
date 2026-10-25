@@ -3803,7 +3803,8 @@
       "defaultSpots": [
         "base:spot:credit_printer",
         "base:spot:comms_terminal",
-        "base:spot:data_wiper"
+        "base:spot:data_wiper",
+        "base:spot:variant_training"
       ],
       "adjacentAreaIds": [
         "base:area:schale_library",
@@ -5015,6 +5016,49 @@
         "default": {
           "name": "通讯终端",
           "description": "连接联邦网络的终端设备。可以安全结束当前世界线的经营活动，回到世界线选择。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:variant_training",
+      "areaId": "base:area:schale_main",
+      "name": "转译演练场",
+      "description": "在这里检查当前持有角色与场景切片的转译差异，并进行短回合实战演练。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "combat"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "maxLevel": 1,
+      "functionalities": [
+        {
+          "id": "base:funclet:variant_training_entry",
+          "kind": "variantTrainingEntry"
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "转译演练场",
+          "description": "在这里检查当前持有角色与场景切片的转译差异，并进行短回合实战演练。"
         }
       }
     },

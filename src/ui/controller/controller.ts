@@ -68,6 +68,7 @@ import { bindThemeActions } from './controller-actions-theme';
 import { bindEntityPresentationActions } from './controller-actions-presentation';
 import { bindStoryActions, logStoryFailure } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
+import { bindVariantTrainingActions } from './controller-actions-variant-training';
 import { AreaMapController, AREA_MAP_REGION } from '../workspace/area-map-controller';
 import { bindOperationActions, disposeOperationActions, type OperationFocusTarget } from './controller-actions-operation';
 import { MapRelationInteraction, type MapLocationSelectionIntent } from '../workspace/map-relation-interaction';
@@ -2179,6 +2180,7 @@ export class UIController {
     bindEntityPresentationActions(this);
     bindStoryActions(this);
     bindInventoryActions(this);
+    bindVariantTrainingActions(this);
     bindSaveActions(this);
     bindOperationActions(this);
   }

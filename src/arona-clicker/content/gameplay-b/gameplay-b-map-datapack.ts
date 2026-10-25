@@ -143,10 +143,14 @@ export const gameplayBMapDefinition: GameplayMapDef = {
   id: 'gameplay-b:map:field-investigation',
   name: '现场调查路线',
   entryInfo: {
-    description: '检查现场、完成调查，再沿开放路线前往出口。',
-    tips: ['遭遇调查完成后，后续地点才会开放。', '行动点、队员体力和团队物资属于本局状态。'],
+    description: '现场记录至少 3 条线索后才能结束调查；团队线索达到 3 条时，还能进入档案室完成交叉核对。',
+    tips: [
+      '检查现场、稳住设备或协助队友都会记录 1 条线索；累计 3 条后调查完成并开放档案室支线。',
+      '稳住设备消耗 1 点个人体力并获得线索；协助队友消耗 1 份团队供给并获得线索。',
+      '档案室交叉核对会消耗 1 条团队线索；完成核对后前往出口。',
+    ],
   },
-  resumeVersion: 4,
+  resumeVersion: 6,
   startNodeId: 'a',
   exitNodeIds: ['c'],
   partyCharacterIds: ['shiroko', 'serika'],
@@ -159,35 +163,51 @@ export const gameplayBMapDefinition: GameplayMapDef = {
     {
       id: 'inspect-site',
       name: '检查现场',
-      description: '搜集线索，推进现场调查。',
+      description: '搜集 1 条团队线索；累计 3 条后可进入档案室支线。',
       eligibleCharacterIds: ['shiroko', 'serika'],
       target: { kind: 'none' },
-      effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 1 }] },
+      effectProgram: { resolve: [
+        { op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 1 },
+        { op: 'counterAdd', counterId: 'site-clues', delta: 1 },
+      ] },
     },
     {
       id: 'steady-equipment',
       name: '稳住设备',
-      description: '消耗个人体力，调整设备状态。',
+      description: '消耗 1 点个人体力，稳定设备并从数据终端获得 1 条团队线索。',
       eligibleCharacterIds: ['shiroko', 'serika'],
       target: { kind: 'self' },
       costs: [{ scope: 'actor', resourceId: 'stamina', amount: 1 }],
-      effectProgram: { resolve: [{ op: 'resourceChange', account: 'sourceActor', resourceId: 'focus', delta: 1 }] },
+      effectProgram: { resolve: [
+        { op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 1 },
+        { op: 'counterAdd', counterId: 'site-clues', delta: 1 },
+      ] },
     },
     {
       id: 'assist-teammate',
       name: '协助队友',
-      description: '消耗共用物资，帮助一名队员集中注意力。',
+      description: '消耗 1 份团队供给，帮助目标队员搜查并获得 1 条团队线索。',
       eligibleCharacterIds: ['shiroko', 'serika'],
       target: { kind: 'partyCharacter' },
       costs: [{ scope: 'team', resourceId: 'supplies', amount: 1 }],
-      effectProgram: { resolve: [{ op: 'resourceChange', account: 'primaryActor', resourceId: 'focus', delta: 1 }] },
+      effectProgram: { resolve: [
+        { op: 'resourceChange', account: 'sourceTeam', resourceId: 'clues', delta: 1 },
+        { op: 'counterAdd', counterId: 'site-clues', delta: 1 },
+      ] },
+    },
+    {
+      id: 'verify-clue',
+      name: '交叉核对',
+      description: '消耗 1 条团队线索，确认一条已搜集的线索。',
+      eligibleCharacterIds: ['shiroko', 'serika'],
+      target: { kind: 'none' },
+      costs: [{ scope: 'team', resourceId: 'clues', amount: 1 }],
+      effectProgram: { resolve: [{ op: 'counterAdd', counterId: 'verified-clues', delta: 1 }] },
     },
   ],
   initialActorResources: [
     { characterId: 'shiroko', resourceId: 'stamina', value: 2 },
     { characterId: 'serika', resourceId: 'stamina', value: 2 },
-    { characterId: 'shiroko', resourceId: 'focus', value: 0 },
-    { characterId: 'serika', resourceId: 'focus', value: 0 },
   ],
   initialTeamResources: [
     { resourceId: 'clues', value: 0 },
@@ -198,11 +218,16 @@ export const gameplayBMapDefinition: GameplayMapDef = {
     {
       id: 'b',
       title: '现场',
-      description: '检查现场后继续前进。',
+      description: '至少记录 3 条线索才能完成现场调查；团队线索达到 3 条后也可进入档案室支线。',
       encounter: {
         title: '现场调查',
-        description: '完成调查以解锁后续路线。',
-        completion: { kind: 'manual', label: '完成调查' },
+        description: '每次成功执行现场行动都会记录 1 条线索。记录满 3 条后调查自动完成；团队线索达到 3 条时档案室路线开放。',
+        locals: { counters: [{ id: 'site-clues', initial: 0, min: 0, max: 3 }] },
+        completion: {
+          kind: 'condition',
+          label: '记录 3 条现场线索',
+          condition: { kind: 'counter', counterId: 'site-clues', comparison: 'gte', value: 3 },
+        },
         participants: [
           {
             characterId: 'shiroko',
@@ -223,11 +248,32 @@ export const gameplayBMapDefinition: GameplayMapDef = {
         ],
       },
     },
-    { id: 'c', title: '出口', description: '调查路线的出口。' },
+    { id: 'c', title: '出口', description: '完成现场调查或档案室核对后抵达这里。' },
+    {
+      id: 'archive',
+      title: '档案室',
+      description: '累计 3 条团队线索后开放的调查支线。',
+      encounter: {
+        title: '交叉核对证据',
+        description: '由一名队员消耗 1 条团队线索完成核对；确认后即可前往出口。',
+        locals: { counters: [{ id: 'verified-clues', initial: 0, min: 0, max: 1 }] },
+        completion: {
+          kind: 'condition',
+          label: '完成一条线索核对',
+          condition: { kind: 'counter', counterId: 'verified-clues', comparison: 'gte', value: 1 },
+        },
+        participants: [
+          { characterId: 'shiroko', actions: [{ actionId: 'verify-clue', tendencyWeight: 1 }] },
+          { characterId: 'serika', actions: [] },
+        ],
+      },
+    },
   ],
   edges: [
     { fromNodeId: 'a', toNodeId: 'b' },
     { fromNodeId: 'b', toNodeId: 'c' },
+    { fromNodeId: 'b', toNodeId: 'archive', condition: { kind: 'teamResourceAtLeast', resourceId: 'clues', amount: 3 } },
+    { fromNodeId: 'archive', toNodeId: 'c' },
   ],
 };
 

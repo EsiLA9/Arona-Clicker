@@ -50,6 +50,7 @@ import { catalogMapRunCards, mapRunCardKey, parseMapRunCardRef } from './map-car
 import { mapCardActorKey, mapScostCost, resolveMapCardEffects, type MapCardActionChoice } from './map-card-effects';
 import { isGameplayMapEdgeConditionSatisfied } from './map-edge-conditions';
 import type {
+  GameplayMapDef,
   GameplayEncounterDef,
   GameplayMapActionDef,
   GameplayMapActivityDef,
@@ -115,6 +116,25 @@ import {
 
 type ResolvedMap = NonNullable<ReturnType<MapContentResolver['resolve']>>;
 type ResolveCharacterIdForVariant = (variantId: string) => string | null | undefined;
+
+/**
+ * Returns a Map projection whose initial party values match one Node's stage.
+ * Map-level values remain the fallback when the Node has no `partySetup`.
+ */
+export function getMapDefinitionAtNode<T extends GameplayMapDef>(definition: T, nodeId: string): T {
+  const node = definition.nodes.find(candidate => candidate.id === nodeId);
+  if (!node) throw new Error(`unknown target Node "${nodeId}"`);
+  const setup = node.partySetup;
+  if (!setup) return definition;
+  return {
+    ...definition,
+    initialPartyHp: setup.initialPartyHp,
+    partyAgility: setup.partyAgility,
+    initialPlayerCost: setup.initialPlayerCost,
+    initialActorResources: setup.initialActorResources ?? [],
+    initialTeamResources: setup.initialTeamResources ?? [],
+  } as T;
+}
 
 function candidateActionIdsFor(
   map: Pick<ResolvedMap, 'actions' | 'candidatePools' | 'executionContractId' | 'mapRunFacts'>,
@@ -1316,12 +1336,13 @@ function openNodeContent(
   activityRandomState?: MapRunHandRandomState,
   candidateSourceFacts?: MapRunFactState,
 ): EnteredNodeState {
+  const nodeDefinition = getMapDefinitionAtNode(definition, node.id);
   const activities = nodeActivities(node);
   if (activities.length === 0) {
     return {
       activeActivity: null,
       activeEncounter: node.encounter
-        ? createEncounterSnapshot(definition, node.id, node.encounter, party, actorResources, teamResources, partyHp,
+        ? createEncounterSnapshot(nodeDefinition, node.id, node.encounter, party, actorResources, teamResources, partyHp,
           { candidateSourceFacts })
         : null,
     };
@@ -1343,7 +1364,7 @@ function openNodeContent(
   return {
     activeActivity,
     activeEncounter: createEncounterSnapshot(
-      definition,
+      nodeDefinition,
       node.id,
       activity.encounter,
       party,
@@ -1829,6 +1850,7 @@ function resolveEncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan
 function resolveAg1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan {
   const encounter = slot.run.activeEncounter;
   if (!encounter) throw new MapRunError(['there is no active Encounter to commit']);
+  const nodeDefinition = getMapDefinitionAtNode(slot.definition, encounter.nodeId);
   const schedulerStartSnapshot = schedulerStartSnapshotOf(slot);
   const node = slot.definition.nodes.find(candidate => candidate.id === encounter.nodeId);
   const encounterDef = resolveNodeEncounter(node, encounter.activityId);
@@ -1852,7 +1874,7 @@ function resolveAg1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitP
   }
   let preview: GameplayBActionPreview;
   try {
-    preview = resolveGameplayBActionPreview({ runId: slot.run.runId, definition: slot.definition, encounter,
+    preview = resolveGameplayBActionPreview({ runId: slot.run.runId, definition: nodeDefinition, encounter,
       party: slot.run.party, partyHp: slot.run.partyHp, playerCost: slot.run.playerCost,
       actorResources: slot.run.actorResources, teamResources: slot.run.teamResources });
   } catch (error) { throw new MapRunError([error instanceof Error ? error.message : String(error)]); }
@@ -1891,7 +1913,7 @@ function resolveAg1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitP
   let sources: ReturnType<typeof buildGameplayBAg1ExecutionSources>;
   try {
     sources = buildGameplayBAg1ExecutionSources({
-      scope, definition: slot.definition, partyIds: slot.run.party.map(member => member.characterId),
+      scope, definition: nodeDefinition, partyIds: slot.run.party.map(member => member.characterId),
       enemyIds: encounter.enemies.map(enemy => enemy.enemyId),
       partyAgility: slot.run.partyAgility ?? [], enemyAgility: encounter.enemyAgility ?? [],
       actionPreview: preview, sourcePreview,
@@ -1901,7 +1923,7 @@ function resolveAg1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitP
 
   const actions = new Map((slot.definition.actions ?? []).map(action => [action.id, action]));
   const enemyDefinitions = encounterDef.enemies ?? [];
-  const partyCaps = partyHpCaps(slot.definition, slot.run.party);
+  const partyCaps = partyHpCaps(nodeDefinition, slot.run.party);
   const enemyCaps = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy.maxHp]));
   let plannedEffectRandomState = copyMapEffectRandomState(encounter.effectRandomState);
   const partyHp = new Map(slot.run.partyHp.map(row => [row.characterId, row.currentHp]));
@@ -2633,6 +2655,7 @@ function resolveAg1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitP
 function resolveE1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPlan {
   const encounter = slot.run.activeEncounter;
   if (!encounter) throw new MapRunError(['there is no active Encounter to commit']);
+  const nodeDefinition = getMapDefinitionAtNode(slot.definition, encounter.nodeId);
   const node = slot.definition.nodes.find(candidate => candidate.id === encounter.nodeId);
   const encounterDef = resolveNodeEncounter(node, encounter.activityId);
   if (!encounterDef) throw new MapRunError([`Encounter "${encounter.nodeId}" is not declared by the current Map`]);
@@ -2652,7 +2675,7 @@ function resolveE1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPl
   try {
     preview = resolveGameplayBActionPreview({
       runId: slot.run.runId,
-      definition: slot.definition,
+      definition: nodeDefinition,
       encounter,
       party: slot.run.party,
       partyHp: slot.run.partyHp,
@@ -2818,7 +2841,7 @@ function resolveE1EncounterCommitPlan(slot: MapRunSlot): MapRunEncounterCommitPl
   }));
   const partyHpAfter = new Map(slot.run.partyHp.map(row => [row.characterId, row.currentHp]));
   const enemyHpAfter = new Map(encounter.enemies.map(row => [row.enemyId, row.currentHp]));
-  const partyCaps = partyHpCaps(slot.definition, slot.run.party);
+  const partyCaps = partyHpCaps(nodeDefinition, slot.run.party);
   const enemyDefinitions = encounterDef.enemies ?? [];
   const enemyCaps = new Map(enemyDefinitions.map(enemy => [enemy.id, enemy.maxHp]));
   let plannedLocals = copyMapEncounterLocalsState(
@@ -4871,6 +4894,15 @@ function restoreRunState(
     || !visitedNodeIds.includes(currentNodeId)
     || visitedNodeIds.some(nodeId => !knownNodeIds.has(nodeId))
     || completedEncounterNodeIds.some(nodeId => !contentNodeIds.has(nodeId) || !visitedNodeIds.includes(nodeId))) return null;
+  const currentNodeDefinition = getMapDefinitionAtNode(definition, currentNode.id);
+  const rawActiveEncounter = isRecord(value.activeEncounter) ? value.activeEncounter : null;
+  const rawStageActivity = isRecord(value.activeActivity) ? value.activeActivity : null;
+  const stageResetWithoutReceipt = (commitVersionSnapshot as number) > 0
+    && currentNode.partySetup !== undefined
+    && !completedEncounterNodeIds.includes(currentNode.id)
+    && (rawStageActivity === null || rawStageActivity.index === 0)
+    && (rawActiveEncounter === null
+      || (Number.isSafeInteger(rawActiveEncounter.round) && rawActiveEncounter.round === 1));
 
   const completedActivityIdsSnapshot: unknown = value.completedActivityIds === undefined
     ? []
@@ -4885,11 +4917,11 @@ function restoreRunState(
       || !nodeActivities(owner).some(activity => activity.id === activityId)) return null;
   }
 
-  const expectedResources = initialResourceBalances(definition, value.party);
-  const partyHp = restorePartyHp(value.partyHp, definition, value.party);
+  const expectedResources = initialResourceBalances(currentNodeDefinition, value.party);
+  const partyHp = restorePartyHp(value.partyHp, currentNodeDefinition, value.party);
   const partyAgility = restoreAgilitySnapshot(
     Object.prototype.hasOwnProperty.call(value, 'partyAgility') ? value.partyAgility : undefined,
-    initialPartyAgility(definition, value.party),
+    initialPartyAgility(currentNodeDefinition, value.party),
     'characterId',
   );
   const actorResources = restoreActorResourceBalances(value.actorResources, expectedResources.actorResources);
@@ -4900,12 +4932,12 @@ function restoreRunState(
     || mapRunFacts === null || mapRunStatuses === null) return null;
   const lastEncounterCommitSnapshot: unknown = value.lastEncounterCommit;
   if (!(lastEncounterCommitSnapshot === null || isRecord(lastEncounterCommitSnapshot))) return null;
-  if (((commitVersionSnapshot as number) === 0) !== (lastEncounterCommitSnapshot === null)) return null;
+  if (((commitVersionSnapshot as number) === 0) !== (lastEncounterCommitSnapshot === null)
+    && !stageResetWithoutReceipt) return null;
   const lastReceiptActivityId = isRecord(lastEncounterCommitSnapshot)
     && isNonEmptyId(lastEncounterCommitSnapshot.activityId)
     ? lastEncounterCommitSnapshot.activityId
     : undefined;
-  const rawActiveEncounter = isRecord(value.activeEncounter) ? value.activeEncounter : null;
   const currentReceiptScopeMatches = rawActiveEncounter !== null && isRecord(lastEncounterCommitSnapshot)
     && rawActiveEncounter.nodeId === lastEncounterCommitSnapshot.nodeId
     && (rawActiveEncounter.activityId ?? null) === (lastEncounterCommitSnapshot.activityId ?? null)
@@ -4927,11 +4959,17 @@ function restoreRunState(
     enemyActor: rawActiveEncounter!.enemyActorResources as MapEffectReceiptBalances['enemyActor'],
     enemyTeam: rawActiveEncounter!.enemyTeamResources as MapEffectReceiptBalances['enemyTeam'],
   } : undefined;
+  const lastReceiptNodeId = isRecord(lastEncounterCommitSnapshot) && isNonEmptyId(lastEncounterCommitSnapshot.nodeId)
+    ? lastEncounterCommitSnapshot.nodeId
+    : null;
+  const lastReceiptDefinition = lastReceiptNodeId === null
+    ? definition
+    : getMapDefinitionAtNode(definition, lastReceiptNodeId);
   const lastEncounterCommit = lastEncounterCommitSnapshot === null
     ? null
     : restoreEncounterCommitReceipt(
       lastEncounterCommitSnapshot,
-      definition,
+      lastReceiptDefinition,
       null,
       value.party,
       null,
@@ -4945,10 +4983,14 @@ function restoreRunState(
   if (lastEncounterCommitSnapshot !== null && lastEncounterCommit === null) return null;
   if (lastEncounterCommit?.executionContractId === 'AG-1'
     && !sameReceiptValue(lastEncounterCommit.plannedMapRunFacts, mapRunFacts)) return null;
-  if (gameplayMapUsesMapRunStatus(definition)
-    && ((commitVersionSnapshot as number) === 0
-      ? lastEncounterCommit !== null || !sameReceiptValue(mapRunStatuses, [])
-      : !lastEncounterCommit || !sameReceiptValue(lastEncounterCommit.plannedMapRunStatuses, mapRunStatuses))) return null;
+  if (gameplayMapUsesMapRunStatus(definition)) {
+    if ((commitVersionSnapshot as number) === 0) {
+      if (lastEncounterCommit !== null || !sameReceiptValue(mapRunStatuses, [])) return null;
+    } else if (stageResetWithoutReceipt) {
+      if (lastEncounterCommit !== null || !sameReceiptValue(mapRunStatuses, [])) return null;
+    } else if (!lastEncounterCommit
+      || !sameReceiptValue(lastEncounterCommit.plannedMapRunStatuses, mapRunStatuses)) return null;
+  }
   if (lastEncounterCommit && !visitedNodeIds.includes(lastEncounterCommit.nodeId)) return null;
 
   const currentActivities = nodeActivities(currentNode);
@@ -5028,7 +5070,7 @@ function restoreRunState(
     ? null
     : restoreEncounterSnapshot(
       value.activeEncounter,
-      definition,
+      currentNodeDefinition,
       currentNode.id,
       value.party,
       partyHp,
@@ -5117,11 +5159,15 @@ export class MapRunService {
 
     const startNode = definition.nodes.find(node => node.id === definition.startNodeId);
     if (!startNode) throw new MapRunError([`Map "${mapId}" has no start Node "${definition.startNodeId}"`]);
+    const startDefinition = getMapDefinitionAtNode(definition, startNode.id);
+    if (!Number.isSafeInteger(startDefinition.initialPlayerCost) || startDefinition.initialPlayerCost < 0) {
+      throw new MapRunError([`Map "${mapId}" has an invalid initialPlayerCost for start Node "${startNode.id}"`]);
+    }
 
     const party = projectPartySnapshot(admittedParty);
-    const partyHp = initialPartyHp(definition, party);
-    const partyAgility = initialPartyAgility(definition, party);
-    const resources = initialResourceBalances(definition, party);
+    const partyHp = initialPartyHp(startDefinition, party);
+    const partyAgility = initialPartyAgility(startDefinition, party);
+    const resources = initialResourceBalances(startDefinition, party);
     const mapRunFacts = initializeMapRunFacts(definition);
     const runId = `map-run-${++nextMapRunSequence}`;
     const entered = openNodeContent(
@@ -5145,7 +5191,7 @@ export class MapRunService {
       ...(mapRunFacts === undefined ? {} : { mapRunFacts }),
       ...(gameplayMapUsesMapRunStatus(definition) ? { mapRunStatuses: [] } : {}),
       lastEncounterCommit: null,
-      playerCost: definition.initialPlayerCost,
+      playerCost: startDefinition.initialPlayerCost,
       commitVersion: 0,
       actorResources: resources.actorResources,
       teamResources: resources.teamResources,
@@ -5219,7 +5265,7 @@ export class MapRunService {
     const node = slot.definition.nodes.find(candidate => candidate.id === slot.run.currentNodeId);
     if (!node) return null;
     const run = snapshotOf(slot.run);
-    const caps = partyHpCaps(slot.definition, run.party);
+    const caps = partyHpCaps(getMapDefinitionAtNode(slot.definition, run.currentNodeId), run.party);
     if (caps.size !== run.party.length) return null;
     const partyHp = Object.freeze(run.party.map(member => {
       const current = run.partyHp.find(row => row.characterId === member.characterId);
@@ -5580,7 +5626,7 @@ export class MapRunService {
       nextRun = { ...advanced.run, status: advanced.success ? 'success' : 'inProgress' };
     } else {
       const drawnEncounter = createEncounterSnapshot(
-        currentSlot.definition,
+        getMapDefinitionAtNode(currentSlot.definition, currentEncounter.nodeId),
         currentEncounter.nodeId,
         commitEncounterDef,
         currentSlot.run.party,
@@ -6048,10 +6094,10 @@ export class MapRunService {
     try {
       return resolveGameplayBActionPreview({
         runId: slot.run.runId,
-        definition: slot.definition,
+        definition: getMapDefinitionAtNode(slot.definition, encounter.nodeId),
         encounter,
         party: slot.run.party,
-      partyHp: slot.run.partyHp,
+        partyHp: slot.run.partyHp,
         playerCost: slot.run.playerCost,
         actorResources: slot.run.actorResources,
         teamResources: slot.run.teamResources,
@@ -6208,15 +6254,27 @@ export class MapRunService {
 
     const alreadyVisited = run.visitedNodeIds.includes(targetNodeId);
     const alreadyCompleted = run.completedEncounterNodeIds.includes(targetNodeId);
+    const initializePartySetup = node.partySetup !== undefined && !alreadyVisited && !alreadyCompleted;
+    const nodeDefinition = getMapDefinitionAtNode(slot.definition, node.id);
+    if (initializePartySetup
+      && (!Number.isSafeInteger(nodeDefinition.initialPlayerCost) || nodeDefinition.initialPlayerCost < 0)) {
+      throw new MapRunError([`Map "${slot.definition.id}" has an invalid initialPlayerCost for Node "${node.id}"`]);
+    }
+    const partyHp = initializePartySetup ? initialPartyHp(nodeDefinition, run.party) : run.partyHp;
+    const partyAgility = initializePartySetup ? initialPartyAgility(nodeDefinition, run.party) : run.partyAgility;
+    const resources = initializePartySetup
+      ? initialResourceBalances(nodeDefinition, run.party)
+      : { actorResources: run.actorResources, teamResources: run.teamResources };
+    const playerCost = initializePartySetup ? nodeDefinition.initialPlayerCost : run.playerCost;
     const entered: EnteredNodeState = alreadyCompleted
       ? { activeActivity: null, activeEncounter: null }
       : openNodeContent(
         slot.definition,
         node,
         run.party,
-        run.actorResources,
-        run.teamResources,
-        run.partyHp,
+        resources.actorResources,
+        resources.teamResources,
+        partyHp,
         run.completedActivityIds,
         0,
         undefined,
@@ -6228,6 +6286,15 @@ export class MapRunService {
       currentNodeId: targetNodeId,
       visitedNodeIds: alreadyVisited ? [...run.visitedNodeIds] : [...run.visitedNodeIds, targetNodeId],
       completedEncounterNodeIds: [...run.completedEncounterNodeIds],
+      ...(partyAgility === undefined ? { partyAgility: undefined } : { partyAgility: [...partyAgility] }),
+      partyHp,
+      playerCost,
+      actorResources: resources.actorResources,
+      teamResources: resources.teamResources,
+      lastEncounterCommit: initializePartySetup ? null : run.lastEncounterCommit,
+      ...(run.mapRunStatuses === undefined ? {} : {
+        mapRunStatuses: initializePartySetup ? [] : run.mapRunStatuses,
+      }),
       activeActivity: entered.activeActivity,
       activeEncounter: entered.activeEncounter,
       status: !blocked && slot.definition.exitNodeIds.includes(targetNodeId) ? 'success' : 'inProgress',
@@ -6329,7 +6396,9 @@ export class MapRunService {
     let heal: MapRunShopPurchaseReceipt['heal'] = null;
     let partyHp = slot.run.partyHp;
     if (offer.heal !== undefined) {
-      const cap = partyHpCaps(slot.definition, slot.run.party).get(offer.heal.characterId);
+      const cap = partyHpCaps(
+        getMapDefinitionAtNode(slot.definition, slot.run.currentNodeId), slot.run.party,
+      ).get(offer.heal.characterId);
       const row = partyHp.find(candidate => candidate.characterId === offer.heal!.characterId);
       if (cap === undefined || !row) throw new MapRunError([`Shop offer "${offerId}" heals an unknown party member`]);
       if (row.currentHp <= 0) throw new MapRunError([`Shop offer "${offerId}" cannot revive a downed party member`]);

@@ -1,7 +1,9 @@
 // 文档完整性静态检查：只做可机械核实、且对当前文档模型仍有意义的检查。
 //
 // 当前文档边界：
-//   - docs/docs-829/ 是当前项目知识的文档系统；docs/docs-828/ 与 docs/docs-824/ 是历史快照。
+//   - docs/docs-829/ 是当前项目知识的文档系统。
+//   - docs/docs-828/ 已退役删除；只读历史快照保存在 docs/archive/docs-828-snapshot/，
+//     旧路径链接按确定性前缀改写解析到快照（仍参与 R1 存在性校验）。
 //   - docs/plan-work/ 包含活跃 Task/ADR/Draft、可删除 goalsets 与冻结历史；
 //     docs/archive/ 也保存只读历史材料。
 //
@@ -65,6 +67,8 @@ for (const [base, hits] of byBase) {
 
 const SRC_RE = /`((?:src|tests|tools|scripts)\/[A-Za-z0-9_\-./]+\.(?:ts|mts|mjs|css|json|html))`/g;
 const DELETION_HINT = /删除|已移除|已失联|已失效|移除|废弃|不再存在/;
+const RETIRED_DOCS_828_PREFIX = 'docs/docs-828/';
+const DOCS_828_SNAPSHOT_PREFIX = 'docs/archive/docs-828-snapshot/';
 
 function checkFrontMatter(text, file) {
   if (!/^---\r?\n/.test(text)) return;
@@ -109,8 +113,13 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
     const term = (barIdx >= 0 ? inner.slice(0, barIdx) : inner).split('#')[0].trim();
     if (!term || term.includes('...')) continue;
 
-    const direct = path.join(root, term + '.md');
-    const directPath = path.join(root, term);
+    // docs-828 已退役：兼容链接按前缀改写到只读历史快照，同子路径解析，缺页仍报错。
+    const resolvedTerm = term.startsWith(RETIRED_DOCS_828_PREFIX)
+      ? DOCS_828_SNAPSHOT_PREFIX + term.slice(RETIRED_DOCS_828_PREFIX.length)
+      : term;
+
+    const direct = path.join(root, resolvedTerm + '.md');
+    const directPath = path.join(root, resolvedTerm);
     let target;
     if (fs.existsSync(direct)) {
       target = direct;
@@ -119,7 +128,7 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
     } else if (fs.existsSync(path.join(directPath, 'index.md'))) {
       target = path.join(directPath, 'index.md');
     } else {
-      const hits = byBase.get(path.basename(term, '.md'));
+      const hits = byBase.get(path.basename(resolvedTerm, '.md'));
       if (!hits) {
         errors.push('[R1 目标缺失] ' + r + ' -> [[' + inner + ']]');
       } else if (hits.length > 1 && !term.includes('/')) {

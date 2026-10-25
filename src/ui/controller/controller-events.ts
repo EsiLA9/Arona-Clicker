@@ -7,6 +7,7 @@
 import { createUIContext } from '../runtime/context';
 import { refreshAchievementRows, refreshRevealIfChanged } from './controller-core';
 import type { UIController } from './controller';
+import { refreshCultivation } from './controller-actions-contacts';
 
 /** 绑定引擎 EventBus 事件 → UI 响应（mount 时调用一次）。 */
 export function bindEvents(ctrl: UIController): void {
@@ -117,13 +118,16 @@ export function bindEvents(ctrl: UIController): void {
   });
   // 好感跨级 → 该角色对话空间聊天流 reward 风格提示行（第一迭代唯一升级播报）
   ctrl.game.eventBus.on('characterProgressChanged', event => {
-    if (event.type !== 'characterProgressChanged' || event.domain !== 'affection') return;
+    if (event.type !== 'characterProgressChanged') return;
+    refreshCultivation(ctrl, event.variantId);
+    if (event.domain !== 'affection') return;
     if (!((event.after ?? 0) > (event.before ?? 0))) return;
     const name = ctrl.game.rosterSystem.getVariant(event.variantId)?.displayName ?? event.variantId;
     ctrl.chat.pushToVariant(ctrl.panelState, event.variantId, {
       kind: 'reward',
       text: `与 ${name} 的羁绊提升至 Lv.${event.after}`,
     });
+    if (ctrl.started && ctrl.panelState.conversationVariantId === event.variantId) ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：清理全部聊天内容
   ctrl.game.eventBus.on('chatFlowCleared', event => {

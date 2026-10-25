@@ -21,7 +21,7 @@ related_modules:
 2. `simple` 的渐进发现通常从 `graph_search(target="graph")` 找 Module / Concept 候选，再以 `graph_inspect(view="structure")` 沿实际 `contains` 关系查看子概念、以 `graph_inspect(view="files")` 取得已映射路径；结构关系不存在时不要推断。`legacy` 使用当前 schema 中对应的 `lookup` / `grep` 与 `context` / `map_view` 等入口。需要核实实现时，先定位文件，再显式读取（`simple` 用 `graph_read`，`legacy` 用 `preview` 等对应入口）。
 3. `simple` 按路径找文件时使用 `graph_search(target="path")`；`target="source"` 会搜索源码正文并返回命中片段，不属于只发现路径的流程。`legacy` 中也要区分路径定位与正文搜索，依其实际参数选择。已知合法项目 ID 和目标路径时可以直接检查或读取，不必机械走完整链路。参数不明时按当前模式使用帮助入口；只查询当前任务范围，再按 [[docs/ai/task-read-set-routing]] 选目标源码和测试。
 4. 默认卡片或上下文只是选集。`next` 是可选探索动作；分页按响应给出的 cursor、offset 或续行位置独立继续，不按 limit 猜测。检查文件、owner、Evidence 页及截断、过滤、跳过原因；complete 只覆盖实际查询边界，失败或部分结果不算无匹配。使用本项目的归档与忽略规则。
-5. 零命中时先核对筛选和分页，再换别名、图内范围或路径继续定位。不以未命中、未索引或 stale 断言不存在。`docs/docs-828/` 是兼容重定向，`docs/archive/docs-828-snapshot/` 是只读历史；`docs/plan-work/` 表达计划或讨论，归档默认不进入施工 Read Set。
+5. 零命中时先核对筛选和分页，再换别名、图内范围或路径继续定位。不以未命中、未索引或 stale 断言不存在。`docs/docs-828/` 已退役删除，`docs/archive/docs-828-snapshot/` 是只读历史；`docs/plan-work/` 表达计划或讨论，归档默认不进入施工 Read Set。
 
 ## 健康管理的时机与委派
 

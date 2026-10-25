@@ -310,6 +310,26 @@ export interface GameplayMapInitialTeamResourceDef {
   readonly value: number;
 }
 
+/**
+ * Optional party and resource baseline applied the first time a MapRun enters
+ * a Node. Omitted Actor or Team resources start at zero; their identities are
+ * still discovered from the owning Map's Actions. Re-entering a visited Node
+ * and restoring an active MapRun do not apply this baseline again. Entering a
+ * new setup Node ends the previous Encounter Commit receipt replay window.
+ */
+export interface GameplayMapPartySetupDef {
+  /** Starting HP and cap for every fixed party member at this stage. */
+  readonly initialPartyHp: readonly GameplayMapInitialPartyHpDef[];
+  /** AG-1 agility supplements for every fixed party member at this stage. */
+  readonly partyAgility: readonly GameplayMapPartyAgilityDef[];
+  /** PlayerCost balance assigned when this stage begins. */
+  readonly initialPlayerCost: number;
+  /** Starting MapRun-local Actor resources; undeclared Action resources start at zero. */
+  readonly initialActorResources?: readonly GameplayMapInitialActorResourceDef[];
+  /** Starting MapRun-local Team resources; undeclared Action resources start at zero. */
+  readonly initialTeamResources?: readonly GameplayMapInitialTeamResourceDef[];
+}
+
 /** A map-local position with optional encounter content. */
 export interface GameplayMapNodeDef {
   /** Stable only within the owning map. */
@@ -318,6 +338,15 @@ export interface GameplayMapNodeDef {
   readonly title: string;
   /** Optional player-facing node description. */
   readonly description?: string;
+  /**
+   * Optional stage baseline applied on the first legal entry to this Node.
+   * Setup is scoped to this Node and does not flow to later Nodes; each combat
+   * Node that needs stage-specific values must declare its own setup. Map-level
+   * starting fields remain the fallback for Nodes without a setup.
+   * Entering a new setup Node clears the previous Encounter Commit receipt;
+   * later Commit requests must target the new stage.
+   */
+  readonly partySetup?: GameplayMapPartySetupDef;
   /**
    * Optional single encounter attached to this node. Mutually exclusive with
    * `activities`; a single-encounter Node never needs an activity list.

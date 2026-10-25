@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-23T11:10:55.291Z",
+  "generatedAt": "2026-10-24T04:04:25.448Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -13104,6 +13104,164 @@
                   }
                 },
                 {
+                  "key": "partySetup",
+                  "required": false,
+                  "description": "Optional stage baseline applied on the first legal entry to this Node.",
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "initialPartyHp",
+                        "required": true,
+                        "description": "Starting HP and cap for every fixed party member at this stage.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "characterId",
+                                "required": true,
+                                "description": "Fixed Map party member whose local HP starts at `initialHp`.",
+                                "schema": {
+                                  "type": "reference",
+                                  "name": "Character"
+                                }
+                              },
+                              {
+                                "key": "initialHp",
+                                "required": true,
+                                "description": "Starting HP, in the inclusive range 1..maxHp.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              },
+                              {
+                                "key": "maxHp",
+                                "required": true,
+                                "description": "Positive safe integer cap for this member's MapRun-local HP.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayMapInitialPartyHpDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "partyAgility",
+                        "required": true,
+                        "description": "AG-1 agility supplements for every fixed party member at this stage.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "characterId",
+                                "required": true,
+                                "description": "Fixed Map party member receiving this supplement.",
+                                "schema": {
+                                  "type": "reference",
+                                  "name": "Character"
+                                }
+                              },
+                              {
+                                "key": "agility",
+                                "required": true,
+                                "description": "Non-negative safe integer added to each of the Character's Action base values before the Action cap.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayMapPartyAgilityDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "initialPlayerCost",
+                        "required": true,
+                        "description": "PlayerCost balance assigned when this stage begins.",
+                        "schema": {
+                          "type": "number"
+                        }
+                      },
+                      {
+                        "key": "initialActorResources",
+                        "required": false,
+                        "description": "Starting MapRun-local Actor resources; undeclared Action resources start at zero.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "characterId",
+                                "required": true,
+                                "description": "Fixed Map party character whose resource starts at `value`.",
+                                "schema": {
+                                  "type": "reference",
+                                  "name": "Character"
+                                }
+                              },
+                              {
+                                "key": "resourceId",
+                                "required": true,
+                                "description": "MapRun-local resource key.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "value",
+                                "required": true,
+                                "description": "Initial non-negative safe integer balance.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayMapInitialActorResourceDef"
+                          }
+                        }
+                      },
+                      {
+                        "key": "initialTeamResources",
+                        "required": false,
+                        "description": "Starting MapRun-local Team resources; undeclared Action resources start at zero.",
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "object",
+                            "fields": [
+                              {
+                                "key": "resourceId",
+                                "required": true,
+                                "description": "MapRun-local resource key.",
+                                "schema": {
+                                  "type": "string"
+                                }
+                              },
+                              {
+                                "key": "value",
+                                "required": true,
+                                "description": "Initial non-negative safe integer balance.",
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ],
+                            "sourceType": "GameplayMapInitialTeamResourceDef"
+                          }
+                        }
+                      }
+                    ],
+                    "sourceType": "GameplayMapPartySetupDef"
+                  }
+                },
+                {
                   "key": "encounter",
                   "required": false,
                   "description": "Optional single encounter attached to this node. Mutually exclusive with",
@@ -23951,6 +24109,7 @@
     "GameplayMapInitialTeamResourceDef",
     "GameplayMapNodeDef",
     "GameplayMapPartyAgilityDef",
+    "GameplayMapPartySetupDef",
     "GameplayMapRunCounterDef",
     "GameplayMapRunFactsDef",
     "GameplayMapRunFlagDef",

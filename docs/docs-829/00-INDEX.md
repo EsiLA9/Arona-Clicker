@@ -40,4 +40,4 @@ Arona Clicker 由声明式 Datapack 提供内容，产品 Runtime 组合通用 E
 
 - `01-architecture/` 讲跨模块关系；`02-modules/` 提供简短源码卡；`03-data-structures/` 讲布局与语义；`04-mechanisms/` 讲可观察行为及流程。
 - `06-wiki/` 按 Outline 组织概念和跨功能协作，指向而不复制字段与算法正文。
-- `docs/docs-829/` 是唯一持续维护的项目文档系统。旧 `docs/docs-828/` 路径只保留兼容重定向；原文作为只读历史快照存放于 `docs/archive/docs-828-snapshot/`，不作为当前事实输入。旧规划材料继续由 `docs/plan-work/archive/` 管理。
+- `docs/docs-829/` 是唯一持续维护的项目文档系统。旧 `docs/docs-828/` 已退役删除；原文作为只读历史快照存放于 `docs/archive/docs-828-snapshot/`，不作为当前事实输入。旧规划材料继续由 `docs/plan-work/archive/` 管理。

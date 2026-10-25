@@ -1,0 +1,111 @@
+.variant-training-panel {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line, rgba(30, 60, 90, .18));
+}
+
+.variant-training-panel__head,
+.variant-training-panel__controls,
+.variant-training-panel__actions,
+.variant-training-panel__checkpoint {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.variant-training-panel__head {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.variant-training-panel__head h3,
+.variant-training-panel__region h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.variant-training-panel__head p,
+.variant-training-panel__message,
+.variant-training-panel__checkpoint span {
+  color: var(--muted, #5a718b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.variant-training-panel__head p {
+  margin: 4px 0 0;
+}
+
+.variant-training-panel__controls {
+  flex-wrap: wrap;
+}
+
+.variant-training-panel__controls label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.variant-training-panel select,
+.variant-training-panel button {
+  padding: 8px 12px;
+  border: 1px solid var(--line, rgba(30, 60, 90, .2));
+  border-radius: 9px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.variant-training-panel button[data-training-preview],
+.variant-training-panel button[data-training-start],
+.variant-training-panel button[data-training-commit] {
+  border-color: transparent;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+}
+
+.variant-training-panel button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.variant-training-panel button:focus-visible,
+.variant-training-panel select:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent, #3b82f6) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.variant-training-panel__message {
+  min-height: 18px;
+  margin: 10px 0;
+}
+
+.variant-training-panel__region {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line, rgba(30, 60, 90, .15));
+  border-radius: 12px;
+  background: var(--panel, #f8fbff);
+}
+
+.variant-training-panel__region p,
+.variant-training-panel__region ul {
+  margin: 8px 0 0;
+  color: var(--muted, #5a718b);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.variant-training-panel__actions {
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.variant-training-panel__checkpoint {
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+

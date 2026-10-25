@@ -22,10 +22,10 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/00-INDEX]]
-- [[docs/docs-828/05-conventions/doc-maintenance]]
+- [[docs/docs-829/00-INDEX]]
+- [[docs/docs-829/05-conventions/doc-maintenance]]
 - [[docs/plan-work/00-index]]
 
 ## 规则
 
-审查结果进入 `docs/docs-828/07-audit`；设计裁定进入 ADR；施工状态进入 Roadmap/Task；机制正文不复制到计划文档中。
+审查结果按 [[docs/docs-829/05-conventions/doc-maintenance]] 的当前分层规则落位（旧 `docs/docs-828/07-audit` 已退役，历史原文见 `docs/archive/docs-828-snapshot/`）；设计裁定进入 ADR；施工状态进入 Roadmap/Task；机制正文不复制到计划文档中。

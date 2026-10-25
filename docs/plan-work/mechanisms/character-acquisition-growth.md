@@ -8,11 +8,11 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/02-modules/character]]
-- [[docs/docs-828/03-data-structures/character-entities]]
-- [[docs/docs-828/04-mechanisms/gacha]]
-- [[docs/docs-828/04-mechanisms/cultivate]]
-- [[docs/docs-828/04-mechanisms/roster]]
+- [[docs/docs-829/02-modules/arona-clicker]]
+- [[docs/docs-829/03-data-structures/datapack-contracts]]
+- [[gacha-cultivation]]
+- [[gacha-cultivation]]（培养）
+- [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]]
 
 ## 历史来源与设计理由
 

@@ -68,7 +68,7 @@ import { OperationRuntimeService } from '../services/operation/operation-runtime
 import { createOperationEntry } from '../services/operation/operation-entry-service';
 import type { OperationEntryFacade } from '../services/operation/operation-entry-service';
 import { createRegistryOperationContentResolver } from '../services/operation/registry-operation-content-resolver';
-import { MapRunError, MapRunService } from '../services/map/map-run-service';
+import { getMapDefinitionAtNode, MapRunError, MapRunService } from '../services/map/map-run-service';
 import { isGameplayMapEdgeConditionSatisfied } from '../services/map/map-edge-conditions';
 import { projectMapRelations } from '../services/map/map-relation-projector';
 import { summarizeMapActionEffects, type MapEffectSummaryContext } from '../services/map/map-effect-summary';
@@ -111,6 +111,15 @@ import { TriggerSystem } from '../../engine/effect/trigger-system';
 
 import { CharacterSystem } from '../services/character/character-system';
 import { RosterSystem } from '../services/character/roster-system';
+import { VariantTranslationService } from '../services/character/variant-translation-service';
+import { VariantTrainingService } from '../services/character/variant-training-service';
+import { variantTrainingContent } from '../content/gameplay-b/variant-training-content';
+import { VARIANT_TRAINING_SCENARIO_MAP_ID } from '../content/gameplay-b/variant-training-scenario';
+import {
+  prepareVariantTrainingScenario, restoreVariantTrainingScenario, createVariantTrainingScenarioSaveSnapshot,
+} from '../services/character/variant-training-scenario';
+import type { VariantTrainingPort } from '../contracts/character/variant-training';
+import type { VariantTranslationPort } from '../contracts/character/variant-translation';
 import { CharacterAvailabilityService } from '../services/character/character-availability';
 import { ColorSystem } from '../services/progression/color-system';
 import type { EntityPresentationQueryPort } from '../contracts/presentation/entity-presentation-query';
@@ -427,12 +436,19 @@ export class GameInstance {
   /** Read-only MapRun query; its owner remains private to this GameInstance. */
   private _mapRunQuery!: MapRunQuery;
   get mapRun(): MapRunQuery { return this._mapRunQuery; }
+  /** Unified, read-only Variant source resolution and Gameplay B translation preparation. */
+  readonly variantTranslation!: VariantTranslationPort;
+  private _variantTranslationService!: VariantTranslationService;
+  /** Memory-only dedicated training owner, separate from the normal MapRun. */
+  readonly variantTraining: VariantTrainingPort;
+  private readonly variantTrainingService: VariantTrainingService;
 
   // 运行时状态
   private _state!: PlayerState;
   #operationRuntimeOwner = new OperationRuntimeService();
   #mapRunOwner!: MapRunService;
   #mapContentResolver!: MapContentResolver;
+  #trainingScenario: ReturnType<typeof prepareVariantTrainingScenario> | null = null;
   private _tagResidue: TagOverrideResidue = { spotTagOverrides: {} };
   private runtimeAreaTopology: readonly RuntimeAreaTopologyConnection[] = [];
   private readonly operationObservationStore = new OperationObservationStore();
@@ -446,6 +462,38 @@ export class GameInstance {
       setState: next => { this._state = next; },
       refreshVisibility: () => this.refreshVisibility(),
     }, options);
+    const variantTranslation = new VariantTranslationService({
+      content: options.variantTranslationContentResolver,
+      getState: () => this._state,
+      getVariant: id => {
+        const variant = this.registry.characterVariants.get(id);
+        return variant ? { id: variant.id, proto: variant.proto } : undefined;
+      },
+    });
+    this.variantTranslation = Object.freeze({
+      preview: (request: Parameters<VariantTranslationPort['preview']>[0]) => variantTranslation.preview(request),
+      confirm: (token: string) => variantTranslation.confirm(token),
+      restore: (snapshot: unknown) => variantTranslation.restore(snapshot),
+    });
+    this._variantTranslationService = variantTranslation;
+    const variantTraining = new VariantTrainingService({
+      getState: () => this._state,
+      getVariant: id => this.registry.characterVariants.get(id),
+    });
+    this.variantTrainingService = variantTraining;
+    this.variantTraining = Object.freeze({
+      getView: () => variantTraining.getView(),
+      preview: (source: Parameters<VariantTrainingPort['preview']>[0]) => variantTraining.preview(source),
+      start: (token: string) => variantTraining.start(token),
+      commitRound: (version: number) => variantTraining.commitRound(version),
+      save: () => variantTraining.save(),
+      load: (checkpoint: unknown) => variantTraining.load(checkpoint),
+    });
+    this.eventBus.on('initEntered', () => {
+      variantTranslation.invalidatePreviews();
+      variantTraining.reset();
+      this.replaceMapRunOwner();
+    });
     this.replaceMapRunOwner();
     this._mapRunQuery = Object.freeze({
       getCards: (runId: string) => this.#mapRunOwner.getCards(runId),
@@ -513,18 +561,72 @@ export class GameInstance {
   }
 
   private replaceMapRunOwner(): void {
-    this.#mapContentResolver = createRegistryMapContentResolver(this.registry);
+    this.#trainingScenario = null;
+    const registered = createRegistryMapContentResolver(this.registry);
+    this.#mapContentResolver = {
+      resolve: id => id === VARIANT_TRAINING_SCENARIO_MAP_ID
+        ? this.#trainingScenario?.definition ?? null : registered.resolve(id),
+    };
     this.#mapRunOwner = new MapRunService(
       this.#mapContentResolver,
       variantId => this.registry.characterVariants.get(variantId)?.proto,
     );
   }
 
+  private createTrainingTranslation(): VariantTranslationService {
+    return new VariantTranslationService({
+      content: variantTrainingContent, getState: () => this._state,
+      getVariant: id => this.registry.characterVariants.get(id),
+    });
+  }
+
+  /** Explicit domain entry: the UI supplies an entry identity, never builds or attributes. */
+  enterVariantTraining(spotId: string, functionalityId: string): MapRun {
+    const state = this._state;
+    const spot = this.registry.spots.get(spotId);
+    if (!state.activeInit || !spot || spot.areaId !== state.currentAreaId
+      || !this.world.areasOfInit(state.activeInit).includes(spot.areaId)
+      || !this.world.spotsOfArea(spot.areaId).includes(spotId)) {
+      throw new Error('请从当前世界线的演练场进入。');
+    }
+    const owned = (state.spotLevels[spotId] ?? 0) > 0;
+    const reveal = spot.revealTriggers ?? [];
+    const met = (target: 'existence' | 'utility'): boolean => {
+      const triggers = reveal.filter(trigger => trigger.reveal === target);
+      return triggers.length === 0 || triggers.some(trigger => !trigger.condition
+        || this.conditionSystem.evaluateExpr(trigger.condition, state));
+    };
+    if (!owned && (!met('existence') || !met('utility'))) throw new Error('演练场功能尚未解锁。');
+    const functionality = this.spotFunctionalitySystem.functionalitiesOf(spot, state)
+      .find(fn => fn.id === functionalityId && fn.kind === 'variantTrainingEntry');
+    if (!functionality) throw new Error('这个演练场入口当前不可用。');
+    const current = this.#mapRunOwner.getSnapshot();
+    if (current) {
+      if (current.mapId !== VARIANT_TRAINING_SCENARIO_MAP_ID || !this.#trainingScenario) {
+        throw new Error('请先完成或放弃当前地图，再进入演练场。');
+      }
+      return current;
+    }
+    if (!this.rosterSystem.getOwned(state, 'Hoshino')) {
+      throw new Error('请先从阿比多斯联络点领取星野，再进入演练场。');
+    }
+    const scenario = prepareVariantTrainingScenario({ activeInit: state.activeInit, translation: this.createTrainingTranslation() });
+    this.#trainingScenario = scenario;
+    try {
+      const started = this.#mapRunOwner.start(scenario.definition.id, [{ characterId: 'hoshino', variantId: 'Hoshino' }]);
+      return this.#mapRunOwner.move(started.runId, 'battle-owned');
+    } catch (error) {
+      this.replaceMapRunOwner();
+      throw error;
+    }
+  }
+
   private getCurrentMapEncounter(): MapEncounterQueryView | null {
     const run = this.#mapRunOwner.getSnapshot();
     const nodeId = run?.activeEncounterNodeId;
     if (!run || nodeId === null || nodeId === undefined) return null;
-    const definition = this.#mapContentResolver.resolve(run.mapId);
+    const rawDefinition = this.#mapContentResolver.resolve(run.mapId);
+    const definition = rawDefinition ? getMapDefinitionAtNode(rawDefinition, run.currentNodeId) : null;
     const encounter = resolveMapEncounterDef(
       definition?.nodes.find(node => node.id === nodeId),
       run.activeEncounter?.activityId,
@@ -873,6 +975,7 @@ export class GameInstance {
       playerCommandOptions,
       commitPreview: Object.freeze({
         canCommit: commitPreview.canCommit,
+        ...(commitPreview.schedulerTerminal === undefined ? {} : { schedulerTerminal: commitPreview.schedulerTerminal }),
         playerCostRequired: commitPreview.playerCostRequired,
         diagnostics: Object.freeze([...commitPreview.diagnostics]),
         settlements: commitPreview.settlements === null ? null : Object.freeze(commitPreview.settlements.map(settlement => Object.freeze({
@@ -1076,7 +1179,8 @@ export class GameInstance {
   }
 
   private getMapFailureWorkspaceView(result: NonNullable<ReturnType<MapRunService['getFailureResult']>>): MapRunFailureWorkspaceView {
-    const definition = this.#mapContentResolver.resolve(result.mapId);
+    const rawDefinition = this.#mapContentResolver.resolve(result.mapId);
+    const definition = rawDefinition ? getMapDefinitionAtNode(rawDefinition, result.failedNodeId) : null;
     if (!definition || definition.id !== result.mapId) {
       throw new MapRunError([`Map "${result.mapId}" is unavailable to the failure Workspace projection`]);
     }
@@ -1109,10 +1213,13 @@ export class GameInstance {
 
   /** Starts a MapRun through the GameCommands adapter. */
   startMap(mapId: string): MapRun {
+    if (mapId === VARIANT_TRAINING_SCENARIO_MAP_ID) throw new Error('请从演练场入口开始这张地图。');
     const definition = this.#mapContentResolver.resolve(mapId);
     if (!definition) return this.#mapRunOwner.start(mapId, []);
     const admittedParty = this.admitMapParty(mapId, definition.partyCharacterIds);
-    return this.#mapRunOwner.start(mapId, admittedParty);
+    const run = this.#mapRunOwner.start(mapId, admittedParty);
+    this.#trainingScenario = null;
+    return run;
   }
 
   private getMapEntryView(mapId: string): MapEntryView {
@@ -1234,12 +1341,14 @@ export class GameInstance {
 
   /** Restarts the matching MapRun from its Map start using the same admitted party. */
   restartMap(runId: string): MapRun {
-    return this.#mapRunOwner.restart(runId);
+    const run = this.#mapRunOwner.restart(runId);
+    return run.mapId === VARIANT_TRAINING_SCENARIO_MAP_ID ? this.#mapRunOwner.move(run.runId, 'battle-owned') : run;
   }
 
   /** Discards the matching active MapRun without changing Persistent PlayerState. */
   abandonMap(runId: string): void {
     this.#mapRunOwner.abandon(runId);
+    this.#trainingScenario = null;
   }
 
   /** Resolves the Map's fixed party against current ownership without writing PlayerState. */
@@ -1608,6 +1717,8 @@ export class GameInstance {
 
   /** 加载数据包并初始化游戏 */
   init(datapacks: Datapack[], options: RuntimeInitOptions = {}): void {
+    this._variantTranslationService.invalidatePreviews();
+    this.variantTrainingService.reset();
     // Prove the complete navigation reference set before disposing any live owners/state.
     const candidate = new Registry();
     for (const datapack of datapacks) candidate.load(datapack);
@@ -1736,6 +1847,8 @@ export class GameInstance {
 
   /** 结束该 Runtime 持有的局内服务，并停止 Tick 循环。 */
   dispose(): void {
+    this._variantTranslationService.invalidatePreviews();
+    this.variantTrainingService.reset();
     this.stop();
     this.#operationRuntimeOwner.dispose();
     this.replaceMapRunOwner();
@@ -1791,6 +1904,24 @@ export class GameInstance {
 
   // --- 存档 ---
 
+  private restoreMainMap(snapshot: SaveData['mapRun']): import('../contracts/map/map-run').MapRunRestoreResult {
+    if (!snapshot?.scenario && snapshot?.mapId !== VARIANT_TRAINING_SCENARIO_MAP_ID) {
+      return this.#mapRunOwner.restoreSaveSnapshot(snapshot);
+    }
+    try {
+      this.#trainingScenario = restoreVariantTrainingScenario(
+        snapshot?.scenario, snapshot, this.createTrainingTranslation(), this._state.activeInit,
+      );
+      const result = this.#mapRunOwner.restoreSaveSnapshot(snapshot);
+      if (result.status === 'rejected') this.replaceMapRunOwner();
+      return result;
+    } catch (error) {
+      this.replaceMapRunOwner();
+      return { status: 'rejected', mapId: snapshot?.mapId ?? null, reason: 'invalid-snapshot',
+        diagnostics: [error instanceof Error ? error.message : String(error)] };
+    }
+  }
+
   /** 导出存档数据 */
   save(): SaveData {
     // visibility 是派生数据：生成存档时按当前 Registry/State 重算，避免旧快照
@@ -1804,7 +1935,11 @@ export class GameInstance {
       activeModNames: this.registry.loadedModNames,
       retainedTagResidue: this._tagResidue,
       operationRun: () => this._operationEntry.createSaveSnapshot(),
-      mapRun: () => this.#mapRunOwner.createSaveSnapshot(),
+      mapRun: () => {
+        const snapshot = this.#mapRunOwner.createSaveSnapshot();
+        return snapshot?.mapId === VARIANT_TRAINING_SCENARIO_MAP_ID && this.#trainingScenario
+          ? createVariantTrainingScenarioSaveSnapshot(this.#trainingScenario.binding, snapshot) : snapshot;
+      },
     });
     this._tagResidue = saveData.retained ?? { spotTagOverrides: {} };
     return saveData;
@@ -1812,6 +1947,8 @@ export class GameInstance {
 
   /** 从存档数据恢复 */
   load(saveData: SaveData): void {
+    this._variantTranslationService.invalidatePreviews();
+    this.variantTrainingService.reset();
     if (saveData.version !== '2.0.0' || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
     this.storyService.validateCursors(saveData.storyPlayback);
     this.operationObservationStore.clear();
@@ -1838,7 +1975,7 @@ export class GameInstance {
       },
       setTagResidue: residue => { this._tagResidue = residue; },
     }, saveData);
-    const mapResume = this.#mapRunOwner.restoreSaveSnapshot(saveData.mapRun);
+    const mapResume = this.restoreMainMap(saveData.mapRun);
     if (mapResume.status === 'rejected') {
       this.devLog.record('地图续局未恢复，可重新进入地图', {
         source: 'map-run',
@@ -1858,6 +1995,8 @@ export class GameInstance {
 
   /** 重置为默认状态 */
   reset(): void {
+    this._variantTranslationService.invalidatePreviews();
+    this.variantTrainingService.reset();
     this.operationObservationStore.clear();
     this.#operationRuntimeOwner.reset();
     this.replaceMapRunOwner();

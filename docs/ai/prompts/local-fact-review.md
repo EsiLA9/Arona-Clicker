@@ -3,7 +3,7 @@
 > 用于解决 Draft 中会改变最近阶段方案的问题；不以全仓审计代替具体问题。
 
 ```text
-依据 AGENTS.md 和指定 Draft，先列出会改变下一阶段方案的事实问题；从命中的领域包选择子题，未知或跨领域时再按 docs/ai/task-read-set-routing.md 选择最小 Read Set。用 GALHCG 查询未知 Module / Concept / 文件关系；零命中时改查别名、路径与源码字面量，不把零命中当作“不存在”。只在需要整体机制导航时读 docs/docs-829/00-INDEX.md，再核对目标源码与测试。docs-828 是历史快照，只在追溯旧审计或设计理由时查阅，不作为当前事实依据。
+依据 AGENTS.md 和指定 Draft，先列出会改变下一阶段方案的事实问题；从命中的领域包选择子题，未知或跨领域时再按 docs/ai/task-read-set-routing.md 选择最小 Read Set。用 GALHCG 查询未知 Module / Concept / 文件关系；零命中时改查别名、路径与源码字面量，不把零命中当作“不存在”。只在需要整体机制导航时读 docs/docs-829/00-INDEX.md，再核对目标源码与测试。docs-828 已退役删除，只在追溯旧审计或设计理由时按 docs/archive/docs-828-snapshot/ 查阅，不作为当前事实依据。
 
 Draft：<路径>
 本轮事实问题：<逐条列出>

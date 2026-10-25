@@ -236,6 +236,34 @@
    font-size: 12px;
 }
 
+.character-cultivation {
+   display: flex;
+   flex-direction: column;
+   gap: 10px;
+}
+
+.character-cultivation .char-actions {
+   flex-wrap: wrap;
+}
+
+.character-cultivation .char-actions .primary-button {
+   flex: 1 1 110px;
+   white-space: nowrap;
+}
+
+.character-cultivation > small {
+   color: var(--muted);
+   font-size: 11px;
+   line-height: 1.6;
+}
+
+.character-cultivation__feedback {
+   min-height: 1.6em;
+   margin: 0;
+   color: var(--cyan);
+   font-size: 12px;
+}
+
 .char-panel h4 {
    margin: 8px 0 2px;
    color: var(--muted);

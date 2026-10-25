@@ -2,7 +2,7 @@ import { area } from '../def-factory/area';
 import type { AreaDef } from '../../../data-services/contracts/world';
 
 export const baseAreas: AreaDef[] = [
-  area('base:area:schale_main', 'base:init:schale_office').name('夏莱主厅').desc('夏莱的主办公区域，略显凌乱但充满生活气息。').spots('base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper').adjacent('base:area:schale_library', 'base:area:schale_rooftop').theme('base:colorgroup:schale-solid').background(
+  area('base:area:schale_main', 'base:init:schale_office').name('夏莱主厅').desc('夏莱的主办公区域，略显凌乱但充满生活气息。').spots('base:spot:credit_printer', 'base:spot:comms_terminal', 'base:spot:data_wiper', 'base:spot:variant_training').adjacent('base:area:schale_library', 'base:area:schale_rooftop').theme('base:colorgroup:schale-solid').background(
     { id: 'scene', kind: 'image', value: 'base:background(pic):hoshino', opacity: 0.38, position: '72% 50%', size: 'auto 92%', blendMode: 'normal' },
     { id: 'triangles-back', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.68, position: '8% 8%', size: '42rem', blendMode: 'screen' },
     { id: 'triangles-front', kind: 'image', value: 'base:overlay(pic):triangles', opacity: 0.42, position: '86% 78%', size: '32rem', blendMode: 'multiply' },

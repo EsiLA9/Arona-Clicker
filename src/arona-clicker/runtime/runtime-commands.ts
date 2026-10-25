@@ -1,4 +1,5 @@
 import type { GameCommands } from '../contracts/index';
+import type { VariantTrainingPort } from '../contracts/character/variant-training';
 import type { MapRunCardRef } from '../contracts/map/map-cards';
 import type { StoryService } from '../services/story/story-service';
 import type { SpotService } from '../services/world/spot-service';
@@ -28,6 +29,8 @@ import type {
 } from '../contracts/map/map-run';
 
 export interface GameCommandSource {
+  readonly variantTraining: VariantTrainingPort;
+  enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   readonly state: Readonly<PlayerState>;
   getDevLogs(): readonly DevLogEntry[];
   recordOperationObservation(input: OperationObservationInput): OperationObservation;
@@ -87,6 +90,8 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
   const highestLogId = (entries: readonly DevLogEntry[]) => entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0);
 
   return {
+    variantTraining: game.variantTraining,
+    enterVariantTraining: (spotId, functionalityId) => game.enterVariantTraining(spotId, functionalityId),
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),
     tick: () => game.tick(),
     start: () => game.start(),
@@ -176,6 +181,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     feedGearExp: (variantId, slotIndex, itemId, count) => game.mutations.feedGearExp(variantId, slotIndex, itemId, count),
     upgradeGearTier: (variantId, slotIndex) => game.mutations.upgradeGearTier(variantId, slotIndex),
     addExp: (variantId, amount) => game.mutations.addExp(variantId, amount),
+    addAffectionExp: (variantId, amount) => game.mutations.addAffectionExp(variantId, amount),
     breakthroughStar: variantId => game.mutations.breakthroughStar(variantId),
     activateTheme: groupId => game.mutations.activateTheme(groupId),
     activateCustomTheme: customThemeId => game.mutations.activateCustomTheme(customThemeId),

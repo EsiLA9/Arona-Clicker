@@ -2,7 +2,7 @@
 
 > 本文是 AronaClicker 的玩法策划上下文，供临时聊天、玩法推演和内容设计使用。
 > 它描述当前项目已经形成的游戏心智模型，并明确哪些内容是现有实现、哪些内容仍属于可继续策划的空间。
-> 技术架构的当前说明见 `docs/docs-829/`；旧 `docs/docs-828/` 路径仅作兼容重定向，原快照保存在 `docs/archive/docs-828-snapshot/`。本文不替代类型定义、Datapack Schema 或算法文档。
+> 技术架构的当前说明见 `docs/docs-829/`；旧 `docs/docs-828/` 已退役删除，只读历史快照保存在 `docs/archive/docs-828-snapshot/`。本文不替代类型定义、Datapack Schema 或算法文档。
 
 ## 1. 一句话概念
 

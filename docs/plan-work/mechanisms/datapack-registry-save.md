@@ -8,8 +8,7 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/02-modules/registry]]
-- [[docs/docs-828/03-data-structures/registry]]
+- [[docs/docs-829/03-data-structures/registry]]
 
 ## 历史来源与设计理由
 

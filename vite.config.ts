@@ -51,7 +51,6 @@ export default defineConfig({
         portal: resolveEntry('index.html'),
         game: resolveEntry('src/ui/index.html'),
         editor: resolveEntry('tools/datapack-editor/ui/index.html'),
-        nodeGraphDemo: resolveEntry('tools/node-graph-ui-demo/index.html'),
       },
     },
   },

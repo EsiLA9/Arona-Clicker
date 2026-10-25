@@ -366,6 +366,7 @@ const functionalityObject = (): FieldDef =>
       ['gacha', '招募'],
       ['shop', '商店'],
       ['operationEntry', '行动关卡入口'],
+      ['variantTrainingEntry', '转译演练场入口'],
     ], '类型', { required: true }),
     r('resource', 'resourceDisplays', '资源'),
     r('shopId', 'shops', '商店'),

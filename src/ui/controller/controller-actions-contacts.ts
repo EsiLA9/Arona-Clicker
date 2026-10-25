@@ -6,6 +6,26 @@
 
 import type { UIController } from './controller';
 import { GEAR_REASON_TEXT } from '../components/character/contacts';
+import { patchCharacterCultivation } from '../components/character/character-cultivation';
+
+/** An ordinary cultivation click updates its existing values and the matching contact level only. */
+export function refreshCultivation(ctrl: UIController, variantId: string, feedback?: string): void {
+  const view = ctrl.game.rosterSystem.cultivationOf(ctrl.game.state, variantId);
+  if (!view) return;
+  const host = Array.from(ctrl.root.querySelectorAll<HTMLElement>('[data-character-cultivation]'))
+    .find(element => element.dataset.characterCultivation === variantId);
+  if (!host) {
+    // Recover only the inspector if its cultivation region is unexpectedly missing.
+    if (feedback !== undefined) ctrl.refreshPanels(['right']);
+    return;
+  }
+  patchCharacterCultivation(host, view, ctrl.game.rosterSystem.acquiredCountOf(ctrl.game.state, variantId));
+  const status = host.querySelector<HTMLElement>('[data-cultivation-feedback]');
+  if (status && feedback !== undefined) status.textContent = feedback;
+  ctrl.root.querySelectorAll<HTMLElement>('[data-contact-level]').forEach(element => {
+    if (element.dataset.contactLevel === variantId) element.textContent = `Lv.${view.level}`;
+  });
+}
 
 /** 装备动作失败提示（复用组件层文案表）。 */
 function gearReasonText(reason?: string): string {
@@ -144,17 +164,27 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
     button.addEventListener('click', () => {
       const variantId = button.dataset.addExp!;
       const before = ctrl.game.rosterSystem.getOwned(ctrl.game.state, variantId)?.level ?? 0;
-      const r = ctrl.commands.addExp(variantId, 100);
-      if (r.ok && r.newLevel > before) ctrl.toast.show(`升级！Lv.${r.newLevel}`, 'success');
-      ctrl.refreshPanels(['right']);
+      const r = ctrl.commands.addExp(variantId, 1000);
+      refreshCultivation(ctrl, variantId, !r.ok ? '已达当前等级上限。'
+        : r.newLevel > before ? `训练完成，提升至 Lv.${r.newLevel}。` : '训练完成，经验 +1000。');
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-add-affection]').forEach(button => {
+    button.addEventListener('click', () => {
+      const variantId = button.dataset.addAffection!;
+      const before = ctrl.game.rosterSystem.affectionLevelOf(ctrl.game.state, variantId);
+      const r = ctrl.commands.addAffectionExp(variantId, 15);
+      refreshCultivation(ctrl, variantId, !r.ok ? '已达当前好感上限。'
+        : r.newLevel > before ? `交流完成，好感提升至 Lv.${r.newLevel}。` : '交流完成，好感经验 +15。');
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-breakthrough]').forEach(button => {
     button.addEventListener('click', () => {
-      const r = ctrl.commands.breakthroughStar(button.dataset.breakthrough!);
+      const variantId = button.dataset.breakthrough!;
+      const r = ctrl.commands.breakthroughStar(variantId);
       if (!r.ok) ctrl.toast.show('碎片不足或已达上限', 'error');
       else ctrl.toast.show(`突破成功 ★${r.newStars}`, 'success');
-      ctrl.refreshPanels(['right']);
+      refreshCultivation(ctrl, variantId, r.ok ? `突破成功，当前 ${r.newStars} 星。` : '碎片不足或已达星级上限。');
     });
   });
   if (ctrl.panelState.workspace?.type === 'shop') {

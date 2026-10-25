@@ -1,6 +1,8 @@
 export { AronaClickerRuntime } from './runtime/runtime';
 export type { AronaClickerRuntimeOptions } from './runtime/runtime';
 export type { GameInstanceOptions, GameInstanceWiring } from './runtime/runtime-options';
+export * from './contracts/character/variant-translation';
+export * from './contracts/character/variant-training';
 export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogDependencyHint } from './contracts';
 export type { SaveData } from './contracts/runtime/save-data';
 export type { AffectionConfigView, CharacterProgressionPort, CurveView } from './contracts';

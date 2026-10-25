@@ -690,11 +690,20 @@ function renderCommitPreviewSummary(
 }
 
 type MapCommitDockAction =
-  | { readonly kind: 'commit'; readonly view: MapRunActiveWorkspaceView; readonly preview: NonNullable<MapRunActiveWorkspaceView['actionPreview']> }
+  | { readonly kind: 'commit'; readonly view: MapRunActiveWorkspaceView; readonly preview: NonNullable<MapRunActiveWorkspaceView['actionPreview']>; readonly label?: string }
   | { readonly kind: 'complete'; readonly runId: string; readonly nodeId: string; readonly label: string }
   | { readonly kind: 'move'; readonly runId: string; readonly fromNodeId: string }
   | { readonly kind: 'back'; readonly runId: string }
   | { readonly kind: 'disabled' };
+
+function canLeaveNodeAfterEncounter(view: MapRunActiveWorkspaceView): boolean {
+  const activeActivity = view.activities.find(activity => activity.active);
+  if (activeActivity && activeActivity.index + 1 < activeActivity.total) return true;
+
+  const nodeId = view.run.currentNodeId;
+  if (view.map.exitNodeIds.includes(nodeId)) return true;
+  return view.map.edges.some(edge => edge.fromNodeId === nodeId && (edge.condition?.satisfied ?? true));
+}
 
 function renderCommitDock(
   ctx: UIContext,
@@ -702,12 +711,17 @@ function renderCommitDock(
     readonly playerCost: number | null;
     readonly status: string;
     readonly action: MapCommitDockAction;
+    readonly secondaryAction?: {
+      readonly view: MapRunActiveWorkspaceView;
+      readonly preview: NonNullable<MapRunActiveWorkspaceView['actionPreview']>;
+    };
   },
 ): string {
   const { action } = options;
   const disabled = action.kind === 'disabled' || action.kind === 'move';
   const label = action.kind === 'back' ? '返回游戏'
     : action.kind === 'complete' ? action.label : '提交本轮';
+  const primaryLabel = action.kind === 'commit' ? action.label ?? label : label;
   const moveLabel = action.kind === 'move' ? '选择目的地点' : label;
   const actionAttributes = action.kind === 'commit'
     ? ` data-map-commit${focusKey(ctx, 'commit')} data-map-expected-commit-version="${action.view.run.commitVersion}"${draftAttributes(ctx, action.view.run.runId, action.preview.draft)}`
@@ -719,8 +733,12 @@ function renderCommitDock(
         ? ` data-map-back="${escape(ctx, action.runId)}"${focusKey(ctx, 'back-game')}`
         : '';
   const playerCost = options.playerCost === null ? '—' : ctx.formatNumber(options.playerCost);
-  const previewSummary = action.kind === 'commit'
-    ? renderCommitPreviewSummary(ctx, action.view, action.preview.commitPreview)
+  const commitAction = action.kind === 'commit' ? action : options.secondaryAction;
+  const previewSummary = commitAction
+    ? renderCommitPreviewSummary(ctx, commitAction.view, commitAction.preview.commitPreview)
+    : '';
+  const secondaryCommit = options.secondaryAction
+    ? `<button type="button" class="map-workspace__complete map-workspace__complete-secondary" data-map-commit${focusKey(ctx, 'commit')} data-map-expected-commit-version="${options.secondaryAction.view.run.commitVersion}"${draftAttributes(ctx, options.secondaryAction.view.run.runId, options.secondaryAction.preview.draft)} aria-label="提交本轮">提交本轮</button>`
     : '';
   return `<footer class="map-workspace__commit-dock" data-map-region-key="commit-dock">
     <div class="map-workspace__commit-balance" aria-label="当前剩余 PlayerCost">
@@ -728,9 +746,12 @@ function renderCommitDock(
       <p role="status" aria-live="polite" data-map-commit-status>${escape(ctx, options.status)}</p>
       ${previewSummary}
     </div>
-    <button type="button" class="send-button send-player map-workspace__commit${disabled ? ' disabled' : ''}"${actionAttributes}${disabled ? ' disabled' : ''} aria-label="${escape(ctx, moveLabel)}">
-      <span class="send-bubble${disabled ? ' disabled' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-text">${escape(ctx, moveLabel)}</span><span class="send-arrow" aria-hidden="true">↗</span></span>
-    </button>
+    <div class="map-workspace__commit-actions">
+      <button type="button" class="send-button send-player map-workspace__commit${disabled ? ' disabled' : ''}"${actionAttributes}${disabled ? ' disabled' : ''} aria-label="${escape(ctx, action.kind === 'move' ? moveLabel : primaryLabel)}">
+        <span class="send-bubble${disabled ? ' disabled' : ''}"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-text">${escape(ctx, action.kind === 'move' ? moveLabel : primaryLabel)}</span><span class="send-arrow" aria-hidden="true">↗</span></span>
+      </button>
+      ${secondaryCommit}
+    </div>
   </footer>`;
 }
 
@@ -739,29 +760,41 @@ function renderActionDock(ctx: UIContext, view: MapRunActiveWorkspaceView, locat
   const preview = view.actionPreview;
   const encounter = view.currentEncounter;
   const canCommit = preview?.commitPreview.canCommit === true;
-  const canComplete = !canCommit && encounter?.completion?.kind === 'manual';
+  const manualCompletion = encounter?.completion?.kind === 'manual' ? encounter.completion : null;
+  const canSafelyComplete = manualCompletion !== null && canLeaveNodeAfterEncounter(view);
+  const canComplete = manualCompletion !== null && (!canCommit || canSafelyComplete);
+  const completesOnCommit = canCommit
+    && encounter?.completion?.kind === 'condition'
+    && preview?.commitPreview.schedulerTerminal?.outcome === 'victory';
   const canMove = !canCommit && !canComplete && !!locationChoices;
   const status = canMove
     ? '请在上方选择目的地点。'
-    : canCommit
-    ? `本轮可提交 · 预计消耗 ${ctx.formatNumber(preview?.commitPreview.playerCostRequired ?? 0)} PlayerCost`
-    : canComplete
+    : canComplete && canCommit
+      ? '当前路线已开放；可以先完成遭遇，也可以继续提交本轮。'
+      : completesOnCommit
+        ? '本轮提交后将达成条件并完成遭遇。'
+      : canCommit
+        ? `本轮可提交 · 预计消耗 ${ctx.formatNumber(preview?.commitPreview.playerCostRequired ?? 0)} PlayerCost`
+        : canComplete
       ? '当前遭遇已满足手动完成条件。'
       : preview
         ? renderCommitDiagnostic(ctx, preview.commitPreview.diagnostics)
         : encounter ? '行动预览暂不可用，请返回地图后重新进入遭遇。' : '当前没有可提交的遭遇行动。';
-  const action: MapCommitDockAction = canCommit && preview
-    ? { kind: 'commit', view, preview }
-    : canComplete && encounter
-      ? { kind: 'complete', runId: view.run.runId, nodeId: encounter.nodeId, label: encounter.completion?.label ?? '完成遭遇' }
+  const action: MapCommitDockAction = canComplete && encounter
+    ? { kind: 'complete', runId: view.run.runId, nodeId: encounter.nodeId, label: manualCompletion?.label ?? '完成遭遇' }
+    : canCommit && preview
+      ? { kind: 'commit', view, preview, ...(completesOnCommit ? { label: '提交并完成' } : {}) }
       : canMove && locationChoices
         ? { kind: 'move', runId: locationChoices.runId, fromNodeId: locationChoices.fromNodeId }
       : { kind: 'disabled' };
+  const secondaryAction = canComplete && canCommit && preview
+    ? { view, preview }
+    : undefined;
   const sources = renderEncounterSources(ctx, view);
   return `<section class="map-workspace__action-dock" data-map-region-key="action-dock" aria-label="${preview ? `第 ${preview.round} 轮行动操作` : '当前遭遇操作'}">
     <p class="map-workspace__dock-note" data-map-relation-status role="status" aria-live="polite"></p>
     ${sources ? `<div class="map-workspace__options-scroll" data-map-region-key="action-options" data-scroll-owner="content-region">${sources}</div>` : ''}
-    ${renderCommitDock(ctx, { playerCost: view.run.playerCost, status, action })}
+    ${renderCommitDock(ctx, { playerCost: view.run.playerCost, status, action, secondaryAction })}
   </section>`;
 }
 
@@ -1117,7 +1150,7 @@ function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWor
         <h1>${escape(ctx, node?.title ?? view.map.name)}</h1>
         ${node?.description ? `<p>${escape(ctx, node.description)}</p>` : ''}
       </div>
-      <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--back" data-map-back-to-entry="${safeRunId}" data-map-focus-key="back-entry" aria-label="返回准备页">返回准备页</button>
+      <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--back" data-map-back-to-entry="${safeRunId}" data-map-focus-key="back-entry" aria-label="返回入口">返回入口</button>
     </div>
     <div class="map-workspace__hero-footer">
       ${progress}

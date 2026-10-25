@@ -8,6 +8,12 @@
 
 ## 当前推进
 
+- [[docs/plan-work/task-0328-docs-828-retirement]]：completed（2026-10-24）；删除 docs-828 兼容重定向层（68 桩），活跃引用改指 docs-829 或历史快照，check-docs 按 snapshot 前缀解析退役链接（冻结历史 674 条全覆盖），GALHCG 清单刷新后 docs-828 范围 File 节点清零；check:docs 通过。
+- [[docs/plan-work/archive/task-0326-variant-translation-real-card-workspace]]：completed；Spot直入真实Map卡牌工作区，持有/普通/高级三战与主保存恢复；195项定向验证通过，实屏完成三战及第二/三战刷新续行。旧调查样例的既有回归差异另记Receipt。
+- [[docs/plan-work/draft-0327-development-acceptance-console]]：design；开发验收预设、剧情推进、角色培养/资源、场所入口与独立测试存档参数，解决重复前置准备；新命令尚未实现。
+
+- [[docs/plan-work/draft-0323-variant-unified-translation-contract]]：首片完成；完整方向与原始讨论保留，首片实现见归档 Task 0323，后续战斗接合、其他模式与真实属性平衡未纳入首片。
+
 - [[docs/plan-work/report-0322-story-node-semantics-explained]]：阶段1–5新Node人话说明；正文、输入、动作、转移、定位覆盖/邀请、owner及保存如何配合，保留前轮设计记录。
 
 - [[docs/plan-work/task-0322-story-node-model-and-playback-plan]]：阶段1–5完成与验收回执；正式UI/生命周期/结算/节点保存、43篇内容与旧解释器替换，阶段6编辑器未施工。
@@ -36,6 +42,14 @@
 - [[docs/plan-work/task-0306-area-hero-workspace-and-story-entry]]：proposed，等待其他模型执行；正常游戏 area-hero 进入区域 Workspace，中／右栏联动，统一信息概览、区域故事、主动故事与事项提醒入口，原“故事”收敛为历史重播；进入门控与右上角提示小标的细则在 P0 核实并裁定。
 - [[docs/plan-work/task-0308-active-story-area-delivery]]：implementation complete；FollowUp 与 9 个仅依赖故事目录开放的 ActiveStoryEntry 投递到当前 Area，故事页仅保留已完成历史；本次扩展通过类型检查，行为测试未重跑，宽屏体验待确认。
 
+## 本轮完成（2026-10-24）
+
+- [[docs/plan-work/archive/task-0325-character-cultivation-and-spot-training]]：completed；通讯录训练/交流/突破与即时好感同步、累计经验修复，夏莱Spot正式进入转译演练场；Luna分工和交叉审查，178/178回归与普通入口完整浏览器循环通过，类型检查仅余既有地图UI错误。
+
+- [[docs/plan-work/archive/task-0324-variant-translation-training]]：completed；专用Variant转译演练场接通三种来源、真实HP/AG-1实战、独立检查点与现有试玩台；80/80定向回归、实浏览器与Luna交叉审查通过，类型检查仅余既有UI错误。普通地图身份与主存档未改动。
+
+- [[docs/plan-work/archive/task-0323-variant-unified-translation-interface]]：completed；Variant → 固定枚举模式 → 场景构筑，首期 gameplay-b 已有 owned/slice、可信 resolver、规则转译、预览确认与独立快照恢复；新增测试 32/32，含角色持久化回归 40/40，架构/文档通过。全仓既有 UI 类型错误及地图断言失败经施工前 Runtime 基线复核独立存在。本轮未迁移 MapRun、未新增 Datapack 表。
+
 ## 本轮完成（2026-10-22）
 
 - [[docs/plan-work/task-0315-gameplay-b-legacy-action-migration-and-removal]]：completed；8 张内置 Map 与 E1 示例迁移到 `effectProgram`，Map Action 旧数组从合同、Registry、Runtime、Receipt、UI 和生成 Schema 移除；Shop Offer `effects` 保留。其后 E2 确定性集合／Value 子片由 Task 0316 实现。
@@ -51,12 +65,13 @@
 
 - [[docs/plan-work/archive/task-0310-area-map-navigation-service-v1]]：completed；独立 areaMaps 装载与脱敏查询、共享旅行准入、三栏浏览/历史/相机、显式移动与生命周期已实现并通过宽屏浏览器验收；新增 49 项测试通过，最终跨域回归另有 5 个并行 Story 断言失败，见最终 Receipt。
 
-- [[archive/task-0302-standalone-node-graph-ui-demo]]：completed；TypeScript 独立节点探索与子图导航 UI Demo 已实现并装配到根工具台与 Vite 构建，定向类型检查、构建、preview 与 17 步浏览器验收通过；是否适合未来产品待使用者体验后裁定，不接入游戏业务。
 - [[archive/task-0303-node-graph-demo-visual-polish]]：completed；桌面视觉增强与世界线偏移表现，提供偏移叠层 / 分歧轨迹 / 相位对照三种可切换方案，保持探索规则；不做手机适配；三种方案与对照已实现并验证。
 - [[archive/task-0304-node-graph-spatial-presentation]]：implementation complete, verification pending；保留原有轴测网格、节点交互、空间关系与主 / 子图表现记录；浏览器验收待补，归档不代表验收完成。
 - [[archive/task-0305-init-global-enhancement-node-graph-investigation]]：implementation complete；核对 Init / GlobalEnhancement 数据、揭示与命令边界后，已删除双面轮盘并改为单一轴测节点图谱 + 右侧独立工作台；节点 / 连线只作呈现，可见性、拥有、活动态与购买 / 进入 / 移除仍来自既有 RevealStage、只读投影与 GameCommands，未新增存档字段或图边授权规则。
 
 2026-10-21 按请求将 Task 0302–0305 移入 `archive/`；正文末态保留，归档不改变完成或验收状态。
+
+2026-10-24 按用户指示直接移除独立节点探索 Demo：删除 `tools/node-graph-ui-demo/`、根工具台 Demo 卡片与 `vite.config.ts` 的 `nodeGraphDemo` 构建入口；归档 Task 0302–0305 记录保留。
 
 2026-10-19 已将 `docs/plan-work/` 根目录的 Gameplay B Task、Draft、Report 及拆分的 Patch Unit / Receipt 整批冻结归档；未完成事项保留原状态与待续范围，归档不代表结项。后续恢复时先核对当前源码与测试，再另立或更新活动 Task。
 

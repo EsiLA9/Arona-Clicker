@@ -128,6 +128,16 @@ describe('SpotBuilder', () => {
     ]);
   });
 
+  test('构造固定的内置 Variant 演练入口', () => {
+    const def = spot('base:spot:x', 'base:area:a')
+      .name('x').desc('x')
+      .variantTrainingEntry('base:funclet:variant_training_entry')
+      .build();
+    expect(def.functionalities).toEqual([
+      { id: 'base:funclet:variant_training_entry', kind: 'variantTrainingEntry' },
+    ]);
+  });
+
   test('cost/flow 支持表达式与显式资源覆盖', () => {
     const expr = Expr.add(Expr.const(1), Expr.const(2));
     const def = spot('base:spot:x', 'base:area:a')

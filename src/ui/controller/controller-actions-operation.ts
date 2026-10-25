@@ -1501,9 +1501,11 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
   if (target.hasAttribute('data-map-back-to-entry')) {
     const runId = target.dataset.mapBackToEntry;
     const run = runId ? getActiveMapRunForRoute(ctrl, runId) : null;
-    if (run && ctrl.returnMapToEntry(run.runId, run.mapId)) {
+    if (run && ctrl.panelState.mapEntrySource && ctrl.returnMapToEntry(run.runId, run.mapId)) {
       ctrl.render();
       ctrl.root.querySelector<HTMLButtonElement>('[data-map-entry-focus-key="primary"]:not(:disabled)')?.focus();
+    } else if (run && ctrl.returnFromMapWorkspace(run.runId)) {
+      ctrl.render();
     }
     return true;
   }

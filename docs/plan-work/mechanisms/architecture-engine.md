@@ -8,12 +8,12 @@
 
 ## 当前事实源
 
-- [[docs/docs-828/01-architecture/overview]]
-- [[docs/docs-828/01-architecture/run-logic]]
-- [[docs/docs-828/01-architecture/state-layers]]
-- [[docs/docs-828/05-conventions/architecture-discipline]]
-- [[docs/docs-828/04-mechanisms/state-mutation]]
-- [[docs/docs-828/01-architecture/run-logic]]（含 Lobby / Pre-Init Runtime 生命周期）
+- [[docs/docs-829/01-architecture/overview]]
+- [[docs/docs-829/01-architecture/run-logic]]
+- [[docs/docs-829/03-data-structures/player-state]]
+- [[docs/docs-829/05-conventions/architecture-discipline]]
+- [[docs/docs-829/04-mechanisms/arona-clicker/state-mutation]]
+- [[docs/docs-829/01-architecture/run-logic]]（含 Lobby / Pre-Init Runtime 生命周期）
 
 ## 历史来源与设计理由
 
@@ -28,4 +28,4 @@
 
 ## 当前判断
 
-架构主线已落地；后续变更必须遵守 `docs/docs-828/05-conventions/architecture-discipline`，而不是回到旧的 GameInstance/混合类型路径。
+架构主线已落地；后续变更必须遵守 `docs/docs-829/05-conventions/architecture-discipline`，而不是回到旧的 GameInstance/混合类型路径。

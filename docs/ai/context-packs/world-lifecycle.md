@@ -20,7 +20,7 @@
 - [[docs/docs-829/01-architecture/overview]]
 - [[docs/docs-829/01-architecture/data-flow]]
 
-旧 `docs-828/07-audit/` 文档是历史核查记录，不是当前规则；历史状态结论需按目标源码与测试重新确认。
+旧 `docs/archive/docs-828-snapshot/07-audit/` 文档是历史核查记录，不是当前规则；历史状态结论需按目标源码与测试重新确认。
 
 ## 默认不读
 

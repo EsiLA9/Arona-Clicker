@@ -1,7 +1,7 @@
 // ============================================================
 // ui/components/selector-graph.ts — Init / GlobalEnhancement 节点图谱
 //
-// 与 tools/node-graph-ui-demo 的空间呈现保持同一阅读方式：轴测参考平面、
+// 空间呈现：轴测参考平面、
 // 圆形节点、节点下方的名称、节点间连线、右侧当前节点工作台。
 // 这里只做只读投影与表现；位置 / 连线不写入存档，也不改变揭示与购买条件。
 //
@@ -138,8 +138,7 @@ const GRAPH_PORTALS: Record<string, SelectorGraphPortalDef> = {
 };
 
 /**
- * 产品侧图谱数据。Demo 仅作为几何/交互参考；产品只消费自己的图定义，
- * 未来删除 tools/node-graph-ui-demo 不会影响此处。
+ * 产品侧图谱数据。产品只消费自己的图定义，不引用任何独立 Demo 代码。
  */
 export const SELECTOR_GRAPH_DEFINITIONS: Record<string, SelectorGraphDefinition> = {
   'base:graph:foundation': {

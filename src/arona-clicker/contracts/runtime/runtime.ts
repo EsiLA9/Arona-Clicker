@@ -22,6 +22,7 @@ import type { StatsQueryContext } from '../../../engine/contracts/stats';
 import type { PicQueryPort } from '../presentation/pic-query';
 import type { SpotQueryPort } from '../world/spot-query';
 import type { RosterQueryPort } from '../character/roster-query';
+import type { VariantTrainingPort } from '../character/variant-training';
 import type { ColorQueryPort } from '../progression/color-query';
 import type { ColorEquipmentQueryPort } from '../progression/color-equipment-query';
 import type { GearQueryPort } from '../progression/gear-query';
@@ -491,6 +492,7 @@ export interface MapWorkspacePlayerCommandOptionView {
 /** Read-only full-round Commit readiness produced by the MapRun Owner's shared preflight. */
 export interface MapWorkspaceCommitPreviewView {
   readonly canCommit: boolean;
+  readonly schedulerTerminal?: import('../map/map-run').MapRunEncounterSchedulerTerminal;
   readonly playerCostRequired: number | null;
   readonly diagnostics: readonly string[];
   readonly settlements?: readonly MapWorkspaceActionSettlementView[] | null;
@@ -667,6 +669,9 @@ export interface MapRunQuery {
 
 /** UI 控制器最终应依赖的运行时命令集合；迁移期由 Runtime 直接实现。 */
 export interface GameCommands {
+  readonly variantTraining: VariantTrainingPort;
+  /** Validate the Spot and enter/resume the fixed three-battle translated scenario. */
+  enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
   tick(): TickResult;
   start(): void;
@@ -719,6 +724,7 @@ export interface GameCommands {
   feedGearExp(variantId: VariantId, slotIndex: number, itemId: string, count: number): { ok: boolean; reason?: string };
   upgradeGearTier(variantId: VariantId, slotIndex: number): { ok: boolean; reason?: string };
   addExp(variantId: VariantId, amount: number): { ok: boolean; newLevel: number; newExp: number };
+  addAffectionExp(variantId: VariantId, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: VariantId): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;
   activateCustomTheme(customThemeId: string): boolean;

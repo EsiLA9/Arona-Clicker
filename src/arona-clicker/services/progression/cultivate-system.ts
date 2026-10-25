@@ -58,11 +58,11 @@ export interface ExpApplyResult {
 
 /** 经验推演：跨级逐级扣减，达到有效上限后溢出截断。 */
 export function applyExp(curve: CurveView, entry: VariantProgress, amount: number, cap: number): ExpApplyResult {
-  let { level, exp } = entry;
+  let { level } = entry;
   if (amount <= 0 || level >= cap) return { ok: false, entry, leveledUp: false };
 
   let leveledUp = false;
-  let remaining = amount;
+  let remaining = entry.exp + amount;
   while (level < cap) {
     const need = expToNext(curve, level);
     if (!Number.isFinite(need) || remaining < need) break;
@@ -70,7 +70,7 @@ export function applyExp(curve: CurveView, entry: VariantProgress, amount: numbe
     level += 1;
     leveledUp = true;
   }
-  exp = level >= cap ? 0 : exp + remaining;
+  const exp = level >= cap ? 0 : remaining;
   return { ok: true, entry: { ...entry, level, exp }, leveledUp };
 }
 

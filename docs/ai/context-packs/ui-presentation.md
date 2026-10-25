@@ -17,7 +17,7 @@
 
 ## Optional Read Set
 
-旧 `docs-828/07-audit/` 文档是历史核查记录，不是当前规则。调查相关问题时，以 [[docs/docs-829/06-wiki/50-ui/presentation-theme]]、当前源码与测试核对实现。
+旧 `docs/archive/docs-828-snapshot/07-audit/` 文档是历史核查记录，不是当前规则。调查相关问题时，以 [[docs/docs-829/06-wiki/50-ui/presentation-theme]]、当前源码与测试核对实现。
 
 ## 默认不读
 

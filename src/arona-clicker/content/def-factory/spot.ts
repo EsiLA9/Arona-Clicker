@@ -73,6 +73,11 @@ export class SpotBuilder {
     this._functionalities.push({ id, kind: 'mapEntry', mapId, ...(label === undefined ? {} : { mapEntryLabel: label }) });
     return this;
   }
+  /** 固定的内置 Variant 转译演练场入口，无可配置目标或额外参数。 */
+  variantTrainingEntry(id: string): this {
+    this._functionalities.push({ id, kind: 'variantTrainingEntry' });
+    return this;
+  }
   gachaPools(...poolIds: GachaPoolId[]): this { this._gachaPools.push(...poolIds); return this; }
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
   revealResource(target: RevealTarget, resourceId: string, amount: number): this { this._revealTriggers.push(revealResource(target, resourceId, amount)); return this; }

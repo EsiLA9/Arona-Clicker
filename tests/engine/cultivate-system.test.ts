@@ -82,6 +82,11 @@ describe('addExp（C-01 ~ C-06）', () => {
     expect(r).toEqual({ ok: true, newLevel: 1, newExp: 99 });
   });
 
+  test('分次加经验会合并当前经验并触发升级', () => {
+    expect(game.mutations.addExp('Hoshino', 60)).toEqual({ ok: true, newLevel: 1, newExp: 60 });
+    expect(game.mutations.addExp('Hoshino', 40)).toEqual({ ok: true, newLevel: 2, newExp: 0 });
+  });
+
   test('C-02 跨级：level+1，扣除本级需求，余量进下级', () => {
     const r = game.mutations.addExp('Hoshino', 150);
     expect(r).toEqual({ ok: true, newLevel: 2, newExp: 50 });
@@ -193,5 +198,15 @@ describe('P-02 培养驱动 protoStats.cultTotal', () => {
     game.mutations.breakthroughStar('Hoshino');
     const stat = (game as any)._state.protoStats![Character.Hoshino];
     expect(stat.cultTotal).toBe(150 + 1);
+  });
+});
+
+describe('分次交流累计好感经验', () => {
+  test('已存经验与本次增量合并后逐级升级', () => {
+    const game = new GameInstance();
+    game.init([makeDatapack()]);
+    game.mutations.acquireCharacter('Hoshino', 'gacha');
+    expect(game.mutations.addAffectionExp('Hoshino', 8)).toEqual({ ok: true, newLevel: 1, newExp: 8 });
+    expect(game.mutations.addAffectionExp('Hoshino', 7)).toEqual({ ok: true, newLevel: 2, newExp: 0 });
   });
 });

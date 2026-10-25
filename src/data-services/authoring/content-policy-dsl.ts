@@ -47,7 +47,7 @@ const EFFECT_OPS: readonly EffectOp[] = [
 
 const REVEAL_TARGETS: readonly RevealTarget[] = ['existence', 'name', 'condition', 'utility', 'unlock'];
 
-const FUNCTIONALITY_KINDS: readonly SpotFunctionalityKind[] = ['flow', 'linearYield', 'restartInit', 'hardResetInit', 'gacha', 'shop', 'operationEntry'];
+const FUNCTIONALITY_KINDS: readonly SpotFunctionalityKind[] = ['flow', 'linearYield', 'restartInit', 'hardResetInit', 'gacha', 'shop', 'operationEntry', 'variantTrainingEntry'];
 
 const FUNCTIONALITY_ID_PATTERN = /^[a-z0-9_-]+$/;
 const PAYMENT_OPTION_ID_PATTERN = /^[a-z0-9_-]+$/;
@@ -190,6 +190,11 @@ export function validateFunctionalityList(
         return fail(`${itemPath}.operationEventId`, '行动入口必须选择一个完整的关卡 ID');
       }
     }
+    if (kind === 'variantTrainingEntry'
+      && ['resource', 'amount', 'amountPerLevel', 'startLevel', 'shopId', 'operationEventId']
+        .some(key => item[key] !== undefined)) {
+      return fail(itemPath, '内置 Variant 演练场入口不接受目标或额外参数');
+    }
     if (item.condition !== undefined && item.condition !== null) {
       const problem = validateConditionGroup(item.condition, `${itemPath}.condition`);
       if (problem) return problem;
@@ -229,6 +234,8 @@ export function encodeFunctionalityList(value: unknown): SpotFunctionalityDef[] 
         return { ...base, kind: 'shop', shopId: draft.shopId };
       case 'operationEntry':
         return { ...base, kind: 'operationEntry', operationEventId: draft.operationEventId };
+      case 'variantTrainingEntry':
+        return { ...base, kind: 'variantTrainingEntry' };
       default:
         return base;
     }
@@ -507,7 +514,7 @@ function constantExpressionValue(value: unknown): number | undefined {
 }
 
 function toFunctionalityDraft(functionality: SpotFunctionalityDef, index: number): SpotFunctionalityDraft | undefined {
-  const id = localFunctionalityId(functionality.id, index);
+  const id = localFunctionalityId(functionality.id, index, functionality.kind);
   const ownership = functionality.requiresOwned === undefined ? {} : { requiresOwned: functionality.requiresOwned };
   const condition = functionality.condition ? { condition: functionality.condition } : {};
   switch (functionality.kind) {
@@ -538,6 +545,7 @@ function toFunctionalityDraft(functionality: SpotFunctionalityDef, index: number
     case 'restartInit':
     case 'hardResetInit':
     case 'gacha':
+    case 'variantTrainingEntry':
       return { id, kind: functionality.kind, ...ownership, ...condition };
     default:
       return undefined;
@@ -545,8 +553,8 @@ function toFunctionalityDraft(functionality: SpotFunctionalityDef, index: number
 }
 
 /** 引擎功能 id → 编辑器局部键：已知前缀剥离，其余回退为稳定占位键。 */
-function localFunctionalityId(engineId: string, index: number): string {
-  const prefix = 'runtime:resource:';
+function localFunctionalityId(engineId: string, index: number, kind: SpotFunctionalityKind): string {
+  const prefix = kind === 'variantTrainingEntry' ? 'runtime:variantTrainingEntry:' : 'runtime:resource:';
   const raw = engineId.startsWith(prefix) ? engineId.slice(prefix.length) : '';
   return FUNCTIONALITY_ID_PATTERN.test(raw) ? raw : `legacy-${index + 1}`;
 }

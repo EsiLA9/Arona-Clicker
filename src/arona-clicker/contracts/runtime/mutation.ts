@@ -78,6 +78,7 @@ export interface UiMutationPort extends StateMutationHostPort {
   feedGearExp(variantId: string, slotIndex: number, itemId: string, count: number): { ok: boolean; reason?: string };
   upgradeGearTier(variantId: string, slotIndex: number): { ok: boolean; reason?: string };
   addExp(variantId: string, amount: number): { ok: boolean; newLevel: number; newExp: number };
+  addAffectionExp(variantId: string, amount: number): { ok: boolean; newLevel: number; newExp: number };
   breakthroughStar(variantId: string): { ok: boolean; reason?: string; newStars?: number };
   activateTheme(groupId: string | null): boolean;
   activateCustomTheme(customThemeId: string): boolean;

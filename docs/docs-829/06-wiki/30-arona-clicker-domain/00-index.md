@@ -9,6 +9,7 @@
 | 状态写入与派生更新 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/state-and-mutation]] | [[docs/docs-829/03-data-structures/player-state]] · [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/state-mutation]] |
 | 世界线和区域 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/world-lifecycle]] | [[1-项目/ACProgram/docs/docs-829/04-mechanisms/arona-clicker/world-lifecycle]] |
 | 角色获取与成长 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]] | [[gacha-cultivation]] |
+| 卡牌系统与培养接入边界 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/card-systems-and-cultivation-bridge]] | [[docs/docs-829/04-mechanisms/arona-clicker/gameplay-b-cards]]、[[docs/docs-829/04-mechanisms/arona-clicker/operation-runtime]] |
 | 剧情与聊天 | [[docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat]] | 代码入口见该页 |
 | Gameplay B 地图战斗卡牌 | — | [[docs/docs-829/04-mechanisms/arona-clicker/gameplay-b-cards]] |
 

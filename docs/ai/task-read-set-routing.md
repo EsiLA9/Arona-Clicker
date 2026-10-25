@@ -15,7 +15,7 @@ related_modules:
 # task-read-set-routing — 任务 Read Set 路由
 
 > 本文回答：**如何按具体任务选择必要的文档、源码和验证入口。**
-> 已知领域直接从 [[AGENTS.md]] 进入对应上下文包；本文只为未知、跨领域或需要正式 Read Set 的任务决定下一站。领域细目只在对应包维护。docs-828 是历史来源，不作为当前 Read Set。
+> 已知领域直接从 [[AGENTS.md]] 进入对应上下文包；本文只为未知、跨领域或需要正式 Read Set 的任务决定下一站。领域细目只在对应包维护。docs-828 已退役删除（历史原文在 docs/archive/docs-828-snapshot/），不作为当前 Read Set。
 
 ## 使用规则
 

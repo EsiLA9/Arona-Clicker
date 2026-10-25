@@ -8,6 +8,8 @@
 
 Roster 和碎片等字段的生命周期可能受 Init scope 配置影响；角色记忆字段独立跨 Init 保留。当前详细算法见 [[gacha-cultivation]]，完整状态定义见 [[docs/docs-829/03-data-structures/player-state]]。
 
+角色培养进度目前不会自动构筑 Gameplay B 或 Operation 行动牌；卡池 / 手牌 / 场景牌库的术语区分与未来接入边界见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/card-systems-and-cultivation-bridge]]。
+
 从一次获得流程看，`GachaService.roll()` 按卡池和模式逐抽；每抽先确认资源足够，再扣费、按规则选择角色差分、通过 mutation 获得角色并更新保底/抽数。资源不够时停止，但保留已经完成的部分抽取结果。`RosterSystem` 只查询持有/差分与可见通讯录分组。
 
 培养计算本身由 `cultivate-system.ts` 的 `applyExp()`、`checkBreakthrough()` 等纯函数推演或检查；`StateMutationService.addExp()`、`breakthroughStar()` 负责把通过检查后的结果写入状态并更新资源/碎片。不要把“能够算出效果”误当成“已经写进 PlayerState”。角色哪些状态跨 Init 保留，按 Registry 的角色存档 scope 决定，见下方测试与状态页。

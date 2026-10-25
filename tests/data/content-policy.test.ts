@@ -302,6 +302,18 @@ describe('内容策略表：字段授权', () => {
     }
   });
 
+  test('内置 Variant 演练场入口无目标参数且保存再编辑保留固定 kind', () => {
+    const policy = requireContentPolicy('spots');
+    const input = spotInput({ functionalities: [{ id: 'variant-training', kind: 'variantTrainingEntry' }] });
+    expect(validateAuthoringInput(policy, input)).toBeUndefined();
+    const def = buildAuthoringDef(policy, MOD, input) as unknown as import('../../src/data-services/contracts/world').SpotDef;
+    expect(def.functionalities).toEqual([{ id: 'runtime:variantTrainingEntry:variant-training', kind: 'variantTrainingEntry' }]);
+    expect(decodeSpotContent(def).functionalities).toEqual([{ id: 'variant-training', kind: 'variantTrainingEntry' }]);
+    expect(validateAuthoringInput(policy, spotInput({ functionalities: [{
+      id: 'variant-training', kind: 'variantTrainingEntry', operationEventId: 'test:operation-event:other',
+    }] }))).toMatchObject({ path: 'spot.functionalities[0]' });
+  });
+
   test('支付方案支持 Resource / Item 混合费用、等级独立方案与条件', () => {
     const policy = requireContentPolicy('spots');
     const input = spotInput({

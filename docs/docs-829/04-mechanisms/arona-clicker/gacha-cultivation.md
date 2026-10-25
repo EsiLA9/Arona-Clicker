@@ -16,10 +16,16 @@
 
 突破校验要求差分已有进度、曲线包含突破配置、尚未达到星级上限，并检查该差分自己的碎片余额。实际资源和角色进度写入由 `StateMutationService` 的角色进度操作完成。
 
+通讯录选择已持有学生后，角色页提供简易培养：训练每次增加1000经验，交流每次增加15好感经验，均可重复、暂不消耗材料；星级突破使用该Variant自己的碎片。页面显示当前经验/下一等级需求、等级与好感上限、突破消耗，达到上限或碎片不足时禁用相应按钮。经验和好感按「已存经验 + 本次增量」累计跨级，达到上限后剩余经验归零。
+
+培养读模型为 `rosterSystem.cultivationOf(state, variantId)`，仅已持有且定义存在时返回只读视图；上限、需求和突破结果复用领域曲线与校验。UI命令经 `GameCommands.addExp/addAffectionExp/breakthroughStar` 写入现有mutation，未新增持久字段。普通培养点击仅更新培养区数值、按钮禁用与对应联系人等级，保留页面、按钮和滚动宿主。
+
+专用演练场的「当前持有」来源在下次预览时读取最新培养；已确认入场快照和场景切片不随此后培养改变，见 [[docs/docs-829/04-mechanisms/arona-clicker/variant-translation]]。
+
 Roster、碎片、卡池计数是否按 Init 隔离，由 Registry 的 character scope 和 `PER_INIT_FIELD_SPECS` 决定；角色跨线记忆另存 `characterMemory`。
 
 ## 主要验证
 
-当前对应测试包括 `tests/engine/gacha-service.test.ts` 与 `tests/engine/cultivate-system.test.ts`。本说明按源码记录实现，不声明测试已在本次文档工作中运行。
+当前对应测试包括 `tests/engine/gacha-service.test.ts`、`cultivate-system.test.ts`、`character-cultivation-query.test.ts`、`affection-system.test.ts` 以及 `tests/ui/character-cultivation.test.ts`。后者覆盖真实培养写入、转译更新/冻结与DOM连续性。
 
 主要实现入口：`src/arona-clicker/services/economy/gacha-service.ts`、`cultivate-system.ts` 与 `src/arona-clicker/state/state-mutation-service.ts`。玩家角色字段和跨 Init 归属见 [[docs/docs-829/03-data-structures/player-state]]；用户可见的角色获取/成长路线见 [[docs/docs-829/06-wiki/30-arona-clicker-domain/character-acquisition-growth]]。
