@@ -1,6 +1,6 @@
 // ============================================================
 // engine/entity-id.ts — 三段式实体 ID（modName:typeName:idName）
-// 当前格式与类型校验见 docs/docs-829/03-data-structures/datapack-contracts.md；历史裁定见 docs/plan-work/archive/adr-0004-datapack-management.md §2。
+// 当前格式与类型校验见 docs/docs-830/02-data-and-state/datapack-and-registry.md；历史裁定见 ai/archive/adr-0004-datapack-management.md §2。
 // ============================================================
 
 export interface EntityIdParts {

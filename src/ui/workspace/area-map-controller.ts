@@ -7,9 +7,10 @@ import { createUIContext } from '../runtime/context';
 import { applyAreaMapCamera, reconcileAreaMapDOM } from './area-map-dom';
 import { bindAreaMapCamera } from './area-map-camera';
 import { areaMapReason } from '../components/map/area-map-workspace';
-import { renderLeftPanel } from '../components/shared/rail';
+import { renderAreaNavigationContent } from '../columns';
 import { bindInventoryActions } from '../controller/controller-actions-inventory';
 import { bindEntityPresentationActions } from '../controller/controller-actions-presentation';
+import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
 
 export const AREA_MAP_REGION = 'workspace.area-map';
 let sequence = 0;
@@ -118,17 +119,19 @@ export class AreaMapController {
 
   private refreshLeft(): void {
     const c = this.ctrl;
-    const current = c.root.querySelector<HTMLElement>('[data-workspace-frame="area-map"] [data-game-panel="left"] .panel-body');
+    const column = c.root.querySelector<HTMLElement>('[data-workspace-frame="area-map"] [data-column-definition="area-navigation"]');
+    const current = column?.querySelector<HTMLElement>('.panel-body');
     if (!current) return;
-    const template = document.createElement('template');
-    template.innerHTML = renderLeftPanel(createUIContext(c.game), c.panelState);
-    const next = template.content.querySelector('.panel-body');
-    if (!next || current.innerHTML === next.innerHTML) return;
+    const next = renderAreaNavigationContent(createUIContext(c.game), c.panelState);
+    if (current.innerHTML === next) return;
     const scrollTop = current.scrollTop;
+    const focus = captureFocusWithin(current);
     c.popovers.dismissBeforeRootMutation(current);
-    current.innerHTML = next.innerHTML;
+    current.innerHTML = next;
     bindInventoryActions(c, current); bindEntityPresentationActions(c, current);
-    current.scrollTop = scrollTop; c.popovers.retainIfAnchored();
+    current.scrollTop = scrollTop;
+    restoreFocusWithin(current, focus);
+    c.popovers.retainIfAnchored();
   }
 
   /** Gate changes need not change Reveal stages, so keep the two entry controls current. */

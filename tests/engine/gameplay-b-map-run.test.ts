@@ -10,6 +10,7 @@ import { resolveGameplayMapCandidateSources } from '../../src/data-services/vali
 import { tagRef } from '../../src/engine/core/tag';
 import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/map/gameplay-b-action-preview-resolver';
 import { baseDatapack } from '../../src/data/test-datapack';
+import { withManualEncounterCompletion, withMap } from './gameplay-b-map-test-fixtures';
 
 type TestMap = NonNullable<ReturnType<MapContentResolver['resolve']>>;
 
@@ -2735,10 +2736,13 @@ describe('MapRunService', () => {
     const game = new GameInstance();
     let disposed = false;
     try {
-      game.init([baseDatapack, gameplayBMapDatapack], { enterDefaultInit: false });
-      const map = gameplayBMapDatapack.maps?.[0];
-      expect(map).toBeDefined();
-      if (!map) throw new Error('Gameplay B sample Map is missing');
+      const sampleMap = gameplayBMapDatapack.maps?.[0];
+      expect(sampleMap).toBeDefined();
+      if (!sampleMap) throw new Error('Gameplay B sample Map is missing');
+      // The sample Encounter completes through a counter condition; this test only needs a terminal
+      // success through the GameInstance command surface, so it completes on demand.
+      const map = withManualEncounterCompletion(sampleMap);
+      game.init([baseDatapack, withMap(gameplayBMapDatapack, map)], { enterDefaultInit: false });
 
       const shirokoVariant = game.rosterSystem.getAllVariants().find(variant => variant.proto === 'shiroko');
       expect(shirokoVariant).toBeDefined();

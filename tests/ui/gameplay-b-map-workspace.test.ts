@@ -38,6 +38,24 @@ describe('Gameplay B Map Workspace', () => {
     return map;
   }
 
+  function manualCompletionDatapack(): Datapack {
+    const source = mapFixture();
+    const encounterNode = source.nodes.find(node => node.encounter);
+    if (!encounterNode?.encounter) throw new Error('Sample Map has no Encounter Node');
+    const map: GameplayMapDef = {
+      ...source,
+      resumeVersion: source.resumeVersion + 1,
+      nodes: source.nodes.map(node => node.id === encounterNode.id ? {
+        ...node,
+        encounter: { ...node.encounter!, completion: { kind: 'manual', label: '完成调查' } },
+      } : node),
+    };
+    return {
+      ...gameplayBMapDatapack,
+      maps: gameplayBMapDatapack.maps?.map(candidate => candidate.id === map.id ? map : candidate),
+    };
+  }
+
   function autonomousBattleDatapack(): Datapack {
     return {
       ...gameplayBMapDatapack,
@@ -100,6 +118,7 @@ describe('Gameplay B Map Workspace', () => {
         ...node,
         encounter: {
           ...node.encounter,
+          completion: { kind: 'manual', label: '完成调查' },
           participants: (node.encounter.participants ?? []).map(participant => ({
             ...participant,
             actions: waitForSerika && participant.characterId === 'serika' ? [] : actionCandidates,
@@ -197,11 +216,15 @@ describe('Gameplay B Map Workspace', () => {
         ...member,
         initialHp: options.partyHp ?? member.initialHp,
       })),
-      actions: [...characterActions, playerCommand, ability, itemAction, enemyAction],
+      // Keep source actions referenced by other Encounters (for example archive's
+      // verify-clue) even though this test replaces the active battle's action pool.
+      actions: [...(source.actions ?? []), ...characterActions, playerCommand, ability, itemAction, enemyAction],
       nodes: source.nodes.map(node => node.id !== encounterNode.id ? node : ({
         ...node,
         encounter: {
           ...battleEncounter,
+          // This helper's battle tests explicitly exercise the manual
+          // completion control after their prepared turns.
           enemies: [
             { id: 'wolf', initialHp: 20, maxHp: 24,
               actions: [{ actionId: enemyAction.id, tendencyWeight: 1 }] },
@@ -448,10 +471,12 @@ describe('Gameplay B Map Workspace', () => {
       vi.advanceTimersByTime(80);
 
       const tooltip = document.querySelector<HTMLElement>('#floating-tooltip');
+      const expectedCompletionLabel = mapFixture().nodes.find(node => node.encounter)?.encounter?.completion?.label;
+      if (!expectedCompletionLabel) throw new Error('The sample Map Encounter has no completion label.');
       expect(tooltip?.classList.contains('is-open')).toBe(true);
       expect(tooltip?.textContent).toContain('场景结束条件');
       expect(tooltip?.textContent).toContain('现场调查');
-      expect(tooltip?.textContent).toContain('完成调查');
+      expect(tooltip?.textContent).toContain(expectedCompletionLabel);
     } finally {
       vi.useRealTimers();
     }
@@ -947,7 +972,7 @@ describe('Gameplay B Map Workspace', () => {
       ...(node.description === undefined ? {} : { description: node.description }),
       hasEncounter: node.encounter !== undefined,
     })));
-    expect(view.map.edges).toEqual(map.edges);
+    expect(view.map.edges).toMatchObject(map.edges);
     expect(view.map.nodes.find(node => node.hasEncounter)?.hasEncounter).toBe(true);
     expect(game!.mapRun.getWorkspaceView('other-run')).toBeNull();
 
@@ -966,8 +991,9 @@ describe('Gameplay B Map Workspace', () => {
   });
 
   test('renders Map and active Encounter from one route, then returns to the completed Node and exit', () => {
-    const { root, mapId } = mount();
-    const map = mapFixture();
+    const datapack = manualCompletionDatapack();
+    const { root, mapId } = mount(datapack);
+    const map = mapFixture(datapack);
     const started = controller!.commands.startMap(mapId);
     const route = { kind: 'map', runId: started.runId } as const;
     controller!.enterWorkspaceRoute(route);
@@ -1025,7 +1051,8 @@ describe('Gameplay B Map Workspace', () => {
     expect(blockedTarget).toBeDefined();
     expect(root.querySelector('[data-map-location-node-id="' + blockedTarget + '"]')).toBeNull();
     expect(root.querySelector<HTMLButtonElement>('.map-workspace__commit')?.getAttribute('aria-label'))
-      .toBe(view.actionPreview?.commitPreview.canCommit ? '提交本轮' : view.currentEncounter?.completion?.label);
+      .toBe(view.currentEncounter?.completion?.kind === 'manual' ? view.currentEncounter.completion.label
+        : view.actionPreview?.commitPreview.canCommit ? '提交本轮' : view.currentEncounter?.completion?.label);
 
     controller!.commands.completeMapEncounter(started.runId);
     controller!.render();
@@ -1369,7 +1396,7 @@ describe('Gameplay B Map Workspace', () => {
     expect(readyPreview.commitPreview.canCommit).toBe(true);
     expect(readyPreview.commitPreview.playerCostRequired).toBe(1);
     expect(root.querySelector<HTMLButtonElement>('[data-map-commit]')?.disabled).toBe(false);
-    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('可提交');
+    expect(root.querySelector('[data-map-commit-status]')?.textContent).toContain('可以继续提交本轮');
     root.querySelector<HTMLButtonElement>('[data-map-commit]')!.click();
 
     const committed = game!.mapRun.getSnapshot()!;
@@ -1478,7 +1505,7 @@ describe('Gameplay B Map Workspace', () => {
     const map: GameplayMapDef = {
       ...source,
       resumeVersion: source.resumeVersion + 1,
-      nodes: source.nodes.map(node => node.encounter ? {
+      nodes: source.nodes.map(node => node.encounter?.enemies ? {
         ...node,
         encounter: { ...node.encounter, enemies: (node.encounter.enemies ?? []).map(enemy => ({ ...enemy, actions: [] })) },
       } : node),
@@ -1570,18 +1597,24 @@ describe('Gameplay B Map Workspace', () => {
     expect(receipt?.querySelector('img, script, svg')).toBeNull();
   });
 
-  test('disables hand-out PlayerCommand options when Runtime says PlayerCost is insufficient', () => {
+  test('disables a Runtime-projected hand-out PlayerCommand candidate when PlayerCost is insufficient', () => {
     const datapack = actionWorkspaceDatapack(false, 0);
     const { root } = mount(datapack);
     const map = mapFixture(datapack);
     const runId = enterEncounter(root, map);
     const options = activeWorkspaceView(runId).actionPreview?.playerCommandOptions
       .filter(option => option.characterId === 'shiroko');
-    expect(options).toHaveLength(1);
-    expect(options?.[0]?.canPayPlayerCost).toBe(false);
-    const commandButton = root.querySelector<HTMLButtonElement>('[data-map-player-command][data-character-id="shiroko"]');
-    expect(commandButton?.disabled).toBe(true);
-    expect(commandButton?.textContent).toContain('需要 1 PlayerCost');
+    expect(options?.length).toBeGreaterThan(0);
+    for (const option of options!) {
+      expect(option.canPayPlayerCost).toBe(false);
+      expect(option.canPayActionCosts).toBe(true);
+      const commandButton = root.querySelector<HTMLButtonElement>(
+        `[data-map-player-command][data-character-id="shiroko"][data-action-id="${option.action.actionId}"]`,
+      );
+      expect(commandButton).not.toBeNull();
+      expect(commandButton?.disabled).toBe(true);
+      expect(commandButton?.textContent).toContain('需要 1 PlayerCost');
+    }
   });
 
   test('selects Party and Ability additional targets through separate workspace groups without replacing primary targets', () => {

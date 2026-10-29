@@ -282,7 +282,7 @@ describe('PopoverManager 刷新范围', () => {
     }
   });
 
-  it('右栏 Spot 优先放在卡片左侧，左侧空间不足时改放右侧', () => {
+  it('浮层根据锚点周围的实际空间选择方向，不依赖右栏身份', () => {
     vi.useFakeTimers();
     const rects = new Map<HTMLElement, DOMRect>();
     const { game, anchors, tooltip, restoreViewport } = setupHover(rects, { width: 220, height: 140 }, { width: 800, height: 600 });
@@ -297,7 +297,7 @@ describe('PopoverManager 刷新范围', () => {
       rects.set(anchor, makeRect(300, 180, 100, 100));
       anchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: 350, clientY: 220 }));
       vi.advanceTimersByTime(80);
-      expect(tooltip.style.left).toBe('80px');
+      expect(tooltip.style.left).toBe('400px');
 
       anchor.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
       vi.advanceTimersByTime(60);

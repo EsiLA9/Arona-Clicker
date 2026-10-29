@@ -28,9 +28,10 @@ describe('Contacts / Story Workspace ownership', () => {
     localStorage.clear();
   });
 
-  it('通过 Game 入口进入 Contacts 后立即拥有独立三栏', () => {
+  it('通过区域导航动作进入 Contacts 后立即拥有独立三栏', () => {
     controller.render();
-    root.querySelector<HTMLButtonElement>('[data-tab="left:contacts"]')!.click();
+    expect(root.querySelector('[data-tab]')).toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-workspace-navigation="contacts"]')!.click();
 
     expect(root.querySelector('[data-workspace-frame="contacts"]')).not.toBeNull();
     expect(root.querySelector('[data-workspace-frame="game"]')).toBeNull();

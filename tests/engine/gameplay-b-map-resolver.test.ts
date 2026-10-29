@@ -25,12 +25,18 @@ describe('Gameplay B Map content resolver', () => {
 
     const resolver = createRegistryMapContentResolver(loadGameplayBRegistry());
     expect(resolver.resolve(mapId)).toEqual(declaredMap);
-    expect(declaredMap?.nodes.map(node => node.id)).toEqual(['a', 'b', 'c']);
+    expect(declaredMap?.nodes.map(node => node.id)).toEqual(['a', 'b', 'c', 'archive']);
     expect(declaredMap?.edges).toEqual([
       { fromNodeId: 'a', toNodeId: 'b' },
       { fromNodeId: 'b', toNodeId: 'c' },
+      { fromNodeId: 'b', toNodeId: 'archive', condition: { kind: 'teamResourceAtLeast', resourceId: 'clues', amount: 3 } },
+      { fromNodeId: 'archive', toNodeId: 'c' },
     ]);
-    expect(declaredMap?.nodes[1].encounter?.completion).toEqual({ kind: 'manual', label: '完成调查' });
+    expect(declaredMap?.nodes[1].encounter?.completion).toEqual({
+      kind: 'condition',
+      label: '记录 3 条现场线索',
+      condition: { kind: 'counter', counterId: 'site-clues', comparison: 'gte', value: 3 },
+    });
   });
 
   test('returns null for an unknown Map ID without falling back to Operation content', () => {

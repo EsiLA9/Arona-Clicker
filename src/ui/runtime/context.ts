@@ -36,6 +36,8 @@ export interface MapFlowReader {
 }
 
 export interface UIContext {
+  /** Optional render collector; owns UI instances, never game state. */
+  workspaceColumns?: (spec: import('../components/shared/workspace-frame').WorkspaceFrameSpec) => void;
   game: GameReadModel;
   world: GameReadModel['world'];
   view: GameView;

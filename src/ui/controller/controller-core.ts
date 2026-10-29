@@ -49,7 +49,7 @@ export function computeRevealFingerprint(ctrl: UIController): string {
  * 重算揭示指纹，与上次不同才重建 UI（无需玩家交互）。
  */
 export function refreshRevealIfChanged(ctrl: UIController): void {
-  if (ctrl.areaMaps.refresh()) return;
+  ctrl.areaMaps.refresh();
   if (!ctrl.started) return;
   if (ctrl.isContentRefreshBatchActive()) return;
   const now = Date.now();
@@ -64,16 +64,15 @@ export function refreshRevealIfChanged(ctrl: UIController): void {
         'centerPanel.shop.catalog',
         'rightPanel.shop.settlement',
       ], 'reveal-changed');
-      return;
     }
     // 左侧区域导航、右侧设施/强化卡片在集合未变化时只替换单元素，
     // 这样其它卡片的 hover / tooltip 不会因揭示状态更新而被打断。
-    if (!ctrl.refreshCurrentAreaNav('reveal-changed')) ctrl.refreshPanels(['left']);
-    if (ctrl.panelState.rightTab === 'spot') {
-      if (!ctrl.refreshCurrentSpotCards('reveal-changed')) ctrl.refreshPanels(['right']);
-    } else if (ctrl.panelState.rightTab === 'enh') {
-      if (!ctrl.refreshCurrentEnhancementCards('reveal-changed')) ctrl.refreshPanels(['right']);
-    }
+    const gameRoute = ctrl.panelState.service === 'game' && !ctrl.panelState.workspace
+      && (ctrl.panelState.workspaceNavigation?.current.kind ?? 'game') === 'game';
+    if (!ctrl.refreshCurrentAreaNav('reveal-changed') && gameRoute) ctrl.refreshPanels(['left']);
+    const facilitiesUpdated = ctrl.refreshCurrentSpotCards('reveal-changed');
+    const enhancementsUpdated = ctrl.refreshCurrentEnhancementCards('reveal-changed');
+    if (!facilitiesUpdated && !enhancementsUpdated && gameRoute) ctrl.refreshPanels(['right']);
   }
 }
 

@@ -1,4 +1,6 @@
 import type { GameCommands } from '../contracts/index';
+import type { StoryDef } from '../../data-services/contracts/story';
+import type { StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
 import type { VariantTrainingPort } from '../contracts/character/variant-training';
 import type { MapRunCardRef } from '../contracts/map/map-cards';
 import type { StoryService } from '../services/story/story-service';
@@ -29,6 +31,7 @@ import type {
 } from '../contracts/map/map-run';
 
 export interface GameCommandSource {
+  saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   readonly variantTraining: VariantTrainingPort;
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   readonly state: Readonly<PlayerState>;
@@ -90,6 +93,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
   const highestLogId = (entries: readonly DevLogEntry[]) => entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0);
 
   return {
+    saveStoryDefinition: story => game.saveStoryDefinition(story),
     variantTraining: game.variantTraining,
     enterVariantTraining: (spotId, functionalityId) => game.enterVariantTraining(spotId, functionalityId),
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),
@@ -100,9 +104,9 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     clearDevLogs: () => game.clearDevLogs(),
     save: () => game.save(),
     load: saveData => game.load(saveData),
-    startActiveStory: (storyId, owner) => game.story.startActiveStory(storyId, owner),
+    startActiveStory: (storyId, owner, initialFlags) => game.story.startActiveStory(storyId, owner, initialFlags),
     acceptAreaStoryDelivery: (storyEntryId, areaId) => game.story.acceptAreaStoryDelivery(storyEntryId, areaId),
-    startCardStory: (storyId, owner) => game.story.startCardStory(storyId, owner),
+    startCardStory: (storyId, owner, initialFlags) => game.story.startCardStory(storyId, owner, initialFlags),
     replayStory: (storyId, owner) => game.story.replayStory(storyId, owner),
     triggerPassiveStory: (initId, owner) => game.story.triggerPassiveStory(initId, owner),
     triggerAffectionPush: owner => game.story.triggerAffectionPush(owner),

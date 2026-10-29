@@ -29,7 +29,7 @@ export class RegistryError extends Error {
 
 /**
  * 三段式 id 校验：formatOnly = true 时只查格式，否则同时校验 typeName 已登记。
- * 当前规则与数据契约见 docs/docs-829/03-data-structures/datapack-contracts.md。
+ * 当前规则与数据契约见 docs/docs-830/02-data-and-state/datapack-and-registry.md。
  */
 const checkEntityIds = (
   items: { id: string }[] | undefined,

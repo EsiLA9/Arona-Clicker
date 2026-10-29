@@ -10,6 +10,7 @@ import {
 } from '../../src/arona-clicker/contracts/operation/operation-beat';
 import { Character } from '../../src/arona-clicker/types/ids';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { wireGameInstance } from '../../src/arona-clicker/runtime/runtime-wiring';
 import { OperationRuntimeError } from '../../src/arona-clicker/services/operation/operation-runtime-service';
 import { baseDatapack } from '../../src/data/test-datapack';
 
@@ -552,11 +553,21 @@ describe('Gameplay B Operation entry integration', () => {
     expect(game.operationEntry.getSnapshot()).toBeNull();
   });
 
-  test('custom no-op Wiring receives a closed entry facade, never the owner', () => {
-    const game = new GameInstance({ wiring: () => undefined, operationContentResolver: resolverOf() });
+  test('custom Wiring reaches the closed entry facade and never exposes the Operation owner', () => {
+    // A custom wiring must install the base runtime itself, so it delegates and only counts the call.
+    let wired = false;
+    const game = new GameInstance({
+      wiring: (instance, hooks, options) => {
+        wired = true;
+        wireGameInstance(instance, hooks, options);
+      },
+      operationContentResolver: resolverOf(),
+    });
 
+    expect(wired).toBe(true);
     expect(game.operationEntry.getSnapshot()).toBeNull();
-    expect(() => game.operationEntry.start(EVENT_ID, [Character.Hoshino])).toThrow(/services are not wired/);
+    // The facade is created by the instance; the mutable Operation owner stays private.
     expect('operationRuntime' in game).toBe(false);
+    expect(Object.keys(game)).not.toContain('operationRuntimeOwner');
   });
 });

@@ -41,6 +41,8 @@ export interface StoryGateState {
 }
 
 export interface PanelState {
+  /** Independent authoring drafts; never included in PlayerState / SaveData. */
+  storyEditor?: import('../../story-editor/model').StoryEditorState;
   /** UI-only navigation session; never included in PlayerState or save data. */
   areaMapSession?: import('../../workspace/area-map-session').AreaMapSession;
   /** 当前顶层服务工作区；game = 正常游玩三栏。 */

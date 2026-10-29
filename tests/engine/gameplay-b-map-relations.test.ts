@@ -4,6 +4,7 @@ import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b
 import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameplayMapActionTargetDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import { projectMapRelations } from '../../src/arona-clicker/services/map/map-relation-projector';
+import { withoutDanglingEncounters } from './gameplay-b-map-test-fixtures';
 
 describe('Map preparation relation projection', () => {
   const games: GameInstance[] = [];
@@ -53,23 +54,25 @@ describe('Map preparation relation projection', () => {
         },
       }),
     };
+    // Replacing `actions` leaves the sample Map's other Encounters citing removed Actions.
+    const registered = withoutDanglingEncounters(map);
     const game = new GameInstance();
     games.push(game);
-    game.init([baseDatapack, { ...datapackFor(map), items: [{
+    game.init([baseDatapack, { ...datapackFor(registered), items: [{
       id: 'gameplay-b:item:relation-kit', name: 'Kit', description: 'Kit', maxStack: 3, rarity: 'common', type: 'consumable',
     }] }], { enterDefaultInit: false });
-    for (const characterId of map.partyCharacterIds) {
+    for (const characterId of registered.partyCharacterIds) {
       const variant = game.rosterSystem.getAllVariants().find(row => row.proto === characterId)!;
       game.mutations.acquireCharacter(variant.id, 'story');
     }
-    const started = game.startMap(map.id);
+    const started = game.startMap(registered.id);
     game.moveMap(started.runId, 'b');
     const view = () => {
       const current = game.mapRun.getWorkspaceView(started.runId);
       if (current?.kind !== 'active' || !current.actionPreview) throw new Error('No active view');
       return current;
     };
-    return { game, map, view, relations: () => projectMapRelations(view(), map) };
+    return { game, map: registered, view, relations: () => projectMapRelations(view(), registered) };
   }
   afterEach(() => { for (const game of games.splice(0)) game.dispose(); });
 

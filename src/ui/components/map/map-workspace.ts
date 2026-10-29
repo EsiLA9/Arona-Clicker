@@ -14,7 +14,7 @@ import type {
 } from '../../../arona-clicker/contracts/map/map-run';
 import type { UIContext } from '../../runtime/context';
 import { renderPanelHeaderRegion } from '../shared/tabs';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderFlowEntries } from '../../flow/flow-render';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE, type FlowEntry, type FlowMapLocations } from '../../flow/flow-entry';
 import { MapFlowModel, mapCardEffectModifierPreviewLabel } from '../../flow/map-flow-model';
@@ -194,30 +194,37 @@ function titleContent(ctx: UIContext, title: string, subtitle?: string): string 
   </div>`;
 }
 
+export function createMapWorkspaceFrame(
+  ctx: UIContext,
+  headers: { left: string; center: string; right: string },
+  content: { left: string; center: string; right: string },
+): WorkspaceFrameSpec {
+  return { updates: 'external', id: 'map',
+    layout: { composition: 'columns', responsive: 'default' },
+    columns: [{ key: 'party', width: 'var(--workspace-left-width)',
+        slot: 'left', role: 'party', workspaceOwner: 'map', hostId: 'leftPanel.map.party',
+        themeScope: 'left.map.party', surface: 'panel', header: renderPanelHeaderRegion(ctx, 'left', headers.left),
+        content: content.left, scroll: 'none',
+      },
+      { key: 'information-flow', width: 'var(--workspace-center-width)',
+        slot: 'center', role: 'information-flow', workspaceOwner: 'map', hostId: 'centerPanel.map.flow',
+        themeScope: 'center.map.flow', surface: 'panel', header: headers.center ? renderPanelHeaderRegion(ctx, 'center', headers.center) : '',
+        content: content.center, scroll: 'none',
+      },
+      { key: 'opponents-background', width: 'var(--workspace-right-width)',
+        slot: 'right', role: 'opponents-background', workspaceOwner: 'map', hostId: 'rightPanel.map.context',
+        themeScope: 'right.map.context', surface: 'panel', header: renderPanelHeaderRegion(ctx, 'right', headers.right),
+        content: content.right, scroll: 'none',
+      }]
+  };
+}
+
 function workspaceFrame(
   ctx: UIContext,
   headers: { left: string; center: string; right: string },
   content: { left: string; center: string; right: string },
 ): string {
-  return renderWorkspaceFrame(ctx, {
-    id: 'map',
-    layout: { composition: 'columns', responsive: 'default' },
-    left: {
-      slot: 'left', role: 'party', workspaceOwner: 'map', hostId: 'leftPanel.map.party',
-      themeScope: 'left.map.party', surface: 'panel', header: renderPanelHeaderRegion(ctx, 'left', headers.left),
-      content: content.left, scroll: 'none',
-    },
-    center: {
-      slot: 'center', role: 'information-flow', workspaceOwner: 'map', hostId: 'centerPanel.map.flow',
-      themeScope: 'center.map.flow', surface: 'panel', header: headers.center ? renderPanelHeaderRegion(ctx, 'center', headers.center) : '',
-      content: content.center, scroll: 'none',
-    },
-    right: {
-      slot: 'right', role: 'opponents-background', workspaceOwner: 'map', hostId: 'rightPanel.map.context',
-      themeScope: 'right.map.context', surface: 'panel', header: renderPanelHeaderRegion(ctx, 'right', headers.right),
-      content: content.right, scroll: 'none',
-    },
-  });
+  return renderWorkspaceFrame(ctx, createMapWorkspaceFrame(ctx, headers, content));
 }
 
 function draftAttributes(ctx: UIContext, runId: string, draft: MapRunEncounterDraftToken): string {
@@ -1157,7 +1164,7 @@ function renderActiveCenter(ctx: UIContext, runId: string, view: MapRunActiveWor
       <div class="map-workspace__hero-actions" role="group" aria-label="当前地图操作">
         <button type="button" class="mini-action map-workspace__hero-action" data-map-show-map data-map-run-id="${safeRunId}" aria-label="查看地图地点">地图</button>
         <button type="button" class="mini-action map-workspace__hero-action" data-map-restart="${safeRunId}" data-map-run-id="${safeRunId}" data-map-focus-key="map-restart" aria-label="重新开始整张地图">重新游戏</button>
-        <button type="button" class="mini-action map-workspace__hero-action map-workspace__hero-action--danger" data-map-abandon="${safeRunId}" data-map-run-id="${safeRunId}" data-map-focus-key="map-abandon" aria-label="放弃当前整张地图游戏">放弃游戏</button>
+        <button type="button" class="mini-action mini-action--danger map-workspace__hero-action" data-map-abandon="${safeRunId}" data-map-run-id="${safeRunId}" data-map-focus-key="map-abandon" aria-label="放弃当前整张地图游戏">放弃游戏</button>
       </div>
     </div>
   </section>`;

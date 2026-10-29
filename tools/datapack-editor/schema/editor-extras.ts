@@ -733,7 +733,8 @@ const storiesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
-    a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '节点（四类原语）', { required: true }),
+    a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '节点（四类原语）', { required: true,
+      description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Operation/结果动作支持 kind:localFlag、op:set/remove、name；set 另带 JSON value。建议名称 StoryName-flagid，不强制。' }),
     {
       key: 'stages',
       label: '呈现阶段模式',

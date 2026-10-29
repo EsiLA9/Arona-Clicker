@@ -1,7 +1,7 @@
 import type { UIContext } from '../../runtime/context';
 import type { PanelState } from '../shared/app-shell';
-import { renderLeftPanel } from '../shared/rail';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { createAreaNavigationColumn } from '../../columns';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 import { resolveEntityPresentation } from '../presentation/entity-presentation';
 
@@ -9,7 +9,7 @@ function placeholder(ctx: UIContext, areaName: string, detail: string): string {
   return `<div class="workspace-placeholder"><h2>${ctx.escapeHtml(areaName)}</h2><p>${ctx.escapeHtml(detail)}</p></div>`;
 }
 
-export function renderAreaWorkspace(ctx: UIContext, areaId: string, state: PanelState): string {
+export function createAreaWorkspaceFrame(ctx: UIContext, areaId: string, state: PanelState): WorkspaceFrameSpec {
   const area = ctx.game.world.areas.get(areaId);
   const presentation = area ? resolveEntityPresentation(ctx, 'area', area.id) : undefined;
   const areaName = presentation?.name ?? area?.name ?? '未知区域';
@@ -27,48 +27,41 @@ export function renderAreaWorkspace(ctx: UIContext, areaId: string, state: Panel
       </section>`
     : '<p class="area-workspace__empty" role="status">这个区域目前没有待接取的故事。</p>';
 
-  const left = renderLeftPanel(ctx, state);
-  const center = renderWorkspaceTitlebar(ctx, 'center', '区域概览', 'data-area-workspace-leave')
-    + `<div class="area-workspace__center-content" data-scroll-owner="content-region">
+  const center = `<div class="area-workspace__center-content" data-scroll-owner="content-region">
         <section class="area-workspace__overview"><h2>${ctx.escapeHtml(areaName)}</h2>${areaDescription ? `<p>${ctx.escapeHtml(areaDescription)}</p>` : ''}</section>
         ${storyList}
       </div>`;
-  const right = renderWorkspaceTitlebar(ctx, 'right', '区域详情')
-    + placeholder(ctx, areaName, '区域详情将在此逐步设计。');
+  const right = placeholder(ctx, areaName, '区域详情将在此逐步设计。');
 
-  return renderWorkspaceFrame(ctx, {
-    id: 'area',
-    left: {
-      slot: 'left',
-      role: 'navigation',
-      workspaceOwner: 'area',
-      hostId: 'leftPanel.area.navigation',
-      themeScope: 'left.game',
-      className: 'area-workspace__left',
-      content: left,
-      scroll: 'none',
-    },
-    center: {
-      slot: 'center',
-      role: 'primary',
-      workspaceOwner: 'area',
-      hostId: 'centerPanel.area.main',
-      themeScope: 'center.game',
-      surface: 'panel',
-      className: 'area-workspace__center',
-      content: center,
-      scroll: 'content',
-    },
-    right: {
-      slot: 'right',
-      role: 'inspector',
-      workspaceOwner: 'area',
-      hostId: 'rightPanel.area.inspector',
-      themeScope: 'right.game',
-      surface: 'panel',
-      className: 'area-workspace__right',
-      content: right,
-      scroll: 'content',
-    },
-  });
+  return { id: 'area',
+    columns: [{ ...createAreaNavigationColumn(ctx, state, { key: 'navigation', workspaceOwner: 'area', appearance: { hostId: 'leftPanel.area', themeScope: 'left.area', className: 'left-panel ui-cluster--left-panel area-workspace__left' } }), width: 'var(--workspace-left-width)', slot: 'left', role: 'navigation', workspaceOwner: 'area' },
+      { key: 'primary', width: 'var(--workspace-center-width)',
+        slot: 'center',
+        role: 'primary',
+        workspaceOwner: 'area',
+        hostId: 'centerPanel.area.main',
+        themeScope: 'center.game',
+        surface: 'panel',
+        className: 'area-workspace__center',
+        header: renderWorkspaceTitlebar(ctx, 'center', '区域概览', 'data-area-workspace-leave'),
+        content: center,
+        scroll: 'content',
+      },
+      { key: 'inspector', width: 'var(--workspace-right-width)',
+        slot: 'right',
+        role: 'inspector',
+        workspaceOwner: 'area',
+        hostId: 'rightPanel.area.inspector',
+        themeScope: 'right.game',
+        surface: 'panel',
+        className: 'area-workspace__right',
+        header: renderWorkspaceTitlebar(ctx, 'right', '区域详情'),
+        content: right,
+        scroll: 'content',
+      }]
+  };
+}
+
+export function renderAreaWorkspace(ctx: UIContext, areaId: string, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createAreaWorkspaceFrame(ctx, areaId, state));
 }

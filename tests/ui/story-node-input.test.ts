@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { renderCurrentStory } from '../../src/ui/components/story/story';
-import { renderSendButton } from '../../src/ui/components/shared/center-panel';
+import { renderSendButton } from '../../src/ui/columns/chat-content';
 import type { UIContext } from '../../src/ui/runtime/context';
 import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 

@@ -10,6 +10,14 @@ function workspaceHosts(serviceId: string, label: string): UIServiceDefinition['
 
 export const UI_SERVICE_DEFINITIONS: readonly UIServiceDefinition[] = [
   {
+    id: 'story-editor', label: 'Story 编辑器',
+    hosts: [
+      { id: 'leftPanel.story-editor-list', label: 'Story 编辑器 · 列表', level: 'region', parent: 'leftPanel', kind: 'container', workspaceOwner: 'story-editor' },
+      { id: 'centerPanel.story-editor-flow', label: 'Story 编辑器 · 节点流', level: 'region', parent: 'centerPanel', kind: 'container', workspaceOwner: 'story-editor' },
+      { id: 'rightPanel.story-editor-inspector', label: 'Story 编辑器 · 属性', level: 'region', parent: 'rightPanel', kind: 'container', workspaceOwner: 'story-editor' },
+    ],
+  },
+  {
     id: 'settings',
     label: '设置服务',
     hosts: workspaceHosts('settings', '设置服务'),

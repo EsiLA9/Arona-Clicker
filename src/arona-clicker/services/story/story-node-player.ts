@@ -1,6 +1,8 @@
 import type { StoryAction, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
 import type { StoryClickNode, StoryContent, StoryNodeDocument, StoryNodeResult, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import { validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
+import { isStoryLocalFlagAction, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
+import type { StoryFlagValue, StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import type { StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
 import type {
   StoryNodeCommandResult, StoryNodeDocuments, StoryNodePlaybackEvent, StoryNodePlaybackHost,
@@ -13,6 +15,7 @@ type Pending = { token: string } & (
 );
 interface Run {
   readonly source: StoryNodeSource;
+  readonly localFlags: Map<string, StoryFlagValue>;
   storyId: string;
   index: number;
   terminalStoryId: string;
@@ -38,13 +41,15 @@ export class StoryNodePlayer {
     this.documents = new Map([...documents].map(([id, document]) => [id, structuredClone(document)]));
   }
 
-  start(storyId: string, source: { entryId: string; owner: string | null; runId?: string; historyId?: string }): StoryNodeCommandResult {
+  start(storyId: string, source: { entryId: string; owner: string | null; runId?: string; historyId?: string }, initialFlags: StoryRunFlags = {}): StoryNodeCommandResult {
     return this.command(events => {
       if (this.run) return 'AlreadyActive';
+      if (!isStoryRunFlags(initialFlags)) return 'InvalidLocalFlags';
       this.document(storyId);
       this.run = {
         source: { ...source, rootStoryId: storyId }, storyId, terminalStoryId: storyId, index: 0,
         transfers: 0, waitSequence: 0, visited: new Set([storyId]), stack: [],
+        localFlags: new Map(Object.entries(structuredClone(initialFlags))),
       };
       this.terminal = { status: 'running' };
       this.drain(this.run, events);
@@ -57,6 +62,9 @@ export class StoryNodePlayer {
     return structuredClone(this.view());
   }
 
+  /** Read-only presence check for display hints; values stay inside the run. */
+  hasLocalFlag(name: string): boolean { return this.run?.localFlags.has(name) ?? false; }
+
   /** 仅在等待边界保存，避免同步Effect回调保存半个动作后读档重放。 */
   save(): StoryNodeSnapshot {
     if (this.busy) throw new Error('Busy');
@@ -65,6 +73,7 @@ export class StoryNodePlayer {
     if (!run.pending) throw new Error('NotAtCheckpoint');
     return structuredClone({ format: 'story-nodes', run: {
       source: run.source, storyId: run.storyId, nodeId: run.pending.node.id,
+      localFlags: Object.fromEntries(run.localFlags),
       terminalStoryId: run.terminalStoryId, transfers: run.transfers, waitSequence: run.waitSequence, visited: [...run.visited],
       stack: run.stack.map(frame => ({ storyId: frame.storyId,
         nextNodeId: this.document(frame.storyId).nodes[frame.index]?.id ?? null })),
@@ -77,6 +86,7 @@ export class StoryNodePlayer {
     if (this.busy) throw new Error('Busy');
     const bad = (): never => { throw new Error('InvalidSnapshot'); };
     if (snapshot?.format !== 'story-nodes') bad();
+    if (snapshot.run !== null && (!snapshot.run || !isStoryRunFlags(snapshot.run.localFlags))) bad();
     const saved = structuredClone(snapshot.run);
     if (saved === null) { this.cancel(); return; }
     if (!saved || !saved.source || typeof saved.source.entryId !== 'string' || !saved.source.entryId.trim()
@@ -84,7 +94,7 @@ export class StoryNodePlayer {
       || !Number.isSafeInteger(saved.transfers) || saved.transfers < 0 || saved.transfers > 32
       || !Number.isSafeInteger(saved.waitSequence) || saved.waitSequence < 1
       || !Array.isArray(saved.visited) || saved.visited.length > 33 || !Array.isArray(saved.stack)
-      || saved.stack.length > saved.transfers || !saved.pending) bad();
+      || saved.stack.length > saved.transfers || !saved.pending || !isStoryRunFlags(saved.localFlags)) bad();
     const visited = new Set(saved.visited);
     if (visited.size !== saved.visited.length || !visited.has(saved.source.rootStoryId)
       || !visited.has(saved.storyId) || !visited.has(saved.terminalStoryId)) bad();
@@ -112,7 +122,8 @@ export class StoryNodePlayer {
       ? { kind: 'delivery', token: this.token(), node }
       : { kind: 'input', token: this.token(), node, ...(press ? { press } : {}) };
     this.run = { source: saved.source, storyId: saved.storyId, index, terminalStoryId: saved.terminalStoryId,
-      transfers: saved.transfers, waitSequence: saved.waitSequence, visited, stack, pending };
+      transfers: saved.transfers, waitSequence: saved.waitSequence, visited, stack, pending,
+      localFlags: new Map(Object.entries(saved.localFlags)) };
     this.terminal = { status: 'running' };
   }
 
@@ -173,7 +184,7 @@ export class StoryNodePlayer {
         catch (error) { return this.errorText(error); }
       }
       for (const action of actions) {
-        const error = this.host.preflight(action, run.source);
+        const error = this.preflight(action, run.source);
         if (error) return error;
         if (this.run !== run) return 'Cancelled';
       }
@@ -193,6 +204,10 @@ export class StoryNodePlayer {
   }
 
   private token(): string { return `player-${this.playerId}:${++this.ticket}`; }
+  private preflight(action: StoryAction, source: StoryNodeSource): string | undefined {
+    return action.kind === 'localFlag' ? isStoryLocalFlagAction(action) ? undefined : 'InvalidLocalFlagAction'
+      : this.host.preflight(action, source);
+  }
   private errorText(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
   private command(work: (events: StoryNodePlaybackEvent[]) => string | void): StoryNodeCommandResult {
@@ -257,6 +272,12 @@ export class StoryNodePlayer {
   private apply(run: Run, actions: readonly StoryAction[]): 'applied' | 'replaced' | 'cancelled' {
     for (const action of actions) {
       if (this.run !== run) return 'cancelled';
+      if (action.kind === 'localFlag') {
+        if (!isStoryLocalFlagAction(action)) throw new Error('InvalidLocalFlagAction');
+        if (action.op === 'set') run.localFlags.set(action.name, structuredClone(action.value));
+        else run.localFlags.delete(action.name);
+        continue;
+      }
       const result = this.host.execute(action, run.source);
       if (this.run !== run) return 'cancelled';
       if (result.status === 'rejected') throw new Error(result.error);
@@ -285,6 +306,7 @@ export class StoryNodePlayer {
       if (remaining-- <= 0) throw new Error('AutoStepLimitExceeded');
       const node = document.nodes[run.index];
       run.terminalStoryId = run.storyId;
+      if (node.requiresFlag !== undefined && !run.localFlags.has(node.requiresFlag)) { run.index += 1; continue; }
       if (node.type === 'talklet' || node.type === 'click') {
         run.waitSequence += 1;
         if (node.type === 'talklet') run.pending = { kind: 'delivery', token: this.token(), node };
@@ -303,7 +325,7 @@ export class StoryNodePlayer {
       }
       if (node.type === 'transfer') this.transfer(run, node.transfer);
       else {
-        const error = this.host.preflight(node.action, run.source);
+        const error = this.preflight(node.action, run.source);
         if (error) throw new Error(error);
         if (this.run !== run) return;
         const disposition = this.apply(run, [node.action]);

@@ -4,6 +4,7 @@ export * from './extra';
 export * from './affector';
 export * from './evaluation-context';
 export type { StoryCursorSnapshot } from './story-cursor';
+export type { StoryFlagValue, StoryRunFlags } from './story-run-flags';
 export type { StoryEffectPort } from './story-effect';
 export type { ProductionResult, TickResult } from './tick';
 export type { ColorEquipmentUnlockPort } from './color-unlock';

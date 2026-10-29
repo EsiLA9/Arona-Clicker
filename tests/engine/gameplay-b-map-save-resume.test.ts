@@ -8,6 +8,8 @@ import { defaultDatapack } from '../../src/arona-clicker/content/default-datapac
 import { MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import { Character } from '../../src/arona-clicker/types/ids';
 import type { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import type { Datapack } from '../../src/data-services/contracts/datapack';
+import { withManualEncounterCompletion, withMap } from './gameplay-b-map-test-fixtures';
 
 const STUDENTS = [Character.Hoshino, Character.Serika, Character.Shiroko] as const;
 const VARIANTS: Record<typeof STUDENTS[number], string> = {
@@ -16,6 +18,12 @@ const VARIANTS: Record<typeof STUDENTS[number], string> = {
   [Character.Shiroko]: 'Shiroko',
 };
 const DATAPACKS = [defaultDatapack, gameplayBMapDatapack];
+/**
+ * The sample Encounter completes through a counter condition now. Round-trip tests complete it on
+ * demand, so they load the same Map with a manual completion instead of replaying Clue Actions.
+ */
+const MANUAL_MAP = withManualEncounterCompletion(gameplayBMapDatapack.maps![0]!);
+const MANUAL_DATAPACKS = [defaultDatapack, withMap(gameplayBMapDatapack, MANUAL_MAP)];
 const MAP_PARTY = [
   { characterId: Character.Shiroko, variantId: VARIANTS[Character.Shiroko] },
   { characterId: Character.Serika, variantId: VARIANTS[Character.Serika] },
@@ -30,9 +38,9 @@ function resolveVariantCharacterId(variantId: string): string | null {
 describe('Gameplay B MapRun Save/Resume', () => {
   const games: GameInstance[] = [];
 
-  function createGame(): GameInstance {
+  function createGame(datapacks: Datapack[] = DATAPACKS): GameInstance {
     const game = createAppRuntime();
-    game.init(DATAPACKS, { enterDefaultInit: true });
+    game.init(datapacks, { enterDefaultInit: true });
     games.push(game);
     expect(game.state.activeInit).toBe(DEFAULT_INIT_ID);
     for (const student of STUDENTS) game.mutations.acquireCharacter(VARIANTS[student], 'story');
@@ -156,10 +164,8 @@ describe('Gameplay B MapRun Save/Resume', () => {
   });
 
   test('round-trips an in-progress MapRun and active Encounter without replaying entry', () => {
-    const source = createGame();
-    const map = gameplayBMapDatapack.maps?.[0];
-    expect(map).toBeDefined();
-    if (!map) throw new Error('Gameplay B sample Map is missing');
+    const source = createGame(MANUAL_DATAPACKS);
+    const map = MANUAL_MAP;
 
     const started = source.startMap(map.id);
     const encounterEdge = map.edges.find(edge => edge.fromNodeId === started.currentNodeId
@@ -169,7 +175,10 @@ describe('Gameplay B MapRun Save/Resume', () => {
     const active = source.moveMap(started.runId, encounterEdge.toNodeId);
     const save = source.save();
 
-    expect(save.mapRun).toMatchObject({ mapId: map.id, resumeVersion: map.resumeVersion, run: active });
+    // The save envelope is serialized JSON: keys whose value is `undefined` disappear.
+    expect(save.mapRun).toMatchObject({
+      mapId: map.id, resumeVersion: map.resumeVersion, run: JSON.parse(JSON.stringify(active)),
+    });
     expect(save.mapRun?.run.runId).toBe(started.runId);
     expect(save.mapRun?.run).not.toHaveProperty('partyAgility');
     expect(save.mapRun?.run.visitedNodeIds).toEqual([started.currentNodeId, encounterEdge.toNodeId]);
@@ -186,10 +195,9 @@ describe('Gameplay B MapRun Save/Resume', () => {
     expect(save.mapRun?.run.activeEncounter).not.toHaveProperty('enemyAgility');
     expect(Object.keys(save.mapRun!.run)).not.toContain('activeEncounterNodeId');
     expect(JSON.parse(JSON.stringify(save.mapRun!.run))).not.toHaveProperty('activeEncounterNodeId');
+    // The sample Map declares Stamina only; no other Actor resource is materialized for this Run.
     expect(save.mapRun?.run.actorResources).toEqual([
-      { characterId: Character.Shiroko, resourceId: 'focus', value: 0 },
       { characterId: Character.Shiroko, resourceId: 'stamina', value: 2 },
-      { characterId: Character.Serika, resourceId: 'focus', value: 0 },
       { characterId: Character.Serika, resourceId: 'stamina', value: 2 },
     ]);
     expect(save.mapRun?.run.teamResources).toEqual([
@@ -198,7 +206,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
     ]);
     expect(save.mapRun?.run.completedEncounterNodeIds).toEqual([]);
 
-    const resumed = createGame();
+    const resumed = createGame(MANUAL_DATAPACKS);
     resumed.load(save);
     expect(resumed.mapRun.getSnapshot()).toEqual(active);
     expect(resumed.mapRun.getCurrentEncounter()).toEqual(source.mapRun.getCurrentEncounter());
@@ -401,10 +409,8 @@ describe('Gameplay B MapRun Save/Resume', () => {
   });
 
   test('round-trips completed Encounter progress with no active Encounter', () => {
-    const source = createGame();
-    const map = gameplayBMapDatapack.maps?.[0];
-    expect(map).toBeDefined();
-    if (!map) throw new Error('Gameplay B sample Map is missing');
+    const source = createGame(MANUAL_DATAPACKS);
+    const map = MANUAL_MAP;
 
     const started = source.startMap(map.id);
     const encounterEdge = map.edges.find(edge => edge.fromNodeId === started.currentNodeId
@@ -420,7 +426,7 @@ describe('Gameplay B MapRun Save/Resume', () => {
     expect(save.mapRun?.run.completedEncounterNodeIds).toEqual([encounterEdge.toNodeId]);
     expect(active.runId).toBe(completed.runId);
 
-    const resumed = createGame();
+    const resumed = createGame(MANUAL_DATAPACKS);
     resumed.load(save);
     expect(resumed.mapRun.getSnapshot()).toEqual(completed);
     expect(resumed.mapRun.getCurrentEncounter()).toBeNull();

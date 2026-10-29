@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T04:04:25.448Z",
+  "generatedAt": "2026-10-28T15:45:09.962Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -24287,8 +24287,10 @@
     "StoryEntryReaction",
     "StoryEntryRequest",
     "StoryEphemeralThemeSnapshot",
+    "StoryFlagValue",
     "StoryFollowUp",
     "StoryId",
+    "StoryLocalFlagAction",
     "StoryNarrationContent",
     "StoryNode",
     "StoryNodeBase",
@@ -24308,6 +24310,7 @@
     "StoryPresentationOverlaySnapshot",
     "StoryPresentationSnapshot",
     "StoryRunEndReason",
+    "StoryRunFlags",
     "StoryStageAdvance",
     "StoryStageDeclaration",
     "StoryStageId",

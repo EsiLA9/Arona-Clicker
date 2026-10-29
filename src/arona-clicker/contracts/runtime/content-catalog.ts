@@ -9,6 +9,8 @@ import type { GachaPoolDef } from '../../../data-services/contracts/gacha-pool';
 import type { ColorEquipmentDef, ColorGroupDef } from '../../../data-services/contracts/color';
 import type { TagPath } from '../../../engine/core/tag';
 import type { ShopDef } from '../../../data-services/contracts/shop';
+import type { CharacterVariantDef } from '../../../data-services/contracts/character-variant';
+import type { PicDef } from '../../../data-services/contracts/pic';
 import type { OperationEventContentDef, StudentOperationProfileDef } from '../../../data-services/contracts/operation';
 
 export interface CharacterCatalogEntry {
@@ -28,6 +30,8 @@ export interface ContentCatalogQueryPort {
   readonly passivePools: ReadonlyMap<string, PassivePoolDef>;
   readonly items: ReadonlyMap<string, ItemDef>;
   readonly characters: ReadonlyMap<string, CharacterCatalogEntry>;
+  readonly characterVariants: ReadonlyMap<string, CharacterVariantDef>;
+  readonly pics: ReadonlyMap<string, PicDef>;
   readonly gachaPools: ReadonlyMap<string, GachaPoolDef>;
   readonly shops: ReadonlyMap<string, ShopDef>;
   readonly operationEvents: ReadonlyMap<string, OperationEventContentDef>;

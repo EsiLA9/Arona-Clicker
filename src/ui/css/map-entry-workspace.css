@@ -1,13 +1,9 @@
-.workspace-frame--map-entry {
-  height: 100%;
-  min-height: 0;
-}
-
-.map-entry-workspace__center,
-.map-entry-workspace__right {
+.map-entry-workspace {
   display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
 .map-entry-workspace__center-body,

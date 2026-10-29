@@ -9,6 +9,8 @@ import type { RollSummary } from '../../services/economy/gacha-service';
 import type { SaveData } from './save-data';
 import type { DevLogEntry } from '../../../engine/core/dev-log';
 import type { ContentCatalogQueryPort } from './content-catalog';
+import type { StoryDef } from '../../../data-services/contracts/story';
+import type { StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import type { AreaMapQueryPort } from '../world/area-map-query';
 import type { RuntimeContentBrowserQueryPort } from '../../../data-services/contracts/runtime-content-browser';
 import type { ValueQueryPort } from './value-query';
@@ -668,7 +670,11 @@ export interface MapRunQuery {
 }
 
 /** UI 控制器最终应依赖的运行时命令集合；迁移期由 Runtime 直接实现。 */
+export type StoryDefinitionSaveResult = { ok: true; storyId: string; operation: 'create' | 'replace' } | { ok: false; message: string };
+
 export interface GameCommands {
+  /** Prototype authoring: affects the current Registry, without a Pack editing gate. */
+  saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   readonly variantTraining: VariantTrainingPort;
   /** Validate the Spot and enter/resume the fixed three-battle translated scenario. */
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
@@ -680,9 +686,9 @@ export interface GameCommands {
   clearDevLogs(): void;
   save(): SaveData;
   load(saveData: SaveData): void;
-  startActiveStory(storyId: string, owner?: string | null): StoryStartResult;
+  startActiveStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult;
   acceptAreaStoryDelivery(storyEntryId: string, areaId: AreaId): StoryStartResult;
-  startCardStory(storyId: string, owner?: string | null): StoryStartResult;
+  startCardStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult;
   replayStory(storyId: string, owner?: string | null): StoryStartResult;
   triggerPassiveStory(initId?: string, owner?: string | null): StoryStartResult;
   triggerAffectionPush(owner: string): StoryStartResult;

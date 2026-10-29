@@ -12,16 +12,18 @@ import { patchCharacterCultivation } from '../components/character/character-cul
 export function refreshCultivation(ctrl: UIController, variantId: string, feedback?: string): void {
   const view = ctrl.game.rosterSystem.cultivationOf(ctrl.game.state, variantId);
   if (!view) return;
-  const host = Array.from(ctrl.root.querySelectorAll<HTMLElement>('[data-character-cultivation]'))
-    .find(element => element.dataset.characterCultivation === variantId);
-  if (!host) {
+  const hosts = Array.from(ctrl.root.querySelectorAll<HTMLElement>('[data-character-cultivation]'))
+    .filter(element => element.dataset.characterCultivation === variantId);
+  if (!hosts.length) {
     // Recover only the inspector if its cultivation region is unexpectedly missing.
     if (feedback !== undefined) ctrl.refreshPanels(['right']);
     return;
   }
-  patchCharacterCultivation(host, view, ctrl.game.rosterSystem.acquiredCountOf(ctrl.game.state, variantId));
-  const status = host.querySelector<HTMLElement>('[data-cultivation-feedback]');
-  if (status && feedback !== undefined) status.textContent = feedback;
+  for (const host of hosts) {
+    patchCharacterCultivation(host, view, ctrl.game.rosterSystem.acquiredCountOf(ctrl.game.state, variantId));
+    const status = host.querySelector<HTMLElement>('[data-cultivation-feedback]');
+    if (status && feedback !== undefined) status.textContent = feedback;
+  }
   ctrl.root.querySelectorAll<HTMLElement>('[data-contact-level]').forEach(element => {
     if (element.dataset.contactLevel === variantId) element.textContent = `Lv.${view.level}`;
   });
@@ -86,7 +88,7 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
       ctrl.panelState.conversationVariantId = null;
       ctrl.panelState.storyGate = null;
       ctrl.scroll.forceToBottom();
-      ctrl.render();
+      ctrl.refreshPanels(['left', 'center']);
       return;
     }
     ctrl.panelState.conversationVariantId = null;
@@ -104,49 +106,49 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-equip-equipment]').forEach(button => {
     button.addEventListener('click', () => {
-      const variantId = ctrl.panelState.selectedVariantId;
+      const variantId = button.closest<HTMLElement>('[data-character-owner]')?.dataset.characterOwner || ctrl.panelState.selectedVariantId;
       if (!variantId) return;
       const r = ctrl.commands.equipEquipment(variantId, button.dataset.equipEquipment!);
       if (!r.ok) ctrl.toast.show(r.reason === 'not-owned' ? '尚未收集该装备' : '无法装备', 'error');
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCharacterColumns(variantId)) ctrl.refreshPanels(['right']);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-unequip-equipment]').forEach(button => {
     button.addEventListener('click', () => {
-      const variantId = ctrl.panelState.selectedVariantId;
+      const variantId = button.closest<HTMLElement>('[data-character-owner]')?.dataset.characterOwner || ctrl.panelState.selectedVariantId;
       if (!variantId) return;
       ctrl.commands.unequipEquipment(variantId);
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCharacterColumns(variantId)) ctrl.refreshPanels(['right']);
     });
   });
   // 装备（Gear）：放入装备 / 升级经验 / 升级 tier（BA 无取下，故无卸下入口）
   scope.querySelectorAll<HTMLButtonElement>('[data-gear-equip]').forEach(button => {
     button.addEventListener('click', () => {
-      const variantId = ctrl.panelState.selectedVariantId;
+      const variantId = button.closest<HTMLElement>('[data-character-owner]')?.dataset.characterOwner || ctrl.panelState.selectedVariantId;
       if (!variantId) return;
       const r = ctrl.commands.equipGear(variantId, Number(button.dataset.gearEquip));
       if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCharacterColumns(variantId)) ctrl.refreshPanels(['right']);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-gear-feed]').forEach(button => {
     button.addEventListener('click', () => {
-      const variantId = ctrl.panelState.selectedVariantId;
+      const variantId = button.closest<HTMLElement>('[data-character-owner]')?.dataset.characterOwner || ctrl.panelState.selectedVariantId;
       const itemId = button.dataset.gearMaterial;
       if (!variantId || !itemId) return;
       const r = ctrl.commands.feedGearExp(variantId, Number(button.dataset.gearFeed), itemId, 1);
       if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCharacterColumns(variantId)) ctrl.refreshPanels(['right']);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-gear-tierup]').forEach(button => {
     button.addEventListener('click', () => {
-      const variantId = ctrl.panelState.selectedVariantId;
+      const variantId = button.closest<HTMLElement>('[data-character-owner]')?.dataset.characterOwner || ctrl.panelState.selectedVariantId;
       if (!variantId) return;
       const r = ctrl.commands.upgradeGearTier(variantId, Number(button.dataset.gearTierup));
       if (!r.ok) ctrl.toast.show(gearReasonText(r.reason), 'error');
       else ctrl.toast.show('装备已升级', 'success');
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCharacterColumns(variantId)) ctrl.refreshPanels(['right']);
     });
   });
   // Gacha 入口

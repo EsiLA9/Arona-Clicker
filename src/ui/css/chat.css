@@ -3,105 +3,12 @@
    （自 styles.css 拆出，区块顺序与原文件一致）
    ============================================================ */
 
-/* Switch tabs */
-.switch-tabs {
-   display: flex;
-   gap: var(--tabs-gap, 6px);
-   min-width: 0;
-   margin: 0;
-   padding: 0;
-}
-
 /* 非 panel 的复用场景保留自己的分隔和正文间距，不把区域语义回灌到通用 TabGroup。 */
 .switch-tabs.coll-switch,
 .switch-tabs[data-gacha-scope-switch] {
    margin-bottom: 14px;
    padding-bottom: 12px;
    border-bottom: 1px solid var(--line);
-}
-
-/* Panel Tabs 的顶部结构区块：背景由区域宿主承载，底线只保留一套。
-   --panel-tabs-control-height 是游戏与商店顶栏控件共用的等高 token；
-   顶栏总高固定为“纵向 padding * 2 + 该 token”，两个工作区因此天然等高。 */
-.panel-tabs-region {
-  display: flex;
-  flex: 0 0 auto;
-  min-width: 0;
-  --panel-tabs-control-height: 30px;
-  padding: var(--tabs-padding-block, 10px) var(--panel-content-padding-inline, 14px);
-  border-bottom: 1px solid var(--theme-node-line);
-}
-
-/* 顶栏内所有控件统一到同一高度，避免一边靠字体行高自然撑开、
-   另一边被写死高度，导致两种工作区顶栏高度漂移。 */
-.panel-tabs-region .switch-tab {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--panel-tabs-control-height);
-}
-
-.panel-tabs-region.ui-cluster--left-tabs-region,
-.panel-tabs-region.ui-cluster--center-tabs-region,
-.panel-tabs-region.ui-cluster--right-tabs-region {
-   background: color-mix(in srgb, var(--theme-node-primary) 10%, var(--theme-node-panel) 90%);
-}
-
-.panel-tabs-region:has(> .presentation-host-background > .presentation-host-decoration) {
-   border-bottom-color: transparent;
-}
-
-.panel-tabs-region > .presentation-host-background > .presentation-host-decoration {
-   inset: auto 0 0;
-   border-width: 0 0 var(--presentation-decoration-width, 1px);
-   border-radius: 0;
-}
-
-.panel-tabs-region > .switch-tabs {
-   flex: 1 1 auto;
-}
-
-.panel-tabs-region > .presentation-host-content {
-   display: flex;
-   flex: 1 1 auto;
-   min-width: 0;
-}
-
-.panel-tabs-region > .presentation-host-content > .switch-tabs {
-   flex: 1 1 auto;
-}
-
-.switch-tabs-content {
-   display: flex;
-   flex-wrap: wrap;
-   gap: 6px;
-   align-items: flex-start;
-   min-width: 0;
-   position: relative;
-   z-index: 1;
-}
-
-.switch-tab {
-   border: 1px solid var(--line);
-   padding: 6px 14px;
-   background: transparent;
-   color: var(--muted-on-panel);
-   font: 500 11px '方正兰亭圆简体_中粗', monospace;
-   letter-spacing: .04em;
-   cursor: pointer;
-   border-radius: 9px;
-}
-
-.switch-tab:hover {
-   border-color: var(--cyan);
-   color: var(--ink-on-panel);
-}
-
-.switch-tab.active:not(.presentation-host-target) {
-   background: var(--cyan);
-   border-color: var(--cyan);
-   color: var(--ink-on-primary);
 }
 
 /* Center chat stream：chat-pane 填满 panel-body（flex:1）而非固定高度，

@@ -97,9 +97,11 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
   if (pageIndex < 0) return null;
   const page = view.status === 'delivery' ? talkletPage(view.node) : clickPage(view.node);
   const nodeIndex = document.nodes.findIndex(candidate => candidate.id === view.node.id);
+  const next = document.nodes[nodeIndex + 1];
   const nextIsInput = view.status === 'delivery'
     && nodeIndex >= 0
-    && document.nodes[nodeIndex + 1]?.type === 'click';
+    && next?.type === 'click'
+    && (next.requiresFlag === undefined || session.player.hasLocalFlag(next.requiresFlag));
   return {
     storyId: session.source.entryId,
     type: session.entry.type,

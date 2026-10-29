@@ -1,6 +1,6 @@
 import type { UIContext } from '../../runtime/context';
 import type { PanelState } from '../shared/app-shell';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 
 type SettingsServiceId = 'saves' | 'datapack' | 'records';
 
@@ -26,19 +26,29 @@ function renderServiceEntry(ctx: UIContext, entry: SettingsServiceEntry): string
     </button>`;
 }
 
+function renderSettingsNavigationHeader(): string {
+  return '<div class="service-column-title"><strong>设置</strong><span class="eyebrow">服务入口</span></div>';
+}
+
 function renderSettingsNavigation(): string {
   return `
-    <div class="service-column-title"><strong>设置</strong><span class="eyebrow">服务入口</span></div>
     <section class="service-card settings-navigation-card">
       <strong>管理工作区</strong>
       <p>从这里进入存档、数据包和记录服务。</p>
     </section>`;
 }
 
-function renderSettingsMain(ctx: UIContext, state: PanelState): string {
+function renderSettingsMainHeader(): string {
   return `
-    <div class="service-heading"><div><span class="eyebrow">SETTINGS WORKSPACE</span><h2>设置</h2><p>选择一个服务工作区继续管理本地游戏内容。</p></div></div>
-    <div class="settings-service-list">${SERVICE_ENTRIES.map(entry => renderServiceEntry(ctx, entry)).join('')}</div>`;
+    <div class="service-heading"><div><span class="eyebrow">SETTINGS WORKSPACE</span><h2>设置</h2><p>选择一个服务工作区继续管理本地游戏内容。</p></div></div>`;
+}
+
+function renderSettingsMain(ctx: UIContext): string {
+  return `<div class="settings-service-list">${SERVICE_ENTRIES.map(entry => renderServiceEntry(ctx, entry)).join('')}</div>`;
+}
+
+function renderSettingsInspectorHeader(): string {
+  return '<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>设置说明</strong></div>';
 }
 
 function renderSettingsInspector(ctx: UIContext, state: PanelState): string {
@@ -49,48 +59,53 @@ function renderSettingsInspector(ctx: UIContext, state: PanelState): string {
     : '当前 Registry 已加载';
 
   return `
-    <div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>设置说明</strong></div>
     <section class="service-card"><h3>当前存档状态</h3><p>${ctx.escapeHtml(saveStatus)}</p></section>
     <section class="service-card"><h3>当前数据包状态</h3><p>${ctx.escapeHtml(datapackStatus)}</p></section>
     <section class="service-card settings-help-card"><h3>关于 / 帮助</h3><p>查看游戏说明、操作方式与当前界面的使用提示。</p><button type="button" id="help-modal" class="toolbar-button">打开帮助</button></section>`;
 }
 
-export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): string {
-  return renderWorkspaceFrame(ctx, {
-    id: 'settings',
+export function createSettingsWorkspaceFrame(ctx: UIContext, state: PanelState): WorkspaceFrameSpec {
+  return { id: 'settings',
     layout: { responsive: 'two-column' },
-    left: {
-      slot: 'left',
-      workspaceOwner: 'settings',
-      role: 'navigation',
-      hostId: 'leftPanel.service.settings.navigation',
-      themeScope: 'left.settings.navigation',
-      surface: 'panel',
-      className: 'service-column service-navigation settings-navigation',
-      content: renderSettingsNavigation(),
-      scroll: 'auto',
-    },
-    center: {
-      slot: 'center',
-      workspaceOwner: 'settings',
-      role: 'primary',
-      hostId: 'centerPanel.service.settings.main',
-      themeScope: 'center.settings.main',
-      surface: 'panel',
-      className: 'service-column service-main settings-main',
-      content: renderSettingsMain(ctx, state),
-      scroll: 'content',
-    },
-    right: {
-      slot: 'right',
-      workspaceOwner: 'settings',
-      role: 'inspector',
-      hostId: 'rightPanel.service.settings.inspector',
-      themeScope: 'right.settings.inspector',
-      surface: 'panel',
-      className: 'service-column service-inspector settings-inspector',
-      content: renderSettingsInspector(ctx, state),
-      scroll: 'auto',
-    },
-  });
+    columns: [{ key: 'navigation', width: 'var(--workspace-left-width)',
+        slot: 'left',
+        workspaceOwner: 'settings',
+        role: 'navigation',
+        hostId: 'leftPanel.service.settings.navigation',
+        themeScope: 'left.settings.navigation',
+        surface: 'panel',
+        className: 'service-column service-navigation settings-navigation',
+        header: renderSettingsNavigationHeader(),
+        content: renderSettingsNavigation(),
+        scroll: 'auto',
+      },
+      { key: 'primary', width: 'var(--workspace-center-width)',
+        slot: 'center',
+        workspaceOwner: 'settings',
+        role: 'primary',
+        hostId: 'centerPanel.service.settings.main',
+        themeScope: 'center.settings.main',
+        surface: 'panel',
+        className: 'service-column service-main settings-main',
+        header: renderSettingsMainHeader(),
+        content: renderSettingsMain(ctx),
+        scroll: 'content',
+      },
+      { key: 'inspector', width: 'var(--workspace-right-width)',
+        slot: 'right',
+        workspaceOwner: 'settings',
+        role: 'inspector',
+        hostId: 'rightPanel.service.settings.inspector',
+        themeScope: 'right.settings.inspector',
+        surface: 'panel',
+        className: 'service-column service-inspector settings-inspector',
+        header: renderSettingsInspectorHeader(),
+        content: renderSettingsInspector(ctx, state),
+        scroll: 'auto',
+      }]
+  };
+}
+
+export function renderSettingsWorkspace(ctx: UIContext, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createSettingsWorkspaceFrame(ctx, state));
 }

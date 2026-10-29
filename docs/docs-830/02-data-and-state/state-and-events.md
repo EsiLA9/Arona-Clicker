@@ -21,13 +21,17 @@ UI 命令 → Runtime / 领域服务 → StateMutationService → PlayerState �
 | 当前 Init | `resources`、`spotLevels`、`inventory`、`currentAreaId` | 随当前 Init 运行 |
 | Init 快照 | 当前 Init 的资源、据点、库存与阅读进度等字段 | 用于离开后恢复该 Init |
 
-具体字段归属由 `PER_INIT_FIELD_SPECS` 和快照编解码逻辑决定；添加状态字段时需要同步这两处及存档迁移。
+具体字段归属由 `PER_INIT_FIELD_SPECS` 和快照编解码逻辑决定。部分字段还按内容定义的 scope 分类：例如 Spot 等级可同时包含全局和 Init 局部条目，角色容器是否按 Init 保存取决于 Registry 的角色 scope。不能仅凭字段名判断整个容器的归属。新增字段时应核对状态类型、快照规范与保存恢复代码；存档结构改变遵循项目清档策略，不自行编写迁移兼容层。详见 [[init-state-snapshots]]。
 
 ## 写入与通知
 
 `StateMutationService` 提供资源、物品、角色进度、Spot 和商店交易等有语义的写入方法。复合购买和 Spot 升级会先校验整笔变更，再通过单次事务提交成本与结果，避免部分扣款。写入方法同时记录统计需要的信息并发出对应领域事件。
 
-`EventBus.emit()` 在通常情况下立即派发；派发过程中发出的嵌套事件会进入队列，由 `flush()` 按批处理。订阅由 Runtime wiring 和领域反应器建立。事件代表已经发生的状态变化，不能替代状态写入本身。
+`EventBus.emit()` 在通常情况下立即派发，包括普通派发过程中发出的嵌套事件；只有 `flush()` 正在执行时新发出的事件才进入队列，由当前 flush 的后续批次处理。订阅由 Runtime wiring 和领域反应器建立。事件代表已经发生的状态变化，不能替代状态写入本身。
+
+### 例子：资源变化
+
+`StateMutationService.changeResource()` 更新对应资源桶后发出 `resourceChanged`，事件中包含资源 ID、变化量和新值；订阅者据此更新派生结果或检查响应规则。测试 `tests/engine/state-mutation-service.test.ts` 中的 `mutates state and emits one resource event` 将状态结果与事件一起核对。`isGlobalResource()` 按产品侧全局资源 ID 集合选择 `globalResources` 或当前 Init 的 `resources`，因此调用前应区分资源 ID 和当前数量。
 
 ```mermaid
 sequenceDiagram
@@ -46,4 +50,4 @@ sequenceDiagram
 
 主要源码：`src/arona-clicker/state/state-mutation-service.ts`、`src/engine/core/event-bus.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。写入和事件测试见 `tests/engine/state-mutation-service.test.ts`。
 
-继续阅读：[[docs/docs-830/03-runtime/session-and-tick]]、[[docs/docs-830/04-presentation/read-model-and-ui]]。
+继续阅读：[[session-and-tick]]、[[read-model-and-ui]]。

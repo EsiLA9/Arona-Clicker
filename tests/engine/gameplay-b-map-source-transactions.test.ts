@@ -5,6 +5,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { MapRunError, MapRunService } from '../../src/arona-clicker/services/map/map-run-service';
 import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { baseDatapack } from '../../src/data/test-datapack';
+import { withoutDanglingEncounters } from './gameplay-b-map-test-fixtures';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef, GameplayMapDef } from '../../src/data-services/contracts/gameplay-map';
 import type { MapRun, MapRunEncounterCommitCommand, MapRunEncounterDraftToken, MapRunEncounterSourceTarget } from '../../src/arona-clicker/contracts/map/map-run';
@@ -90,7 +91,8 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
   if (!encounter) throw new Error('Gameplay B sample Encounter is missing');
   const { completion: _completion, ...encounterWithoutCompletion } = encounter;
   void _completion;
-  const map: GameplayMapDef = {
+  // Replacing `actions` leaves the sample Map's other Encounters citing removed Actions.
+  const map: GameplayMapDef = withoutDanglingEncounters({
     ...baseMap,
     resumeVersion: baseMap.resumeVersion + 1,
     initialPlayerCost: options.playerCost ?? 2,
@@ -111,7 +113,7 @@ function battleDatapack(options: BattleOptions = {}): Datapack {
         })),
       },
     })),
-  };
+  });
   const useCondition = options.useCondition === false ? undefined : {
     type: 'AND' as const,
     conditions: [{ target: 'resource' as const, key: Resource.Credit, comparator: '>=' as const, value: 10 }],
@@ -359,6 +361,8 @@ describe('Gameplay B Ability / Item source transactions', () => {
       itemId: ITEM_ID,
       actionId: ITEM_ACTION_ID,
       target: { kind: 'enemy', enemyId: ENEMY_ID },
+      // Saved drafts carry the explicit additional-target slot, cleared unless the Action declares one.
+      additionalTarget: null,
     });
     expect(draftSave.playerState.inventory[ITEM_ID]).toBe(1);
 

@@ -1444,7 +1444,7 @@ describe('Gameplay B Map Action Registry', () => {
   test('loads the normal Gameplay B Datapack sample with two fixed party members', () => {
     const maps = gameplayBMapDatapack.maps ?? [];
     const expectedResumeVersions: Readonly<Record<string, number>> = {
-      'gameplay-b:map:field-investigation': 4,
+      'gameplay-b:map:field-investigation': 6,
       'gameplay-b:map:minimal-battle': 5,
       'gameplay-b:map:linear-battle': 4,
       'gameplay-b:map:activity-hall': 4,
@@ -1467,9 +1467,10 @@ describe('Gameplay B Map Action Registry', () => {
       'gameplay-b:map:damage-protection-example': 1,
       'gameplay-b:map:enemy-defeated-reward-example': 1,
       'gameplay-b:map:maprun-status-example': 1,
+      'gameplay-b:map:status-damage-reward-example': 1,
     };
+    expect(maps.map(definition => definition.id).filter(id => expectedResumeVersions[id] === undefined)).toEqual([]);
     const registries = maps.map(mapDefinition => {
-      expect(expectedResumeVersions[mapDefinition.id], mapDefinition.id).toBeDefined();
       expect(mapDefinition.resumeVersion, mapDefinition.id).toBe(expectedResumeVersions[mapDefinition.id]);
       for (const action of mapDefinition.actions ?? []) {
         expect(action).not.toHaveProperty('effects');
@@ -1483,8 +1484,9 @@ describe('Gameplay B Map Action Registry', () => {
     const registry = registries[0]!;
     const map = registry.maps.get('gameplay-b:map:field-investigation');
     expect(map?.partyCharacterIds).toEqual(['shiroko', 'serika']);
-    expect(map?.actions).toHaveLength(3);
-    expect(map?.initialActorResources).toHaveLength(4);
+    expect(map?.actions).toHaveLength(4);
+    expect(map?.initialActorResources).toHaveLength(2);
+    expect(map?.nodes.map(node => node.id)).toEqual(['a', 'b', 'c', 'archive']);
     expect(map?.initialTeamResources).toEqual([
       { resourceId: 'clues', value: 0 },
       { resourceId: 'supplies', value: 1 },

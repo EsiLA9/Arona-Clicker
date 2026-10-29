@@ -24,11 +24,10 @@ const rel = (file) => path.relative(root, file).split(path.sep).join('/');
 const estimateTokens = (chars) => Math.ceil(chars / 4);
 
 const groups = [
-  ['docs/docs-829', 'docs/docs-829'],
-  ['docs/ai', 'docs/ai'],
-  ['docs/plan-work/goalsets', 'docs/plan-work/goalsets'],
-  ['docs/plan-work/mechanisms', 'docs/plan-work/mechanisms'],
-  ['docs/plan-work/archive', 'docs/plan-work/archive'],
+  ['docs/docs-830', 'docs/docs-830'],
+  ['ai/guide', 'ai/guide'],
+  ['ai/plan', 'ai/plan'],
+  ['ai/archive', 'ai/archive'],
   ['docs/newPlan', 'docs/newPlan'],
 ];
 
@@ -48,7 +47,7 @@ console.log('估算说明：estimatedTokens = 字符数 / 4，仅用于相对比
 
 const oversized = rows.filter((row) => row.estimatedTokens > 60000);
 if (oversized.length) {
-  console.log('提示：以下分区超过 60k token 估算值，默认不应作为单个施工 Unit 的上下文：');
+  console.log('提示：以下分区超过 60k token 估算值，默认不应作为单个 Task 的上下文：');
   for (const row of oversized) console.log(`- ${row.path}: ~${row.estimatedTokens} tokens`);
 }
 

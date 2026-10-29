@@ -17,6 +17,8 @@ flowchart TD
 
 `createAppRuntime()` 创建 `AronaClickerRuntime`。启动流程恢复包管理器状态、检查开发数据包，再调用 `loadDefaultDatapack()`；该函数通过 `applyEnabledPacks()` 应用当前启用集。Runtime 为包管理器提供应用目标，负责重载游戏实例。内容装载完成后，`main.ts` 创建并挂载 `UIController`。
 
+产品 Base 内容由 `src/arona-clicker/content/` 的类型化定义与 `base-pack/content.json` 构建产物组成；`defaultDatapack` 是兼容读取该 bundle 的导出。Runtime 将内置 Base 注册为默认包，并与用户启用集一起交给 PackManager 计划应用。默认内容因此走常规包应用和 Registry 校验流程。
+
 包应用由 `PackManager` 生成计划，Runtime 执行校验和应用。运行时目标会先保存当前启用数据包与游戏存档快照，再重载到目标数据包集，并更新对应图片资源。应用失败时，目标回调会重新装载快照中的数据包并恢复存档，使包配置与运行状态一并回退。
 
 `GameInstance.init()` 先用临时 `Registry` 检查候选数据包，再更新当前 Registry、Affector 与 Trigger 定义，并在整包装载后核验跨包引用、构建数值系统。这个预检避免在发现定义关系错误之前先拆掉当前运行实例。
@@ -24,6 +26,12 @@ flowchart TD
 ## Lobby 与 Init
 
 首次应用数据包后，界面进入 Lobby。玩家选择新 Init 或恢复进度后，Controller 经 Runtime 命令进入 Init；开始会话后，`SessionService` 才启动定时 Tick。包应用与开始游戏是两个不同阶段。
+
+## 启动失败时如何判断位置
+
+`src/ui/main.ts` 的 `boot()` 将包库恢复和后续内容装载分开处理：包库恢复抛错时记录警告并继续使用当前会话；开发包发现、内容应用或 UI 挂载等后续步骤失败时，显示启动失败状态。于是“恢复本机包库失败”不一定等于“整个游戏不能启动”，而 Registry 校验或 UI 根节点失败则应继续看对应异常和开发日志。
+
+包配置操作中，校验失败和应用失败也应区分：前者阻止进入 reload；后者发生在实际应用期间，由应用目标尝试恢复原有数据包和进度快照。恢复包库只处理已安装与启用选择，不等同于已经恢复玩家进度。
 
 ```text
 Registry 就绪 → Lobby → 新建 / 恢复 Init → 开始会话 → Tick
@@ -33,4 +41,4 @@ Registry 就绪 → Lobby → 新建 / 恢复 Init → 开始会话 → Tick
 
 关键入口：`src/ui/main.ts`、`src/app/runtime-bootstrap.ts`、`src/arona-clicker/runtime/runtime.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。包与启动集成测试见 `tests/engine/arona-runtime-pack.test.ts`。
 
-继续阅读：[[docs/docs-830/02-data-and-state/datapack-and-registry]]、[[docs/docs-830/03-runtime/session-and-tick]]。
+继续阅读：[[datapack-and-registry]]、[[session-and-tick]]。

@@ -1,7 +1,7 @@
 import type { UIContext } from '../../runtime/context';
 import { renderItemDetail } from '../tooltip/tooltip';
 import { renderUIHost } from '../../presentation/presentation-service';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import type { PanelState } from '../shared/app-shell';
 import {
   createInventoryWorkspaceState,
@@ -52,8 +52,7 @@ function rowMarkup(ctx: UIContext, row: InventoryRow, selected: boolean, customS
 
 function renderNavigation(ctx: UIContext, state: InventoryWorkspaceState, rows: ReturnType<typeof deriveInventoryRows>): string {
   const typeCount = (type: keyof typeof TYPE_LABELS): string => `${rows.counts.byType[type]}`;
-  return `${inventoryTabs(ctx, 'left', '<span class="inventory-workspace__title">筛选</span>')}
-    <div class="inventory-workspace__navigation">
+  return `<div class="inventory-workspace__navigation">
       <div class="inventory-column-heading"><span class="eyebrow">ITEM INDEX</span><strong>物品整理</strong><small>${rows.counts.totalKinds} 种 · ${ctx.formatNumber(rows.counts.totalCount)} 件</small></div>
       <label class="inventory-search"><span class="eyebrow">搜索物品</span><input type="search" value="${ctx.escapeHtml(state.query)}" placeholder="名称或 ID" data-inventory-query></label>
       <div class="inventory-filter-group"><span class="eyebrow">种类</span><div class="inventory-filter-list">
@@ -82,8 +81,7 @@ function renderMain(ctx: UIContext, state: InventoryWorkspaceState, rows: Return
   const list = rows.rows.length
     ? rows.rows.map(row => rowMarkup(ctx, row, row.id === selectedId, state.sortMode === 'custom')).join('')
     : `<div class="inventory-empty"><strong>${rows.allRows.length ? '没有符合条件的物品' : '背包目前为空'}</strong><span>${rows.allRows.length ? '调整左侧筛选条件后继续查看。' : '获得物品后会显示在这里。'}</span></div>`;
-  return `${inventoryTabs(ctx, 'center', '<span class="inventory-workspace__title">物品库</span>')}
-    <div class="inventory-workspace__main">
+  return `<div class="inventory-workspace__main">
       ${renderSortToolbar(ctx, state, rows)}
       <div class="inventory-list inventory-workspace__list" data-inventory-list>${list}</div>
     </div>`;
@@ -103,11 +101,10 @@ function renderInspector(ctx: UIContext, state: InventoryWorkspaceState, rows: R
     : row.item
       ? `<section class="inventory-inspector__detail">${renderItemDetail(ctx, row.item)}<div class="inventory-inspector__action"><button type="button" class="primary-button" data-inventory-use="${ctx.escapeHtml(row.id)}" ${row.usable ? '' : 'disabled'}>${row.usable ? '使用物品 ↗' : useReason(row)}</button></div></section>`
       : `<section class="inventory-inspector__empty"><strong>${ctx.escapeHtml(row.name)}</strong><span>${ctx.escapeHtml(row.description)}</span><small>该条目不可操作，请检查数据包注册表。</small></section>`;
-  return `${inventoryTabs(ctx, 'right', '<span class="inventory-workspace__title">物品详情</span>')}
-    <div class="inventory-workspace__inspector">${detail}<section class="inventory-trace"><div class="inventory-column-heading"><span class="eyebrow">EFFECT TRACE</span><strong>效果追踪</strong></div><p>全局运行时效果仍在游戏右栏“其他”面板中集中查看。</p><button type="button" class="toolbar-button" data-service="game">返回游戏</button></section></div>`;
+  return `<div class="inventory-workspace__inspector">${detail}<section class="inventory-trace"><div class="inventory-column-heading"><span class="eyebrow">EFFECT TRACE</span><strong>效果追踪</strong></div><p>全局运行时效果仍在游戏右栏“其他”面板中集中查看。</p><button type="button" class="toolbar-button" data-service="game">返回游戏</button></section></div>`;
 }
 
-export function renderInventoryWorkspace(ctx: UIContext, state: PanelState): string {
+export function createInventoryWorkspaceFrame(ctx: UIContext, state: PanelState): WorkspaceFrameSpec {
   const workspace = state.inventoryWorkspace ?? createInventoryWorkspaceState();
   const rows = deriveInventoryRows(
     ctx.game.registry.items,
@@ -116,11 +113,14 @@ export function renderInventoryWorkspace(ctx: UIContext, state: PanelState): str
     itemId => ctx.view.visibility.items[itemId] !== false,
     (item, count) => item.type === 'consumable' && count > 0 && (!item.useCondition || ctx.game.conditionSystem.evaluateGroup(item.useCondition, ctx.game.state)),
   );
-  return renderWorkspaceFrame(ctx, {
-    id: 'inventory',
+  return { id: 'inventory',
     layout: { responsive: 'two-column' },
-    left: { slot: 'left', workspaceOwner: 'inventory', role: 'navigation', hostId: 'leftPanel.service.inventory.navigation', themeScope: 'left.inventory.navigation', surface: 'panel', className: 'left-panel inventory-workspace__left', content: renderNavigation(ctx, workspace, rows), scroll: 'none' },
-    center: { slot: 'center', workspaceOwner: 'inventory', role: 'primary', hostId: 'centerPanel.service.inventory.main', themeScope: 'center.inventory.main', surface: 'panel', className: 'center-panel inventory-workspace__center', content: renderMain(ctx, workspace, rows), scroll: 'none' },
-    right: { slot: 'right', workspaceOwner: 'inventory', role: 'inspector', hostId: 'rightPanel.service.inventory.inspector', themeScope: 'right.inventory.inspector', surface: 'panel', className: 'right-panel inventory-workspace__right', content: renderInspector(ctx, workspace, rows), scroll: 'content' },
-  });
+    columns: [{ key: 'navigation', width: 'var(--workspace-left-width)', slot: 'left', workspaceOwner: 'inventory', role: 'navigation', hostId: 'leftPanel.service.inventory.navigation', themeScope: 'left.inventory.navigation', surface: 'panel', className: 'left-panel inventory-workspace__left', header: inventoryTabs(ctx, 'left', '<span class="inventory-workspace__title">筛选</span>'), content: renderNavigation(ctx, workspace, rows), scroll: 'none' },
+      { key: 'primary', width: 'var(--workspace-center-width)', slot: 'center', workspaceOwner: 'inventory', role: 'primary', hostId: 'centerPanel.service.inventory.main', themeScope: 'center.inventory.main', surface: 'panel', className: 'center-panel inventory-workspace__center', header: inventoryTabs(ctx, 'center', '<span class="inventory-workspace__title">物品库</span>'), content: renderMain(ctx, workspace, rows), scroll: 'none' },
+      { key: 'inspector', width: 'var(--workspace-right-width)', slot: 'right', workspaceOwner: 'inventory', role: 'inspector', hostId: 'rightPanel.service.inventory.inspector', themeScope: 'right.inventory.inspector', surface: 'panel', className: 'right-panel inventory-workspace__right', header: inventoryTabs(ctx, 'right', '<span class="inventory-workspace__title">物品详情</span>'), content: renderInspector(ctx, workspace, rows), scroll: 'content' }]
+  };
+}
+
+export function renderInventoryWorkspace(ctx: UIContext, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createInventoryWorkspaceFrame(ctx, state));
 }

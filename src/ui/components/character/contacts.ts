@@ -8,7 +8,7 @@
 import { UIContext } from '../../runtime/context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from '../story/story';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../../flow/flow-entry';
-import { renderSendButton } from '../shared/center-panel';
+import { renderSendButton } from '../../columns/chat-content';
 import { renderPanelHeaderRegion } from '../shared/tabs';
 import { renderBackground } from '../../presentation/background-service';
 import { renderPresentationRegion } from '../../presentation/presentation-service';
@@ -227,7 +227,24 @@ export function renderConversationView(
     return '<div class="char-chat-empty"><p>该学生尚未加入通讯录。</p></div>';
   }
 
-  const unreadCount = game.story.readyStepCount(variantId);
+  const header = renderConversationColumnHeader(ctx, variantId);
+
+  return `
+    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-theme-scope="center.conversation">
+      ${renderBackground(ctx.background, 'console-panel-background')}
+      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
+      ${renderPanelHeaderRegion(ctx, 'center', header)}
+      <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
+        ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner)}
+      </div>
+    </section>`;
+}
+
+/** Shared conversation title and return action; the host supplies the actual Panel surface. */
+export function renderConversationColumnHeader(ctx: UIContext, variantId: string): string {
+  const variant = ctx.game.rosterSystem.getVariant(variantId);
+  if (!variant) return '';
+  const unreadCount = ctx.game.story.readyStepCount(variantId);
   const displayName = resolveEntityPresentation(ctx, 'variant', variant.id)?.name ?? variant.displayName;
   const header = `
     <div class="conversation-heading">
@@ -237,16 +254,7 @@ export function renderConversationView(
         <small>对话空间${unreadCount > 0 ? ` · ${unreadCount} 条未读` : ''}</small>
       </div>
     </div>`;
-
-  return `
-    <section class="ui-cluster ui-cluster--center-conversation panel center-panel conversation-panel" data-game-panel="center" data-theme-scope="center.conversation">
-      ${renderBackground(ctx.background, 'console-panel-background')}
-      ${renderPresentationRegion(ctx.presentation, 'centerPanel')}
-      ${renderPanelHeaderRegion(ctx, 'center', header)}
-      <div class="conversation-pane panel-body" data-conversation="${ctx.escapeHtml(variantId)}">
-        ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner)}
-      </div>
-    </section>`;
+  return renderPanelHeaderRegion(ctx, 'center', header);
 }
 
 /** 角色 Workspace 中栏正文：复用普通聊天流的 panel-body，不再嵌套第二层顶栏。 */
@@ -313,7 +321,7 @@ function renderConversationFlow(
     : renderSendButton(sendState, sendGate);
 
   return `
-    <div class="chat-pane">
+    <div class="chat-pane" data-chat-owner="${ctx.escapeHtml(variantId)}">
       <div class="chat-stream conversation-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" ${FLOW_STREAM_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" role="log" aria-label="对话信息">
         ${renderChatHistory(entries, ctx)}
         ${current}

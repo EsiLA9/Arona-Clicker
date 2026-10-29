@@ -120,6 +120,8 @@ describe('AreaMap real Controller flow', () => {
     const svg = root.querySelector('[data-area-map-viewport]');
     const scroll = root.querySelector('[data-area-map-detail-scroll]');
     const note = root.querySelector('[data-area-map-node="note"]');
+    expect(root.querySelector('[data-area-map-actions]')?.closest('.workspace-column__footer')).not.toBeNull();
+    expect(scroll?.closest('.workspace-column__body')).not.toBeNull();
     click('[data-area-map-node="note"]');
     expect(root.querySelector('[data-area-map-node="note"]')).toBe(note);
     expect(root.querySelector('[data-area-map-action="travel"]')?.hasAttribute('hidden')).toBe(true);

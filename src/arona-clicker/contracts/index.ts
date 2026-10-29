@@ -1,4 +1,4 @@
-export type { GameReadModel, GameCommands, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogRecord, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime/runtime';
+export type { GameReadModel, GameCommands, StoryDefinitionSaveResult, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogRecord, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime/runtime';
 export type { RuntimeContentBrowserQueryPort, RuntimeContentBrowserView, RuntimeContentDefinitionDetail, RuntimeContentDefinitionSummary, RuntimeContentKindDescriptor, RuntimeContentLoadedMod, RuntimeContentReferenceDiagnostic, RuntimeDefinitionRef } from '../../data-services/contracts/runtime-content-browser';
 export type {
   RuntimeContentDiagnostic,
@@ -45,4 +45,5 @@ export type { ShopCartLine, ShopEntryAvailability, ShopPreview, ShopQueryPort } 
 export { EVENT_CATALOG } from './runtime/event-catalog';
 export type { EventCatalogEntry } from './runtime/event-catalog';
 export type { CompletedStory, StoryReadLog } from '../types/story-state';
+export type { StoryFlagValue, StoryRunFlags } from '../../engine/contracts/story-run-flags';
 export type { UseItemResult, TravelError, TravelResult, EnhancementPurchaseError, EnhancementPurchaseResult, SpotUnlockResult, SpotUpgradeResult, StoryView, StoryError, StoryStartResult, StoryAdvanceResult, SendState, SendResult } from './runtime/results';

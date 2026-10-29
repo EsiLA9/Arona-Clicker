@@ -1,7 +1,7 @@
 import type { UIContext } from '../../runtime/context';
 import type { ShopWorkspaceState } from '../shared/app-shell';
 import { renderResourceStrip } from '../shared/header';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderUIHost } from '../../presentation/presentation-service';
 
 interface ShopWorkspaceView {
@@ -44,18 +44,28 @@ function buildView(ctx: UIContext, workspace: ShopWorkspaceState): ShopWorkspace
   return { shop, entries, feed, cart: cartRows, costs, canCheckout: cart.length > 0 };
 }
 
-export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceState): string {
+export function createShopWorkspaceFrame(ctx: UIContext, workspace: ShopWorkspaceState): WorkspaceFrameSpec {
   const view = buildView(ctx, workspace);
   const shopTabs = (panel: 'left' | 'center' | 'right', content: string) => renderUIHost(ctx, { hostId: `${panel}Panel.tabs`, className: `ui-cluster ui-cluster--${panel}-tabs-region panel-tabs-region shop-workspace__tab`, content: `<div class="switch-tabs"><div class="switch-tabs-content">${content}</div></div>` });
-  const left = shopTabs('left', '<button class="ui-control ui-control--tab switch-tab active" data-shop-leave>← 返回 Spot</button>') + (view ? `<div class="shop-workspace__feed"><h3>店内消息</h3><ul>${view.feed}</ul></div>` : '<p class="modal-empty">商店不存在。</p>');
-  const center = shopTabs('center', `<span class="shop-workspace__title">${ctx.escapeHtml(view?.shop.name ?? '商店')}</span>`) + (view ? `<div class="shop-workspace__catalog"><header><p>${ctx.escapeHtml(view.shop.description ?? '')}</p></header>${view.entries}</div>` : '<p class="modal-empty">无法加载商店。</p>');
-  const right = shopTabs('right', '<span class="shop-workspace__title">持有与结算</span>') + (view ? `<section class="shop-workspace__settlement"><h3>持有与结算</h3>${renderResourceStrip(ctx)}<div class="shop-workspace__holdings">${renderHoldings(ctx)}</div><h4>已购买小项</h4><ul>${view.cart}</ul><p>预计消耗：${view.costs}</p><div class="shop-workspace__actions"><button data-shop-cancel ${view.canCheckout ? '' : 'disabled'}>撤销</button><button class="primary-button" data-shop-checkout ${view.canCheckout ? '' : 'disabled'}>结算</button></div></section>` : '<button data-shop-leave>返回 Spot</button>');
-  return renderWorkspaceFrame(ctx, { id: 'shop',
+  const leftHeader = shopTabs('left', '<button class="ui-control ui-control--tab switch-tab active" data-shop-leave>← 返回 Spot</button>');
+  const centerHeader = shopTabs('center', `<span class="shop-workspace__title">${ctx.escapeHtml(view?.shop.name ?? '商店')}</span>`);
+  const rightHeader = shopTabs('right', '<span class="shop-workspace__title">持有与结算</span>');
+  const left = view ? `<div class="shop-workspace__feed"><h3>店内消息</h3><ul>${view.feed}</ul></div>` : '<p class="modal-empty">商店不存在。</p>';
+  const center = view ? `<div class="shop-workspace__catalog"><header><p>${ctx.escapeHtml(view.shop.description ?? '')}</p></header>${view.entries}</div>` : '<p class="modal-empty">无法加载商店。</p>';
+  const right = view ? `<section class="shop-workspace__settlement">${renderResourceStrip(ctx)}<div class="shop-workspace__holdings">${renderHoldings(ctx)}</div><h4>已购买小项</h4><ul>${view.cart}</ul><p>预计消耗：${view.costs}</p></section>` : '<p class="modal-empty">无法加载商店。</p>';
+  const actions = view
+    ? `<div class="shop-workspace__actions"><button data-shop-cancel ${view.canCheckout ? '' : 'disabled'}>撤销</button><button class="primary-button" data-shop-checkout ${view.canCheckout ? '' : 'disabled'}>结算</button></div>`
+    : '<div class="shop-workspace__actions"><button data-shop-leave>返回 Spot</button></div>';
+  return { updates: 'external', id: 'shop',
     layout: { responsive: 'single-column' },
-    left: { slot: 'left', workspaceOwner: 'shop', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', surface: 'panel', className: 'shop-workspace__left', content: left },
-    center: { slot: 'center', workspaceOwner: 'shop', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', surface: 'panel', className: 'shop-workspace__center', content: center, scroll: 'content' },
-    right: { slot: 'right', workspaceOwner: 'shop', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', surface: 'panel', className: 'shop-workspace__right', content: right },
-  });
+    columns: [{ key: 'left', width: 'var(--workspace-left-width)', slot: 'left', workspaceOwner: 'shop', hostId: 'leftPanel.shop.feed', themeScope: 'left.shop.feed', surface: 'panel', className: 'shop-workspace__left', header: leftHeader, content: left },
+      { key: 'center', width: 'var(--workspace-center-width)', slot: 'center', workspaceOwner: 'shop', hostId: 'centerPanel.shop.catalog', themeScope: 'center.shop.catalog', surface: 'panel', className: 'shop-workspace__center', header: centerHeader, content: center, scroll: 'content' },
+      { key: 'right', width: 'var(--workspace-right-width)', slot: 'right', workspaceOwner: 'shop', hostId: 'rightPanel.shop.settlement', themeScope: 'right.shop.settlement', surface: 'panel', className: 'shop-workspace__right', header: rightHeader, content: right, footer: actions }]
+  };
+}
+
+export function renderShopWorkspace(ctx: UIContext, workspace: ShopWorkspaceState): string {
+  return renderWorkspaceFrame(ctx, createShopWorkspaceFrame(ctx, workspace));
 }
 
 function renderHoldings(ctx: UIContext): string {

@@ -1,0 +1,141 @@
+/* Story authoring inherits Workspace surfaces, controls and chat presentation. */
+.story-editor-list-content,
+.story-editor-fields,
+.story-editor-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--panel-region-gap);
+  min-width: 0;
+}
+.story-editor-list-content { height: 100%; }
+.story-editor-list { flex: 1; overflow-y: auto; min-height: 0; }
+.story-editor-search { flex: 0 0 auto; }
+.story-editor-column .workspace-column__body,
+.story-editor-column .workspace-column__footer { padding: var(--panel-content-padding); }
+.story-editor-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.story-editor-list-item.is-selected { border-color: var(--cyan); box-shadow: inset 3px 0 var(--cyan); }
+.story-editor-draft-label,
+.story-editor-hint,
+.story-editor-empty,
+[data-editor-status] { font-size: 12px; color: var(--muted-on-panel); }
+.story-editor-column label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.story-editor-column input,
+.story-editor-column select,
+.story-editor-column textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+}
+.story-editor-column textarea { resize: vertical; white-space: pre-wrap; }
+.story-editor-column code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.story-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-shrink: 0; }
+.story-editor-flow { display: flex; flex: 0 0 auto; flex-direction: column; gap: 12px; }
+/* Keep the live chat's align-self rules effective through the selection wrapper;
+   each author node contributes its full content height to the scrolling body. */
+.story-editor-node { display: flex; flex: 0 0 auto; flex-direction: column; min-width: 0; height: auto; padding: 5px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; }
+.story-editor-node:hover { border-color: var(--line); }
+.story-editor-node.is-selected { border-color: var(--cyan); }
+.story-editor-node .chat-bubble p,
+.story-editor-node .chat-narration-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.story-editor-action-node { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.story-editor-action-node > span { color: var(--muted-on-panel); font-size: 12px; }
+.story-editor-send { display: flex; align-items: flex-end; gap: 8px; }
+.story-editor-send textarea { flex: 1; }
+.story-editor-error { color: var(--ink-on-panel); border-left: 3px solid var(--orange); padding-left: 8px; margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.story-editor-error[hidden] { display: none; }
+.story-editor-empty { padding: 20px 8px; text-align: center; }
+/* Property inspector: dense, nested authoring sections in the right column. */
+.story-editor-property-content { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.story-editor-property { gap: 4px; }
+.story-editor-property-group,
+.story-editor-optional {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.story-editor-optional > .story-editor-hint { order: 1; }
+.story-editor-toggle {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.story-editor-toggle input[type='checkbox'] { flex: 0 0 auto; width: auto; margin: 0; }
+.story-editor-optional-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+.story-editor-list-block,
+.story-editor-literal,
+.story-editor-condition {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.story-editor-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.story-editor-property-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--panel-light);
+}
+.story-editor-condition-child { display: flex; flex-direction: column; gap: 6px; padding-left: 10px; border-left: 2px solid var(--line); }
+.story-editor-condition-leaf { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.story-editor-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-light);
+  font-size: 12px;
+}
+.story-editor-readonly code,
+.story-editor-readonly small { color: var(--muted-on-panel); font-size: 12px; overflow-wrap: anywhere; }
+.story-editor-advanced { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.story-editor-advanced > summary { font-size: 12px; font-weight: 600; cursor: pointer; }
+.story-editor-advanced[open] { display: flex; gap: 8px; }
+.story-editor-error .mini-action { margin-left: 8px; }

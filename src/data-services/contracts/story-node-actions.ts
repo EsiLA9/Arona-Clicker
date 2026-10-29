@@ -18,6 +18,12 @@ import type {
 } from '../../engine/types/expression';
 import type { EntityPresentationKey } from './entity-presentation';
 import type { StoryContent, StoryPresentation } from './story-node';
+import type { StoryFlagValue } from '../../engine/contracts/story-run-flags';
+
+/** 仅修改本次 Entry 播放的局部 Map；不写 PlayerState.flags。 */
+export type StoryLocalFlagAction =
+  | { readonly kind: 'localFlag'; readonly op: 'set'; readonly name: string; readonly value: StoryFlagValue }
+  | { readonly kind: 'localFlag'; readonly op: 'remove'; readonly name: string };
 
 /** 可由数值表达式结算的作者数值参数；一组状态动作仍作为有序批次声明。 */
 export type StoryNumericValue = number | ValueExpression;
@@ -201,6 +207,7 @@ export type StoryPresentationCommand =
  * Story 行为载荷。state 保留一次顺序动作批次；入口请求本身不表示当前来源链终止。
  */
 export type StoryAction =
+  | StoryLocalFlagAction
   | { readonly kind: 'state'; readonly effects: readonly StoryStateAction[] }
   | { readonly kind: 'travel'; readonly areaId: AreaId; readonly notice?: boolean }
   | { readonly kind: 'overlay'; readonly command: StoryOverlayCommand }

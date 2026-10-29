@@ -258,6 +258,7 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
           </div>
         </div>
         <div class="save-actions service-nav-actions">
+          ${renderHeaderButton(ctx, { id: 'story-editor-launch', title: '打开 Story 编辑器', content: 'Story 编辑器' })}
           ${renderHeaderButton(ctx, { id: 'runtime-editor-launch', title: '打开 Runtime Editor', content: '编辑器 <span>✎</span>', ariaExpanded: false })}
           ${renderHeaderButton(ctx, { service: 'game', title: '返回游戏', content: '游戏 <span>⌂</span>' })}
           ${renderHeaderButton(ctx, {

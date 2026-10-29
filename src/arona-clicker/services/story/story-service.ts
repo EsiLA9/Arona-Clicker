@@ -14,6 +14,8 @@ import type { EffectEngine } from '../../../engine/effect/effect-engine';
 import type { StoryMutationPort } from '../../contracts/runtime/mutation';
 import type { StoryNodeCommandResult, StoryNodePlaybackHost, StoryNodePlaybackView, StoryNodeSource } from '../../contracts/runtime/story-node-playback';
 import type { StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
+import type { StoryRunFlags } from '../../../engine/contracts/story-run-flags';
+import { isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { CompletedStory } from '../../types/story-state';
 import type { TravelResult } from '../../contracts/runtime/results';
 import type { StoryNodePresentationPort } from './story-node-presentation-host';
@@ -55,7 +57,7 @@ export interface StoryServiceOptions {
   random?: () => number;
 }
 
-type StartOptions = { force?: boolean; skipConditions?: boolean; replaceAny?: boolean };
+type StartOptions = { force?: boolean; skipConditions?: boolean; replaceAny?: boolean; initialFlags?: StoryRunFlags };
 type CompletedAdvance = Extract<StoryAdvanceResult, { success: true; finished: true }>;
 
 /** One StoryNodePlayer session per global/chat owner; no legacy Talklet interpreter remains. */
@@ -246,16 +248,16 @@ export class StoryService {
     return this.startStory(storyEntryId, 'active', owner);
   }
 
-  startActiveStory(storyId: string, owner?: string | null): StoryStartResult {
-    return this.startStory(storyId, 'active', owner);
+  startActiveStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult {
+    return this.startStory(storyId, 'active', owner, { initialFlags });
   }
 
-  startCardStory(storyId: string, owner?: string | null): StoryStartResult {
+  startCardStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult {
     const existing = this.sessionFor(normalizeOwner(owner));
     if (existing?.entry.type === 'passive' && existing.entry.blocksInteraction === true) {
       return { success: false, storyId, error: 'AlreadyActive' };
     }
-    return this.startEntry(storyId, 'active', normalizeOwner(owner), { skipConditions: true, force: true, replaceAny: true }, false);
+    return this.startEntry(storyId, 'active', normalizeOwner(owner), { skipConditions: true, force: true, replaceAny: true, initialFlags }, false);
   }
 
   startStory(storyId: string, expectedType: 'active' | 'passive', owner?: string | null, options?: StartOptions): StoryStartResult {
@@ -442,6 +444,9 @@ export class StoryService {
     options: StartOptions | undefined,
     replay: boolean,
   ): StoryStartResult {
+    const suppliedFlags = options?.initialFlags === undefined ? {} : options.initialFlags;
+    if (!isStoryRunFlags(suppliedFlags)) return { success: false, storyId, error: 'PlaybackFailed', detail: 'InvalidLocalFlags' };
+    const initialFlags = structuredClone(suppliedFlags);
     const entry = this.opts.registry.storyEntries.get(storyId);
     if (!entry) return { success: false, storyId, error: 'NotFound' };
     if (entry.type !== expectedType) return { success: false, storyId, error: 'WrongStoryType' };
@@ -506,7 +511,7 @@ export class StoryService {
     // Synchronous listeners may replace this session before its Player is initialized.
     if (!this.isCurrent(session)) return rememberReplacement(this.startResultForCurrent(owner, storyId));
 
-    const command = session.player.start(root.id, source);
+    const command = session.player.start(root.id, source, initialFlags);
     this.captureVisited(session, command);
     const completion = this.handleTerminal(session, command.view);
     if (completion) return rememberReplacement({ success: true, finished: true, storyId: completion.storyId, completed: completion.completed });

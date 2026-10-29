@@ -1,8 +1,8 @@
 import type { MapEntryPartyMemberView, MapEntryView } from '../../../arona-clicker/contracts/map/map-entry';
 import type { UIContext } from '../../runtime/context';
-import { renderLeftPanel } from '../shared/rail';
+import { createAreaNavigationColumn } from '../../columns';
 import type { PanelState } from '../shared/app-shell';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 import { getSpotReveal } from '../tooltip/tooltip';
 import '../../css/map-entry-workspace.css';
@@ -48,7 +48,7 @@ function renderResources(ctx: UIContext, view: MapEntryView): string {
   const empty = !playerCost && !actorResources && !teamResources
     ? '<p class="map-entry-workspace__empty">暂无已声明的局内资源。</p>'
     : '';
-  return `<section class="map-entry-workspace__resources" data-map-region-key="resources" aria-label="局内资源">
+  return `<section class="map-entry-workspace__resources" data-map-region-key="resources" data-scroll-owner="content-region" data-scroll-key="resources" aria-label="局内资源">
     <h2>局内资源</h2>${playerCost}${actorResources}${teamResources}${empty}
   </section>`;
 }
@@ -106,7 +106,7 @@ function renderPrimaryAction(ctx: UIContext, view: MapEntryView, availabilityRea
         <summary>地图管理</summary>
         <div role="group" aria-label="地图管理操作">
           <button type="button" class="mini-action" data-map-restart="${escape(ctx, runId)}" data-map-focus-key="map-restart">重新开始</button>
-          <button type="button" class="mini-action map-workspace__hero-action--danger" data-map-abandon="${escape(ctx, runId)}" data-map-focus-key="map-abandon">放弃当前地图</button>
+          <button type="button" class="mini-action mini-action--danger" data-map-abandon="${escape(ctx, runId)}" data-map-focus-key="map-abandon">放弃当前地图</button>
         </div>
       </details>`;
   }
@@ -116,7 +116,7 @@ function renderPrimaryAction(ctx: UIContext, view: MapEntryView, availabilityRea
   return `<button type="button" class="story-trigger map-entry-workspace__primary" disabled data-map-focus-key="entry-primary" data-map-entry-focus-key="primary">${label}</button>`;
 }
 
-export function renderMapEntryWorkspace(ctx: UIContext, mapId: string, view: MapEntryView, state: PanelState): string {
+export function createMapEntryWorkspaceFrame(ctx: UIContext, mapId: string, view: MapEntryView, state: PanelState): WorkspaceFrameSpec {
   const availabilityReason = mapEntryAvailabilityReason(ctx, state, mapId);
   const title = view.name ?? '地图准备';
   const description = view.entryInfo?.description
@@ -129,40 +129,36 @@ export function renderMapEntryWorkspace(ctx: UIContext, mapId: string, view: Map
   const partyEmpty = view.party.length === 0
     ? '<p class="map-entry-workspace__empty" role="status">队伍信息暂不可读取。</p>'
     : '';
-  const center = renderWorkspaceTitlebar(ctx, 'center', '地图准备', 'data-map-entry-leave')
-    + `<div class="map-entry-workspace__center-body">
+  const center = `<div class="map-entry-workspace__center-body">
       <div class="map-entry-workspace__overview-scroll" data-scroll-owner="content-region" data-map-region-key="overview-scroll" aria-label="地图说明与进度">
         <section class="map-entry-workspace__overview" data-map-region-key="overview"><h1>${escape(ctx, title)}</h1>${description}${tips}</section>
         <section class="map-entry-workspace__progress-section" data-map-region-key="progress-section" aria-label="当前进度"><h2>${view.mode === 'resume' ? '当前进度' : '出发前'}</h2>${renderProgress(ctx, view)}</section>
         <p class="map-entry-workspace__notice" role="status" data-map-region-key="notice">${escape(ctx, availabilityReason ?? modeMessage(ctx, view))}</p>
       </div>
-      <div class="map-entry-workspace__actions" data-map-region-key="primary-action" role="group" aria-label="地图操作">
-        ${renderPrimaryAction(ctx, view, availabilityReason)}
-      </div>
     </div>`;
-  const right = renderWorkspaceTitlebar(ctx, 'right', '固定队伍')
-    + `<div class="map-entry-workspace__right-body">
+  const right = `<div class="map-entry-workspace__right-body">
       <div class="map-entry-workspace__party-scroll" data-scroll-owner="content-region" data-map-region-key="party-scroll" aria-label="固定队伍">${members}${partyEmpty}</div>
       ${renderResources(ctx, view)}
     </div>`;
-  const frame = renderWorkspaceFrame(ctx, {
-    id: 'map-entry',
+  return { updates: 'external', id: 'map-entry',
     layout: { composition: 'columns', responsive: 'default' },
-    left: {
-      slot: 'left', role: 'navigation', workspaceOwner: 'map-entry', hostId: 'leftPanel.map-entry.navigation',
-      themeScope: 'left.game', surface: 'none', className: 'map-entry-workspace__left',
-      content: renderLeftPanel(ctx, state), scroll: 'none',
-    },
-    center: {
-      slot: 'center', role: 'primary', workspaceOwner: 'map-entry', hostId: 'centerPanel.map-entry.main',
-      themeScope: 'center.game', surface: 'panel', className: 'map-entry-workspace__center',
-      content: center, scroll: 'none',
-    },
-    right: {
-      slot: 'right', role: 'fixed-party', workspaceOwner: 'map-entry', hostId: 'rightPanel.map-entry.party',
-      themeScope: 'right.game', surface: 'panel', className: 'map-entry-workspace__right',
-      content: right, scroll: 'none',
-    },
-  });
+    columns: [{ ...createAreaNavigationColumn(ctx, state, { key: 'navigation', workspaceOwner: 'map-entry', appearance: { hostId: 'leftPanel.area', themeScope: 'left.area', className: 'left-panel ui-cluster--left-panel map-entry-workspace__left' } }), width: 'var(--workspace-left-width)', slot: 'left', role: 'navigation', workspaceOwner: 'map-entry' },
+      { key: 'primary', width: 'var(--workspace-center-width)',
+        slot: 'center', role: 'primary', workspaceOwner: 'map-entry', hostId: 'centerPanel.map-entry.main',
+        themeScope: 'center.game', surface: 'panel', className: 'map-entry-workspace__center',
+        header: renderWorkspaceTitlebar(ctx, 'center', '地图准备', 'data-map-entry-leave'),
+        content: center,
+        footer: `<div class="map-entry-workspace__actions" data-map-region-key="primary-action" role="group" aria-label="地图操作">${renderPrimaryAction(ctx, view, availabilityReason)}</div>`, scroll: 'none',
+      },
+      { key: 'fixed-party', width: 'var(--workspace-right-width)',
+        slot: 'right', role: 'fixed-party', workspaceOwner: 'map-entry', hostId: 'rightPanel.map-entry.party',
+        themeScope: 'right.game', surface: 'panel', className: 'map-entry-workspace__right',
+        header: renderWorkspaceTitlebar(ctx, 'right', '固定队伍'), content: right, scroll: 'none',
+      }]
+  };
+}
+
+export function renderMapEntryWorkspace(ctx: UIContext, mapId: string, view: MapEntryView, state: PanelState): string {
+  const frame = renderWorkspaceFrame(ctx, createMapEntryWorkspaceFrame(ctx, mapId, view, state));
   return `<div class="map-entry-workspace" data-map-entry-workspace data-map-id="${escape(ctx, mapId)}" data-map-entry-mode="${view.mode}" data-map-instance-key="${escape(ctx, mapId)}" data-map-region-key="entry-root">${frame}</div>`;
 }

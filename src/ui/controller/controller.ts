@@ -28,6 +28,9 @@ import { ModalManager } from '../interaction/modal';
 import { PopoverManager } from '../interaction/popovers';
 import { ChatStream } from '../presentation/chat-stream';
 import { ScrollManager } from '../interaction/scroll';
+import { workspaceColumnScrollTargets } from '../interaction/workspace-scroll';
+import { WorkspaceColumns, type ColumnToken } from '../workspace/workspace-columns';
+import { renderWorkspaceFrame, workspaceColumns, workspaceScope, columnInstanceId, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import { captureFocusWithin, restoreFocusWithin, type FocusSnapshot } from '../interaction/focus';
 import { SelectorPage } from '../navigation/selector-page';
 import { ImportExportService } from '../utilities/import-export';
@@ -76,17 +79,13 @@ import { mapLocationObjectKey } from '../cards/card-host';
 import type { GameCommands } from '../../arona-clicker/contracts/index';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts/index';
 import type { OperationView } from '../../arona-clicker/contracts/operation/operation-view';
-import { renderAreaNavItem, renderLeftPanel } from '../components/shared/rail';
-import { renderCenterPanel, renderChatTab, renderLogTab } from '../components/shared/center-panel';
-import { renderRightPanel } from '../components/shared/right-panels';
+import { renderAreaNavItem, type SemanticColumnSpec } from '../columns';
+import { renderChatContent, renderLogContent } from '../columns/chat-content';
+import { renderConversationBody } from '../components/character/contacts';
 import { renderSpotCard } from '../components/shared/production';
 import { getSpotReveal } from '../components/tooltip/tooltip';
 import { renderEnhancementCard, visibleEnhancementCardIds } from '../components/inventory/enhancements';
 import { renderShopWorkspace } from '../components/inventory/shop';
-import { renderInventoryWorkspace } from '../components/inventory/inventory-workspace';
-import { renderCharacterWorkspace } from '../components/character/character-workspace';
-import { renderContactsWorkspace } from '../components/character/contacts-workspace';
-import { renderStoryWorkspace } from '../components/story/story-workspace';
 import { renderOperationWorkspace } from '../components/operation/operation-workspace';
 import { renderMapWorkspace } from '../components/map/map-workspace';
 import { renderMapEntryWorkspace } from '../components/map/map-entry-workspace';
@@ -95,8 +94,6 @@ import { FlowScroll } from '../flow/flow-scroll';
 import { MapFlowModel, type MapFlowTextPort } from '../flow/map-flow-model';
 import type { FlowEntry } from '../flow/flow-entry';
 import type { MapRunWorkspaceView } from '../../arona-clicker/contracts/runtime/runtime';
-import { renderSettingsWorkspace } from '../components/settings/settings-workspace';
-import { renderServiceWorkspace, type ServiceWorkspaceId } from '../components/shared/service-workspace';
 import { createDefaultUIBehaviorRegistry, type UIBehaviorRegistry } from '../update/ui-behaviors';
 import { createCodexShellState, type CodexShellState } from '../runtime-editor/codex/index';
 import type { InspectorTab } from '../runtime-editor/codex-details/index';
@@ -112,6 +109,7 @@ import {
 import { flushRuntimeEditorDraft } from '../runtime-editor/actions';
 import { restoreRuntimeEditorDraft, seedDebugEditing } from '../runtime-editor/debug';
 import { RuntimeEditorDraftPersistence } from '../runtime-editor/persistence';
+import { StoryEditorController, STORY_EDITOR_REGION } from '../story-editor/controller';
 import {
   backWorkspaceNavigation,
   createWorkspaceNavigation,
@@ -387,9 +385,10 @@ export class UIController {
     const editor = this.panelState.runtimeDatapackEditor;
     if (editor) editor.notice = message;
   });
+  readonly storyEditor = new StoryEditorController(this);
   private runtimeEditorPersistenceBound = false;
-  private readonly runtimeEditorPageHideHandler = (): void => { flushRuntimeEditorDraft(this); };
-  private readonly runtimeEditorBeforeUnloadHandler = (): void => { flushRuntimeEditorDraft(this); };
+  private readonly runtimeEditorPageHideHandler = (): void => { flushRuntimeEditorDraft(this); this.storyEditor.save(false, false); };
+  private readonly runtimeEditorBeforeUnloadHandler = (): void => { flushRuntimeEditorDraft(this); this.storyEditor.save(false, false); };
   private readonly runtimeEditorVisibilityHandler = (): void => {
     if (document.visibilityState === 'hidden') flushRuntimeEditorDraft(this);
   };
@@ -399,6 +398,11 @@ export class UIController {
   readonly chat = new ChatStream();
   /** 聊天流 / 面板滚动状态。 */
   readonly scroll = new ScrollManager();
+  readonly columns = new WorkspaceColumns({
+    beforeReplace: root => this.popovers.dismissBeforeRootMutation(root),
+    afterReplace: root => this.bindColumnActions(root),
+  });
+  private readonly columnFrames = new Map<string, WorkspaceFrameSpec>();
   /** Map 工作区的 UI 临时信息流：按 Run 隔离，离开 / 读档 / 销毁时清理。 */
   private mapFlow: { readonly runId: string; readonly model: MapFlowModel } | null = null;
   /** Map 中部信息流的共享滚动状态（按真实宿主锚点恢复阅读位置）。 */
@@ -452,9 +456,10 @@ export class UIController {
     const updateSink: UIUpdateSink = {
       getCurrentSurfaceToken: () => this.getCurrentSurfaceToken(),
       isSurfaceCurrent: token => this.isSurfaceCurrent(token),
+      isColumnCurrent: token => this.columns.token(token.instanceId)?.generation === token.generation,
       apply: update => this.applyUIUpdate(update),
       applyBatch: updates => this.applyUIUpdates(updates),
-      onDrop: update => this.onDroppedUIUpdate(update),
+      onDrop: (update, reason) => this.onDroppedUIUpdate(update, reason),
     };
     this.updates = new UIUpdateDispatcher(updateSink);
     // 未读计数（对话空间语义）：通讯录角色行气泡 = 该学生就绪队列条数（尾巴 + 台阶）
@@ -475,7 +480,8 @@ export class UIController {
       if (result.type === 'completed') {
         this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
       }
-      if ((this.panelState.conversationVariantId ?? '#global') === streamKey) this.refreshChatPanel();
+      if ((this.panelState.conversationVariantId ?? '#global') === streamKey
+        || [...this.root.querySelectorAll<HTMLElement>('[data-chat-owner]')].some(pane => (pane.dataset.chatOwner || '#global') === streamKey)) this.refreshChatPanel();
     };
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
@@ -551,6 +557,10 @@ export class UIController {
   }
 
   destroy(): void {
+    this.storyEditor.dispose();
+    this.columns.dispose();
+    this.chat.reset();
+    this.scroll.reset();
     this.areaMaps.destroy();
     this.mapRelations.dispose();
     disposeOperationActions(this);
@@ -779,8 +789,8 @@ export class UIController {
   }
 
   /** 立即执行单个元素级更新；内容揭示变化使用它替换单张 Spot 卡片。 */
-  applyUIElement(target: UIElementTarget, key: string, reason: string, hostId?: string): UIUpdateApplyResult {
-    return this.updates.applyNow({ type: 'element', target, key, reason, hostId });
+  applyUIElement(target: UIElementTarget, key: string, reason: string, hostId?: string, instanceId?: string): UIUpdateApplyResult {
+    return this.updates.applyNow({ type: 'element', target, key, reason, hostId, instanceId, columnToken: instanceId ? this.columns.token(instanceId) : undefined });
   }
 
   /** Runtime Editor 批量提交开始：事件仍可广播，但揭示 UI 不在批次中间重复刷新。 */
@@ -798,59 +808,130 @@ export class UIController {
     return this.contentRefreshBatchDepth > 0;
   }
 
-  /** 将当前区域内的 Spot 卡片按元素范围刷新；卡片集合变化时返回 false，交给 Panel fallback。 */
+  private visibleColumnEntries(definitionId: string): Array<{ id: string; root: HTMLElement }> {
+    return this.columns.ids().flatMap(id => {
+      const root = this.columns.node(id);
+      return root?.isConnected && root.dataset.columnDefinition === definitionId ? [{ id, root }] : [];
+    });
+  }
+
+  /** Rebuild one mounted semantic consumer from fresh game data while retaining its host configuration. */
+  private refreshSemanticColumn(id: string, ctx: UIContext): boolean {
+    const previous = this.columns.spec(id);
+    const refresh = (previous as SemanticColumnSpec | undefined)?.semanticRefresh;
+    if (!previous || !refresh) return false;
+    const next = refresh(ctx);
+    // Controller-bound callbacks, local back behavior and arbitrary host metadata are owned by the mount.
+    const updated: SemanticColumnSpec = { ...next, ...previous, content: next.content, bindingKey: next.bindingKey, semanticRefresh: refresh };
+    return this.columns.update(id, updated, this.columns.token(id), ctx);
+  }
+
+  private refreshSemanticColumns(entries: Array<{ id: string; root: HTMLElement }>, ctx: UIContext): boolean {
+    let refreshed = true;
+    for (const { id } of entries) refreshed = this.refreshSemanticColumn(id, ctx) && refreshed;
+    return refreshed;
+  }
+
+  /** Refresh only the visible Character columns bound to this owner. */
+  refreshCharacterColumns(variantId: string): boolean {
+    const entries = this.visibleColumnEntries('character').filter(({ root }) =>
+      root.dataset.columnBinding === variantId && Boolean(root.querySelector('[data-character-owner]')));
+    return entries.length > 0 && this.refreshSemanticColumns(entries, createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)));
+  }
+
+  /** Resolve the owning mounted column for an interaction before requesting its content refresh. */
+  refreshColumnContaining(target: Element): boolean {
+    const root = target.closest<HTMLElement>('[data-column-instance]');
+    const id = root?.dataset.columnInstance;
+    return Boolean(id && this.refreshColumnInstances([id]));
+  }
+
+  /** 将当前区域内的 Spot 卡片按每个可见设施栏分别刷新；集合变化时交给栏级 fallback。 */
   refreshCurrentSpotCards(reason: string): boolean {
-    if (!this.started || this.panelState.service !== 'game' || this.panelState.rightTab !== 'spot') return false;
     const currentAreaId = this.game.getView().currentAreaId;
     if (!currentAreaId) return false;
+    const columns = this.visibleColumnEntries('facilities');
+    if (!columns.length) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
+    if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
+    const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentAreaId);
     const expectedIds = this.game.world.spotsOfArea(currentAreaId)
       .filter(spotId => {
         const spot = this.game.world.spots.get(spotId);
         return Boolean(spot && getSpotReveal(context, spot).stage !== 'invisible');
       });
-    const currentIds = [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
-      .map(node => node.dataset.uiSpotCard)
-      .filter((spotId): spotId is string => Boolean(spotId));
-    if (expectedIds.length !== currentIds.length || expectedIds.some(spotId => !currentIds.includes(spotId))) return false;
-    return expectedIds.every(spotId => this.applyUIElement('spot.card', spotId, reason, 'rightPanel.spot') === 'applied');
+    for (const { id, root } of liveColumns) {
+      const actualIds = [...root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+        .map(node => node.dataset.uiSpotCard).filter((spotId): spotId is string => Boolean(spotId));
+      if (expectedIds.length !== actualIds.length || expectedIds.some(spotId => !actualIds.includes(spotId))) {
+        if (!this.refreshSemanticColumn(id, context)) return false;
+        continue;
+      }
+      for (const spotId of expectedIds) {
+        if (this.applyUIElement('spot.card', spotId, reason, 'rightPanel.spot', id) !== 'applied') return false;
+      }
+    }
+    return true;
   }
 
   /** 将当前区域导航的揭示/锁定状态按单个按钮刷新；可达集合变化时回退左 Panel。 */
   refreshCurrentAreaNav(reason: string): boolean {
-    if (!this.started || this.panelState.service !== 'game' || this.panelState.leftTab !== 'area') return false;
     const view = this.game.getView();
     const currentAreaId = view.currentAreaId;
     if (!currentAreaId || !this.game.world.areas.has(currentAreaId)) return false;
+    const columns = this.visibleColumnEntries('area-navigation');
+    if (!columns.length) return false;
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
+    if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
+    const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentAreaId);
     const adjacent = this.game.reachableAreaIds()
       .filter(areaId => this.game.world.areas.get(areaId)?.initId === view.activeInit);
     const expected = adjacent.map(areaId => `reachable:${areaId}`).sort();
-    const actual = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
-      .map(node => node.dataset.uiAreaNav)
-      .filter((key): key is string => Boolean(key))
-      .sort();
-    if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) return false;
-    return expected.every(key => this.applyUIElement('area.nav', key, reason, 'leftPanel.area') === 'applied');
+    for (const { id, root } of liveColumns) {
+      const actual = [...root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+        .map(node => node.dataset.uiAreaNav).filter((key): key is string => Boolean(key)).sort();
+      if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) {
+        if (!this.refreshSemanticColumn(id, context)) return false;
+        continue;
+      }
+      for (const key of expected) {
+        if (this.applyUIElement('area.nav', key, reason, 'leftPanel.area', id) !== 'applied') return false;
+      }
+    }
+    return true;
   }
 
   /** 将强化卡片按元素刷新；可见卡片集合变化时回退右 Panel。 */
   refreshCurrentEnhancementCards(reason: string): boolean {
-    if (!this.started || this.panelState.service !== 'game' || this.panelState.rightTab !== 'enh') return false;
+    const currentInit = this.game.getView().activeInit;
+    const columns = this.visibleColumnEntries('enhancements');
+    if (!columns.length) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentInit);
+    if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
+    const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentInit);
     const expected = visibleEnhancementCardIds(context).sort();
-    const actual = [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
-      .map(node => node.dataset.uiEnhancementCard)
-      .filter((key): key is string => Boolean(key))
-      .sort();
-    if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) return false;
-    return expected.every(key => this.applyUIElement('enhancement.card', key, reason, 'rightPanel.enh') === 'applied');
+    for (const { id, root } of liveColumns) {
+      const actual = [...root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+        .map(node => node.dataset.uiEnhancementCard).filter((key): key is string => Boolean(key)).sort();
+      if (expected.length !== actual.length || expected.some((key, index) => key !== actual[index])) {
+        if (!this.refreshSemanticColumn(id, context)) return false;
+        continue;
+      }
+      for (const key of expected) {
+        if (this.applyUIElement('enhancement.card', key, reason, 'rightPanel.enh', id) !== 'applied') return false;
+      }
+    }
+    return true;
   }
 
   /** Runtime Spot 批量 Apply 后只刷新当前 Game 中受影响的可见 Spot 区域。 */
   refreshRuntimeSpotContent(reason = 'runtime-editor-spot-apply'): void {
-    if (!this.started || this.panelState.service !== 'game' || this.panelState.workspace) return;
-    if (this.panelState.rightTab !== 'spot') return;
-    if (!this.refreshCurrentSpotCards(reason)) this.refreshPanels(['right']);
+    if (this.refreshCurrentSpotCards(reason)) return;
+    if (this.started && this.panelState.service === 'game' && this.currentWorkspaceRoute().kind === 'game'
+      && this.panelState.rightTab === 'spot') this.refreshPanels(['right']);
   }
 
   /** 外部实体表现变化的最小可见范围刷新；不可见实体不触发全量 render。 */
@@ -860,51 +941,59 @@ export class UIController {
     const kind = entityKey.slice(0, separator);
     const id = entityKey.slice(separator + 1);
     const workspace = this.panelState.workspace;
-    if (workspace) {
-      const visibleVariant = kind === 'variant'
-        && ((workspace.type === 'character' && workspace.variantId === id)
-          || (workspace.type === 'contacts' && (workspace.selectedVariantId === id || workspace.conversationVariantId === id))
-          || (workspace.type === 'story' && workspace.conversationOwner === id));
-      if (visibleVariant) this.render();
-      return true;
-    }
-    if (!this.started || this.panelState.service !== 'game') return true;
+    const visibleWorkspaceVariant = kind === 'variant' && workspace
+      && ((workspace.type === 'character' && workspace.variantId === id)
+        || (workspace.type === 'contacts' && (workspace.selectedVariantId === id || workspace.conversationVariantId === id))
+        || (workspace.type === 'story' && workspace.conversationOwner === id));
+    if (visibleWorkspaceVariant) this.render();
 
     if (kind === 'spot') {
-      if (this.panelState.rightTab !== 'spot') return true;
-      const card = [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
-        .find(node => node.dataset.uiSpotCard === id);
-      return !card || this.applyUIElement('spot.card', id, reason, 'rightPanel.spot') === 'applied';
+      const currentAreaId = this.game.getView().currentAreaId;
+      let applied = true;
+      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const facilities = this.visibleColumnEntries('facilities');
+      const stale = facilities.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
+      if (stale.length && !this.refreshSemanticColumns(stale, context)) return false;
+      for (const { id: columnId, root } of facilities.filter(({ root }) => root.dataset.columnBinding === currentAreaId)) {
+        if (root.dataset.columnBinding !== currentAreaId) continue;
+        const card = [...root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+          .find(node => node.dataset.uiSpotCard === id);
+        if (card && this.applyUIElement('spot.card', id, reason, 'rightPanel.spot', columnId) !== 'applied') applied = false;
+      }
+      return applied;
     }
     if (kind === 'enhancement') {
-      if (this.panelState.rightTab !== 'enh') return true;
-      const card = [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
-        .find(node => node.dataset.uiEnhancementCard === id);
-      return !card || this.applyUIElement('enhancement.card', id, reason, 'rightPanel.enh') === 'applied';
+      let applied = true;
+      const currentInit = this.game.getView().activeInit;
+      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const enhancements = this.visibleColumnEntries('enhancements');
+      const stale = enhancements.filter(({ root }) => root.dataset.columnBinding !== currentInit);
+      if (stale.length && !this.refreshSemanticColumns(stale, context)) return false;
+      for (const { id: columnId, root } of enhancements.filter(({ root }) => root.dataset.columnBinding === currentInit)) {
+        const card = [...root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+          .find(node => node.dataset.uiEnhancementCard === id);
+        if (card && this.applyUIElement('enhancement.card', id, reason, 'rightPanel.enh', columnId) !== 'applied') applied = false;
+      }
+      return applied;
     }
     if (kind === 'area') {
-      if (this.panelState.leftTab !== 'area') return true;
       if (this.game.getView().currentAreaId === id) {
-        this.refreshPanels(['left']);
+        const navigationColumns = this.visibleColumnEntries('area-navigation');
+        if (navigationColumns.length) this.refreshSemanticColumns(navigationColumns, createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)));
         return true;
       }
-      const nav = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
-        .find(node => node.dataset.area === id);
-      return !nav || this.applyUIElement(
-        'area.nav',
-        nav.dataset.uiAreaNav ?? '',
-        reason,
-        'leftPanel.area',
-      ) === 'applied';
+      let applied = true;
+      for (const { id: columnId, root } of this.visibleColumnEntries('area-navigation')) {
+        const nav = [...root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')].find(node => node.dataset.area === id);
+        if (nav && this.applyUIElement('area.nav', nav.dataset.uiAreaNav ?? '', reason, 'leftPanel.area', columnId) !== 'applied') applied = false;
+      }
+      return applied;
     }
     if (kind === 'variant') {
       if (this.panelState.conversationVariantId === id) {
-        this.refreshPanels(['center']);
-        return true;
+        this.refreshChatPanel();
       }
-      if (this.panelState.rightTab === 'character' && this.panelState.selectedVariantId === id) {
-        this.refreshPanels(['right']);
-      }
+      if (!this.refreshCharacterColumns(id) && this.panelState.rightTab === 'character' && this.panelState.selectedVariantId === id) this.refreshPanels(['right']);
     }
     return true;
   }
@@ -935,7 +1024,11 @@ export class UIController {
 
   /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
   refreshChatPanel(): void {
-    if (this.areaMaps.refresh()) return;
+    if (this.storyEditor.isOpen() && !this.columns.ids().some(id => {
+      const root = this.columns.node(id);
+      return root?.isConnected && root.querySelector('[data-chat-owner]');
+    })) return;
+    this.areaMaps.refresh();
     if (!this.started) {
       this.render();
       return;
@@ -944,67 +1037,85 @@ export class UIController {
     for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
     this.pendingTravelChats = [];
     this.chat.syncCurrentStory(this.panelState, this.game);
+    const owners = new Set([...this.root.querySelectorAll<HTMLElement>('[data-chat-owner]')].map(pane => pane.dataset.chatOwner || null));
+    for (const owner of owners) {
+      if (owner !== this.panelState.conversationVariantId) this.chat.syncCurrentStory({ ...this.panelState, conversationVariantId: owner }, this.game);
+    }
     this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
       ? 'typing'
       : this.chat.activeGate(this.panelState);
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     this.scheduleRewardChats();
+    const chatRoots = this.columns.ids().flatMap(id => {
+      const root = this.columns.node(id);
+      return root?.isConnected && root.querySelector<HTMLElement>('[data-chat-owner]') ? [{ id, root }] : [];
+    });
     if (this.panelState.workspaceNavigation?.current.kind === 'map-entry') {
       this.requestMapEntryWorkspaceRefresh('map-entry-gate');
-      return;
     }
-    if (this.panelState.workspace?.type === 'contacts' || this.panelState.workspace?.type === 'story') {
-      this.refreshPanels(['center']);
-      return;
-    }
-    const center = this.root.querySelector<HTMLElement>('.center-panel');
-    const chatPane = center?.querySelector<HTMLElement>('.chat-pane');
-    if (center && chatPane && this.panelState.centerTab === 'chat' && !this.panelState.conversationVariantId) {
-      this.scroll.captureChat(this.root);
-      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    if (!chatRoots.length) return;
+    this.scroll.captureChat(this.root);
+    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    for (const { root } of chatRoots) {
+      const chatPane = root.querySelector<HTMLElement>('[data-chat-owner]');
+      if (!chatPane) continue;
+      const owner = chatPane.dataset.chatOwner || null;
+      const entries = owner ? this.panelState.studentChats[owner] ?? [] : this.panelState.chatEntries;
+      const texts = owner ? this.panelState.studentChatTexts[owner] ?? [] : this.panelState.chatTexts;
+      const ownerState = { ...this.panelState, conversationVariantId: owner };
+      const ownerGate = this.chat.bannerBlocking(ownerState) ? 'typing' : this.chat.activeGate(ownerState);
+      const ownerStoryGate = this.panelState.storyGate?.owner === owner ? this.panelState.storyGate : null;
+      const ownerBanner = this.chat.activeBanner(ownerState);
+      const markup = owner
+        ? renderConversationBody(context, owner, entries, texts, this.game.story.getSendState(owner), ownerGate, ownerStoryGate, ownerBanner)
+        : renderChatContent(context, entries, texts, this.game.story.getSendState(), ownerGate, ownerStoryGate, ownerBanner);
+      const template = document.createElement('template');
+      template.innerHTML = markup;
+      const nextPane = template.content.querySelector<HTMLElement>('[data-chat-owner]');
+      if (!nextPane) continue;
       const focusSnapshot = captureFocusWithin(chatPane);
       this.popovers.dismissBeforeRootMutation(chatPane);
-      chatPane.outerHTML = renderChatTab(
-        context,
-        this.panelState.chatEntries,
-        this.panelState.chatTexts,
-        this.game.story.getSendState(),
-        this.panelState.sendGate ?? null,
-        this.panelState.storyGate ?? null,
-        this.panelState.openingBanner ?? null,
-      );
-      const nextPane = center.querySelector<HTMLElement>('.chat-pane');
-      if (nextPane) {
-        bindStoryActions(this, nextPane);
-        restoreFocusWithin(nextPane, focusSnapshot);
+      chatPane.outerHTML = nextPane.outerHTML;
+      const replacement = [...root.querySelectorAll<HTMLElement>('[data-chat-owner]')]
+        .find(pane => (pane.dataset.chatOwner || null) === owner);
+      if (replacement) {
+        bindStoryActions(this, replacement);
+        restoreFocusWithin(replacement, focusSnapshot);
       }
-      this.scroll.restoreChat(this.root, {
-        centerTab: this.panelState.centerTab,
-        conversationVariantId: this.panelState.conversationVariantId,
-        activeStreamLength: this.activeStream().length,
-      });
-      this.scroll.observeChatStream(this.root);
-      this.applyTheme(false);
-      return;
     }
-    this.refreshPanels(['center']);
+    this.scroll.restoreChat(this.root, {
+      centerTab: this.panelState.centerTab,
+      conversationVariantId: this.panelState.conversationVariantId,
+      activeStreamLength: this.activeStream().length,
+    });
+    this.scroll.observeChatStream(this.root);
+    this.applyTheme(false);
   }
 
   /** 日志流所在面板可见时，只替换日志列表区域。 */
   refreshLogPanel(force = true): void {
-    if (!this.started || this.panelState.centerTab !== 'log') return;
-    const center = this.root.querySelector<HTMLElement>('.center-panel');
-    const log = center?.querySelector<HTMLElement>('.log-panel');
-    if (!center || !log) return;
+    if (!this.started) return;
+    const logs = this.visibleColumnEntries('log').flatMap(({ root }) => {
+      const log = root.querySelector<HTMLElement>('.log-panel');
+      return log ? [{ root, log }] : [];
+    });
+    if (!logs.length) return;
     const newestLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     if (!force && newestLogEntryId === this.lastLogEntryId) return;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const focusSnapshot = captureFocusWithin(log);
-    this.popovers.dismissBeforeRootMutation(log);
-    log.outerHTML = renderLogTab(context);
-    restoreFocusWithin(center.querySelector<HTMLElement>('.log-panel')!, focusSnapshot);
+    for (const { root, log } of logs) {
+      const focusSnapshot = captureFocusWithin(log);
+      const scrollTop = log.querySelector<HTMLElement>('.log-list')?.scrollTop ?? 0;
+      this.popovers.dismissBeforeRootMutation(log);
+      log.outerHTML = renderLogContent(context);
+      const replacement = root.querySelector<HTMLElement>('.log-panel');
+      if (replacement) {
+        const list = replacement.querySelector<HTMLElement>('.log-list');
+        if (list) list.scrollTop = scrollTop;
+        restoreFocusWithin(replacement, focusSnapshot);
+      }
+    }
     this.lastLogEntryId = newestLogEntryId;
-    bindTopBarActions(this, center);
   }
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
@@ -1020,121 +1131,160 @@ export class UIController {
 
   /** 只替换发生变化的工作区面板，保留其它面板、焦点与事件状态。 */
   refreshPanels(panels: Array<'left' | 'center' | 'right'>): void {
+    if (!panels.length) return;
+    if (this.storyEditor.isOpen()) { this.storyEditor.requestRefresh(); this.flushUIUpdates(); return; }
     if (this.areaMaps.refresh(true)) return;
-    // Workspace 接管三栏时，普通 panel renderer 不能局部覆盖 workspace。
-    // Shop 已有自己的 Host 区域；其它 workspace 暂时保留全量 fallback。
+    // Shop retains its transaction-specific batch renderer; ordinary columns share one path.
     if (this.panelState.workspace?.type === 'shop') {
       const hostIds = panels.map(panel => `${panel}Panel.shop.${panel === 'left' ? 'feed' : panel === 'center' ? 'catalog' : 'settlement'}`);
       this.requestShopWorkspaceRefresh(hostIds, 'refresh-panels');
       this.flushUIUpdates();
       return;
     }
-    if (this.panelState.workspace?.type === 'character' && panels.length === 1 && panels[0] === 'right') {
-      const refreshed = this.refreshCharacterWorkspaceRegion('right');
-      if (refreshed) return;
-    }
-    if (this.panelState.workspace?.type === 'character' && panels.length > 0) {
-      const refreshed = this.refreshCharacterWorkspaceRegions(panels);
-      if (refreshed) return;
-    }
-    if (this.panelState.workspace?.type === 'contacts' && panels.length > 0) {
-      const refreshed = this.refreshContactsWorkspaceRegions(panels);
-      if (refreshed) return;
-    }
-    if (this.panelState.workspace?.type === 'story' && panels.length === 1 && (panels[0] === 'left' || panels[0] === 'center')) {
-      const refreshed = this.refreshStoryWorkspaceRegion(panels[0]);
-      if (refreshed) return;
-    }
-    if (this.panelState.workspace?.type === 'story' && panels.length > 1) {
-      const refreshed = this.refreshStoryWorkspaceRegions(panels);
-      if (refreshed) return;
-    }
-    if (['settings', 'datapack', 'saves', 'records'].includes(this.panelState.service ?? '') && panels.length > 0) {
-      const refreshed = panels.map(panel => this.refreshSettingsServiceRegion(panel));
-      if (refreshed.every(Boolean)) return;
-    }
-    if (this.panelState.workspace) {
-      this.render();
-      return;
-    }
-    if (this.panelState.service === 'inventory' && panels.length === 1 && panels[0] === 'right') {
-      const refreshed = this.refreshInventoryWorkspaceRegion('right');
-      if (refreshed) return;
-    }
-    if (!this.panelState.workspace && panels.length === 1) {
-      const refreshed = this.refreshSettingsServiceRegion(panels[0]);
-      if (refreshed) return;
-    }
-    if (!this.started || this.panelState.service !== 'game') {
-      this.render();
-      return;
-    }
-    this.refreshStats.panelRefreshes += 1;
-    this.publishRefreshStats();
-    this.popovers.retainIfAnchored();
-    this.scroll.capturePanel(this.root);
-    this.scroll.captureChat(this.root);
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const uniquePanels = [...new Set(panels)];
-    const focusSnapshots = new Map<'left' | 'center' | 'right', FocusSnapshot | null>();
-    for (const panel of uniquePanels) {
-      const currentHost = this.findThemeHost(this.root, `${panel}Panel`);
-      const current = currentHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
-      if (!current) continue;
-      focusSnapshots.set(panel, captureFocusWithin(current));
-      this.popovers.dismissBeforeRootMutation(current);
-      let html: string;
-      if (panel === 'left') {
-        html = renderLeftPanel(context, this.panelState);
-      } else if (panel === 'center') {
-        const conversation = this.panelState.conversationVariantId
-          ? {
-              variantId: this.panelState.conversationVariantId,
-              entries: this.panelState.studentChats[this.panelState.conversationVariantId] ?? [],
-              chatTexts: this.panelState.studentChatTexts[this.panelState.conversationVariantId] ?? [],
-            }
-          : undefined;
-        html = renderCenterPanel(
-          context,
-          this.panelState.centerTab,
-          this.panelState.chatEntries,
-          this.panelState.chatTexts,
-          this.game.story.getSendState(this.panelState.conversationVariantId ?? undefined),
-          conversation,
-          this.panelState.sendGate ?? null,
-          this.panelState.storyGate ?? null,
-          this.panelState.openingBanner ?? null,
-        );
-      } else {
-        html = renderRightPanel(context, this.panelState.rightTab, this.panelState.selectedVariantId);
-      }
-      current.outerHTML = html;
-    }
-    for (const panel of uniquePanels) {
-      const nextHost = this.findThemeHost(this.root, `${panel}Panel`);
-      const next = nextHost?.querySelector<HTMLElement>(`[data-game-panel="${panel}"]`);
-      if (!next) continue;
-      bindTopBarActions(this, next);
-      bindContactsActions(this, next);
-      bindThemeActions(this, next);
-      bindEntityPresentationActions(this, next);
-      bindStoryActions(this, next);
-      bindInventoryActions(this, next);
-      restoreFocusWithin(next, focusSnapshots.get(panel) ?? null);
-    }
-    this.scroll.restoreChat(this.root, {
-      centerTab: this.panelState.centerTab,
-      conversationVariantId: this.panelState.conversationVariantId,
-      activeStreamLength: this.activeStream().length,
-    });
-    this.scroll.observeChatStream(this.root);
-    this.scroll.restorePanel(this.root);
-    this.applyTheme(false);
+    if (this.refreshColumnsForPanels(panels)) return;
+    // Startup or an unavailable workspace shell is the remaining structural recovery.
+    this.render();
   }
 
   /** 当前正式 Workspace 的结构刷新入口；不让业务动作借 Game 列查询来决定目标。 */
   refreshWorkspace(): void {
     this.render();
+  }
+
+  private bindColumnActions(root: HTMLElement): void {
+    bindTopBarActions(this, root);
+    bindContactsActions(this, root);
+    bindThemeActions(this, root);
+    bindEntityPresentationActions(this, root);
+    bindStoryActions(this, root);
+    bindInventoryActions(this, root);
+    bindSaveActions(this, root);
+  }
+
+  private collectColumns(ctx: UIContext): void {
+    this.columnFrames.clear();
+    ctx.workspaceColumns = frame => {
+      if (frame.id === 'story-editor') frame = this.storyEditor.configureFrame(frame);
+      const route = this.currentWorkspaceRoute();
+      const onBack = frame.onBack !== undefined ? frame.onBack : (this.panelState.workspace ? () => this.disposeWorkspace()
+        : route.kind === 'area' ? () => { this.returnFromAreaWorkspace(); this.render(); }
+          : route.kind === 'map-entry' ? () => { this.returnFromMapEntry(); this.render(); } : undefined);
+      const columns = workspaceColumns(frame).map(column => {
+        const actions = { ...column.actions };
+        const bindDefault = (selector: string, action: (element: HTMLElement, event: MouseEvent) => void): void => {
+          if (!Object.prototype.hasOwnProperty.call(column.actions ?? {}, selector)) actions[selector] = action;
+        };
+        if (column.definitionId === 'area-navigation') {
+          bindDefault('[data-workspace-navigation="contacts"]', () => { this.openContactsWorkspace(); this.render(); });
+          bindDefault('[data-workspace-navigation="story"]', () => { this.openStoryWorkspace(); this.render(); });
+        }
+        if (frame.id === 'game' && (column.key ?? '') === 'activity') {
+          bindDefault('[data-column-action="activity:chat"]', () => {
+            const wasChat = this.panelState.centerTab === 'chat';
+            this.panelState.centerTab = 'chat';
+            if (!wasChat) this.scroll.forceToBottom();
+            this.refreshPanels(['center']);
+          });
+          bindDefault('[data-column-action="activity:log"]', () => {
+            this.panelState.centerTab = 'log';
+            this.refreshPanels(['center']);
+          });
+        }
+        if (frame.id === 'game' && (column.key ?? '') === 'tools') {
+          for (const tab of ['spot', 'character', 'enh', 'other']) {
+            bindDefault(`[data-column-action="tools:${tab}"]`, () => {
+              this.panelState.rightTab = tab;
+              this.refreshPanels(['right']);
+            });
+          }
+        }
+        if (column.definitionId === 'log') {
+          bindDefault('[data-action="clear-log"]', () => { this.commands.clearDevLogs(); this.refreshLogPanel(true); });
+          bindDefault('[data-action="export-log"]', () => this.io.exportLog());
+          bindDefault('[data-action="dump-enh-debug"]', () => {
+            this.game.enhancements.dumpEnhancementDebug();
+            this.toast.show('Enhancement 条件诊断已写入日志', 'info');
+            this.refreshLogPanel(true);
+          });
+        }
+        return { ...column, actions };
+      });
+      this.columnFrames.set(workspaceScope(frame), { ...frame, columns, onBack });
+    };
+  }
+
+  /** Optional instance target for new callers; old panel names are appearance aliases only. */
+  requestColumnRefresh(instanceId: string): void {
+    if (this.storyEditor.refreshInstance(instanceId)) return;
+    this.updates.request({ type: 'region', hostId: instanceId, instanceId, columnToken: this.columns.token(instanceId), reason: 'column-change' });
+  }
+
+  private refreshColumnsForPanels(panels: readonly ('left' | 'center' | 'right')[]): boolean {
+    const ids = [...this.columnFrames.values()].filter(frame => frame.updates !== 'external')
+      .flatMap(frame => workspaceColumns(frame).filter(column => panels.some(panel => column.slot === panel || frame.panelAliases?.[panel]?.includes(column.key ?? ''))).map(column => columnInstanceId(workspaceScope(frame), column)));
+    return ids.length > 0 && this.refreshColumnInstances(ids);
+  }
+
+  refreshColumnInstances(ids: readonly string[], expected?: ColumnToken): boolean {
+    if (expected && this.columns.token(expected.instanceId)?.generation !== expected.generation) return false;
+    if (this.storyEditor.isOpen() && ids.length > 0 && ids.every(id => id.startsWith('story-editor/'))) {
+      const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      return this.storyEditor.refresh(ctx);
+    }
+    if (!this.started) return false;
+    this.surfaceRuntime.sync(this.panelState);
+    this.syncRuntimeTheme();
+    const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
+      entriesFor: (runId, view, context) => this.syncMapFlow(runId, view, context),
+    });
+    this.collectColumns(ctx);
+    renderAppShell(ctx, this.panelState);
+    const entries = [...this.columnFrames.values()].flatMap(frame => workspaceColumns(frame).map(column => ({ frame, column, id: columnInstanceId(workspaceScope(frame), column) })));
+    const targets = ids.map(id => {
+      const entry = entries.find(candidate => candidate.id === id);
+      if (entry) return { kind: 'workspace' as const, ...entry };
+      const root = this.columns.node(id);
+      const spec = this.columns.spec(id) as SemanticColumnSpec | undefined;
+      return root?.isConnected && spec?.semanticRefresh ? { kind: 'semantic' as const, id } : undefined;
+    });
+    if (targets.some(target => !target)) return false;
+    this.scroll.captureChat(this.root);
+    for (const target of targets) {
+      if (!target) return false;
+      if (target.kind === 'semantic') {
+        if (!this.refreshSemanticColumn(target.id, ctx)) return false;
+        continue;
+      }
+      const { frame, column, id } = target;
+      if (!this.columns.node(id)?.isConnected) {
+        const frameRoot = [...this.root.querySelectorAll<HTMLElement>('[data-workspace-instance]')].find(node => node.dataset.workspaceInstance === workspaceScope(frame));
+        if (frameRoot?.parentElement) this.columns.mount(frameRoot.parentElement, ctx, frame);
+        else {
+          const pageContent = this.root.querySelector('.workspace-page-content');
+          if (!pageContent) return false;
+          const template = document.createElement('template');
+          template.innerHTML = renderWorkspaceFrame(ctx, frame);
+          const replacement = template.content.firstElementChild as HTMLElement;
+          pageContent.append(replacement);
+          this.columns.adopt(this.root, ctx, frame);
+          for (const spec of workspaceColumns(frame)) {
+            const node = this.columns.node(columnInstanceId(workspaceScope(frame), spec));
+            if (node) this.bindColumnActions(node);
+          }
+        }
+        continue;
+      }
+      this.columns.adopt(this.root, ctx, frame);
+      if (!this.columns.update(id, column)) return false;
+    }
+    this.scroll.restoreChat(this.root, { centerTab: this.panelState.centerTab, conversationVariantId: this.panelState.conversationVariantId, activeStreamLength: this.activeStream().length });
+    this.scroll.observeChatStream(this.root);
+    if (!this.surfaceRuntime.isCurrent(this.surfaceRuntime.current())) this.surfaceRuntime.markMounted();
+    this.refreshStats.regionRefreshes += targets.length;
+    this.refreshStats.panelRefreshes += 1;
+    this.publishRefreshStats();
+    this.applyTheme(false);
+    return true;
   }
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
@@ -1148,22 +1298,16 @@ export class UIController {
     // 交互触发重建前处理 hover 弹层：锚点被重建移除才关闭；
     // body 级弹窗（如图鉴）内的锚点不受 #app 重建影响，浮层保留
     this.popovers.retainIfAnchored();
-    // 进入 Area 的「移动到了」迷你条目先于剧情内容入流：移动触发的故事与通知
-    // 落在同一次 render，通知必须先落账（否则故事首内容会排在通知之前）
-    for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
-    this.pendingTravelChats = [];
-    // 当前剧情页先同步进聊天流（以指纹去重），再重建 DOM
-    this.chat.syncCurrentStory(this.panelState, this.game);
-    // 底部按钮门控阶段（§4）：同步后按当前活跃流计算，供 renderSendButton 隐藏回复文案；
-    // 开幕横幅展示/淡出期间呈阻断态（点击由 data-send 处理器忽略）
-    this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
-      ? 'typing'
-      : this.chat.activeGate(this.panelState);
-    // 开幕标题横幅：按当前活跃流读取（showBanner 状态由 openingTitleShown 事件写入）
-    this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
-    // 奖励通知在台词/回复气泡之后落账（排队见 storyRewarded 订阅）；
-    // Story 末尾留一拍：延迟入流，避免奖励信息贴着最后一页台词瞬间弹出
-    this.scheduleRewardChats();
+    // Authoring renders do not deliver or advance the player's story stream.
+    if (!this.storyEditor.isOpen()) {
+      // 移动通知先于剧情正文入流，再按当前 owner 同步门控与开幕标题。
+      for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
+      this.pendingTravelChats = [];
+      this.chat.syncCurrentStory(this.panelState, this.game);
+      this.panelState.sendGate = this.chat.bannerBlocking(this.panelState) ? 'typing' : this.chat.activeGate(this.panelState);
+      this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
+      this.scheduleRewardChats();
+    }
     if (this.panelState.workspaceNavigation?.current.kind === 'map-entry'
       && !this.isMapEntrySourceAvailable(this.panelState.workspaceNavigation.current.mapId)) {
       this.returnFromMapEntry();
@@ -1178,19 +1322,24 @@ export class UIController {
     // 若晚于 DOM 生成（applyTheme 内），会读到上一帧的层 → 换色后落后一拍
     this.syncRuntimeTheme();
     this.ensureDatapackWorkspaceState();
-    this.ensureDebugEditingState();
+    if (!this.storyEditor.isOpen()) this.ensureDebugEditingState();
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
       entriesFor: (runId, view, ctx) => this.syncMapFlow(runId, view, ctx),
     });
-    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace) {
+    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.storyEditor.isOpen()) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
+      this.columns.releaseWithin(this.root);
       renderInitSelectImpl(this);
       this.mapRelations.reconcile();
       this.surfaceRuntime.markMounted();
       return;
     }
     this.panelState.runtimeEditorPanelOpen = this.runtimeEditorPanelOpen;
-    this.root.innerHTML = renderAppShell(context, this.panelState);
+    this.collectColumns(context);
+    const markup = renderAppShell(context, this.panelState);
+    this.columns.releaseWithin(this.root);
+    this.root.innerHTML = markup;
+    for (const frame of this.columnFrames.values()) this.columns.adopt(this.root, context, frame);
     this.surfaceRuntime.markMounted();
     this.lastLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     this.popovers.bind();
@@ -1261,296 +1410,6 @@ export class UIController {
     seedDebugEditing(this);
   }
 
-  private refreshInventoryWorkspaceRegion(panel: 'right'): boolean {
-    const hostId = `${panel}Panel.service.inventory.inspector`;
-    const current = this.findThemeHost(this.root, hostId);
-    if (!current) return false;
-
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderInventoryWorkspace(context, this.panelState).trim();
-    const next = this.findThemeHost(template.content, hostId);
-    if (!next) return false;
-
-    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    const scrollTop = scrollOwner?.scrollTop ?? 0;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = next.outerHTML;
-    const replacement = this.findThemeHost(this.root, hostId);
-    if (!replacement) return false;
-
-    bindInventoryActions(this, replacement);
-    bindTopBarActions(this, replacement);
-    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
-    restoreFocusWithin(replacement, focusSnapshot);
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshSettingsServiceRegion(panel: 'left' | 'center' | 'right'): boolean {
-    const service = this.panelState.service;
-    if (service !== 'settings' && service !== 'datapack' && service !== 'saves' && service !== 'records') return false;
-    const column = panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector';
-    const hostId = service === 'datapack' && panel === 'left'
-      ? 'leftPanel.service.datapack.workspace'
-      : `${panel}Panel.service.${service}.${column}`;
-    const current = this.findThemeHost(this.root, hostId);
-    if (!current) return false;
-
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const html = service === 'settings'
-      ? renderSettingsWorkspace(context, this.panelState)
-      : renderServiceWorkspace(context, service as ServiceWorkspaceId, this.panelState);
-    const template = document.createElement('template');
-    template.innerHTML = html.trim();
-    const next = this.findThemeHost(template.content, hostId);
-    if (!next) return false;
-
-    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    const scrollTop = scrollOwner?.scrollTop ?? 0;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = next.outerHTML;
-    const replacement = this.findThemeHost(this.root, hostId);
-    if (!replacement) return false;
-
-    bindTopBarActions(this, replacement);
-    bindSaveActions(this, replacement);
-    bindInventoryActions(this, replacement);
-    bindEntityPresentationActions(this, replacement);
-    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
-    restoreFocusWithin(replacement, focusSnapshot);
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshCharacterWorkspaceRegion(panel: 'right'): boolean {
-    const workspace = this.panelState.workspace;
-    if (workspace?.type !== 'character') return false;
-    const hostId = `${panel}Panel.character.progression`;
-    const current = this.findThemeHost(this.root, hostId);
-    if (!current) return false;
-
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderCharacterWorkspace(context, workspace, this.panelState).trim();
-    const next = this.findThemeHost(template.content, hostId);
-    if (!next) return false;
-
-    const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    const scrollTop = scrollOwner?.scrollTop ?? 0;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = next.outerHTML;
-    const replacement = this.findThemeHost(this.root, hostId);
-    if (!replacement) return false;
-
-    bindTopBarActions(this, replacement);
-    bindContactsActions(this, replacement);
-    bindInventoryActions(this, replacement);
-    bindEntityPresentationActions(this, replacement);
-    const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-    if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
-    restoreFocusWithin(replacement, focusSnapshot);
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshCharacterWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
-    const workspace = this.panelState.workspace;
-    if (workspace?.type !== 'character') return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderCharacterWorkspace(context, workspace, this.panelState).trim();
-    const hostIds = panels.map(panel => `${panel}Panel.character.${panel === 'left' ? 'contacts' : panel === 'center' ? 'story' : 'progression'}`);
-    const targets = hostIds.map(hostId => ({
-      hostId,
-      current: this.findThemeHost(this.root, hostId),
-      next: this.findThemeHost(template.content, hostId),
-    }));
-    if (targets.some(target => !target.current || !target.next)) return false;
-    const focusSnapshots = new Map<string, FocusSnapshot | null>();
-    const scrollTops = new Map<string, number>();
-    for (const target of targets) {
-      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
-      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
-      this.popovers.dismissBeforeRootMutation(target.current!);
-    }
-    if (panels.includes('center')) this.scroll.captureChat(this.root);
-    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
-    for (const target of targets) {
-      const replacement = this.findThemeHost(this.root, target.hostId);
-      if (!replacement) return false;
-      bindTopBarActions(this, replacement);
-      bindContactsActions(this, replacement);
-      bindInventoryActions(this, replacement);
-      bindStoryActions(this, replacement);
-      bindEntityPresentationActions(this, replacement);
-      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
-      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
-    }
-    if (panels.includes('center')) {
-      this.scroll.restoreChat(this.root, {
-        centerTab: this.panelState.centerTab,
-        conversationVariantId: this.panelState.conversationVariantId,
-        activeStreamLength: this.activeStream().length,
-      });
-      this.scroll.observeChatStream(this.root);
-    }
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshContactsWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
-    const workspace = this.panelState.workspace;
-    if (workspace?.type !== 'contacts') return false;
-
-    this.syncRuntimeTheme();
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderContactsWorkspace(context, workspace, this.panelState).trim();
-    const hostIds = panels.map(panel => `${panel}Panel.service.contacts.${panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector'}`);
-    const targets = hostIds.map(hostId => ({
-      hostId,
-      current: this.findThemeHost(this.root, hostId),
-      next: this.findThemeHost(template.content, hostId),
-    }));
-    if (targets.some(target => !target.current || !target.next)) return false;
-    const focusSnapshots = new Map<string, FocusSnapshot | null>();
-    const scrollTops = new Map<string, number>();
-    for (const target of targets) {
-      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
-      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
-      this.popovers.dismissBeforeRootMutation(target.current!);
-    }
-    if (panels.includes('center')) this.scroll.captureChat(this.root);
-    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
-    for (const target of targets) {
-      const replacement = this.findThemeHost(this.root, target.hostId);
-      if (!replacement) return false;
-      bindTopBarActions(this, replacement);
-      bindContactsActions(this, replacement);
-      bindInventoryActions(this, replacement);
-      bindStoryActions(this, replacement);
-      bindEntityPresentationActions(this, replacement);
-      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
-      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
-    }
-    if (panels.includes('center')) {
-      this.scroll.restoreChat(this.root, {
-        centerTab: this.panelState.centerTab,
-        conversationVariantId: this.panelState.conversationVariantId,
-        activeStreamLength: this.activeStream().length,
-      });
-      this.scroll.observeChatStream(this.root);
-    }
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshStoryWorkspaceRegion(panel: 'left' | 'center'): boolean {
-    const workspace = this.panelState.workspace;
-    if (workspace?.type !== 'story') return false;
-    const hostId = `${panel}Panel.service.story.${panel === 'left' ? 'navigation' : 'main'}`;
-    const current = this.findThemeHost(this.root, hostId);
-    if (!current) return false;
-
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderStoryWorkspace(context, workspace, this.panelState).trim();
-    const next = this.findThemeHost(template.content, hostId);
-    if (!next) return false;
-
-    const focusSnapshot = captureFocusWithin(current);
-    if (panel === 'center') this.scroll.captureChat(this.root);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = next.outerHTML;
-    const replacement = this.findThemeHost(this.root, hostId);
-    if (!replacement) return false;
-
-    bindTopBarActions(this, replacement);
-    bindContactsActions(this, replacement);
-    bindInventoryActions(this, replacement);
-    bindStoryActions(this, replacement);
-    bindEntityPresentationActions(this, replacement);
-    restoreFocusWithin(replacement, focusSnapshot);
-    if (panel === 'center') {
-      this.scroll.restoreChat(this.root, {
-        centerTab: this.panelState.centerTab,
-        conversationVariantId: this.panelState.conversationVariantId,
-        activeStreamLength: this.activeStream().length,
-      });
-      this.scroll.observeChatStream(this.root);
-    }
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
-  private refreshStoryWorkspaceRegions(panels: ReadonlyArray<'left' | 'center' | 'right'>): boolean {
-    const workspace = this.panelState.workspace;
-    if (workspace?.type !== 'story') return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const template = document.createElement('template');
-    template.innerHTML = renderStoryWorkspace(context, workspace, this.panelState).trim();
-    const hostIds = panels.map(panel => `${panel}Panel.service.story.${panel === 'left' ? 'navigation' : panel === 'center' ? 'main' : 'inspector'}`);
-    const targets = hostIds.map(hostId => ({
-      hostId,
-      current: this.findThemeHost(this.root, hostId),
-      next: this.findThemeHost(template.content, hostId),
-    }));
-    if (targets.some(target => !target.current || !target.next)) return false;
-    const focusSnapshots = new Map<string, FocusSnapshot | null>();
-    const scrollTops = new Map<string, number>();
-    for (const target of targets) {
-      focusSnapshots.set(target.hostId, captureFocusWithin(target.current!));
-      scrollTops.set(target.hostId, target.current!.querySelector<HTMLElement>('[data-scroll-owner="content-region"]')?.scrollTop ?? 0);
-      this.popovers.dismissBeforeRootMutation(target.current!);
-    }
-    if (panels.includes('center')) this.scroll.captureChat(this.root);
-    for (const target of targets) target.current!.outerHTML = target.next!.outerHTML;
-    for (const target of targets) {
-      const replacement = this.findThemeHost(this.root, target.hostId);
-      if (!replacement) return false;
-      bindTopBarActions(this, replacement);
-      bindContactsActions(this, replacement);
-      bindInventoryActions(this, replacement);
-      bindStoryActions(this, replacement);
-      bindEntityPresentationActions(this, replacement);
-      const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-      if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTops.get(target.hostId) ?? 0;
-      restoreFocusWithin(replacement, focusSnapshots.get(target.hostId) ?? null);
-    }
-    if (panels.includes('center')) {
-      this.scroll.restoreChat(this.root, {
-        centerTab: this.panelState.centerTab,
-        conversationVariantId: this.panelState.conversationVariantId,
-        activeStreamLength: this.activeStream().length,
-      });
-      this.scroll.observeChatStream(this.root);
-    }
-    this.refreshStats.regionRefreshes += 1;
-    this.publishRefreshStats();
-    this.applyTheme(false);
-    return true;
-  }
-
   /** 导入完成后将工作区定位到新包（存在工作区时）。 */
   selectDatapackPack(packId: string): void {
     const workspace = this.panelState.datapackWorkspace;
@@ -1597,11 +1456,11 @@ export class UIController {
     }
     if (update.type === 'element') {
       const applied = update.target === 'spot.card'
-        ? this.refreshSpotCard(update.key)
+        ? this.refreshSpotCard(update.key, update.instanceId)
         : update.target === 'enhancement.card'
-          ? this.refreshEnhancementCard(update.key)
+          ? this.refreshEnhancementCard(update.key, update.instanceId)
           : update.target === 'area.nav'
-            ? this.refreshAreaNavItem(update.key)
+            ? this.refreshAreaNavItem(update.key, update.instanceId)
             : false;
       if (applied) this.refreshStats.elementRefreshes += 1;
       else this.refreshStats.elementMisses += 1;
@@ -1611,6 +1470,19 @@ export class UIController {
       return outcome;
     }
     if (update.type === 'region') {
+      if (update.hostId === STORY_EDITOR_REGION) {
+        const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+        let applied = this.storyEditor.refresh(ctx);
+        const recovery = !applied && this.storyEditor.isOpen();
+        if (recovery) { this.render(); applied = true; }
+        if (applied) { this.refreshStats.regionRefreshes += 1; this.applyTheme(false); }
+        this.publishRefreshStats();
+        this.recordUIUpdate(update, applied ? 'applied' : 'not-found', recovery ? 'story-editor-shell-recovery' : undefined);
+        return applied ? 'applied' : 'not-found';
+      }
+      if (update.instanceId) {
+        return this.refreshColumnInstances([update.instanceId], update.columnToken) ? 'applied' : 'not-found';
+      }
       if (update.hostId === AREA_MAP_REGION) {
         const applied = this.areaMaps.apply();
         if (!applied && this.panelState.areaMapSession) this.render();
@@ -1737,10 +1609,10 @@ export class UIController {
     });
   }
 
-  private onDroppedUIUpdate(update: UIUpdate): void {
+  private onDroppedUIUpdate(update: UIUpdate, reason: 'stale-surface' | 'stale-column' = 'stale-surface'): void {
     this.refreshStats.droppedUpdates += 1;
     this.publishRefreshStats();
-    this.recordUIUpdate(update, 'dropped', 'stale-surface');
+    this.recordUIUpdate(update, 'dropped', reason);
   }
 
   private recordUIUpdate(update: UIUpdate, outcome: UIRefreshObservation['outcome'], fallbackReason?: string): void {
@@ -1756,75 +1628,78 @@ export class UIController {
     if (this.refreshObservations.length > 200) this.refreshObservations.shift();
   }
 
-  private refreshSpotCard(spotId: string): boolean {
-    const current = this.findSpotCard(spotId);
-    if (!current) return false;
+  private refreshSpotCard(spotId: string, instanceId?: string): boolean {
+    const roots = instanceId ? [this.columns.node(instanceId)].filter((root): root is HTMLElement => Boolean(root)) : [this.root];
+    const currentCards = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
+      .filter(node => node.dataset.uiSpotCard === spotId));
+    if (!currentCards.length) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const html = renderSpotCard(context, spotId);
     if (!html) return false;
-    if (elementMatchesMarkup(current, html)) return true;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = html;
-    const replacement = this.findSpotCard(spotId);
-    if (!replacement) return false;
-    bindInventoryActions(this, replacement);
-    bindContactsActions(this, replacement);
-    bindEntityPresentationActions(this, replacement);
-    restoreFocusWithin(replacement, focusSnapshot);
+    for (const current of currentCards) {
+      if (elementMatchesMarkup(current, html)) continue;
+      const root = current.closest<HTMLElement>('[data-column-instance]') ?? this.root;
+      const focusSnapshot = captureFocusWithin(current);
+      this.popovers.dismissBeforeRootMutation(current);
+      current.outerHTML = html;
+      const replacement = [...root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')].find(node => node.dataset.uiSpotCard === spotId);
+      if (!replacement) continue;
+      bindInventoryActions(this, replacement);
+      bindContactsActions(this, replacement);
+      bindEntityPresentationActions(this, replacement);
+      restoreFocusWithin(replacement, focusSnapshot);
+    }
     this.applyTheme(false);
     return true;
   }
 
-  private findSpotCard(spotId: string): HTMLElement | null {
-    return [...this.root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
-      .find(node => node.dataset.uiSpotCard === spotId) ?? null;
-  }
-
-  private refreshEnhancementCard(enhancementId: string): boolean {
-    const current = this.findEnhancementCard(enhancementId);
-    if (!current) return false;
+  private refreshEnhancementCard(enhancementId: string, instanceId?: string): boolean {
+    const roots = instanceId ? [this.columns.node(instanceId)].filter((root): root is HTMLElement => Boolean(root)) : [this.root];
+    const currentCards = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
+      .filter(node => node.dataset.uiEnhancementCard === enhancementId));
+    if (!currentCards.length) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const html = renderEnhancementCard(context, enhancementId);
     if (!html) return false;
-    if (elementMatchesMarkup(current, html)) return true;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = html;
-    const replacement = this.findEnhancementCard(enhancementId);
-    if (!replacement) return false;
-    bindContactsActions(this, replacement);
-    bindInventoryActions(this, replacement);
-    bindEntityPresentationActions(this, replacement);
-    restoreFocusWithin(replacement, focusSnapshot);
+    for (const current of currentCards) {
+      if (elementMatchesMarkup(current, html)) continue;
+      const root = current.closest<HTMLElement>('[data-column-instance]') ?? this.root;
+      const focusSnapshot = captureFocusWithin(current);
+      this.popovers.dismissBeforeRootMutation(current);
+      current.outerHTML = html;
+      const replacement = [...root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')].find(node => node.dataset.uiEnhancementCard === enhancementId);
+      if (!replacement) continue;
+      bindContactsActions(this, replacement);
+      bindInventoryActions(this, replacement);
+      bindEntityPresentationActions(this, replacement);
+      restoreFocusWithin(replacement, focusSnapshot);
+    }
     this.applyTheme(false);
     return true;
   }
 
-  private findEnhancementCard(enhancementId: string): HTMLElement | null {
-    return [...this.root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
-      .find(node => node.dataset.uiEnhancementCard === enhancementId) ?? null;
-  }
-
-  private refreshAreaNavItem(key: string): boolean {
+  private refreshAreaNavItem(key: string, instanceId?: string): boolean {
     const separator = key.indexOf(':');
     if (separator <= 0) return false;
     const kind = key.slice(0, separator);
     if (kind !== 'reachable') return false;
     const areaId = key.slice(separator + 1);
-    const current = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
-      .find(node => node.dataset.uiAreaNav === key);
-    if (!current) return false;
+    const roots = instanceId ? [this.columns.node(instanceId)].filter((root): root is HTMLElement => Boolean(root)) : [this.root];
+    const currentItems = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
+      .filter(node => node.dataset.uiAreaNav === key));
+    if (!currentItems.length) return false;
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
     const html = renderAreaNavItem(context, areaId);
     if (!html) return false;
-    if (elementMatchesMarkup(current, html)) return true;
-    const focusSnapshot = captureFocusWithin(current);
-    this.popovers.dismissBeforeRootMutation(current);
-    current.outerHTML = html;
-    const replacement = [...this.root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
-      .find(node => node.dataset.uiAreaNav === key);
-    if (replacement) restoreFocusWithin(replacement, focusSnapshot);
+    for (const current of currentItems) {
+      if (elementMatchesMarkup(current, html)) continue;
+      const root = current.closest<HTMLElement>('[data-column-instance]') ?? this.root;
+      const focusSnapshot = captureFocusWithin(current);
+      this.popovers.dismissBeforeRootMutation(current);
+      current.outerHTML = html;
+      const replacement = [...root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')].find(node => node.dataset.uiAreaNav === key);
+      if (replacement) restoreFocusWithin(replacement, focusSnapshot);
+    }
     return true;
   }
 
@@ -1837,6 +1712,7 @@ export class UIController {
     if (uniqueHostIds.length === 0) return false;
 
     const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    this.collectColumns(context);
     const template = document.createElement('template');
     template.innerHTML = renderShopWorkspace(context, workspace).trim();
     let replaced = 0;
@@ -1844,8 +1720,7 @@ export class UIController {
       const current = this.findThemeHost(this.root, hostId);
       const next = this.findThemeHost(template.content, hostId);
       if (!current || !next) continue;
-      const scrollOwner = current.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-      const scrollTop = scrollOwner?.scrollTop ?? 0;
+      const scrollPositions = new Map([...workspaceColumnScrollTargets(current)].map(([key, element]) => [key, element.scrollTop]));
       const focusSnapshot = captureFocusWithin(current);
       this.popovers.dismissBeforeRootMutation(current);
       current.outerHTML = next.outerHTML;
@@ -1853,13 +1728,17 @@ export class UIController {
       if (replacement) {
         bindContactsActions(this, replacement);
         bindEntityPresentationActions(this, replacement);
-        const nextScrollOwner = replacement.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-        if (nextScrollOwner) nextScrollOwner.scrollTop = scrollTop;
+        for (const [key, element] of workspaceColumnScrollTargets(replacement)) {
+          const scrollTop = scrollPositions.get(key);
+          if (scrollTop !== undefined) element.scrollTop = scrollTop;
+        }
         restoreFocusWithin(replacement, focusSnapshot);
       }
       replaced += 1;
     }
     if (replaced === 0) return false;
+    const shopFrame = this.columnFrames.get('shop');
+    if (shopFrame) this.columns.adopt(this.root, context, shopFrame);
     this.refreshStats.regionRefreshes += 1;
     this.publishRefreshStats();
     this.applyTheme(false);
@@ -2221,7 +2100,7 @@ export class UIController {
 
   private currentWorkspaceRoute(): WorkspaceRoute {
     const savedRoute = this.panelState.workspaceNavigation?.current;
-    if (savedRoute?.kind === 'map' || savedRoute?.kind === 'area' || savedRoute?.kind === 'area-map' || savedRoute?.kind === 'map-entry') return savedRoute;
+    if (savedRoute?.kind === 'story-editor' || savedRoute?.kind === 'map' || savedRoute?.kind === 'area' || savedRoute?.kind === 'area-map' || savedRoute?.kind === 'map-entry') return savedRoute;
     return routeFromLegacyState({ service: this.panelState.service, workspace: this.workspaceRouteRef() });
   }
 
@@ -2242,6 +2121,8 @@ export class UIController {
 
   /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
   navigateToService(service: NonNullable<PanelState['service']>): void {
+    if (!this.storyEditor.beforeLeave()) return;
+    if (this.storyEditor.isOpen()) this.storyEditor.abandonReturn();
     this.areaMaps.release();
     const route = routeFromLegacyState({ service, workspace: null });
     this.panelState.workspace = undefined;
@@ -2251,6 +2132,10 @@ export class UIController {
 
   /** 进入新的 Workspace，并记录一个可选的单层返回位置。 */
   enterWorkspaceRoute(route: WorkspaceRoute): void {
+    if (this.storyEditor.isOpen() && route.kind !== 'story-editor') {
+      if (!this.storyEditor.beforeLeave()) return;
+      this.storyEditor.abandonReturn();
+    }
     if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
     const previousRoute = this.panelState.workspaceNavigation?.current;
     if ((previousRoute?.kind === 'map-entry' || previousRoute?.kind === 'map')
@@ -2355,6 +2240,10 @@ export class UIController {
 
   /** 在当前 Workspace 内替换轻量定位，不新增返回层。 */
   replaceWorkspaceRoute(route: WorkspaceRoute): void {
+    if (this.storyEditor.isOpen() && route.kind !== 'story-editor') {
+      if (!this.storyEditor.beforeLeave()) return;
+      this.storyEditor.abandonReturn();
+    }
     if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
     const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());
     this.panelState.workspaceNavigation = replaceWorkspaceNavigation(previous, route);

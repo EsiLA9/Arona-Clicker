@@ -1,3 +1,5 @@
+import type { StoryRunFlags } from './story-run-flags';
+
 /** 新节点执行快照。没有旧页式游标的兼容解释。 */
 export interface StoryNodeSnapshot {
   readonly format: 'story-nodes';
@@ -6,6 +8,8 @@ export interface StoryNodeSnapshot {
     readonly storyId: string;
     readonly nodeId: string;
     readonly waitSequence: number;
+    /** 当前 Entry 局部键值表，随暂停恢复；不包含其他 Entry 或持久 flags。 */
+    readonly localFlags: StoryRunFlags;
     readonly terminalStoryId: string;
     readonly transfers: number;
     readonly visited: readonly string[];

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../../src/ui/css/background.css', import.meta.url), 'utf8');
 const chatCss = readFileSync(new URL('../../src/ui/css/chat.css', import.meta.url), 'utf8');
 const layoutCss = readFileSync(new URL('../../src/ui/css/layout.css', import.meta.url), 'utf8');
+const workspaceControlsCss = readFileSync(new URL('../../src/ui/css/workspace-controls.css', import.meta.url), 'utf8');
 const conversationCss = readFileSync(new URL('../../src/ui/css/conversation.css', import.meta.url), 'utf8');
 const modalCss = readFileSync(new URL('../../src/ui/css/modal.css', import.meta.url), 'utf8');
 
@@ -52,26 +53,28 @@ describe('表现宿主文字颜色 CSS 契约', () => {
     expect(layout).not.toContain('.topbar .presentation-host-target:hover,\n.topbar .presentation-host-target.is-active,\n.topbar .theme-palette:has([data-theme-float].open) > #theme-palette-btn {\n   border-color: var(--theme-node-highlight)');
   });
 
-  test('三栏主宿主挂载表现元数据，背景形状可以作用到实际容器', () => {
-    const center = readFileSync(new URL('../../src/ui/components/center-panel.ts', import.meta.url), 'utf8');
-    const right = readFileSync(new URL('../../src/ui/components/right-panels.ts', import.meta.url), 'utf8');
-    const left = readFileSync(new URL('../../src/ui/components/rail.ts', import.meta.url), 'utf8');
-    for (const source of [center, right, left]) {
-      expect(source).toContain('presentation-host-target');
-      expect(source).toContain('data-theme-host-id');
-      expect(source).toContain('data-theme-text-mode');
-    }
+  test('具名栏由 WorkspaceFrame 作为真实表现宿主装配', () => {
+    const frame = readFileSync(new URL('../../src/ui/components/shared/workspace-frame.ts', import.meta.url), 'utf8');
+    const presentation = readFileSync(new URL('../../src/ui/presentation/presentation-service.ts', import.meta.url), 'utf8');
+    const columns = readFileSync(new URL('../../src/ui/columns/index.ts', import.meta.url), 'utf8');
+    expect(frame).toContain('renderUIHost(ctx');
+    expect(presentation).toContain('presentation-host-target');
+    expect(presentation).toContain('data-theme-host-id=');
+    expect(columns).toContain("'leftPanel.area'");
+    expect(columns).toContain("'rightPanel.spot'");
+    expect(columns).toContain("'centerPanel.log'");
   });
 
   test('Tabs 区域与按钮分层，区域不再依赖固定底部横线', () => {
-    const tabs = readFileSync(new URL('../../src/ui/components/tabs.ts', import.meta.url), 'utf8');
+    const tabs = readFileSync(new URL('../../src/ui/components/shared/tabs.ts', import.meta.url), 'utf8');
     expect(tabs).toContain('renderPanelTabsRegion');
     expect(tabs).toContain('data-theme-host-id="${tabsHost}"');
     expect(tabs).toContain('switch-tabs-content');
-    expect(chatCss).toContain('.switch-tabs-content');
-    expect(chatCss).toContain('var(--theme-node-primary) 10%');
-    expect(chatCss).toContain('.panel-tabs-region');
-    expect(chatCss).toContain('border-bottom: 1px solid var(--theme-node-line)');
+    expect(workspaceControlsCss).toContain('.switch-tabs-content');
+    expect(workspaceControlsCss).toContain('var(--theme-node-primary) 10%');
+    expect(workspaceControlsCss).toContain('.panel-tabs-region');
+    expect(workspaceControlsCss).toContain('border-bottom: 1px solid var(--theme-node-line)');
+    expect(chatCss).not.toContain('.panel-tabs-region {');
     expect(chatCss).toContain('.switch-tabs.coll-switch');
     expect(chatCss).toContain('.switch-tabs[data-gacha-scope-switch]');
     expect(chatCss).not.toContain('.left-panel > .switch-tabs');
@@ -85,14 +88,14 @@ describe('表现宿主文字颜色 CSS 契约', () => {
   });
 
   test('游戏与商店顶栏控件共用等高 token，保持顶栏高度一致', () => {
-    const regionStart = chatCss.indexOf('.panel-tabs-region {');
+    const regionStart = workspaceControlsCss.indexOf('.panel-tabs-region {');
     expect(regionStart).toBeGreaterThanOrEqual(0);
-    const regionRule = chatCss.slice(regionStart, chatCss.indexOf('}', regionStart));
+    const regionRule = workspaceControlsCss.slice(regionStart, workspaceControlsCss.indexOf('}', regionStart));
     expect(regionRule).toContain('--panel-tabs-control-height: 30px');
-    expect(chatCss).toContain('.panel-tabs-region .switch-tab');
-    expect(chatCss).toContain('min-height: var(--panel-tabs-control-height)');
+    expect(workspaceControlsCss).toContain('.panel-tabs-region .switch-tab');
+    expect(workspaceControlsCss).toContain('min-height: var(--panel-tabs-control-height)');
     // 商店标题与商店 Tab 都消费同一 token，不再写死高度。
-    expect(layoutCss).toContain('height: var(--panel-tabs-control-height, 30px)');
+    expect(workspaceControlsCss).toContain('height: var(--panel-tabs-control-height, 30px)');
     expect(layoutCss).not.toContain('height: 30px; padding: 5px 10px;');
   });
 
@@ -104,7 +107,7 @@ describe('表现宿主文字颜色 CSS 契约', () => {
   });
 
   test('通讯录对话 Panel 复用统一顶栏与正文内边距契约', () => {
-    const contacts = readFileSync(new URL('../../src/ui/components/contacts.ts', import.meta.url), 'utf8');
+    const contacts = readFileSync(new URL('../../src/ui/components/character/contacts.ts', import.meta.url), 'utf8');
     expect(contacts).toContain('conversation-pane panel-body');
     // 顶栏不再是手写 header，而是统一结构区块（与聊天/日志顶栏同一宿主与渲染色）。
     expect(contacts).toContain("renderPanelHeaderRegion(ctx, 'center'");
@@ -117,8 +120,8 @@ describe('表现宿主文字颜色 CSS 契约', () => {
   });
 
   test('表现宿主保持背景节点与正文节点的直接子层级契约', () => {
-    const service = readFileSync(new URL('../../src/ui/presentation-service.ts', import.meta.url), 'utf8');
-    const tabs = readFileSync(new URL('../../src/ui/components/tabs.ts', import.meta.url), 'utf8');
+    const service = readFileSync(new URL('../../src/ui/presentation/presentation-service.ts', import.meta.url), 'utf8');
+    const tabs = readFileSync(new URL('../../src/ui/components/shared/tabs.ts', import.meta.url), 'utf8');
     expect(service).toContain('>${background}<div class="presentation-host-content">');
     expect(tabs).toContain('panel-tabs-region presentation-host-target');
     expect(tabs).toContain('${renderPresentationHostBackground(ctx, tabsHost)}${inner}');
@@ -149,7 +152,7 @@ describe('表现宿主文字颜色 CSS 契约', () => {
 
   test('窄屏 WorkspaceFrame 的嵌套宿主跟随外层列高，不被内容自然高度撑破', () => {
     expect(layoutCss).toContain(".workspace-frame[data-responsive='single-column'] > .workspace-column { flex: 0 0 auto; }");
-    expect(layoutCss).toContain('.inventory-workspace > .workspace-column.inventory-workspace__left');
+    expect(layoutCss).toContain('.inventory-workspace > .workspace-column:not([data-column-origin]).inventory-workspace__left');
     expect(layoutCss).toContain('height: var(--workspace-column-inner-height) !important');
   });
 

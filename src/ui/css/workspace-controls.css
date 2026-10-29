@@ -1,0 +1,161 @@
+/* Shared Workspace headings, panel tabs and back controls.
+   Imported globally so MapEntry and other workspaces do not depend on chat CSS. */
+
+.switch-tabs {
+   display: flex;
+   gap: var(--tabs-gap, 6px);
+   min-width: 0;
+   margin: 0;
+   padding: 0;
+}
+
+/* Panel Tabs structure: the host carries its background and the region owns one divider. */
+.panel-tabs-region {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  --panel-tabs-control-height: 30px;
+  padding: var(--tabs-padding-block, 10px) var(--panel-content-padding-inline, 14px);
+  border-bottom: 1px solid var(--theme-node-line);
+}
+
+.panel-tabs-region .switch-tab {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--panel-tabs-control-height);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.panel-tabs-region.ui-cluster--left-tabs-region,
+.panel-tabs-region.ui-cluster--center-tabs-region,
+.panel-tabs-region.ui-cluster--right-tabs-region {
+   background: color-mix(in srgb, var(--theme-node-primary) 10%, var(--theme-node-panel) 90%);
+}
+
+.panel-tabs-region:has(> .presentation-host-background > .presentation-host-decoration) {
+   border-bottom-color: transparent;
+}
+
+.panel-tabs-region > .presentation-host-background > .presentation-host-decoration {
+   inset: auto 0 0;
+   border-width: 0 0 var(--presentation-decoration-width, 1px);
+   border-radius: 0;
+}
+
+.panel-tabs-region > .switch-tabs,
+.panel-tabs-region > .presentation-host-content {
+   flex: 1 1 auto;
+   min-width: 0;
+   min-height: var(--panel-tabs-control-height);
+   align-items: center;
+   overflow-wrap: anywhere;
+}
+
+.panel-tabs-region > .presentation-host-content { display: flex; }
+.panel-tabs-region > .presentation-host-content > .switch-tabs { flex: 1 1 auto; }
+.panel-tabs-region .switch-tabs-content { align-items: center; max-width: 100%; }
+
+.switch-tabs-content {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 6px;
+   align-items: flex-start;
+   min-width: 0;
+   position: relative;
+   z-index: 1;
+}
+
+.switch-tab {
+   border: 1px solid var(--line);
+   padding: 6px 14px;
+   background: transparent;
+   color: var(--muted-on-panel);
+   font: 500 11px '方正兰亭圆简体_中粗', monospace;
+   letter-spacing: .04em;
+   cursor: pointer;
+   border-radius: 9px;
+}
+
+.switch-tab:hover:not(:disabled) {
+   border-color: var(--cyan);
+   color: var(--ink-on-panel);
+}
+
+.switch-tab.active:not(.presentation-host-target) {
+   background: var(--cyan);
+   border-color: var(--cyan);
+   color: var(--ink-on-primary);
+}
+
+/* Shared action label retained for Story and MapEntry call sites. */
+.story-trigger {
+   align-self: flex-start;
+   border: 1px solid var(--cyan);
+   padding: 4px 10px;
+   background: transparent;
+   color: var(--cyan);
+   font-size: 11px;
+   font-weight: 600;
+   cursor: pointer;
+   border-radius: 8px;
+}
+
+.story-trigger:hover:not(:disabled) {
+   background: var(--cyan);
+   color: #ffffff;
+}
+
+.story-trigger:disabled { opacity: .5; cursor: not-allowed; }
+.story-trigger:disabled:hover { background: transparent; color: var(--muted-on-panel); border-color: var(--line); }
+
+.workspace-back,
+.conversation-back {
+   flex: 0 0 auto;
+   display: grid;
+   place-items: center;
+   width: var(--panel-tabs-control-height, 30px);
+   height: var(--panel-tabs-control-height, 30px);
+   border: 1px solid var(--line);
+   border-radius: 10px;
+   background: transparent;
+   color: var(--ink);
+   font-size: 18px;
+   line-height: 1;
+   cursor: pointer;
+}
+
+.workspace-back:hover:not(:disabled),
+.conversation-back:hover:not(:disabled) {
+   border-color: var(--cyan);
+   color: var(--cyan);
+}
+
+.workspace-back:disabled,
+.conversation-back:disabled { opacity: .5; cursor: not-allowed; }
+
+.workspace-heading,
+.conversation-heading {
+   display: flex;
+   align-items: center;
+   flex: 1 1 auto;
+   gap: 10px;
+   min-width: 0;
+}
+
+.workspace-title,
+.conversation-title {
+   flex: 1;
+   display: flex;
+   flex-wrap: wrap;
+   align-items: baseline;
+   gap: 8px;
+   min-width: 0;
+   overflow-wrap: anywhere;
+}
+
+.workspace-title small,
+.conversation-title small { color: var(--muted); }

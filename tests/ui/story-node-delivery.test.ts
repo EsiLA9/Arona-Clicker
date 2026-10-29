@@ -17,6 +17,20 @@ function game(current: StoryView | null): Pick<GameReadModel, 'getView' | 'getSt
 describe('new node delivery acknowledges the actual delivered wait', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+  it('shares delivery and auto-advance for two displays without routing a global receipt to the selected student', () => {
+    const chat = new ChatStream(), state = panel();
+    chat.onAutoAdvance = vi.fn();
+    chat.syncCurrentStory(state, game(view()));
+    chat.syncCurrentStory({ ...state }, game(view()));
+    vi.runAllTimers();
+    expect(chat.onAutoAdvance).toHaveBeenCalledTimes(1);
+    expect(state.chatEntries).toHaveLength(1);
+    state.conversationVariantId = 'student';
+    chat.pushAbsorbedTo('#global', state, [{ ...view('receipt'), page: { text: 'global receipt', kind: 'narration' } }]);
+    expect(state.chatEntries[state.chatEntries.length - 1]?.text).toBe('global receipt');
+    expect(state.studentChats.student).toBeUndefined();
+    chat.reset();
+  });
   it.each(['talk', 'narration'] as const)('acknowledges %s after delivery and does not infer a button', kind => {
     const chat = new ChatStream(), state = panel();
     chat.onAutoAdvance = vi.fn();

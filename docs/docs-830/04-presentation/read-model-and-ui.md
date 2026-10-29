@@ -31,4 +31,10 @@ DOM 事件 → Controller action → GameCommands → Runtime / 领域服务
 
 主要源码：`src/arona-clicker/runtime/runtime-game-instance.ts`、`src/arona-clicker/read-model/game-view-builder.ts`、`src/ui/runtime/context.ts`、`src/ui/controller/`。
 
-继续阅读：[[docs/docs-830/01-architecture/system-composition]]、[[docs/docs-830/02-data-and-state/state-and-events]]。
+继续阅读：[[system-composition]]、[[state-and-events]]。
+
+## 举例：展示资源与响应操作
+
+资源显示从视图读取当前值和派生结果；用户在界面发起操作时，Controller 将输入转成命令，实际校验和写入发生在领域服务及其写入口。完成后界面通过查询和刷新展示新状态。单纯更新数字不会因此自动成为领域状态写入；同样，更新只读视图也不能代替执行命令。
+
+调查“数字不对”时可先区分领域状态是否正确、查询投影是否正确、DOM 是否刷新；调查“点击没有结果”时则继续检查命令、领域校验和写入。具体刷新范围及 Surface 过期机制见 [[update-dispatch-and-surface]]。

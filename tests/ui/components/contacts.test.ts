@@ -13,7 +13,7 @@ import { baseDatapack } from '../../../src/data/test-datapack';
 import { finishStory, finishWelcome } from '../../engine/story-test-fixtures';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story/story';
-import { renderSendButton } from '../../../src/ui/components/shared/center-panel';
+import { renderSendButton } from '../../../src/ui/columns/chat-content';
 import { ChatStream } from '../../../src/ui/presentation/chat-stream';
 import { renderProductionNodes } from '../../../src/ui/components/shared/production';
 import {

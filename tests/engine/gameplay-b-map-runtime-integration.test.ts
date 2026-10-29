@@ -4,6 +4,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { gameplayBMapDatapack } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-map-datapack';
 import { gameplayBMapRunStatusExampleMap } from '../../src/arona-clicker/content/gameplay-b/gameplay-b-maprun-status-example';
 import { baseDatapack } from '../../src/data/test-datapack';
+import { withManualEncounterCompletion, withMap } from './gameplay-b-map-test-fixtures';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import type { GameplayMapActionDef } from '../../src/data-services/contracts/gameplay-map';
 import { resolveGameplayBActionPreview } from '../../src/arona-clicker/services/map/gameplay-b-action-preview-resolver';
@@ -78,7 +79,9 @@ describe('Gameplay B MapRun GameInstance integration', () => {
   });
 
   test('routes MapRun commands through GameCommands and exposes detached run and Encounter reads', () => {
-    const game = createGame();
+    // The sample Encounter completes through a counter condition; this test only needs on-demand
+    // completion, so it loads the same Map with a manual completion.
+    const game = createGame(withMap(gameplayBMapDatapack, withManualEncounterCompletion(gameplayBMapDatapack.maps![0]!)));
     const commands = createGameCommands(game);
     const mapId = gameplayBMapDatapack.maps?.[0]?.id;
     expect(mapId).toBeDefined();

@@ -53,9 +53,22 @@ export function reconcileAreaMapDOM(root: HTMLElement, ctx: UIContext, state: Pa
     recovery ??= document.createElement('template');
     if (!recovery.innerHTML) recovery.innerHTML = renderAreaMapWorkspace(ctx, session, state);
     const desired = recovery.content.querySelector(selector);
-    const body = frame.querySelector(`[data-workspace-column="${column}"] .workspace-column__body`);
-    if (!desired || !body) return false;
-    body.append(desired.cloneNode(true));
+    if (!desired) return false;
+    if (selector === '[data-area-map-actions]') {
+      const slot = frame.querySelector<HTMLElement>(`[data-workspace-column="${column}"] .workspace-column__slot`);
+      if (!slot) return false;
+      let footer = slot.querySelector<HTMLElement>('.workspace-column__footer');
+      if (!footer) {
+        footer = document.createElement('footer');
+        footer.className = 'workspace-column__footer';
+        slot.append(footer);
+      }
+      footer.append(desired.cloneNode(true));
+    } else {
+      const body = frame.querySelector(`[data-workspace-column="${column}"] .workspace-column__body`);
+      if (!body) return false;
+      body.append(desired.cloneNode(true));
+    }
   }
   const viewport = frame.querySelector<SVGSVGElement>('[data-area-map-viewport]')!;
   if (viewport.dataset.areaMapSession !== session.sessionId) return false;

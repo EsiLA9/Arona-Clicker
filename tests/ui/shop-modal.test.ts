@@ -72,8 +72,15 @@ describe('Spot Shop workspace', () => {
   test('退出再进入会丢弃购物车，但保留成功购买记录', () => {
     game.mutations.changeResource('base:resource:credit', 100);
     controller.openSpotShopModal(SPOT);
+    const emptyActions = document.querySelector<HTMLElement>('.shop-workspace__right .workspace-column__footer')!;
+    expect(emptyActions.querySelector<HTMLButtonElement>('[data-shop-cancel]')?.disabled).toBe(true);
+    expect(emptyActions.querySelector<HTMLButtonElement>('[data-shop-checkout]')?.disabled).toBe(true);
     document.querySelector<HTMLButtonElement>('[data-shop-select="energy-drink"]')!.click();
     document.querySelector<HTMLButtonElement>('[data-modal-action="shop-add"]')!.click();
+    const readyActions = document.querySelector<HTMLElement>('.shop-workspace__right .workspace-column__footer')!;
+    expect(readyActions).not.toBe(emptyActions);
+    expect(readyActions.querySelector<HTMLButtonElement>('[data-shop-cancel]')?.disabled).toBe(false);
+    expect(readyActions.querySelector<HTMLButtonElement>('[data-shop-checkout]')?.disabled).toBe(false);
     document.querySelector<HTMLButtonElement>('[data-shop-checkout]')!.click();
     expect(Object.keys(game.state.shopPurchaseRecords ?? {})).toHaveLength(1);
     document.querySelector<HTMLButtonElement>('[data-shop-leave]')!.click();

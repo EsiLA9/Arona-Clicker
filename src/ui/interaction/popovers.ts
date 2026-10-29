@@ -132,10 +132,8 @@ export class PopoverManager {
       bottom: room.bottom >= size.height,
       top: room.top >= size.height,
     };
-    const prefersLeft = wrap.matches('.right-panel [data-ui-spot-card]');
-    const order: TooltipPlacement[] = prefersLeft
-      ? ['left', 'right', 'bottom', 'top']
-      : ['right', 'left', 'bottom', 'top'];
+    const order = (Object.keys(room) as TooltipPlacement[])
+      .sort((left, right) => room[right] - room[left]);
     let placement = this.placement && canFit[this.placement]
       ? this.placement
       : order.find(candidate => canFit[candidate]);

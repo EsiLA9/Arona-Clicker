@@ -1,6 +1,6 @@
 import type { OperationView, OperationViewActionOption, OperationViewActor, OperationViewSceneAction } from '../../../arona-clicker/contracts/operation/operation-view';
 import type { UIContext } from '../../runtime/context';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 
 const MAX_VISIBLE_COST_SLOTS = 12;
 
@@ -1065,7 +1065,7 @@ function renderUnavailable(ctx: UIContext, notice: string | null): string {
     '</div></section>';
 }
 
-export function renderOperationWorkspace(ctx: UIContext, view: OperationView | null, notice: string | null = null): string {
+export function createOperationWorkspaceFrame(ctx: UIContext, view: OperationView | null, notice: string | null = null): WorkspaceFrameSpec {
   const students = view?.actorStates.filter(actor => actor.participantKind === 'student') ?? [];
   const battle = Boolean(view && view.currentStage === 'combat' && !view.locationProgress[view.currentLocationId]?.completed);
   const transient = view ? operationUIState(view) : null;
@@ -1091,12 +1091,15 @@ export function renderOperationWorkspace(ctx: UIContext, view: OperationView | n
   const preparedCards = view ? renderPreparedCardLayer(ctx, view, battle, students) : '';
   const relationLayer = '<svg class="operation-relation-layer" data-operation-relation-layer aria-hidden="true" focusable="false"><defs><marker id="operation-card-arrowhead" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L8 4 L0 8 Z"></path></marker></defs><path class="operation-relation-path" data-operation-drag-relation visibility="hidden"></path></svg>';
   const dragStatus = '<p class="operation-card-drag-status" data-operation-drag-status role="status" aria-live="polite" hidden></p>';
-  return renderWorkspaceFrame(ctx, {
-    id: 'operation',
+  return { updates: 'external', id: 'operation',
     layout: { composition: 'columns', responsive: 'default' },
-    left: { slot: 'left', role: 'our-team', workspaceOwner: 'operation', hostId: 'leftPanel.operation.party', themeScope: 'left.operation.party', surface: 'panel', header: leftHeader, className: 'operation-workspace__party', content: left, scroll: 'none' },
-    center: { slot: 'center', role: 'information', workspaceOwner: 'operation', hostId: 'centerPanel.operation.chat', themeScope: 'center.operation.chat', surface: 'panel', header: centerHeader, className: 'operation-workspace__center', content: center, scroll: 'none' },
-    right: { slot: 'right', role: 'opponents', workspaceOwner: 'operation', hostId: 'rightPanel.operation.opponents', themeScope: 'right.operation.opponents', surface: 'panel', header: rightHeader, className: 'operation-workspace__opponents', content: right, scroll: 'none' },
     overlay: preparedCards + relationLayer + dragStatus + popup,
-  });
+    columns: [{ key: 'our-team', width: 'minmax(205px, 22fr)', slot: 'left', role: 'our-team', workspaceOwner: 'operation', hostId: 'leftPanel.operation.party', themeScope: 'left.operation.party', surface: 'panel', header: leftHeader, className: 'operation-workspace__party', content: left, scroll: 'none' },
+      { key: 'information', width: 'minmax(0, 56fr)', slot: 'center', role: 'information', workspaceOwner: 'operation', hostId: 'centerPanel.operation.chat', themeScope: 'center.operation.chat', surface: 'panel', header: centerHeader, className: 'operation-workspace__center', content: center, scroll: 'none' },
+      { key: 'opponents', width: 'minmax(195px, 22fr)', slot: 'right', role: 'opponents', workspaceOwner: 'operation', hostId: 'rightPanel.operation.opponents', themeScope: 'right.operation.opponents', surface: 'panel', header: rightHeader, className: 'operation-workspace__opponents', content: right, scroll: 'none' }]
+  };
+}
+
+export function renderOperationWorkspace(ctx: UIContext, view: OperationView | null, notice: string | null = null): string {
+  return renderWorkspaceFrame(ctx, createOperationWorkspaceFrame(ctx, view, notice));
 }

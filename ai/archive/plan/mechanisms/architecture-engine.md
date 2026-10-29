@@ -1,0 +1,31 @@
+# 机制聚合：引擎架构与领域边界
+
+## 机制范围
+
+- Runtime 装配、事件驱动、StateMutation 单一写入口、只读 UI；
+- Engine / data-services / AronaClicker 的类型与依赖边界；
+- GameNum、Affector 等基础引擎机制的架构裁定。
+
+## 当前事实源
+
+- [[ai/archive/docs-829/01-architecture/overview]]
+- [[ai/archive/docs-829/01-architecture/run-logic]]
+- [[ai/archive/docs-829/03-data-structures/player-state]]
+- [[ai/guide/conventions/architecture-discipline]]
+- [[ai/archive/docs-829/04-mechanisms/arona-clicker/state-mutation]]
+- [[ai/archive/docs-829/01-architecture/run-logic]]（含 Lobby / Pre-Init Runtime 生命周期）
+
+## 历史来源与设计理由
+
+| 文档 | 用途 |
+| --- | --- |
+| [[adr-0001-architecture-consolidation]] | T1-T7 架构整理决策 |
+| [[adr-0002-gamenum-tree]] | GameNum 树与 Affector 修复 |
+| [[adr-0005-engine-domain-boundaries]] | 引擎与领域边界 |
+| [[roadmap-0005-engine-domain-consolidation]] | 领域内聚施工记录 |
+| [[roadmap-0007-enhancement-reveal]] | 强化揭示与服务权限语义 |
+| [[roadmap-0024-lobby-pre-init-runtime]] | 未进入 Init 时的 Runtime 与通用界面服务 |
+
+## 当前判断
+
+架构主线已落地；后续变更必须遵守 `ai/guide/conventions/architecture-discipline`，而不是回到旧的 GameInstance/混合类型路径。

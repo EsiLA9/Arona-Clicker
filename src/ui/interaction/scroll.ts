@@ -5,9 +5,40 @@
 // ============================================================
 
 import { FlowScroll } from '../flow/flow-scroll';
+import { workspaceColumnScrollTargets } from './workspace-scroll';
 
 /** 聊天流的流实例键：`.chat-stream` 每次全量 render 会换节点，状态必须按流而非元素保存。 */
 const CHAT_STREAM_KEY = 'chat';
+
+function chatHosts(root: HTMLElement): HTMLElement[] {
+  if (root.querySelectorAll) return [...root.querySelectorAll<HTMLElement>('.chat-stream')];
+  const host = root.querySelector<HTMLElement>('.chat-stream');
+  return host ? [host] : [];
+}
+function chatKey(host: HTMLElement): string {
+  const instance = host.closest?.<HTMLElement>('[data-column-instance]')?.dataset.columnInstance;
+  const stream = host.dataset?.flowStreamKey;
+  return instance ? `${instance}:${stream ?? 'chat'}` : stream ?? CHAT_STREAM_KEY;
+}
+function panelKey(panel: HTMLElement, index: number): string {
+  const column = panel.closest?.<HTMLElement>('[data-column-instance]');
+  return column ? `${column.dataset.columnInstance}:${panel.dataset.gamePanel ?? panel.dataset.themeHostId ?? [...column.querySelectorAll('.panel:not(.workspace-column)')].indexOf(panel)}` : String(index);
+}
+
+/** Compatibility for older Workspace markup that predates data-column-instance. */
+function legacyWorkspaceScrollTargets(root: HTMLElement): Array<[string, HTMLElement]> {
+  return [...root.querySelectorAll<HTMLElement>('.workspace-column__body')]
+    .flatMap((body): Array<[string, HTMLElement]> => {
+      if (body.closest?.('[data-column-instance]')) return [];
+      const slot = body.closest?.<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn;
+      if (!slot) return [];
+      const scope = body.closest?.<HTMLElement>('[data-workspace-instance]')?.dataset.workspaceInstance ?? 'legacy';
+      const content = body.dataset.scrollOwner === 'content-region'
+        ? body
+        : body.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
+      return [[`${scope}:${slot}`, content ?? body]];
+    });
+}
 
 /** 面板与工作区滚动状态；聊天流委托 FlowScroll 处理。 */
 export class ScrollManager {
@@ -16,16 +47,18 @@ export class ScrollManager {
   /** 下一次重建强制滚到底（从日志切回聊天等场景）。 */
   private pendingChatForceScroll = false;
   /** 上一次重建时的活跃流条目数（判断是否有新内容到达）。 */
-  private lastChatCount = 0;
+  private lastChatCount = new Map<string, number>();
   /** 面板滚动位置快照：按面板序号记录内容 Panel 的 .panel-body scrollTop。 */
-  private panelScrollTop: number[] = [];
+  private panelScrollTop = new Map<string, number>();
   /** Workspace 三列滚动快照：按 left / center / right 槽位保存。 */
   private workspaceScrollTop = new Map<string, number>();
 
   /** 会话重置：回到底部 + 清快照计数。 */
   reset(): void {
     this.pendingChatForceScroll = false;
-    this.lastChatCount = 0;
+    this.lastChatCount.clear();
+    this.panelScrollTop.clear();
+    this.workspaceScrollTop.clear();
     this.flow.reset();
   }
 
@@ -36,9 +69,7 @@ export class ScrollManager {
 
   /** 重建 DOM 前调用：记录当前聊天流滚动状态与阅读锚点。 */
   captureChat(root: HTMLElement): void {
-    const host = root.querySelector<HTMLElement>('.chat-stream');
-    if (!host) return;
-    this.flow.capture(host, CHAT_STREAM_KEY);
+    for (const host of chatHosts(root)) this.flow.capture(host, chatKey(host));
   }
 
   /**
@@ -52,15 +83,15 @@ export class ScrollManager {
     conversationVariantId: string | null;
     activeStreamLength: number;
   }): void {
-    // 对话空间或一般聊天：两者都有 .chat-stream
-    if (opts.centerTab !== 'chat' && !opts.conversationVariantId) return;
-    const host = root.querySelector<HTMLElement>('.chat-stream');
-    if (!host) return;
-    const hasNew = opts.activeStreamLength !== this.lastChatCount;
-    this.lastChatCount = opts.activeStreamLength;
     const force = this.pendingChatForceScroll;
     this.pendingChatForceScroll = false;
-    this.flow.restore(host, { mode: 'ratio', follow: hasNew, force, streamKey: CHAT_STREAM_KEY });
+    for (const host of chatHosts(root)) {
+      const key = chatKey(host);
+      const count = host.dataset?.flowStreamKey ? host.querySelectorAll('[data-flow-entry-key]').length : opts.activeStreamLength;
+      const hasNew = count !== this.lastChatCount.get(key);
+      this.lastChatCount.set(key, count);
+      this.flow.restore(host, { mode: 'ratio', follow: hasNew, force, streamKey: key });
+    }
   }
 
   /**
@@ -70,51 +101,45 @@ export class ScrollManager {
    * 图片尺寸回调里重新贴底——覆盖"流高小于视口，图片渲染后才超出"的情况。
    */
   observeChatStream(root: HTMLElement): void {
-    const host = root.querySelector<HTMLElement>('.chat-stream');
-    if (!host) return;
-    this.flow.observe(host, CHAT_STREAM_KEY);
+    for (const host of chatHosts(root)) this.flow.observe(host, chatKey(host));
   }
 
   /** 面板滚动位置快照：强化/通讯录等列表防刷新回滚。 */
   capturePanel(root: HTMLElement): void {
-    this.panelScrollTop = [...root.querySelectorAll<HTMLElement>('.panel:not(.workspace-column)')].map(
-      panel => panel.querySelector<HTMLElement>('.panel-body')?.scrollTop ?? 0,
-    );
+    this.panelScrollTop = new Map([...root.querySelectorAll<HTMLElement>('.panel:not(.workspace-column)')].map(
+      (panel, index) => [panelKey(panel, index), panel.querySelector<HTMLElement>('.panel-body')?.scrollTop ?? 0],
+    ));
   }
 
   restorePanel(root: HTMLElement): void {
-    if (this.panelScrollTop.length === 0) return;
+    if (this.panelScrollTop.size === 0) return;
     root.querySelectorAll<HTMLElement>('.panel:not(.workspace-column)').forEach((panel, i) => {
       const body = panel.querySelector<HTMLElement>('.panel-body');
-      if (body && this.panelScrollTop[i] !== undefined) {
-        body.scrollTop = this.panelScrollTop[i];
+      const top = this.panelScrollTop.get(panelKey(panel, i));
+      if (body && top !== undefined) {
+        body.scrollTop = top;
       }
     });
   }
 
   captureWorkspace(root: HTMLElement): void {
-    this.workspaceScrollTop = new Map(
-      [...root.querySelectorAll<HTMLElement>('.workspace-column__body')]
-        .map(body => {
-          const contentScroller = body.dataset.scrollOwner === 'content-region'
-            ? body
-            : body.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-          const scrollTarget = contentScroller ?? body;
-          return [body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn, scrollTarget.scrollTop] as const;
-        })
-        .filter((entry): entry is [string, number] => Boolean(entry[0])),
-    );
+    this.workspaceScrollTop = new Map();
+    for (const column of root.querySelectorAll<HTMLElement>('[data-column-instance]')) {
+      for (const [key, target] of workspaceColumnScrollTargets(column)) this.workspaceScrollTop.set(key, target.scrollTop);
+    }
+    for (const [key, target] of legacyWorkspaceScrollTargets(root)) this.workspaceScrollTop.set(key, target.scrollTop);
   }
 
   restoreWorkspace(root: HTMLElement): void {
-    root.querySelectorAll<HTMLElement>('.workspace-column__body').forEach(body => {
-      const slot = body.closest<HTMLElement>('[data-workspace-column]')?.dataset.workspaceColumn;
-      const scrollTop = slot ? this.workspaceScrollTop.get(slot) : undefined;
-      const contentScroller = body.dataset.scrollOwner === 'content-region'
-        ? body
-        : body.querySelector<HTMLElement>('[data-scroll-owner="content-region"]');
-      const scrollTarget = contentScroller ?? body;
-      if (scrollTop !== undefined) scrollTarget.scrollTop = scrollTop;
-    });
+    for (const column of root.querySelectorAll<HTMLElement>('[data-column-instance]')) {
+      for (const [key, target] of workspaceColumnScrollTargets(column)) {
+        const scrollTop = this.workspaceScrollTop.get(key);
+        if (scrollTop !== undefined) target.scrollTop = scrollTop;
+      }
+    }
+    for (const [key, target] of legacyWorkspaceScrollTargets(root)) {
+      const scrollTop = this.workspaceScrollTop.get(key);
+      if (scrollTop !== undefined) target.scrollTop = scrollTop;
+    }
   }
 }

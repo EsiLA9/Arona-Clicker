@@ -1,4 +1,5 @@
 import type { UISurfaceToken } from './ui-surface';
+import type { ColumnToken } from '../workspace/workspace-columns';
 
 export type UIBehaviorId = 'resource.value' | 'resource.gain' | 'spot.yield';
 
@@ -12,6 +13,8 @@ export interface UIBehaviorUpdateRequest {
 }
 
 export interface UIRegionUpdateRequest {
+  instanceId?: string;
+  columnToken?: ColumnToken;
   type: 'region';
   hostId: string;
   token?: UISurfaceToken;
@@ -24,6 +27,10 @@ export interface UIElementUpdateRequest {
   type: 'element';
   target: UIElementTarget;
   key: string;
+  /** Display instance targeted by this element patch; defaults to legacy host matching when omitted. */
+  instanceId?: string;
+  /** Rejects work queued for an unmounted or rebound column when the sink can validate it. */
+  columnToken?: ColumnToken;
   hostId?: string;
   token?: UISurfaceToken;
   reason?: string;

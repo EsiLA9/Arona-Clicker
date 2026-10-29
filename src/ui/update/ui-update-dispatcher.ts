@@ -4,20 +4,53 @@ import type {
   UIUpdateRequest,
 } from './ui-update-types';
 import { sameSurfaceToken, type UISurfaceToken } from './ui-surface';
+import type { ColumnToken } from '../workspace/workspace-columns';
 
 export interface UIUpdateSink {
   getCurrentSurfaceToken(): UISurfaceToken;
   isSurfaceCurrent(token: UISurfaceToken): boolean;
+  /** Optional so legacy sinks can keep host-scoped updates without owning column lifecycle. */
+  isColumnCurrent?(token: ColumnToken): boolean;
   apply(update: UIUpdate): UIUpdateApplyResult;
   applyBatch?(updates: readonly UIUpdate[]): readonly UIUpdateApplyResult[];
-  onDrop?(update: UIUpdate, reason: 'stale-surface'): void;
+  onDrop?(update: UIUpdate, reason: 'stale-surface' | 'stale-column'): void;
+}
+
+type ColumnScopedUpdate = Extract<UIUpdate, { type: 'region' | 'element' }>;
+
+function columnInstanceId(update: ColumnScopedUpdate): string | undefined {
+  return update.instanceId ?? update.columnToken?.instanceId;
+}
+
+function hasValidColumnIdentity(update: ColumnScopedUpdate): boolean {
+  const instanceId = columnInstanceId(update);
+  return !update.columnToken || update.columnToken.instanceId === instanceId;
+}
+
+function sameColumnMount(left: ColumnScopedUpdate, right: ColumnScopedUpdate): boolean {
+  const leftInstanceId = columnInstanceId(left);
+  const rightInstanceId = columnInstanceId(right);
+  if (!leftInstanceId && !rightInstanceId) return true;
+  if (!leftInstanceId || leftInstanceId !== rightInstanceId) return false;
+  if (!left.columnToken && !right.columnToken) return true;
+  return Boolean(left.columnToken && right.columnToken
+    && left.columnToken.instanceId === right.columnToken.instanceId
+    && left.columnToken.generation === right.columnToken.generation);
 }
 
 function updateIdentity(update: UIUpdate): string {
   const prefix = `${update.token.key}@${update.token.generation}:${update.type}`;
   if (update.type === 'behavior') return `${prefix}:${update.behavior}:${update.key}:${update.hostId ?? ''}`;
-  if (update.type === 'element') return `${prefix}:${update.target}:${update.key}:${update.hostId ?? ''}`;
-  if (update.type === 'region') return `${prefix}:${update.hostId}`;
+  if (update.type === 'element') {
+    const instanceId = columnInstanceId(update) ?? '';
+    const columnGeneration = update.columnToken?.generation ?? '';
+    return `${prefix}:${update.target}:${update.key}:${instanceId}:${columnGeneration}:${update.hostId ?? ''}`;
+  }
+  if (update.type === 'region') {
+    const instanceId = columnInstanceId(update) ?? '';
+    const columnGeneration = update.columnToken?.generation ?? '';
+    return `${prefix}:${update.hostId}:${instanceId}:${columnGeneration}`;
+  }
   return `${prefix}:${update.scope}`;
 }
 
@@ -52,9 +85,19 @@ export class UIUpdateDispatcher {
     const queued = [...this.pending.values()];
     this.pending.clear();
 
-    const eligible = queued.filter(update => {
+    const surfaceEligible = queued.filter(update => {
       if (this.sink.isSurfaceCurrent(update.token)) return true;
       this.sink.onDrop?.(update, 'stale-surface');
+      return false;
+    });
+    const eligible = surfaceEligible.filter(update => {
+      if (update.type !== 'region' && update.type !== 'element') return true;
+      if (!hasValidColumnIdentity(update)) {
+        this.sink.onDrop?.(update, 'stale-column');
+        return false;
+      }
+      if (!update.columnToken || !this.sink.isColumnCurrent || this.sink.isColumnCurrent(update.columnToken)) return true;
+      this.sink.onDrop?.(update, 'stale-column');
       return false;
     });
     if (eligible.length === 0) return;
@@ -78,6 +121,12 @@ export class UIUpdateDispatcher {
       this.sink.onDrop?.(update, 'stale-surface');
       return 'not-found';
     }
+    if ((update.type === 'region' || update.type === 'element')
+      && (!hasValidColumnIdentity(update)
+        || (update.columnToken && this.sink.isColumnCurrent && !this.sink.isColumnCurrent(update.columnToken)))) {
+      this.sink.onDrop?.(update, 'stale-column');
+      return 'not-found';
+    }
     return this.sink.apply(update);
   }
 
@@ -95,10 +144,15 @@ export class UIUpdateDispatcher {
     return updates.filter(update => {
       if ((update.type !== 'behavior' && update.type !== 'element') || !update.hostId) return true;
       const hostId = update.hostId;
-      return !regions.some(region =>
-        sameSurfaceToken(region.token, update.token)
-        && (hostId === region.hostId || hostId.startsWith(`${region.hostId}.`)),
-      );
+      return !regions.some(region => {
+        if (!sameSurfaceToken(region.token, update.token)) return false;
+        if (update.type === 'element' && (columnInstanceId(region) || columnInstanceId(update))) {
+          // A column refresh covers its own element work, regardless of the theme host
+          // name; never let an ambiguous or different display instance cover it.
+          return sameColumnMount(region, update);
+        }
+        return hostId === region.hostId || hostId.startsWith(`${region.hostId}.`);
+      });
     });
   }
 }

@@ -96,6 +96,41 @@ describe('WorkspaceFrame', () => {
     expect(html.match(/data-workspace-column="(?:left|center|right)"/g)).toHaveLength(3);
   });
 
+  it('header、可滚动 body 与可选 footer 是同级节点，空插槽不占位且 actions 保持回调语义', () => {
+    const game = new GameInstance();
+    game.init([baseDatapack]);
+    const html = renderWorkspaceFrame(createUIContext(game), {
+      id: 'column-regions',
+      columns: [{ key: 'main', slot: 'center', hostId: 'centerPanel', surface: 'panel', scroll: 'auto',
+        header: '<h2>固定标题</h2>', content: '<div data-content>可滚动正文</div>', footer: '<button>固定操作</button>',
+        actions: { '[data-never-render]': () => {} },
+      }],
+    });
+    const root = document.createElement('div');
+    root.innerHTML = html;
+    const host = root.querySelector('[data-column-instance]')!;
+    const slot = host.querySelector('.workspace-column__slot')!;
+    expect([...slot.children].map(node => node.className)).toEqual([
+      'workspace-column__header', 'workspace-column__body', 'workspace-column__footer',
+    ]);
+    expect(slot.querySelector('.workspace-column__body')?.contains(slot.querySelector('.workspace-column__header'))).toBe(false);
+    expect(slot.querySelector('.workspace-column__body')?.getAttribute('data-scroll')).toBe('auto');
+    expect(host.querySelector('.presentation-host-content')?.firstElementChild).toBe(slot);
+    expect(root.querySelector('[data-never-render]')).toBeNull();
+
+    const withoutRegions = renderWorkspaceFrame(createUIContext(game), {
+      id: 'embedded-layout', columns: [{ key: 'embedded', hostId: 'centerPanel', content: '嵌入内容' }],
+    });
+    const embedded = document.createElement('div');
+    embedded.innerHTML = withoutRegions;
+    expect(embedded.querySelector('.workspace-column__header, .workspace-column__footer')).toBeNull();
+    const embeddedFrame = embedded.querySelector<HTMLElement>('[data-workspace-frame]')!;
+    expect(embeddedFrame.style.gridTemplateColumns).toBe('minmax(0, 1fr)');
+    expect(embeddedFrame.style.marginTop).toBe('');
+    expect(embeddedFrame.style.height).toBe('');
+    expect(embedded.querySelector('[data-theme-host-id]')).not.toBeNull();
+  });
+
   it('Panel Tabs/Header/Body 组合保持同一列宿主且不引入额外外框', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);

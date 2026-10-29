@@ -1,4 +1,6 @@
 import type { StoryClickNode, StoryNode, StoryNodeDocument, StoryTalkletNode } from '../contracts/story-node';
+import type { StoryAction } from '../contracts/story-node-actions';
+import { isStoryLocalFlagAction, validStoryFlagName } from './story-run-flags';
 
 export type StoryNodeStructureIssueCode =
   | 'invalid-id'
@@ -9,6 +11,7 @@ export type StoryNodeStructureIssueCode =
   | 'stage-shape'
   | 'interaction-shape'
   | 'pacing-scope'
+  | 'flag-shape'
   | 'range';
 
 export interface StoryNodeStructureIssue {
@@ -91,6 +94,21 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
     }
     if (nodeIds.has(node.id)) issue(`${nodePath}.id`, 'duplicate-id', `Duplicate node ID "${node.id}"`);
     nodeIds.add(node.id);
+    if (node.requiresFlag !== undefined && !validStoryFlagName(node.requiresFlag)) {
+      issue(`${nodePath}.requiresFlag`, 'flag-shape', 'requiresFlag must be one non-empty local flag name');
+    }
+    const checkAction = (action: StoryAction | undefined, path: string) => {
+      if (action?.kind === 'localFlag' && !isStoryLocalFlagAction(action)) issue(path, 'flag-shape', 'Invalid local flag set/remove action');
+    };
+    if (node.type === 'operation') checkAction(node.action, `${nodePath}.action`);
+    if (node.type === 'click') {
+      const interaction = node.interaction;
+      if (interaction.kind === 'button') interaction.result?.actions?.forEach((action, i) => checkAction(action, `${nodePath}.interaction.result.actions[${i}]`));
+      if (interaction.kind === 'choice') {
+        interaction.sharedActions?.forEach((action, i) => checkAction(action, `${nodePath}.interaction.sharedActions[${i}]`));
+        interaction.options.forEach((option, i) => option.result?.actions?.forEach((action, j) => checkAction(action, `${nodePath}.interaction.options[${i}].result.actions[${j}]`)));
+      }
+    }
 
     if (node.type === 'talklet' || node.type === 'click') {
       usedStageIds.add(node.stageId);

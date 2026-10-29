@@ -360,6 +360,7 @@ export function renderPresentationHostBackground(ctx: UIContext, hostId: string,
 }
 
 export interface UIHostRenderOptions {
+  attributes?: Readonly<Record<string, string>>;
   hostId: string;
   content: string;
   className?: string;
@@ -381,7 +382,11 @@ export function renderUIHost(ctx: UIContext, options: UIHostRenderOptions): stri
   const scope = options.themeScope ? ` data-theme-scope="${escapeAttribute(options.themeScope)}"` : '';
   const hoverTextAttribute = hoverTextMode ? ` data-theme-hover-text-mode="${hoverTextMode}"` : '';
   const geometryStyle = options.useHostGeometry ? ` ${renderPresentationHostGeometryStyle(ctx, options.hostId)}` : '';
-  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${hoverTextAttribute}${scope}${geometryStyle}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
+  const attributes = Object.entries(options.attributes ?? {}).map(([key, value]) => {
+    if (!/^data-[a-z-]+$/.test(key)) throw new Error(`Invalid host attribute: ${key}`);
+    return ` ${key}="${escapeAttribute(value)}"`;
+  }).join('');
+  return `<section class="${className} presentation-host-target" data-theme-host-id="${hostId}" data-theme-state="${state}" data-theme-text-mode="${textMode}"${hoverTextAttribute}${scope}${geometryStyle}${attributes}>${background}<div class="presentation-host-content">${options.content}</div></section>`;
 }
 
 /** 给经典 UI 的面板外框使用与其背景图层相同的几何参数。 */

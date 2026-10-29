@@ -2,6 +2,7 @@ import type { UIContext } from '../../runtime/context';
 import { renderPanelHeaderRegion } from './tabs';
 
 export type WorkspaceTitlebarLeaveAction =
+  | 'data-column-back'
   | 'data-contacts-workspace-leave'
   | 'data-story-workspace-leave'
   | 'data-area-workspace-leave'
@@ -24,12 +25,12 @@ export function renderWorkspaceTitlebar(
     : leaveAction === 'data-map-entry-leave' ? '返回游戏'
       : '返回上一页';
   const leaveButton = leaveAction
-    ? `<button type="button" class="conversation-back" ${leaveAction} aria-label="${leaveLabel}" title="${leaveLabel}">${BACK_CHEVRON}</button>`
+    ? `<button type="button" class="workspace-back conversation-back" ${leaveAction} data-workspace-back aria-label="${leaveLabel}" title="${leaveLabel}">${BACK_CHEVRON}</button>`
     : '';
   const content = `
-    <div class="conversation-heading">
+    <div class="workspace-heading">
       ${leaveButton}
-      <div class="conversation-title"><b>${ctx.escapeHtml(title)}</b></div>
+      <div class="workspace-title"><b>${ctx.escapeHtml(title)}</b></div>
     </div>`;
   return renderPanelHeaderRegion(ctx, panel, content);
 }

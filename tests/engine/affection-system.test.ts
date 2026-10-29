@@ -2,7 +2,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/affection-system.test.ts — 好感系统（§1 数值 / §2 轴 B 队列 / §3 尾巴挂靠推送）
 //
-// 好感台阶/尾巴的当前投递规则见 docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat.md；历史测试清单见 docs/plan-work/archive/affection-planning.md：
+// 好感台阶/尾巴的当前规则见 docs/docs-830/05-domains/character-growth.md；历史测试清单见 ai/archive/affection-planning.md：
 //   §1  默认阶梯（DEFAULT_AFFECTION_EXP_CURVE）、跨级推演、星级锁、save/load 往返、
 //       addAffectionExp effect、acquireCharacter 初始化、affectionLevel 条件
 //   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒、readyStepCount

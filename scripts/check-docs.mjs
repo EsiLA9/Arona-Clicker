@@ -1,28 +1,25 @@
 // 文档完整性静态检查：只做可机械核实、且对当前文档模型仍有意义的检查。
 //
 // 当前文档边界：
-//   - docs/docs-829/ 是当前项目知识的文档系统。
-//   - docs/docs-828/ 已退役删除；只读历史快照保存在 docs/archive/docs-828-snapshot/，
+//   - docs/docs-830/ 是当前项目 Wiki；ai/guide、ai/plan、ai/archive 分别保存
+//     Agent 指引、计划记录和退役材料。
+//   - docs/docs-828/ 已退役删除；只读历史快照保存在 ai/archive/docs-history/docs-828-snapshot/，
 //     旧路径链接按确定性前缀改写解析到快照（仍参与 R1 存在性校验）。
-//   - docs/plan-work/ 包含活跃 Task/ADR/Draft、可删除 goalsets 与冻结历史；
-//     docs/archive/ 也保存只读历史材料。
 //
-// 保留并扩展为机械检查：链接目标存在、plan-work 内文件名唯一（裸名链接可解析）、
-// 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink，
-// 持久文档不指向可删除的 Goal Set 文件。
+// 保留并扩展为机械检查：链接目标存在、ai/plan 内文件名唯一（裸名链接可解析）、
+// 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink。
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildWikiIndex, formatWikiLinks, projectWikiPath } from './wiki-link-format.mjs';
 
 const root = process.cwd();
 const docsRoot = path.join(root, 'docs');
-const PLAN_DIR = 'docs/plan-work/';
-const GOALSETS_DIR = PLAN_DIR + 'goalsets/';
-const GOALSETS_GUIDE = GOALSETS_DIR + 'README.md';
-const PLAN_ARCHIVE_DIR = PLAN_DIR + 'archive/';
-const DOCS_ARCHIVE_DIR = 'docs/archive/';
+const PLAN_DIR = 'ai/plan/';
+const ARCHIVE_DIRS = new Set(['ai/archive', 'docs/archive', 'docs/plan-work/archive']);
 const NAV_BASE = '00-index';
 
 const errors = [];
+const wikiIndex = buildWikiIndex(root);
 const rel = (p) => path.relative(root, p).split(path.sep).join('/');
 const METADATA_KEYS = ['scope', 'authority', 'read_when', 'avoid_when', 'related_modules'];
 
@@ -32,7 +29,7 @@ function mdFilesUnder(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (['node_modules', '.git', 'dist'].includes(entry.name)) continue;
+      if (['node_modules', '.git', 'dist'].includes(entry.name) || ARCHIVE_DIRS.has(rel(full))) continue;
       out.push(...mdFilesUnder(full));
     } else if (entry.name.endsWith('.md')) {
       out.push(full);
@@ -41,7 +38,9 @@ function mdFilesUnder(dir) {
   return out;
 }
 
-const allMd = mdFilesUnder(docsRoot).concat(mdFilesUnder(path.join(root, 'ui-style')));
+const allMd = mdFilesUnder(docsRoot)
+  .concat(mdFilesUnder(path.join(root, 'ai')))
+  .concat(mdFilesUnder(path.join(root, 'ui-style')));
 const rootMd = fs
   .readdirSync(root, { withFileTypes: true })
   .filter((e) => e.isFile() && e.name.endsWith('.md'))
@@ -49,26 +48,53 @@ const rootMd = fs
 
 const byBase = new Map();
 for (const f of allMd.concat(rootMd)) {
-  // 归档副本只通过完整路径引用，不参与裸名解析，避免历史副本让现行链接变得歧义。
-  if (rel(f).startsWith(DOCS_ARCHIVE_DIR)) continue;
+  // 归档不参与扫描或裸名解析；现行文档仍可用完整路径引用归档。
   const base = path.basename(f, '.md');
   if (!byBase.has(base)) byBase.set(base, []);
   byBase.get(base).push(f);
 }
 
-// R2：plan-work 内文件名唯一——裸名链接必须无歧义
+// R2：ai/plan 内文件名唯一——裸名链接必须无歧义
 for (const [base, hits] of byBase) {
   if (base === NAV_BASE) continue;
   const inPlan = hits.filter((f) => rel(f).startsWith(PLAN_DIR));
   if (inPlan.length > 1) {
-    errors.push('[R2 重名] plan-work 内文件名不唯一: ' + base + ' -> ' + hits.map(rel).join(', '));
+    errors.push('[R2 重名] ai/plan 内文件名不唯一: ' + base + ' -> ' + hits.map(rel).join(', '));
   }
 }
 
 const SRC_RE = /`((?:src|tests|tools|scripts)\/[A-Za-z0-9_\-./]+\.(?:ts|mts|mjs|css|json|html))`/g;
 const DELETION_HINT = /删除|已移除|已失联|已失效|移除|废弃|不再存在/;
 const RETIRED_DOCS_828_PREFIX = 'docs/docs-828/';
-const DOCS_828_SNAPSHOT_PREFIX = 'docs/archive/docs-828-snapshot/';
+const DOCS_828_SNAPSHOT_PREFIX = 'ai/archive/docs-history/docs-828-snapshot/';
+const MOVED_DOC_PREFIXES = [
+  ['docs/plan-work/archive/', 'ai/archive/'],
+  ['docs/plan-work/', 'ai/plan/'],
+  ['docs/archive/', 'ai/archive/docs-history/'],
+  ['docs/docs-829/', 'ai/archive/docs-829/'],
+  ['docs/ai/', 'ai/guide/'],
+  ['docs/examples/', 'ai/guide/examples/'],
+];
+
+function resolveMovedDocPath(term) {
+  if (term.startsWith(RETIRED_DOCS_828_PREFIX)) {
+    return DOCS_828_SNAPSHOT_PREFIX + term.slice(RETIRED_DOCS_828_PREFIX.length);
+  }
+  const movedIndexes = new Map([
+    ['docs/plan-work', 'ai/plan/00-index'],
+    ['docs/ai', 'ai/guide/00-index'],
+    ['docs/docs-829', 'ai/archive/docs-829/00-INDEX'],
+    ['docs/examples', 'ai/guide/examples/00-index'],
+  ]);
+  if (movedIndexes.has(term)) return movedIndexes.get(term);
+  if (term === 'docs/abstract' || term === 'docs/abstract.md') {
+    return 'ai/guide/project-abstract' + (term.endsWith('.md') ? '.md' : '');
+  }
+  for (const [oldPrefix, newPrefix] of MOVED_DOC_PREFIXES) {
+    if (term.startsWith(oldPrefix)) return newPrefix + term.slice(oldPrefix.length);
+  }
+  return term;
+}
 
 function checkFrontMatter(text, file) {
   if (!/^---\r?\n/.test(text)) return;
@@ -97,14 +123,20 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
   if (!fs.existsSync(file)) continue;
   const text = fs.readFileSync(file, 'utf8');
   const r = rel(file);
-  const isHistoricalArchive = r.startsWith(PLAN_ARCHIVE_DIR) || r.startsWith(DOCS_ARCHIVE_DIR);
-
   checkFrontMatter(text, file);
+
+  // Only current Wiki targets are normalized; archives are indexed as possible
+  // filename collisions but their contents are not scanned or changed.
+  const formatted = formatWikiLinks(text, wikiIndex);
+  for (const issue of formatted.issues) errors.push('[R6 WikiLink 歧义] ' + r + '：' + issue);
+  if (formatted.changes) {
+    errors.push('[R6 WikiLink 写法] ' + r + '：有 ' + formatted.changes + ' 处可规范化；运行 npm run format:doc-links');
+  }
 
   // R1：WikiLink 目标存在（裸名按文件名解析，全路径按路径解析）
   // 代码块与行内代码中的 [[...]] 是文档示例而非链接，先剥离再扫描
   const linkText = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
-  if (!isHistoricalArchive && /\[\[docs\/newPlan\//.test(linkText)) {
+  if (/\[\[docs\/newPlan\//.test(linkText)) {
     errors.push('[R5 旧计划链接] ' + r + '：当前文档不应使用 docs/newPlan/ WikiLink');
   }
   for (const m of linkText.matchAll(/\[\[([^\[\]]+)\]\]/g)) {
@@ -113,10 +145,8 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
     const term = (barIdx >= 0 ? inner.slice(0, barIdx) : inner).split('#')[0].trim();
     if (!term || term.includes('...')) continue;
 
-    // docs-828 已退役：兼容链接按前缀改写到只读历史快照，同子路径解析，缺页仍报错。
-    const resolvedTerm = term.startsWith(RETIRED_DOCS_828_PREFIX)
-      ? DOCS_828_SNAPSHOT_PREFIX + term.slice(RETIRED_DOCS_828_PREFIX.length)
-      : term;
+    // 退役目录中的链接按路径迁移表解析；只读快照本身不因此改写。
+    const resolvedTerm = resolveMovedDocPath(projectWikiPath(term, wikiIndex) ?? term);
 
     const direct = path.join(root, resolvedTerm + '.md');
     const directPath = path.join(root, resolvedTerm);
@@ -137,28 +167,18 @@ for (const file of allMd.concat([path.join(root, 'AGENTS.md')])) {
         );
       } else if (hits.length === 1) {
         target = hits[0];
-      }
-    }
-    if (target) {
-      const targetRel = rel(target);
-      if (
-        targetRel.startsWith(GOALSETS_DIR) &&
-        targetRel !== GOALSETS_GUIDE &&
-        !r.startsWith(GOALSETS_DIR)
-      ) {
-        errors.push('[R6 可删除目标集依赖] ' + r + ' -> [[' + inner + ']]');
+      } else if (term.includes('/')) {
+        errors.push('[R1 目标缺失] ' + r + ' -> [[' + inner + ']]');
       }
     }
   }
 
-  // R3：引用的源码路径存在（冻结考古层为历史记录，豁免）
-  if (!isHistoricalArchive) {
-    for (const line of text.split(/\r?\n/)) {
-      if (DELETION_HINT.test(line)) continue;
-      for (const m of line.matchAll(SRC_RE)) {
-        if (!fs.existsSync(path.join(root, m[1]))) {
-          errors.push('[R3 源码路径失效] ' + r + ' -> `' + m[1] + '`');
-        }
+  // R3：引用的源码路径存在
+  for (const line of text.split(/\r?\n/)) {
+    if (DELETION_HINT.test(line)) continue;
+    for (const m of line.matchAll(SRC_RE)) {
+      if (!fs.existsSync(path.join(root, m[1]))) {
+        errors.push('[R3 源码路径失效] ' + r + ' -> `' + m[1] + '`');
       }
     }
   }

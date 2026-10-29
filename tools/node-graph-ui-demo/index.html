@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>节点探索 Demo · AC Program</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar__title">
+          <p class="eyebrow">节点探索实验</p>
+          <h1 id="graph-name">探索原野</h1>
+        </div>
+
+        <nav class="breadcrumb" id="breadcrumb" aria-label="图层级"></nav>
+
+        <div class="topbar__tools">
+          <div class="topbar__actions">
+            <button type="button" class="btn btn--quiet" id="random-node-button">随机节点</button>
+            <button type="button" class="btn btn--quiet" id="back-button">返回上层</button>
+            <button type="button" class="btn btn--quiet" id="reset-button">重置 Demo</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="canvas-card" aria-label="节点图画布">
+          <div class="canvas-card__head">
+            <div class="canvas-card__meta">
+              <p class="progress" id="progress" aria-live="off">已拥有 0 · 已认识 0 · 待探索 0</p>
+              <ul class="legend">
+                <li class="legend__item">
+                  <span class="swatch swatch--frontier" aria-hidden="true"></span>待探索
+                </li>
+                <li class="legend__item">
+                  <span class="swatch swatch--known" aria-hidden="true"></span>已认识
+                </li>
+                <li class="legend__item">
+                  <span class="swatch swatch--owned" aria-hidden="true"></span>已拥有
+                </li>
+                <li class="legend__item">
+                  <span class="edge-swatch edge-swatch--directed" aria-hidden="true"></span>单向链接
+                </li>
+                <li class="legend__item">
+                  <span class="edge-swatch edge-swatch--virtual" aria-hidden="true"></span>虚拟链接
+                </li>
+              </ul>
+            </div>
+            <div class="projection-scale" role="group" aria-label="节点空间比例">
+              <label for="projection-scale">节点比例</label>
+              <input type="range" id="projection-scale" min="10" max="1000" step="1" value="100">
+              <output id="projection-scale-value" for="projection-scale">100%</output>
+              <span class="projection-scale__hint">画布滚轮缩放</span>
+            </div>
+            <div class="overview-node-limit-control" id="backdrop-node-limit-control" role="group" aria-label="母图概览范围" hidden>
+              <label for="backdrop-node-limit">母图节点上限</label>
+              <input type="number" id="backdrop-node-limit" min="1" step="1" value="6" aria-controls="graph-backdrop">
+              <span>个，含入口</span>
+            </div>
+          </div>
+
+          <div class="canvas-host" id="canvas-host" data-has-parent="false">
+            <svg
+              id="graph-backdrop"
+              class="graph graph--backdrop"
+              aria-hidden="true"
+              focusable="false"
+              preserveAspectRatio="xMidYMid meet"
+            ></svg>
+            <svg
+              id="graph-connector"
+              class="graph-connector"
+              aria-hidden="true"
+              focusable="false"
+            ></svg>
+            <p class="backdrop-caption" id="backdrop-caption" aria-hidden="true" hidden></p>
+            <svg
+              id="graph-canvas"
+              class="graph graph--foreground"
+              role="group"
+              aria-label="节点图画布"
+              preserveAspectRatio="xMidYMid meet"
+            ></svg>
+          </div>
+
+          <div class="canvas-card__foot">
+            <p class="drag-note">拖动节点调整位置 · 拖动画布平移观察范围</p>
+            <p class="world-note" id="world-note" hidden>由「回声之门」偏移</p>
+            <details class="debug">
+              <summary>调试信息</summary>
+              <pre id="debug-output"></pre>
+            </details>
+          </div>
+        </section>
+
+        <aside class="panel" aria-labelledby="node-name">
+          <div class="panel__head">
+            <span class="panel__icon" id="node-icon" aria-hidden="true"></span>
+            <div class="panel__identity">
+              <p class="eyebrow">当前节点</p>
+              <h2 class="panel__name" id="node-name">未选择节点</h2>
+            </div>
+          </div>
+          <p class="panel__state" id="node-state" data-state="none">—</p>
+          <p class="panel__desc" id="node-desc">点击画布中的节点查看详情。</p>
+          <div class="panel__actions" id="node-actions"></div>
+          <p class="panel__feedback" id="feedback" role="status" aria-live="polite"></p>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./app.ts"></script>
+  </body>
+</html>

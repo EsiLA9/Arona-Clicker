@@ -172,7 +172,7 @@
    border-color: var(--ui-button-bg-active, var(--theme-node-active));
 }
 
-.mini-action:hover {
+.mini-action:hover:not(:disabled) {
    border-color: var(--card-btn-border-hover);
    color: var(--card-btn-text-hover);
 }
@@ -180,6 +180,16 @@
 .mini-action:disabled {
    opacity: .4;
    cursor: not-allowed;
+}
+
+.mini-action.mini-action--danger {
+   border-color: color-mix(in srgb, var(--danger, #b43b48) 42%, transparent);
+   color: var(--danger, #b43b48);
+}
+.mini-action.mini-action--danger:hover:not(:disabled) {
+   background: color-mix(in srgb, var(--danger, #b43b48) 10%, var(--panel-light));
+   border-color: var(--danger, #b43b48);
+   color: var(--danger, #b43b48);
 }
 
 .side-panel {
@@ -386,7 +396,7 @@
    font-size: 11px;
 }
 
-footer {
+.console-shell > footer {
    justify-content: space-between;
    margin-top: 20px;
    color: var(--muted);

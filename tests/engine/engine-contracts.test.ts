@@ -14,6 +14,7 @@ import { StatsService } from '../../src/engine/stats/stats';
 import { EventBus } from '../../src/engine/core/event-bus';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { wireGameInstance } from '../../src/arona-clicker/runtime/runtime-wiring';
 
 const state = {
   resources: {},
@@ -79,12 +80,18 @@ describe('基础引擎契约可脱离 base Datapack 组合', () => {
 
   test('GameInstance 支持由产品运行时注入装配入口', () => {
     let wired = false;
-    new GameInstance({
-      wiring: () => {
+    // A custom wiring must install the base runtime itself; the constructor uses it immediately.
+    const game = new GameInstance({
+      wiring: (instance, hooks, options) => {
         wired = true;
+        wireGameInstance(instance, hooks, options);
       },
     });
-
-    expect(wired).toBe(true);
+    try {
+      expect(wired).toBe(true);
+      expect(game.registry.maps.size).toBe(0);
+    } finally {
+      game.dispose();
+    }
   });
 });

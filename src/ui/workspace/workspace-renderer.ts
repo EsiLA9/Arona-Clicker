@@ -1,8 +1,17 @@
 import type { UIContext } from '../runtime/context';
 import { renderHeader } from '../components/shared/header';
-import { renderLeftPanel } from '../components/shared/rail';
-import { renderCenterPanel } from '../components/shared/center-panel';
-import { renderRightPanel } from '../components/shared/right-panels';
+import {
+  createAreaNavigationColumn,
+  createChatColumn,
+  createLogColumn,
+  createFacilitiesColumn,
+  createCharacterColumn,
+  createEnhancementsColumn,
+  createInventoryEffectsColumn,
+  renderGameColumnActions,
+} from '../columns';
+import { renderConversationColumnHeader } from '../components/character/contacts';
+import { renderPresentationRegion } from '../presentation/presentation-service';
 import { renderServiceWorkspace } from '../components/shared/service-workspace';
 import { renderShopWorkspace } from '../components/inventory/shop';
 import { renderCharacterWorkspace } from '../components/character/character-workspace';
@@ -12,12 +21,13 @@ import { renderOperationWorkspace } from '../components/operation/operation-work
 import { renderMapWorkspace } from '../components/map/map-workspace';
 import { renderSettingsWorkspace } from '../components/settings/settings-workspace';
 import { renderInventoryWorkspace } from '../components/inventory/inventory-workspace';
-import { renderWorkspaceFrame } from '../components/shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import { renderAreaWorkspace } from '../components/world/area-workspace';
 import { renderAreaMapWorkspace } from '../components/map/area-map-workspace';
 import { renderMapEntryWorkspace } from '../components/map/map-entry-workspace';
 import type { PanelState } from '../components/shared/app-shell';
 import type { WorkspaceRoute } from './workspace-router';
+import { renderStoryEditorWorkspace } from '../story-editor/view';
 
 function studentVariantId(route: WorkspaceRoute, state: PanelState): string | null {
   if (route.kind === 'area-map') return null;
@@ -28,23 +38,57 @@ function studentVariantId(route: WorkspaceRoute, state: PanelState): string | nu
   return state.conversationVariantId;
 }
 
-function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
-  const conversation = state.conversationVariantId
-    ? {
-        variantId: state.conversationVariantId,
-        entries: state.studentChats[state.conversationVariantId] ?? [],
-        chatTexts: state.studentChatTexts[state.conversationVariantId] ?? [],
-      }
-    : undefined;
-  return renderWorkspaceFrame(ctx, {
+export function createGameWorkspaceFrame(ctx: UIContext, state: PanelState): WorkspaceFrameSpec {
+  const variantId = state.conversationVariantId;
+  const conversation = variantId ? {
+    owner: variantId,
+    entries: state.studentChats[variantId] ?? [],
+    chatTexts: state.studentChatTexts[variantId] ?? [],
+  } : undefined;
+  const activityHeading = renderPresentationRegion(ctx.presentation, 'centerPanel') + (conversation
+    ? renderConversationColumnHeader(ctx, variantId!)
+    : renderGameColumnActions(ctx, 'activity', state.centerTab, [{ id: 'chat', label: '聊天' }, { id: 'log', label: '日志' }]));
+  const activity = !conversation && state.centerTab === 'log'
+    ? createLogColumn(ctx, { key: 'activity', width: 'var(--workspace-center-width)', workspaceOwner: 'game', heading: activityHeading, appearance: { slot: 'center', className: 'center-panel ui-cluster--center-panel' } })
+    : createChatColumn(ctx, {
+        key: 'activity', heading: activityHeading,
+        owner: conversation?.owner ?? null,
+        entries: conversation?.entries ?? state.chatEntries,
+        chatTexts: conversation?.chatTexts ?? state.chatTexts,
+        sendState: ctx.game.story.getSendState(variantId ?? undefined),
+        sendGate: state.sendGate ?? null,
+        storyGate: state.storyGate ?? null,
+        openingBanner: state.openingBanner ?? null,
+        appearance: { width: 'var(--workspace-center-width)', workspaceOwner: 'game', slot: 'center', className: `center-panel ui-cluster--center-panel${conversation ? ' conversation-panel' : ''}`, hostId: conversation ? 'centerPanel.conversation' : 'centerPanel.chat', themeScope: conversation ? 'center.conversation' : 'center.chat', surface: 'panel', scroll: 'none' },
+      });
+  const toolHeading = renderGameColumnActions(ctx, 'tools', state.rightTab, [
+    { id: 'spot', label: '设施' }, { id: 'character', label: '学生' }, { id: 'enh', label: '强化' }, { id: 'other', label: '其他' },
+  ]);
+  const toolOptions = { key: 'tools', width: 'var(--workspace-right-width)', workspaceOwner: 'game', heading: toolHeading, appearance: { width: 'var(--workspace-right-width)', workspaceOwner: 'game', slot: 'right' as const, className: 'right-panel ui-cluster--right-panel', surface: 'panel' as const, scroll: 'none' as const } };
+  const tools = state.rightTab === 'character'
+    ? createCharacterColumn(ctx, { key: 'tools', heading: toolHeading, appearance: toolOptions.appearance, variantId: state.selectedVariantId })
+    : state.rightTab === 'enh'
+      ? createEnhancementsColumn(ctx, { ...toolOptions, showResources: true })
+      : state.rightTab === 'other'
+        ? createInventoryEffectsColumn(ctx, { ...toolOptions, appearance: { ...toolOptions.appearance, scroll: 'content' } })
+        : createFacilitiesColumn(ctx, { ...toolOptions, showResources: true });
+  return {
     id: 'game',
-    left: { slot: 'left', workspaceOwner: 'game', hostId: 'leftPanel', themeScope: 'left.game', surface: 'none', className: 'game-workspace__left', content: renderLeftPanel(ctx, state), scroll: 'none' },
-    center: { slot: 'center', workspaceOwner: 'game', hostId: 'centerPanel', themeScope: 'center.game', surface: 'none', className: 'game-workspace__center', content: renderCenterPanel(ctx, state.centerTab, state.chatEntries, state.chatTexts, ctx.game.story.getSendState(state.conversationVariantId ?? undefined), conversation, state.sendGate ?? null, state.storyGate ?? null, state.openingBanner ?? null), scroll: 'none' },
-    right: { slot: 'right', workspaceOwner: 'game', hostId: 'rightPanel', themeScope: 'right.game', surface: 'none', className: 'game-workspace__right', content: renderRightPanel(ctx, state.rightTab, state.selectedVariantId), scroll: 'none' },
-  });
+    panelAliases: { left: ['area-navigation'], center: ['activity'], right: ['tools'] },
+    columns: [
+      { ...createAreaNavigationColumn(ctx, state, { key: 'area-navigation', width: 'var(--workspace-left-width)', workspaceOwner: 'game' }), slot: 'left' },
+      activity,
+      tools,
+    ],
+  };
+}
+
+function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createGameWorkspaceFrame(ctx, state));
 }
 
 function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: PanelState): { body: string; footerNote: string } {
+  if (route.kind === 'story-editor' && state.storyEditor) return { body: renderStoryEditorWorkspace(ctx, state.storyEditor), footerNote: 'Story 编辑器 · 本地草稿' };
   if (route.kind === 'area-map' && state.areaMapSession?.sessionId === route.sessionId) {
     return { body: renderAreaMapWorkspace(ctx, state.areaMapSession, state), footerNote: '区域地图' };
   }
@@ -81,7 +125,7 @@ export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: Pa
   return `
     <main class="console-shell">
       ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state) })}
-      ${rendered.body}
+      <div class="workspace-page-content">${rendered.body}</div>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${rendered.footerNote}</span></footer>
     </main>`;
 }

@@ -90,6 +90,8 @@ import { extra, getAtPath, mergeExtra, setAtPath } from '../../engine/extra/inde
 import { ImageStore } from '../../data-services/assets/image-store';
 import { hasExistenceGate } from '../../engine/visibility/reveal';
 import { Registry } from '../../data-services/registry/registry';
+import type { StoryDef } from '../../data-services/contracts/story';
+import type { StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
 import { createRuntimeContentBrowser } from '../../data-services/registry/runtime-content-browser';
 import type { RuntimeContentBrowserQueryPort } from '../../data-services/contracts/runtime-content-browser';
 import type { WorldCatalogQueryPort } from '../contracts/world/world-catalog';
@@ -1689,6 +1691,16 @@ export class GameInstance {
    */
   getStoryView(owner: string): StoryView | null {
     return this.storyService.getCurrentStoryView(owner);
+  }
+
+  saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult {
+    try {
+      const operation = this.registry.stories.has(story.id) ? 'replace' : 'create';
+      this.registry.saveStoryDefinition(story);
+      return { ok: true, storyId: story.id, operation };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   setRuntimeAreaTopology(connections: readonly RuntimeAreaTopologyConnection[]): void {

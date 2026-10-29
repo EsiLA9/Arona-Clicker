@@ -48,6 +48,8 @@ export type StoryNode =
 export interface StoryNodeBase {
   /** 在当前 StoryNodeDocument 内唯一的节点身份。 */
   readonly id: StoryNodeId;
+  /** 本次 Entry 局部表必须存在此键才执行；仅一个名称，不比较值。建议 StoryName-flagid，不强制前缀。 */
+  readonly requiresFlag?: string;
 }
 
 /** 正文呈现节点；stageId 指定它所属的显式呈现阶段。 */

@@ -124,6 +124,7 @@ function presentationError(registry: StoryNodeActionRegistry, command: StoryPres
 
 function actionError(registry: StoryNodeActionRegistry, action: StoryAction, source: StoryNodeSource): string | undefined {
   switch (action.kind) {
+    case 'localFlag': return 'LocalFlagRequiresPlayback';
     case 'state': return action.effects.map(effect => stateError(registry, effect)).find(error => error !== undefined);
     case 'travel': return registry.areas.has(action.areaId) ? undefined : 'TravelAreaNotFound';
     case 'overlay': return overlayError(action.command, source);
@@ -271,6 +272,7 @@ export function createStoryNodeActionHost(options: StoryNodeActionHostOptions): 
     if (error) return rejected(error);
     try {
       switch (action.kind) {
+        case 'localFlag': return rejected('LocalFlagRequiresPlayback');
         case 'state': {
           const gateError = stateBatchGateError(options, action.effects);
           if (gateError) return rejected(gateError);

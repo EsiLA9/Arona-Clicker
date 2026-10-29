@@ -7,7 +7,7 @@ import type { GameplayMapDef } from '../../src/data-services/contracts/gameplay-
 import { UIController } from '../../src/ui/controller/controller';
 import { finishWelcome } from '../engine/story-test-fixtures';
 
-function actionE2EDatapack(): typeof gameplayBMapDatapack {
+function actionE2EDatapack(options: { readonly limitedRounds?: boolean } = {}): typeof gameplayBMapDatapack {
   const source = gameplayBMapDatapack.maps?.[0];
   if (!source) throw new Error('The Gameplay B Datapack has no Map for the Encounter action E2E.');
   const commandAction = {
@@ -22,7 +22,6 @@ function actionE2EDatapack(): typeof gameplayBMapDatapack {
     ...action,
     costs: [{ scope: 'actor' as const, resourceId: 'stamina', amount: 1 }],
   }));
-  const candidates = actions.map(action => ({ actionId: action.id, tendencyWeight: 1 }));
   const map: GameplayMapDef = {
     ...source,
     resumeVersion: source.resumeVersion + 1,
@@ -35,14 +34,24 @@ function actionE2EDatapack(): typeof gameplayBMapDatapack {
     initialTeamResources: [{ resourceId: 'supplies', value: 100 }, { resourceId: 'clues', value: 0 }],
     nodes: source.nodes.map(node => {
       if (!node.encounter) return node;
-      const { completion: _completion, ...encounter } = node.encounter;
+      const { completion: _completion, ...limitedEncounter } = node.encounter;
       void _completion;
+      const encounter = options.limitedRounds ? limitedEncounter : node.encounter;
       return {
         ...node,
         encounter: {
           ...encounter,
-          rounds: 3,
-          participants: (node.encounter.participants ?? []).map(participant => ({ ...participant, actions: candidates })),
+          ...(options.limitedRounds ? { rounds: 3 } : {}),
+          // Keep only the actions authored for this Encounter. Some source
+          // actions have encounter-local effects (for example verified-clues)
+          // and are not valid candidates in every node.
+          participants: (node.encounter.participants ?? []).map(participant => ({
+            ...participant,
+            actions: [
+              ...(participant.actions ?? []),
+              { actionId: commandAction.id, tendencyWeight: 1 },
+            ],
+          })),
         },
       };
     }),
@@ -354,18 +363,47 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const beforeBlockedMove = game.mapRun.getSnapshot();
     expect(() => controller.commands.moveMap(runId, exitEdge!.toNodeId)).toThrow();
     expect(game.mapRun.getSnapshot()).toEqual(beforeBlockedMove);
-    if (!root.querySelector('[data-map-complete-encounter]')) {
-      root.querySelector<HTMLButtonElement>('[data-map-action-swap][data-character-id="shiroko"][data-action-id="assist-teammate"]')!.click();
+    const completionDefinition = encounterNode.encounter?.completion;
+    expect(completionDefinition).toMatchObject({
+      kind: 'condition',
+      label: '记录 3 条现场线索',
+      condition: { kind: 'counter', counterId: 'site-clues', comparison: 'gte', value: 3 },
+    });
+    if (!completionDefinition || completionDefinition.kind !== 'condition'
+      || completionDefinition.condition.kind !== 'counter') {
+      throw new Error('The field investigation Encounter must use its declared counter completion.');
     }
-    const completion = root.querySelector<HTMLButtonElement>('[data-map-complete-encounter][data-map-run-id]');
-    expect(completion?.textContent).toContain(encounterNode.encounter?.completion?.label);
-    completion!.click();
+    const readSiteClues = (): number => {
+      const encounter = game.mapRun.getSnapshot()?.activeEncounter;
+      const siteClues = encounter?.locals?.counters?.['site-clues'];
+      if (!encounter || !siteClues) {
+        throw new Error('The active field investigation Encounter must expose its site-clues counter.');
+      }
+      return siteClues.value;
+    };
+    expect(root.querySelector('[data-map-complete-encounter]')).toBeNull();
+    expect(readSiteClues()).toBe(0);
+    let committedRounds = 0;
+    for (let round = 0; round < 5 && game.mapRun.getSnapshot()?.activeEncounter; round++) {
+      const beforeClues = readSiteClues();
+      const commit = root.querySelector<HTMLButtonElement>('[data-map-commit]');
+      expect(commit).not.toBeNull();
+      expect(commit!.disabled).toBe(false);
+      commit!.click();
+      committedRounds++;
+      const afterCommit = game.mapRun.getSnapshot();
+      if (afterCommit?.activeEncounter) {
+        const nextClues = readSiteClues();
+        expect(nextClues).toBeGreaterThan(beforeClues);
+      }
+    }
     expect(game.mapRun.getSnapshot()).toMatchObject({
       currentNodeId: encounterNode.id,
       activeEncounterNodeId: null,
       completedEncounterNodeIds: [encounterNode.id],
       status: 'inProgress',
     });
+    expect(committedRounds).toBeGreaterThan(0);
     expect(controller.getRefreshStats().fullRenders).toBe(fullRenders);
     expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(regionRefreshes);
     regionRefreshes = controller.getRefreshStats().regionRefreshes;
@@ -410,7 +448,7 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const root = document.querySelector<HTMLElement>('#app')!;
     const game = createAppRuntime();
     games.push(game);
-    game.init([defaultDatapack, actionE2EDatapack()], { enterDefaultInit: true });
+    game.init([defaultDatapack, actionE2EDatapack({ limitedRounds: true })], { enterDefaultInit: true });
     const controller = new UIController(game, root);
     controllers.push(controller);
     controller.started = true;

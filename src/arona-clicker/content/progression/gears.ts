@@ -2,7 +2,7 @@
 // arona-clicker/content/gears.ts — base 示例装备（Gear）内容
 //
 // 全部数值为占位示例，供 UI 联调与验收；正式数值由策划另给表，不放引擎。
-// 当前导航见 docs/docs-829/06-wiki/30-arona-clicker-domain/story-and-chat.md；原型设计记录：docs/plan-work/archive/11-gear-equipment-system.md。
+// 当前导航见 docs/docs-830/05-domains/character-growth.md；原型设计记录：ai/archive/11-gear-equipment-system.md。
 // ============================================================
 
 import { gear, gearCost, item } from '../def-factory/index';

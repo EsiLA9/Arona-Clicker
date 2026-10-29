@@ -21,6 +21,24 @@ function panelState(): PanelState {
 }
 
 describe('UI Surface token and update dispatcher', () => {
+  it('invalidates map and map-entry surfaces when their business instance changes', () => {
+    const state = panelState();
+    state.workspaceNavigation = { current: { kind: 'map', runId: 'first' } };
+    const runtime = new UISurfaceRuntime(state);
+    runtime.markMounted();
+    const first = runtime.current();
+    state.workspaceNavigation.current = { kind: 'map', runId: 'second' };
+    runtime.sync(state);
+    expect(runtime.isCurrent(first)).toBe(false);
+    expect(runtime.current().key).toBe('map:second');
+    state.workspaceNavigation.current = { kind: 'map-entry', mapId: 'entry-first' };
+    runtime.sync(state); runtime.markMounted();
+    const entry = runtime.current();
+    state.workspaceNavigation.current = { kind: 'map-entry', mapId: 'entry-second' };
+    runtime.sync(state);
+    expect(runtime.isCurrent(entry)).toBe(false);
+    expect(runtime.current().key).toBe('map-entry:entry-second');
+  });
   it('uses workspace identity plus generation to reject stale DOM updates', () => {
     const state = panelState();
     const runtime = new UISurfaceRuntime(state);
@@ -119,5 +137,64 @@ describe('UI Surface token and update dispatcher', () => {
     dispatcher.request({ type: 'region', hostId: 'rightPanel.spot', reason: 'region' });
     dispatcher.flushNow();
     expect(applied).toEqual(['region']);
+  });
+
+  it('keeps element updates isolated by column instance when reducing regions', () => {
+    const applied: string[] = [];
+    const token = { key: 'game', generation: 0 };
+    const columns = new Map([
+      ['game/facilities-a', { instanceId: 'game/facilities-a', generation: 1 }],
+      ['game/facilities-b', { instanceId: 'game/facilities-b', generation: 2 }],
+    ]);
+    const dispatcher = new UIUpdateDispatcher({
+      getCurrentSurfaceToken: () => token,
+      isSurfaceCurrent: candidate => candidate.key === token.key && candidate.generation === token.generation,
+      isColumnCurrent: candidate => columns.get(candidate.instanceId)?.generation === candidate.generation,
+      apply: update => {
+        if (update.type === 'region') applied.push(`region:${update.instanceId}`);
+        else if (update.type === 'element') applied.push(`element:${update.instanceId}:${update.key}`);
+        return 'applied';
+      },
+    });
+
+    dispatcher.request({
+      type: 'element', target: 'spot.card', key: 'spot-a', hostId: 'rightPanel.spot',
+      instanceId: 'game/facilities-a', columnToken: columns.get('game/facilities-a'), reason: 'a-element',
+    });
+    dispatcher.request({
+      type: 'element', target: 'spot.card', key: 'spot-a', hostId: 'rightPanel.spot',
+      instanceId: 'game/facilities-b', columnToken: columns.get('game/facilities-b'), reason: 'b-element',
+    });
+    dispatcher.request({
+      type: 'region', hostId: 'game/facilities-a', instanceId: 'game/facilities-a',
+      columnToken: columns.get('game/facilities-a'), reason: 'a-region',
+    });
+
+    dispatcher.flushNow();
+
+    expect(applied).toEqual(['region:game/facilities-a', 'element:game/facilities-b:spot-a']);
+  });
+
+  it('drops queued and immediate element updates for a stale column mount', () => {
+    const applied: UIUpdate[] = [];
+    const dropped: Array<{ update: UIUpdate; reason: string }> = [];
+    const surface = { key: 'game', generation: 0 };
+    let currentColumn = { instanceId: 'game/facilities', generation: 2 };
+    const dispatcher = new UIUpdateDispatcher({
+      getCurrentSurfaceToken: () => surface,
+      isSurfaceCurrent: candidate => candidate.key === surface.key && candidate.generation === surface.generation,
+      isColumnCurrent: candidate => candidate.instanceId === currentColumn.instanceId && candidate.generation === currentColumn.generation,
+      apply: update => { applied.push(update); return 'applied'; },
+      onDrop: (update, reason) => dropped.push({ update, reason }),
+    });
+    const staleColumn = { instanceId: 'game/facilities', generation: 1 };
+
+    dispatcher.request({ type: 'element', target: 'spot.card', key: 'spot-a', instanceId: staleColumn.instanceId, columnToken: staleColumn });
+    dispatcher.flushNow();
+    expect(dispatcher.applyNow({ type: 'element', target: 'spot.card', key: 'spot-a', instanceId: staleColumn.instanceId, columnToken: staleColumn })).toBe('not-found');
+
+    expect(applied).toHaveLength(0);
+    expect(dropped).toHaveLength(2);
+    expect(dropped.map(item => item.reason)).toEqual(['stale-column', 'stale-column']);
   });
 });

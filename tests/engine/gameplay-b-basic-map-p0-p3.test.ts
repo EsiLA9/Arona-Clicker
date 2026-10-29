@@ -593,7 +593,7 @@ describe('Gameplay B basic map P0—P3', () => {
 
       const view = requireActiveView(game);
       const gate = view.map.edges.find(edge => edge.fromNodeId === 'c' && edge.toNodeId === 'f')!;
-      expect(gate.condition).toEqual({ resourceId: 'pass', amount: 1, satisfied: false });
+      expect(gate.condition).toEqual({ kind: 'teamResourceAtLeast', resourceId: 'pass', amount: 1, satisfied: false });
       expect(() => game.moveMap(started.runId, 'f')).toThrow(/unsatisfied MapRun condition/);
 
       const atShop = game.moveMap(started.runId, 'd');
@@ -614,7 +614,7 @@ describe('Gameplay B basic map P0—P3', () => {
 
       const view = requireActiveView(game);
       const gate = view.map.edges.find(edge => edge.fromNodeId === 'c' && edge.toNodeId === 'f')!;
-      expect(gate.condition).toEqual({ resourceId: 'pass', amount: 1, satisfied: true });
+      expect(gate.condition).toEqual({ kind: 'teamResourceAtLeast', resourceId: 'pass', amount: 1, satisfied: true });
 
       const atShortcut = game.moveMap(started.runId, 'f');
       expect(atShortcut.currentNodeId).toBe('f');

@@ -35,6 +35,12 @@ export function logStoryFailure(ctrl: UIController, result: StoryStartResult | S
   });
 }
 
+/** Resolve the owner from the clicked display, never its physical panel. */
+function stateForStoryElement(ctrl: UIController, element: Element) {
+  const pane = element.closest<HTMLElement>('[data-chat-owner]');
+  return pane ? { ...ctrl.panelState, conversationVariantId: pane.dataset.chatOwner || null } : ctrl.panelState;
+}
+
 /** 绑定剧情域事件（render 后调用）。 */
 export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   const storyGateCard = scope.querySelector<HTMLElement>('[data-story-gate] .story-gate-card');
@@ -130,75 +136,78 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       workspace.mode = 'overview';
       ctrl.panelState.conversationVariantId = null;
       ctrl.panelState.storyGate = null;
-      ctrl.render();
+      ctrl.refreshPanels(['left', 'center', 'right']);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-story-archive-back]').forEach(button => {
     button.addEventListener('click', () => {
       if (ctrl.panelState.workspace?.type !== 'story') return;
       ctrl.panelState.workspace.subroute = 'overview';
-      ctrl.render();
+      ctrl.refreshPanels(['left', 'center', 'right']);
     });
   });
-  scope.querySelector<HTMLButtonElement>('[data-trigger-passive-story]')?.addEventListener('click', () => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-trigger-passive-story]').forEach(trigger => trigger.addEventListener('click', () => {
+    const state = stateForStoryElement(ctrl, trigger);
     // 开幕横幅展示/淡出期间阻断剧情推进类点击
-    if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
+    if (ctrl.chat.bannerBlocking(state)) return;
     // 壁垒：对话空间只抽归该学生的闲聊；一般聊天抽全局闲聊（owner = undefined）
-    const owner = ctrl.panelState.conversationVariantId ?? undefined;
+    const owner = state.conversationVariantId ?? undefined;
     ctrl.deliverPendingRewardsBeforeStory();
     const result = ctrl.commands.triggerPassiveStory(ctrl.game.getView().activeInit, owner);
     logStoryFailure(ctrl, result);
     ctrl.refreshChatPanel();
-  });
+  }));
   // 底部发送按钮：本质是带发送交互的 Talklet 的演出形态
-  const sendButton = scope.querySelector<HTMLButtonElement>('[data-send]');
-  sendButton?.addEventListener('click', () => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-send]').forEach(sendButton => sendButton.addEventListener('click', () => {
+    const state = stateForStoryElement(ctrl, sendButton);
     // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
     const sel = document.getSelection();
     if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
     // 开幕横幅展示/淡出期间阻断剧情推进类点击（节奏加速一并阻断）
-    if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
+    if (ctrl.chat.bannerBlocking(state)) return;
     // §4 按钮门控：对方打字 / 自己"想回复"阶段点击不推进，仅加速节奏计时
     //（阶段完成时由 ChatStream.onChange 触发重渲染；未完成无视觉变化，无需 render）
-    if (ctrl.chat.activeGate(ctrl.panelState) !== null) {
-      ctrl.chat.accelerateActiveGate(ctrl.panelState);
+    if (ctrl.chat.activeGate(state) !== null) {
+      ctrl.chat.accelerateActiveGate(state);
       return;
     }
     // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
-    const owner = ctrl.panelState.conversationVariantId ?? undefined;
+    const owner = state.conversationVariantId ?? undefined;
     ctrl.deliverPendingRewardsBeforeStory();
     const result = ctrl.commands.clickSend(owner, sendButton.dataset.storyToken);
     if (result.type === 'completed') {
       // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
       // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
       if (result.echoReply) {
-        ctrl.chat.pushPlayerReply(ctrl.panelState, result.sentText);
+        ctrl.chat.pushPlayerReply(state, result.sentText);
       }
       // 向后吸收的过渡页（推进后自动跳过的纯展示页）同步进聊天流
-      ctrl.chat.pushAbsorbed(ctrl.panelState, result.absorbed ?? []);
+      ctrl.chat.pushAbsorbed(state, result.absorbed ?? []);
     } else if (result.type === 'working') {
       // 多击任务：尚未完成，仅进度条 +1（本次点击不发送、不推进），render() 自动刷新
     } else if (result.type === 'idle' && result.started) {
       // 无剧情时点击触发了被动闲聊
     }
     ctrl.refreshChatPanel();
-  });
+  }));
   scope.querySelectorAll<HTMLButtonElement>('[data-story-choice]').forEach(button => {
     button.addEventListener('click', () => {
+      const state = stateForStoryElement(ctrl, button);
       // 开幕横幅展示/淡出期间阻断剧情推进类点击
-      if (ctrl.chat.bannerBlocking(ctrl.panelState)) return;
+      if (ctrl.chat.bannerBlocking(state)) return;
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
-      const owner = ctrl.panelState.conversationVariantId ?? undefined;
+      const owner = state.conversationVariantId ?? undefined;
       const result = ctrl.commands.advanceStory(button.dataset.storyChoiceId ?? Number(button.dataset.storyChoice), owner, button.dataset.storyToken);
-      if (result.success && result.reply?.text) ctrl.chat.pushPlayerReply(ctrl.panelState, result.reply.text);
+      if (result.success && result.reply?.text) ctrl.chat.pushPlayerReply(state, result.reply.text);
       logStoryFailure(ctrl, result);
       ctrl.refreshChatPanel();
     });
   });
   scope.querySelectorAll<HTMLElement>('[data-story-card-token]').forEach(button => {
     button.addEventListener('click', () => {
-      if (ctrl.chat.bannerBlocking(ctrl.panelState) || ctrl.chat.activeGate(ctrl.panelState)) return;
-      const owner = ctrl.panelState.conversationVariantId;
+      const state = stateForStoryElement(ctrl, button);
+      if (ctrl.chat.bannerBlocking(state) || ctrl.chat.activeGate(state)) return;
+      const owner = state.conversationVariantId;
       const view = owner ? ctrl.game.getStoryView(owner) : ctrl.game.getView().currentStory;
       if (!view?.page.kizuna || view.token !== button.dataset.storyCardToken) return;
       ctrl.panelState.storyGate = { storyId: view.page.kizuna.storyId, owner, mode: 'card',

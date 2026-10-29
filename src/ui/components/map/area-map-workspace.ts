@@ -2,9 +2,9 @@ import type { UIContext } from '../../runtime/context';
 import type { PanelState } from '../shared/app-shell';
 import type { AreaMapNodeView } from '../../../arona-clicker/contracts/world/area-map-query';
 import type { AreaMapSession } from '../../workspace/area-map-session';
-import { renderWorkspaceFrame } from '../shared/workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
-import { renderLeftPanel } from '../shared/rail';
+import { createAreaNavigationColumn } from '../../columns';
 import { travelErrorText } from '../shared/errors';
 import { buildConditionView, renderConditionTree } from '../../presentation/condition-presentation';
 import '../../css/area-map.css';
@@ -59,7 +59,7 @@ export function renderAreaMapDetail(ctx: UIContext, session: AreaMapSession): st
       : '<p class="area-map-detail__status">选择节点查看详情</p>'}${conditions}`;
 }
 
-export function renderAreaMapWorkspace(ctx: UIContext, session: AreaMapSession, state: PanelState): string {
+export function createAreaMapWorkspaceFrame(ctx: UIContext, session: AreaMapSession, state: PanelState): WorkspaceFrameSpec {
   const esc = ctx.escapeHtml;
   const camera = session.viewports.get(session.currentMapId)!;
   const selected = session.view.nodes.find(node => node.id === session.selectedNodeId);
@@ -71,7 +71,7 @@ export function renderAreaMapWorkspace(ctx: UIContext, session: AreaMapSession, 
     <button type="button" data-area-map-action="reset">重置视角</button>
     <button type="button" data-area-map-action="close">关闭地图</button>
   </nav>`;
-  const center = renderWorkspaceTitlebar(ctx, 'center', '区域地图') + toolbar
+  const center = toolbar
     + `<svg class="area-map-viewport" data-area-map-viewport data-area-map-session="${esc(session.sessionId)}" viewBox="0 0 1000 700" aria-label="${esc(session.view.name)}">
       <defs><marker id="area-map-arrow-${esc(session.sessionId)}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 Z" fill="var(--muted-on-panel)" /></marker></defs>
       <g data-area-map-world transform="translate(${camera.x} ${camera.y}) scale(${camera.scale})">
@@ -80,16 +80,18 @@ export function renderAreaMapWorkspace(ctx: UIContext, session: AreaMapSession, 
       </g>
       <text data-area-map-empty x="500" y="350" text-anchor="middle" ${session.view.nodes.length ? 'hidden' : ''}>这张地图暂无可见节点</text>
     </svg>`;
-  const right = renderWorkspaceTitlebar(ctx, 'right', '地图详情')
-    + `<div class="area-map-detail" data-area-map-detail-scroll data-scroll-owner="content-region"><section data-area-map-detail>${renderAreaMapDetail(ctx, session)}</section></div>
-       <div class="area-map-actions" data-area-map-actions>
+  const right = `<div class="area-map-detail" data-area-map-detail-scroll data-scroll-owner="content-region"><section data-area-map-detail>${renderAreaMapDetail(ctx, session)}</section></div>`;
+  const actions = `<div class="area-map-actions" data-area-map-actions>
          <button type="button" data-area-map-action="travel" data-area-map-travel-node="${esc(selected?.id ?? '')}" data-area-map-id="${esc(session.currentMapId)}" data-area-map-revision="${session.revision}" ${selected?.actionKind === 'attemptAreaTravel' ? '' : 'hidden'} ${selected?.ready && !session.submitting ? '' : 'disabled'}>${areaMapTravelLabel(selected)}</button>
          <p data-area-map-feedback role="status">${esc(session.feedback?.text ?? '')}</p>
        </div>`;
-  return renderWorkspaceFrame(ctx, {
-    id: 'area-map',
-    left: { slot: 'left', role: 'navigation', workspaceOwner: 'area-map', hostId: 'leftPanel.area-map.navigation', themeScope: 'left.game', content: renderLeftPanel(ctx, state), scroll: 'none' },
-    center: { slot: 'center', role: 'primary', workspaceOwner: 'area-map', hostId: 'centerPanel.area-map.main', themeScope: 'center.game', surface: 'panel', className: 'area-map-center', content: center, scroll: 'none' },
-    right: { slot: 'right', role: 'inspector', workspaceOwner: 'area-map', hostId: 'rightPanel.area-map.inspector', themeScope: 'right.game', surface: 'panel', className: 'area-map-inspector', content: right, scroll: 'none' },
-  });
+  return { updates: 'external', id: 'area-map',
+    columns: [{ ...createAreaNavigationColumn(ctx, state, { key: 'navigation', workspaceOwner: 'area-map', appearance: { hostId: 'leftPanel.area', themeScope: 'left.area', className: 'left-panel ui-cluster--left-panel' } }), width: 'var(--workspace-left-width)', slot: 'left', role: 'navigation', workspaceOwner: 'area-map' },
+      { key: 'primary', width: 'var(--workspace-center-width)', slot: 'center', role: 'primary', workspaceOwner: 'area-map', hostId: 'centerPanel.area-map.main', themeScope: 'center.game', surface: 'panel', className: 'area-map-center', header: renderWorkspaceTitlebar(ctx, 'center', '区域地图'), content: center, scroll: 'none' },
+      { key: 'inspector', width: 'var(--workspace-right-width)', slot: 'right', role: 'inspector', workspaceOwner: 'area-map', hostId: 'rightPanel.area-map.inspector', themeScope: 'right.game', surface: 'panel', className: 'area-map-inspector', header: renderWorkspaceTitlebar(ctx, 'right', '地图详情'), content: right, footer: actions, scroll: 'none' }]
+  };
+}
+
+export function renderAreaMapWorkspace(ctx: UIContext, session: AreaMapSession, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createAreaMapWorkspaceFrame(ctx, session, state));
 }

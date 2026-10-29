@@ -30,6 +30,7 @@ import type { EntityPresentationDef } from '../contracts/entity-presentation';
 import type { GameplayMapDef } from '../contracts/gameplay-map';
 import type { AreaMapDef } from '../contracts/area-map';
 import { validateAreaMapReferences } from './area-map-validation';
+import { prepareStoryDefinition } from './registry-story-mutation';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -783,6 +784,29 @@ export class Registry {
   }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
+  /** Current-session authoring upsert; validation and cloning finish before mutation. */
+  saveStoryDefinition(story: StoryDef): void {
+    const entityPresentationOptions = new Map<string, ReadonlySet<string>>();
+    const collectPresentationOptions = (type: string, entries: ReadonlyMap<string, unknown>) => {
+      for (const [id, raw] of entries) {
+        const definition = raw as { presentation?: { additions?: readonly { id: string }[] } };
+        const optionIds = new Set((definition.presentation?.additions ?? []).map(option => option.id));
+        entityPresentationOptions.set(`${type}:${id}`, optionIds);
+      }
+    };
+    collectPresentationOptions('init', this.inits);
+    collectPresentationOptions('area', this.areas);
+    collectPresentationOptions('spot', this.spots);
+    collectPresentationOptions('enhancement', this.enhancements);
+    collectPresentationOptions('variant', this.characterVariants);
+    const candidate = prepareStoryDefinition(story, {
+      stories: this.stories, areas: this.areas, spots: this.spots, enhancements: this.enhancements,
+      items: this.items, inits: this.inits, characterVariants: this.characterVariants, characters: this.characters,
+      storyEntries: this.storyEntries, colorGroups: this.colorGroups, entityPresentationOptions,
+      pics: this.pics, funclets: this.funcletDefs, resources: this.resourceDisplays,
+    });
+    this._stories.set(candidate.id, candidate);
+  }
   /** 剧情入口（对外故事 id → Entry）。 */
   get activeStories(): ReadonlyMap<string, ActiveStoryEntry> { return this._activeStories; }
   /** 随机闲聊入口（对外故事 id → Entry）。 */

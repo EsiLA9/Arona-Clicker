@@ -104,7 +104,7 @@ function executeSpotPayment(ctrl: UIController, spotId: string, action: SpotPaym
       return;
     } else ctrl.toast.show(`升级失败：${spotPaymentErrorText(result.error)}`, 'error');
   }
-  ctrl.refreshPanels(['right']);
+  if (!ctrl.refreshCurrentSpotCards('spot-payment')) ctrl.refreshPanels(['right']);
 }
 
 function spotPaymentErrorText(error: string): string {
@@ -322,7 +322,7 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       } else {
         ctrl.toast.show(`使用失败：${itemUseErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshColumnContaining(button)) ctrl.refreshPanels(['right']);
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-area]').forEach(button => {
@@ -340,7 +340,8 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       } else {
         ctrl.toast.show(`无法移动：${travelErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.scheduleRender();
+      ctrl.refreshPanels(['left', 'center', 'right']);
+      ctrl.refreshChatPanel();
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-purchase-enh]').forEach(button => {
@@ -353,7 +354,7 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       } else {
         ctrl.toast.show(`购买失败：${enhPurchaseErrorText[result.error] ?? result.error}`, 'error');
       }
-      ctrl.refreshPanels(['right']);
+      if (!ctrl.refreshCurrentEnhancementCards('enhancement-purchase') && !ctrl.refreshColumnContaining(button)) ctrl.refreshPanels(['right']);
     });
   });
   scope.querySelector('[data-open-enh-manager]')?.addEventListener('click', () => {

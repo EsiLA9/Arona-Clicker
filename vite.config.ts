@@ -35,6 +35,10 @@ function mpaRoutes(): Plugin {
 
 export default defineConfig({
   root: '.',
+  css: {
+    // 显式配置，避免首次处理样式时向父目录逐层搜索 PostCSS 配置。
+    postcss: { plugins: [] },
+  },
   server: {
     port: 5173,
     open: '/',

@@ -49,6 +49,7 @@ function hasUnappliedDatapackDraft(ctrl: UIController): boolean {
 
 function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab?: string): void {
   const switchService = () => {
+    if (!ctrl.storyEditor.beforeLeave()) return;
     if (ctrl.panelState.workspace) ctrl.disposeWorkspace();
     ctrl.navigateToService(service);
     if (rightTab) ctrl.panelState.rightTab = rightTab;
@@ -73,8 +74,9 @@ function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab
   switchService();
 }
 
-/** 绑定顶栏 / 全局工具条与 Tab 切换（render 后调用）。 */
+/** 绑定顶栏 / 全局工具条（render 后调用）；Workspace 栏动作由实例装配绑定。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelector('#story-editor-launch')?.addEventListener('click', () => ctrl.storyEditor.open());
   bindDatapackActions(ctrl, scope);
   bindRuntimeDatapackEditorActions(ctrl, scope);
   scope.querySelectorAll<HTMLButtonElement>('[data-service]').forEach(button => {
@@ -169,76 +171,6 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     ctrl.toast.show('已彻底重置，回到世界线选择', 'info');
     ctrl.themeFloatOpen = false;
     ctrl.renderInitSelect();
-  });
-  scope.querySelector('#clear-log')?.addEventListener('click', () => {
-    ctrl.commands.clearDevLogs();
-    ctrl.scheduleRender();
-  });
-  scope.querySelector('#export-log')?.addEventListener('click', () => {
-    ctrl.io.exportLog();
-  });
-  scope.querySelector('#dump-enh-debug')?.addEventListener('click', () => {
-    ctrl.game.enhancements.dumpEnhancementDebug();
-    ctrl.toast.show('Enhancement 条件诊断已写入日志', 'info');
-    ctrl.scheduleRender();
-  });
-
-  // Tab 切换
-  scope.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => {
-    button.addEventListener('click', () => {
-      const [panel, tabId] = (button.dataset.tab ?? ':').split(':');
-      if (panel === 'left' && tabId === 'contacts') {
-        ctrl.openContactsWorkspace();
-        ctrl.render();
-        return;
-      }
-      if (panel === 'left' && tabId === 'story') {
-        ctrl.openStoryWorkspace();
-        ctrl.render();
-        return;
-      }
-      const workspace = ctrl.panelState.workspace;
-      if (panel === 'left' && tabId === 'area' && (workspace?.type === 'contacts' || workspace?.type === 'story')) {
-        const onInitChat = ctrl.panelState.centerTab === 'chat' && !ctrl.panelState.conversationVariantId;
-        ctrl.navigateToService('game');
-        ctrl.panelState.leftTab = 'area';
-        ctrl.panelState.centerTab = 'chat';
-        ctrl.panelState.rightTab = workspace.returnContext.rightTab;
-        ctrl.panelState.selectedVariantId = workspace.returnContext.selectedVariantId;
-        ctrl.panelState.conversationVariantId = workspace.returnContext.conversationVariantId;
-        if (ctrl.panelState.conversationVariantId) {
-          ctrl.panelState.conversationVariantId = null;
-          ctrl.panelState.selectedVariantId = null;
-        }
-        ctrl.panelState.storyGate = null;
-        if (!onInitChat) ctrl.scroll.forceToBottom();
-        ctrl.render();
-        return;
-      }
-      if (panel === 'left') {
-        ctrl.panelState.leftTab = tabId;
-        // 左侧只在 Game Workspace 内保留区域内容；通讯录 / 故事已在上方转为正式 Workspace。
-        if (tabId === 'area') {
-          // 对话空间优先级高于 centerTab：不退出就会停留在学生聊天流上（与对话空间返回键同款退出）
-          const onInitChat = ctrl.panelState.centerTab === 'chat' && !ctrl.panelState.conversationVariantId;
-          if (ctrl.panelState.conversationVariantId) {
-            ctrl.panelState.conversationVariantId = null;
-            ctrl.panelState.selectedVariantId = null;
-          }
-          ctrl.panelState.centerTab = 'chat';
-          if (!onInitChat) ctrl.scroll.forceToBottom();
-        }
-      } else if (panel === 'center') {
-        const wasChat = ctrl.panelState.centerTab === 'chat';
-        ctrl.panelState.centerTab = tabId;
-        if (!wasChat && tabId === 'chat') {
-          // 从日志切回聊天：标记强制滚到底
-          ctrl.scroll.forceToBottom();
-        }
-      } else if (panel === 'right') ctrl.panelState.rightTab = tabId;
-      const panels = panel === 'left' ? ['left', 'center'] : [panel];
-      ctrl.refreshPanels(panels as Array<'left' | 'center' | 'right'>);
-    });
   });
   syncRuntimeEditorCreateActions(ctrl);
 }

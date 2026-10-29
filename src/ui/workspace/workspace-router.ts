@@ -2,6 +2,7 @@ export type WorkspaceServicePage = 'settings' | 'inventory' | 'datapack' | 'save
 
 export type WorkspaceRoute =
   | { kind: 'game' }
+  | { kind: 'story-editor' }
   | { kind: 'service'; page: WorkspaceServicePage }
   | { kind: 'shop'; sessionId: string }
   | { kind: 'character'; variantId: string }
@@ -127,7 +128,7 @@ export function resolveCurrentWorkspaceRoute(
   legacy: { service?: string; workspace?: WorkspaceRouteRef | null },
 ): WorkspaceRoute {
   const derived = routeFromLegacyState(legacy);
-  if ((navigation?.current.kind === 'map' || navigation?.current.kind === 'area' || navigation?.current.kind === 'area-map' || navigation?.current.kind === 'map-entry')
+  if ((navigation?.current.kind === 'story-editor' || navigation?.current.kind === 'map' || navigation?.current.kind === 'area' || navigation?.current.kind === 'area-map' || navigation?.current.kind === 'map-entry')
     && (!legacy.service || legacy.service === 'game')
     && !legacy.workspace) return navigation.current;
   return navigation && sameWorkspaceRoute(navigation.current, derived) ? navigation.current : derived;

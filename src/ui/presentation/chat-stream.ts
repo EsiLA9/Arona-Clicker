@@ -280,7 +280,7 @@ export class ChatStream {
   /** 定向版过渡页入流（onAutoAdvance 链式推进用：写入来源流，不受当前活跃流影响）。 */
   pushAbsorbedTo(streamKey: string, panelState: PanelState, views: StoryView[]): void {
     const stream = streamKey === '#global'
-      ? this.activeStream(panelState)
+      ? panelState.chatEntries
       : (panelState.studentChats[streamKey] ??= []);
     this.appendAbsorbed(stream, views);
   }

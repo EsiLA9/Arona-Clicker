@@ -5,6 +5,15 @@ export interface TabDef {
   id: string;
   label: string;
   hint?: string;
+  action?: string;
+}
+
+export interface PanelActionDef {
+  id: string;
+  label: string;
+  active?: boolean;
+  navigation?: string;
+  disabled?: boolean;
 }
 
 /** 渲染一组 Tab 按钮。active 为当前激活 id，data-panel 为该组归属。 */
@@ -21,7 +30,7 @@ export function renderTabs(
       data-theme-state="${tab.id === active ? 'active' : 'inactive'}"
       data-theme-text-mode="${ctx.textColorModeForHost?.(`${panel}Panel.tab`, tab.id === active ? 'active' : 'inactive') ?? 'auto'}"
       data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost(`${panel}Panel.tab`)}"
-      data-tab="${panel}:${tab.id}"
+      data-column-action="${ctx.escapeHtml(tab.action ?? tab.id)}"
       role="tab"
       aria-selected="${tab.id === active}"
       aria-pressed="${tab.id === active}"
@@ -51,4 +60,20 @@ export function renderPanelTabsRegion(
 /** 渲染 panel 顶部结构区块的非 Tabs 内容（如对话空间返回栏），复用统一宿主与渲染色。 */
 export function renderPanelHeaderRegion(ctx: UIContext, panel: string, content: string): string {
   return renderPanelRegionShell(ctx, panel, `<div class="presentation-host-content">${content}</div>`);
+}
+
+/** Render tab-styled actions without encoding a physical left/center/right target. */
+export function renderPanelActionsRegion(ctx: UIContext, panel: string, actions: readonly PanelActionDef[]): string {
+  const buttons = actions.map(action => `
+    <button type="button"
+      class="ui-control ui-control--tab switch-tab presentation-host-target ${action.active ? 'active ui-control--active' : ''}"
+      data-theme-host-id="${panel}Panel.tab"
+      data-theme-state="${action.active ? 'active' : 'inactive'}"
+      data-theme-text-mode="${ctx.textColorModeForHost?.(`${panel}Panel.tab`, action.active ? 'active' : 'inactive') ?? 'auto'}"
+      data-theme-hover-text-mode="${ctx.hoverTextColorModeForHost(`${panel}Panel.tab`)}"
+      ${action.navigation ? `data-workspace-navigation="${ctx.escapeHtml(action.navigation)}"` : `data-column-action="${ctx.escapeHtml(action.id)}"`}
+      ${action.disabled ? 'disabled' : ''}
+      ${action.active ? 'aria-current="page" aria-pressed="true"' : 'aria-pressed="false"'}
+    >${renderPresentationHostBackground(ctx, `${panel}Panel.tab`, 'presentation-host-background', action.active ? 'active' : 'inactive')}<span class="presentation-host-content">${ctx.escapeHtml(action.label)}</span></button>`).join('');
+  return renderPanelRegionShell(ctx, panel, `<div class="ui-cluster ui-cluster--${panel}-tabs switch-tabs"><div class="switch-tabs-content" role="group">${buttons}</div></div>`);
 }

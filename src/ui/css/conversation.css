@@ -37,46 +37,6 @@
    gap: 4px;
 }
 
-.conversation-back {
-   display: grid;
-   place-items: center;
-   width: var(--panel-tabs-control-height, 30px);
-   height: var(--panel-tabs-control-height, 30px);
-   border: 1px solid var(--line);
-   border-radius: 10px;
-   background: transparent;
-   color: var(--ink);
-   font-size: 18px;
-   line-height: 1;
-   cursor: pointer;
-}
-
-.conversation-back:hover {
-   border-color: var(--cyan);
-   color: var(--cyan);
-}
-
-/* 顶栏内容：返回键 + 标题行；宿主 presentation-host-content 内撑满并与控件等高居中。 */
-.conversation-heading {
-   display: flex;
-   align-items: center;
-   flex: 1 1 auto;
-   gap: 10px;
-   min-width: 0;
-}
-
-.conversation-title {
-   flex: 1;
-   display: flex;
-   align-items: baseline;
-   gap: 8px;
-   min-width: 0;
-}
-
-.conversation-title small {
-   color: var(--muted);
-}
-
 .blocked-condition {
    padding: 4px 16px 0;
    font-size: 12px;

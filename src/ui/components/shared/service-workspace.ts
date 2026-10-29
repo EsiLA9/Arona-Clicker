@@ -12,7 +12,7 @@ import {
   type DatapackWorkspaceSection,
   type DatapackWorkspaceView,
 } from '../../../arona-clicker/services/runtime/datapack-workspace-view';
-import { renderWorkspaceFrame } from './workspace-frame';
+import { renderWorkspaceFrame, type WorkspaceFrameSpec, type WorkspaceColumnSpec } from './workspace-frame';
 
 export type ServiceWorkspaceId = 'datapack' | 'saves' | 'records';
 
@@ -283,10 +283,13 @@ function renderDevelopmentSourceIssues(ctx: UIContext): string {
   return `<section class="service-card pack-source-issues"><div class="panel-heading"><h3>未能加载的数据源</h3><span class="index">${issues.length}</span></div><ul class="service-issue-list">${issues.map(issue => `<li>${escape(issue.message)}</li>`).join('')}</ul></section>`;
 }
 
+function renderSavesHeader(ctx: UIContext): string {
+  return `<div class="service-heading"><div><span class="eyebrow">SAVE WORKSPACE</span><h2>${serviceTitle('saves')}</h2><p>保存和读取都在这里完成，顶部入口只负责进入服务。</p></div><span class="service-status">${ctx.saveExists ? '已有本地存档' : '尚无本地存档'}</span></div>`;
+}
+
 function renderSavesMain(ctx: UIContext): string {
   const view = ctx.view;
   return `
-    <div class="service-heading"><div><span class="eyebrow">SAVE WORKSPACE</span><h2>${serviceTitle('saves')}</h2><p>保存和读取都在这里完成，顶部入口只负责进入服务。</p></div><span class="service-status">${ctx.saveExists ? '已有本地存档' : '尚无本地存档'}</span></div>
     <div class="service-card"><div class="panel-heading"><h3>当前进度</h3><span class="index">${view.activeInit ? escape(ctx.nameOf('init', view.activeInit)) : '未进入世界线'}</span></div><p class="service-summary">帧数 ${ctx.formatNumber(view.totalFrames)} · 当前区域 ${view.currentAreaId ? escape(ctx.nameOf('area', view.currentAreaId)) : '未进入'}</p><div class="service-actions"><button class="primary-button" id="save-game">保存当前进度</button><button class="toolbar-button" id="load-game" ${ctx.saveExists ? '' : 'disabled'}>读取并替换当前进度</button><button class="toolbar-button" id="new-game">开始新游戏</button></div></div>
     <section class="service-card"><h3>读取前检查</h3><p>读取会替换当前运行状态。实际覆盖范围与数据包环境差异将在后续存档检查面板中展开。</p></section>`;
 }
@@ -324,20 +327,23 @@ function renderAchievementGroups(ctx: UIContext): string {
     </section>`).join('');
 }
 
+function renderRecordsHeader(ctx: UIContext): string {
+  return `<div class="service-heading"><div><span class="eyebrow">RECORDS WORKSPACE</span><h2>${serviceTitle('records')}</h2><p>统一查看已发现内容与统计口径；条目本身保持只读。</p></div><span class="service-status">当前世界线</span></div>`;
+}
+
 function renderRecordsMain(ctx: UIContext): string {
   const registry = ctx.game.registry;
   const counts = [
     ['学生', registry.characters.size], ['故事', registry.stories.size], ['设施', registry.spots.size], ['物品', registry.items.size], ['标签来源', registry.characters.size],
   ];
   return `
-    <div class="service-heading"><div><span class="eyebrow">RECORDS WORKSPACE</span><h2>${serviceTitle('records')}</h2><p>统一查看已发现内容与统计口径；条目本身保持只读。</p></div><span class="service-status">当前世界线</span></div>
     <div class="service-actions"><button class="primary-button" id="collection-modal">打开完整图鉴</button></div>
     <section class="service-card"><div class="panel-heading"><h3>内容总览</h3><span class="index">当前 Registry</span></div><div class="service-stat-grid">${counts.map(([label, count]) => `<div><strong>${count}</strong><span>${label}</span></div>`).join('')}</div></section>
     ${renderAchievementGroups(ctx)}
     <section class="service-card"><h3>统计口径</h3><p>区域成就仅展示已发现目标；简单累计条件显示当前值与目标，组合条件保留线索。更完整的本世界线和全局统计将在分类页展示。</p></section>`;
 }
 
-export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspaceId, state: PanelState): string {
+export function createServiceWorkspaceFrame(ctx: UIContext, service: ServiceWorkspaceId, state: PanelState): WorkspaceFrameSpec {
   const host = ctx.game as UIContext['game'] & Partial<PackCatalogReadModel>;
   const catalog = host.getPackCatalog?.();
   const datapackView = service === 'datapack'
@@ -351,19 +357,27 @@ export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspace
     })
     : undefined;
   const main = service === 'datapack' ? renderDatapackMain(ctx, state, catalog, datapackView!) : service === 'saves' ? renderSavesMain(ctx) : renderRecordsMain(ctx);
-  const navigation = `<div class="service-column-title"><strong>${serviceTitle(service)}</strong></div>${renderNavigation(service, state, datapackView)}`;
+  const navigation = renderNavigation(service, state, datapackView);
   const datapackWorkspace = service === 'datapack'
     ? `<div class="datapack-workspace__sections">${navigation}</div><div class="datapack-workspace__catalog">${main}</div>`
     : navigation;
   const dependencyStatus = new Map((catalog?.dependencies ?? []).map(hint => [`${hint.packId}:${hint.dependency}`, hint.status]));
   const inspector = service === 'datapack'
-    ? `<div class="service-column-title"><strong>${state.datapackWorkspace?.selectedPackId ? '数据包详情' : '当前选择'}</strong></div>${renderDatapackInspector(ctx, state, datapackView!, dependencyStatus)}`
-    : `<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>当前选择</strong></div><section class="service-card"><h3>${service === 'saves' ? '安全提示' : '只读记录'}</h3><p>${service === 'saves' ? '读取、新游戏和删除等操作会影响进度，确认前必须查看覆盖范围。' : '图鉴与统计展示来源、范围和状态，不直接修改 PlayerState。'}</p></section><section class="service-card"><h3>下一步</h3><p>选择左侧分类或使用中部主要操作。操作结果会保留在当前页面并通过通知反馈。</p></section>`;
-  return renderWorkspaceFrame(ctx, {
-    id: `service-${service}`,
-    layout: { responsive: 'two-column', composition: service === 'datapack' ? 'left-center' : 'columns' },
-    left: { slot: 'left', workspaceOwner: service, hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: service === 'datapack' ? 'service-column datapack-workspace' : 'service-column service-navigation', content: datapackWorkspace, scroll: service === 'datapack' ? 'content' : 'auto' },
-    center: { slot: 'center', workspaceOwner: service, hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', content: service === 'datapack' ? '' : main, scroll: 'content' },
-    right: { slot: 'right', workspaceOwner: service, hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', content: inspector },
-  });
+    ? renderDatapackInspector(ctx, state, datapackView!, dependencyStatus)
+    : `<section class="service-card"><h3>${service === 'saves' ? '安全提示' : '只读记录'}</h3><p>${service === 'saves' ? '读取、新游戏和删除等操作会影响进度，确认前必须查看覆盖范围。' : '图鉴与统计展示来源、范围和状态，不直接修改 PlayerState。'}</p></section><section class="service-card"><h3>下一步</h3><p>选择左侧分类或使用中部主要操作。操作结果会保留在当前页面并通过通知反馈。</p></section>`;
+  const navigationHeader = `<div class="service-column-title"><strong>${serviceTitle(service)}</strong></div>`;
+  const mainHeader = service === 'saves' ? renderSavesHeader(ctx) : service === 'records' ? renderRecordsHeader(ctx) : '';
+  const inspectorHeader = service === 'datapack'
+    ? `<div class="service-column-title"><strong>${state.datapackWorkspace?.selectedPackId ? '数据包详情' : '当前选择'}</strong></div>`
+    : '<div class="service-column-title"><span class="eyebrow">INSPECTOR</span><strong>当前选择</strong></div>';
+  const columns: WorkspaceColumnSpec[] = [
+    { key: 'left', width: service === 'datapack' ? 'minmax(0, 1fr)' : 'var(--workspace-left-width)', slot: 'left', workspaceOwner: service, hostId: hostId(service, 'navigation'), themeScope: `left.${service}.navigation`, surface: 'panel', className: service === 'datapack' ? 'service-column datapack-workspace' : 'service-column service-navigation', header: navigationHeader, content: datapackWorkspace, scroll: service === 'datapack' ? 'content' : 'auto' },
+    { key: 'center', width: 'var(--workspace-center-width)', slot: 'center', workspaceOwner: service, hostId: hostId(service, 'main'), themeScope: `center.${service}.main`, surface: 'panel', className: 'service-column service-main', header: mainHeader, content: service === 'datapack' ? '' : main, scroll: 'content' },
+    { key: 'right', width: 'var(--workspace-right-width)', slot: 'right', workspaceOwner: service, hostId: hostId(service, 'inspector'), themeScope: `right.${service}.inspector`, surface: 'panel', className: 'service-column service-inspector', header: inspectorHeader, content: inspector }
+  ];
+  return { id: `service-${service}`, panelAliases: service === 'datapack' ? { center: ['left'] } : undefined, layout: { responsive: 'two-column', composition: service === 'datapack' ? 'left-center' : 'columns' }, columns: service === 'datapack' ? [columns[0], columns[2]] : columns };
+}
+
+export function renderServiceWorkspace(ctx: UIContext, service: ServiceWorkspaceId, state: PanelState): string {
+  return renderWorkspaceFrame(ctx, createServiceWorkspaceFrame(ctx, service, state));
 }

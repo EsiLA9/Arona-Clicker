@@ -4,7 +4,7 @@
   "type": "module",
   "description": "AronaClicker - Blue Archive themed idle/placement game engine",
   "scripts": {
-    "test": "vitest run",
+    "test": "node scripts/run-tests.mjs",
     "test:watch": "vitest",
     "dev": "vite",
     "dev:game": "vite src/ui",
@@ -15,6 +15,7 @@
     "gen:schema": "node scripts/gen-engine-schema.mjs --write",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "format:doc-links": "node scripts/format-doc-links.mjs --write",
     "report:doc-context": "node scripts/report-doc-context.mjs",
     "ui:callgraph": "node scripts/ui-callgraph.mjs"
   },
