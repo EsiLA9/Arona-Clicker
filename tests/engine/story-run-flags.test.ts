@@ -6,7 +6,7 @@ import type { StoryRunFlags } from '../../src/engine/contracts/story-run-flags';
 
 const talk = (id: string, requiresFlag?: string): StoryNode => ({ id, type: 'talklet', stageId: id, content: { kind: 'talk', text: id }, ...(requiresFlag === undefined ? {} : { requiresFlag }) });
 function doc(id: string, nodes: readonly StoryNode[]): StoryNodeDocument {
-  return { id, name: id, nodes, stages: Object.fromEntries(nodes.flatMap(node => node.type === 'talklet' || node.type === 'click'
+  return { id, name: id, startContext: { type: 'area', areaId: 'base:area:schale_main' }, nodes, stages: Object.fromEntries(nodes.flatMap(node => node.type === 'talklet' || node.type === 'click'
     ? [[node.stageId, { advance: node.type === 'click' ? 'input' : 'auto' }]] : [])) };
 }
 function fixture(...documents: StoryNodeDocument[]) {

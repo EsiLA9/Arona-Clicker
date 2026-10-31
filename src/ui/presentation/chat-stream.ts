@@ -49,8 +49,8 @@ export class ChatStream {
     this.legacyBanners.set(streamKey, { title, startedAt, timer });
   }
 
-  activeBanner(panelState: PanelState): ActiveBanner | null {
-    const key = panelState.conversationVariantId ?? '#global';
+  activeBanner(panelState: PanelState, replayId?: string): ActiveBanner | null {
+    const key = replayId ? `replay:${replayId}` : panelState.conversationVariantId ?? '#global';
     const current = this.playback.get(key)?.banner;
     if (current) return {
       title: current.title,
@@ -60,8 +60,8 @@ export class ChatStream {
     return legacy ? { title: legacy.title, startedAt: legacy.startedAt } : null;
   }
 
-  bannerBlocking(panelState: PanelState): boolean {
-    const key = panelState.conversationVariantId ?? '#global';
+  bannerBlocking(panelState: PanelState, replayId?: string): boolean {
+    const key = replayId ? `replay:${replayId}` : panelState.conversationVariantId ?? '#global';
     return this.playback.get(key)?.phase === 'banner' || this.legacyBanners.has(key);
   }
 
@@ -74,34 +74,39 @@ export class ChatStream {
 
   activeStream(panelState: PanelState): ChatEntry[] {
     const owner = panelState.conversationVariantId;
+    if (panelState.storyReplay?.owner === owner) return panelState.storyReplay.entries;
     return owner ? (panelState.studentChats[owner] ??= []) : panelState.chatEntries;
   }
 
-  activeGate(panelState: PanelState): SendGatePhase | null {
-    const phase = this.playback.get(panelState.conversationVariantId ?? '#global')?.phase;
+  activeGate(panelState: PanelState, replayId?: string): SendGatePhase | null {
+    const phase = this.playback.get(replayId ? `replay:${replayId}` : panelState.conversationVariantId ?? '#global')?.phase;
     if (phase === 'typing' || phase === 'thinking') return phase;
     return phase === 'operation' || phase === 'finishing' || phase === 'banner' || phase === 'failed' ? 'pause' : null;
   }
 
   /** Repeated reads, multiple displays and restored histories project the same stable records. */
-  syncCurrentStory(panelState: PanelState, game: Pick<GameReadModel, 'story'>): void {
+  syncCurrentStory(panelState: PanelState, game: Pick<GameReadModel, 'story'>, replayId?: string): void {
     const owner = panelState.conversationVariantId;
-    const key = owner ?? '#global';
-    const current = game.story.getPlaybackView(owner);
+    const key = replayId ? `replay:${replayId}` : owner ?? '#global';
+    const replay = replayId && panelState.storyReplay?.replayId === replayId ? panelState.storyReplay : undefined;
+    const current = replay
+      ? game.story.getReplayPlaybackView(replayId!) ?? game.story.getPlaybackView(owner)
+      : game.story.getPlaybackView(owner);
     const previous = this.playback.get(key);
-    const stream = this.activeStream(panelState);
+    const stream = replay ? replay.entries : owner ? (panelState.studentChats[owner] ??= []) : panelState.chatEntries;
     for (const entry of stream) this.chatId = Math.max(this.chatId, entry.id + 1);
     if (previous && previous.epoch !== current.epoch) stream.length = 0;
     this.playback.set(key, current);
 
     const ids = this.outputIds.get(key) ?? new Map<string, number>();
     for (const entry of stream) if (entry.storyOutputId) ids.set(entry.storyOutputId, entry.id);
-    const retained = new Set(current.entries.map(entry => entry.id));
+    const outputs = current.entries;
+    const retained = new Set(outputs.map(entry => entry.id));
     for (const id of ids.keys()) if (!retained.has(id)) ids.delete(id);
     this.outputIds.set(key, ids);
 
-    const local = stream.filter(entry => !entry.storyOutputId && entry.kind !== 'typing');
-    const projected: ChatEntry[] = current.entries.map(entry => {
+    const local = replay ? [] : stream.filter(entry => !entry.storyOutputId && entry.kind !== 'typing');
+    const projected: ChatEntry[] = outputs.map(entry => {
       let id = ids.get(entry.id);
       if (id === undefined) { id = this.chatId++; ids.set(entry.id, id); }
       const { id: storyOutputId, sequence: _sequence, historyId: _historyId, kind, ...content } = entry;
@@ -110,7 +115,7 @@ export class ChatStream {
     // Local travel notices capture their position before the synchronous travel command.
     // Runtime records retain their own sequence even when both clocks report the same millisecond.
     const slots: ChatEntry[][] = Array.from({ length: projected.length + 1 }, () => []);
-    for (const entry of local) {
+    for (const entry of replay ? [] : local) {
       const position = entry.afterStoryOutput;
       const index = current.entries.findIndex(output => position?.epoch === current.epoch
         ? position.sequence < output.sequence : entry.timestamp <= output.timestamp);
@@ -143,8 +148,9 @@ export class ChatStream {
     this.append(owner === undefined ? this.activeStream(panelState) : owner === null ? panelState.chatEntries : (panelState.studentChats[owner] ??= []), entry);
   }
 
-  activeChatTexts(panelState: PanelState, owner?: string | null): ChatTextEntry[] {
+  activeChatTexts(panelState: PanelState, owner?: string | null, replayId?: string): ChatTextEntry[] {
     const target = owner === undefined ? panelState.conversationVariantId : owner;
+    if (replayId) return panelState.storyReplay?.replayId === replayId ? panelState.storyReplay.chatTexts : [];
     return target ? (panelState.studentChatTexts[target] ??= []) : panelState.chatTexts;
   }
 
@@ -159,21 +165,21 @@ export class ChatStream {
     this.activeChatTexts(panelState, owner).length = 0;
   }
 
-  pushChatText(panelState: PanelState, entry: ChatTextEntry, owner?: string | null): void {
-    const texts = this.activeChatTexts(panelState, owner);
+  pushChatText(panelState: PanelState, entry: ChatTextEntry, owner?: string | null, replayId?: string): void {
+    const texts = this.activeChatTexts(panelState, owner, replayId);
     const index = texts.findIndex(value => value.id === entry.id);
     if (index < 0) texts.push(entry);
     else texts[index] = entry;
   }
 
-  clearChatText(panelState: PanelState, id: string, owner?: string | null): void {
-    const texts = this.activeChatTexts(panelState, owner);
+  clearChatText(panelState: PanelState, id: string, owner?: string | null, replayId?: string): void {
+    const texts = this.activeChatTexts(panelState, owner, replayId);
     const index = texts.findIndex(entry => entry.id === id);
     if (index >= 0) texts.splice(index, 1);
   }
 
-  endRun(panelState: PanelState, owner: string | null, runId: string): void {
-    const texts = this.activeChatTexts(panelState, owner);
+  endRun(panelState: PanelState, owner: string | null, runId: string, replayId?: string): void {
+    const texts = this.activeChatTexts(panelState, owner, replayId);
     for (let index = texts.length - 1; index >= 0; index--) if (texts[index]!.runId === runId) texts.splice(index, 1);
     // Runtime owns phase/timer cleanup. An old run event cannot clear the new snapshot.
   }

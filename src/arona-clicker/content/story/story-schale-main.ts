@@ -2,7 +2,7 @@ import { story } from '../def-factory/index';
 import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseSchaleMainStories: StoryDef[] = [
-  story('base:story:schale_welcome', '欢迎来到夏莱').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p6': { advance: 'input' }, 'p7': { advance: 'auto' } }).nodes([
+  story('base:story:schale_welcome', '欢迎来到夏莱').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p6': { advance: 'input' }, 'p7': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 夏莱办公室 · 清晨 ——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '欢迎回来，老师。夏莱的设备已经准备好了。', speaker: '阿罗娜' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '设备准备完毕，可以开始调度。' } },
@@ -15,13 +15,13 @@ export const baseSchaleMainStories: StoryDef[] = [
   { id: 'p7-body', type: 'talklet', stageId: 'p7', content: { kind: 'talk', text: '好的。设备会在每个 Tick 自动结算，资源足够后就能继续升级。', speaker: '阿罗娜' } },
   { id: 'p7-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 10 }, { op: 'addItem', itemId: 'base:item:energy_drink', amount: 1 }, { op: 'setSpotLevel', spotId: 'base:spot:tactical_desk', amount: 1 }] } },
 ]).build(),
-  story('base:story:schale_briefing', '设备简报').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:schale_briefing', '设备简报').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '· 例行设备简报 ·' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '设备状态稳定。今天也会按统一 Tick 继续工作。', speaker: '阿罗娜' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '了解，阿罗娜。', result: { actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 2 }] }] } } },
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '了解，阿罗娜。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:schale_flow_show', '流剧场预演').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p6': { advance: 'input' }, 'p7': { advance: 'auto' }, 'p8': { advance: 'input' }, 'p9': { advance: 'auto' }, 'p10': { advance: 'input' }, 'p11': { advance: 'input' }, 'p12': { advance: 'input' }, 'p13': { advance: 'input' }, 'p13-response': { advance: 'auto' }, 'p12-response': { advance: 'auto' }, 'p11-response': { advance: 'auto' }, 'p10-response': { advance: 'auto' }, 'p8-response': { advance: 'auto' }, 'p6-response': { advance: 'auto' }, 'p5-response': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
+  story('base:story:schale_flow_show', '流剧场预演').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p6': { advance: 'input' }, 'p7': { advance: 'auto' }, 'p8': { advance: 'input' }, 'p9': { advance: 'auto' }, 'p10': { advance: 'input' }, 'p11': { advance: 'input' }, 'p12': { advance: 'input' }, 'p13': { advance: 'input' }, 'p13-response': { advance: 'auto' }, 'p12-response': { advance: 'auto' }, 'p11-response': { advance: 'auto' }, 'p10-response': { advance: 'auto' }, 'p8-response': { advance: 'auto' }, 'p6-response': { advance: 'auto' }, 'p5-response': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 夏莱 · 流剧场 ——' }, presentation: { align: 'center' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'perf:title', x: 0.5, y: 0.88, align: 'center', content: { kind: 'text', text: '夏莱 · 流剧场预演' } } } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '舞台灯光亮起，演出文本浮现在聊天窗格上。' }, presentation: { align: 'left' } },
@@ -56,7 +56,7 @@ export const baseSchaleMainStories: StoryDef[] = [
   { id: 'p13-button', type: 'click', stageId: 'p13', interaction: { kind: 'button', text: '辛苦了。', result: { actions: [{ kind: 'overlay', command: { command: 'clearFlow' } }] } } },
   { id: 'p13-button-response', type: 'talklet', stageId: 'p13-response', content: { kind: 'talk', text: '辛苦了。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:schale_theme_lite_test', '夏莱主厅·主题演出压力测试').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' }, 'p6': { advance: 'auto' }, 'p7': { advance: 'input' }, 'p8': { advance: 'input' }, 'p9': { advance: 'auto' }, 'p10': { advance: 'input' }, 'p10-response': { advance: 'auto' }, 'p8-response': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:schale_theme_lite_test', '夏莱主厅·主题演出压力测试').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' }, 'p6': { advance: 'auto' }, 'p7': { advance: 'input' }, 'p8': { advance: 'input' }, 'p9': { advance: 'auto' }, 'p10': { advance: 'input' }, 'p10-response': { advance: 'auto' }, 'p8-response': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 夏莱主厅 · 主题演出压力测试 ——' }, presentation: { align: 'center' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: {
         colorGroupId: 'base:colorgroup:coral',
@@ -89,7 +89,7 @@ export const baseSchaleMainStories: StoryDef[] = [
   { id: 'p10-button', type: 'click', stageId: 'p10', interaction: { kind: 'button', text: '测试完成。', result: { actions: [{ kind: 'overlay', command: { command: 'clearId', id: 'theme-test:banner' } }, { kind: 'overlay', command: { command: 'clearId', id: 'theme-test:hidden' } }, { kind: 'overlay', command: { command: 'clearAllTexts' } }] } } },
   { id: 'p10-button-response', type: 'talklet', stageId: 'p10-response', content: { kind: 'talk', text: '测试完成。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:schale_theme_lite_insert', '夏莱主题测试·插入支线').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:schale_theme_lite_insert', '夏莱主题测试·插入支线').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 插入支线：局部 Host / Region 检查 ——' }, presentation: { align: 'center' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { colorGroupId: 'base:colorgroup:ink', tokens: { panel: '#101828', text: '#eef2ff', bg: '#0f172a' }, nodes: { active: '#38bdf8', highlight: '#a5f3fc' } } } } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '这是 insert 子剧情。深色临时主题只属于当前演出上下文，返回主线时应由剩余层重新解析。', speaker: '阿罗娜' } },
@@ -97,7 +97,7 @@ export const baseSchaleMainStories: StoryDef[] = [
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '继续观察。', speaker: '老师' }, presentation: { side: 'right' } },
   { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'narration', text: '插入支线结束，返回主线。' }, presentation: { align: 'center' } },
 ]).build(),
-  story('base:story:schale_theme_lite_finish', '夏莱主题测试·直接收束').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:schale_theme_lite_finish', '夏莱主题测试·直接收束').startInArea('base:area:schale_main').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— goto 分支：直接收束 ——' }, presentation: { align: 'center' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { colorGroupId: 'base:colorgroup:indigo', nodes: { primary: '#4f46e5', active: '#22d3ee', danger: '#fb7185' }, background: [{ id: 'scene', kind: 'gradient', value: 'linear-gradient(135deg, #eef2ff, #cffafe)', opacity: 1, position: 'center', size: 'cover', attachment: 'fixed' }] } } } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: 'goto 分支会直接结束原 Story 的剩余页面。请检查主题清理仍然走统一的 execution disposal。', speaker: '阿罗娜' } },

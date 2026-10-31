@@ -37,7 +37,7 @@ export interface CreateStoryNodeSessionOptions {
   readonly documents: ReadonlyMap<string, StoryNodeDocument>;
   readonly conditionSystem: ConditionSystem;
   readonly getState: () => PlayerState;
-  readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute'>;
+  readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute' | 'move'>;
   readonly random?: () => number;
   readonly preflightTransfer?: StoryNodePlaybackHost['preflightTransfer'];
 }

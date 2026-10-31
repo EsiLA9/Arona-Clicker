@@ -16,7 +16,7 @@ function activeEntry(id: string, storyId: string, extra: Partial<ActiveStoryEntr
 }
 
 function nodeDoc(id: string, nodes: StoryDef['nodes'], stages: StoryDef['stages'] = {}): StoryDef {
-  return { id, name: id, stages, nodes };
+  return { id, name: id, startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages, nodes };
 }
 
 function createGame(pack: ReturnType<typeof makePack>): GameInstance {

@@ -39,7 +39,7 @@ function passiveEntry(id: string, overrides: Partial<PassiveStoryEntry> = {}): P
 
 function makeRegistry(entries = [activeEntry('entry:target'), passiveEntry('entry:blocked', { blocksInteraction: true })]) {
   const storyEntries = new Map(entries.map(entry => [entry.id, entry]));
-  const stories = new Map<string, StoryDef>(entries.map(entry => [entry.storyId, {
+  const stories = new Map<string, StoryDef>(entries.map(entry => [entry.storyId, { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: entry.storyId, name: entry.id, stages: { body: { advance: 'auto' } },
     nodes: [{ id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'body' } }],
   }]));

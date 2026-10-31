@@ -35,7 +35,7 @@ describe('Story definition Registry boundary', () => {
   });
 
   it('keeps requiresFlag and localFlag in the strict accepted document', () => {
-    const candidate: StoryDef = {
+    const candidate: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: 'local:story:flag-boundary', name: '标记边界', stages: {},
       nodes: [{ id: 'mark', type: 'operation', requiresFlag: 'can-run', action: { kind: 'localFlag', op: 'set', name: 'seen', value: false } }],
     };

@@ -1,5 +1,5 @@
 import type { ConditionGroup } from '../../../engine/types/expression';
-import type { StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
+import type { StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode, StoryMoveToAreaNode, StoryMoveToCharaspaceNode } from '../../../data-services/contracts/story-node';
 import type { StoryAction } from '../../../data-services/contracts/story-node-actions';
 import type { StoryTransfer } from '../../../data-services/contracts/story-node-actions';
 import type { EffectReceipt } from '../../../engine/contracts/effect-receipt';
@@ -12,7 +12,9 @@ export type { StoryNodePresentationData } from '../../../engine/contracts/story-
 export interface StoryNodeSource {
   readonly entryId: string;
   readonly rootStoryId: string;
-  readonly owner: string | null;
+  owner: string | null;
+  /** A replay uses a private one-off playback channel while retaining its semantic owner. */
+  readonly replayId?: string;
   /** 正式协调器分配的运行身份，用于定向演出与生命周期清理。 */
   readonly runId?: string;
   /** 跨保存恢复保持不变的逻辑播放身份；与新的演出运行身份分离。 */
@@ -36,6 +38,7 @@ export interface StoryNodePlaybackHost {
   /** 纯静态引用/能力预检；动态资格按每个Action执行前的最新状态检查。 */
   preflight(action: StoryAction, source: StoryNodeSource): string | undefined;
   execute(action: StoryAction, source: StoryNodeSource): StoryNodeActionOutcome;
+  move?(node: StoryMoveToAreaNode | StoryMoveToCharaspaceNode, source: StoryNodeSource): StoryNodeActionOutcome;
   /** 如重读分支守卫；在分支动作执行之前核验控制流。 */
   preflightTransfer?(transfer: StoryTransfer, source: StoryNodeSource): string | undefined;
 }

@@ -10,7 +10,7 @@ function open(story: StoryDef) {
   selectStory(state, `source:${story.id}`, new Map([[story.id, story]]));
   return { state, draft: currentDraft(state)! };
 }
-const operation: StoryDef = { id: 'test:story:properties_acceptance', name: '验收', stages: {}, nodes: [{ id: 'node', type: 'operation', requiresFlag: 'initial', action: { kind: 'state', effects: [{ op: 'addItem', itemId: 'test:item:one', amount: 1 }] } }] };
+const operation: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:properties_acceptance', name: '验收', stages: {}, nodes: [{ id: 'node', type: 'operation', requiresFlag: 'initial', action: { kind: 'state', effects: [{ op: 'addItem', itemId: 'test:item:one', amount: 1 }] } }] };
 class MemoryStorage implements StorageAdapter {
   data = new Map<string, string>();
   get(key: string) { return this.data.get(key) ?? null; }
@@ -63,7 +63,7 @@ describe('0336 independent draft acceptance', () => {
   });
 
   it('tracks enabled-but-empty optional fields through row moves and suspends them with their branch', () => {
-    const story: StoryDef = { id: 'test:story:rows', name: 'Rows', stages: { input: { advance: 'input' } }, nodes: [{ id: 'node', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', result: { actions: [
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:rows', name: 'Rows', stages: { input: { advance: 'input' } }, nodes: [{ id: 'node', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', result: { actions: [
       { kind: 'travel', areaId: 'test:area:one' }, { kind: 'travel', areaId: 'test:area:two' },
     ] } } }] };
     const { draft } = open(story);

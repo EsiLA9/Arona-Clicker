@@ -141,7 +141,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     finishWelcome(game);
     const id = 'test:story:read-progress';
     game.registry.load(makePack([{ id: 'test:activestory:read-progress', storyId: id, type: 'active', availableInits: [], triggerCondition: and() }], [{
-      id, name: 'Read progress', stages: { body: { advance: 'auto' } }, nodes: [
+      id, name: 'Read progress', startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { body: { advance: 'auto' } }, nodes: [
         { id: 'first', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'first' } },
         { id: 'prompt', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'choose' } },
         { id: 'choice', type: 'click', stageId: 'body', interaction: { kind: 'choice', options: [{ id: 'yes', text: 'yes' }] } },

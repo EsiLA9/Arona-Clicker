@@ -14,9 +14,11 @@ export function renderChatContent(
   sendGate: SendGatePhase | null,
   storyGate: StoryGateState | null,
   openingBanner: ActiveBanner | null,
+  readOnly = false,
+  replayId?: string,
 ): string {
   const { game, view } = ctx;
-  const story = view.currentStory;
+  const story = replayId ? game.story.getReplayStoryView(replayId) : view.currentStory;
   const activeStory = [...game.registry.activeStories.values()][0];
   const activeCompleted = activeStory ? view.storyLog.some(item => item.storyId === activeStory.storyId) : false;
 
@@ -24,18 +26,18 @@ export function renderChatContent(
   // choice 页：仅已确认文本（confirmed）后才渲染选项卡片；未确认时 text 已在聊天流中，
   // 底部按钮为“继续”（点击确认，见 renderSendButton）
   // kizuna 页：羁绊卡片在流内渲染，底部按钮变灰
-  const current = story && (
+  const current = !readOnly && story && (
     (sendState.mode === 'choice' && sendState.confirmed) ||
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
-  const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
-  const send = renderSendButton(sendState, sendGate);
+  const launcher = story || readOnly ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
+  const send = readOnly ? '' : renderSendButton(sendState, sendGate);
 
   // 聊天流与推进按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧。
   // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
   // 开幕横幅 / 入口确认浮层同层叠加（横幅在下、浮层在上）。
   return `
-    <div class="chat-pane" data-chat-owner="">
+    <div class="chat-pane" data-chat-owner=""${replayId ? ` data-story-replay-id="${ctx.escapeHtml(replayId)}"` : ''}>
       <div class="chat-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="chat:global" ${FLOW_STREAM_KEY_ATTRIBUTE}="chat:global" role="log" aria-label="聊天信息">
         ${history}
         ${current}

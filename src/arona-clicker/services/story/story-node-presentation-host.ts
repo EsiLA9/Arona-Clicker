@@ -152,8 +152,8 @@ function storyContentTalklet(content: StoryContent, presentation?: StoryPresenta
   };
 }
 
-function sourceEventFields(source: StoryNodeSource): { owner: string | null; runId?: string } {
-  return { owner: source.owner, ...(source.runId === undefined ? {} : { runId: source.runId }) };
+function sourceEventFields(source: StoryNodeSource): { owner: string | null; runId?: string; replayId?: string } {
+  return { owner: source.owner, ...(source.runId === undefined ? {} : { runId: source.runId }), ...(source.replayId ? { replayId: source.replayId } : {}) };
 }
 
 function emptyRunPresentation(): RunPresentationState {
@@ -396,7 +396,7 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
     this.runPresentations.delete(runId);
     this.options.colorSystem.clearStoryNodeTheme(runId);
     this.options.entityPresentation.clearRuntimeOverrides({ runId, lifetime: 'story' });
-    this.options.eventBus.emit({ type: 'storyRunEnded', owner: source.owner, runId, reason });
+    this.options.eventBus.emit({ type: 'storyRunEnded', owner: source.owner, runId, reason, ...(source.replayId ? { replayId: source.replayId } : {}) });
   }
 
   activate(owner: string | null): void {

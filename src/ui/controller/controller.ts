@@ -80,6 +80,7 @@ import type { GameCommands } from '../../arona-clicker/contracts/index';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts/index';
 import type { OperationView } from '../../arona-clicker/contracts/operation/operation-view';
 import { renderAreaNavItem, type SemanticColumnSpec } from '../columns';
+import { isReplayPresentationActive } from '../workspace/foreground-interaction';
 import { renderChatContent, renderLogContent } from '../columns/chat-content';
 import { renderConversationBody } from '../components/character/contacts';
 import { renderSpotCard } from '../components/shared/production';
@@ -327,8 +328,6 @@ export class UIController {
   readonly popovers: PopoverManager;
   /** @internal 待落账的奖励通知（storyRewarded 排队，延迟入流见 scheduleRewardChats）。 */
   pendingRewardChats: (string | { text: string; owner: string | null })[] = [];
-  /** 重读自然结束后再返回故事工作区；由 StoryRunId 精确关联。 */
-  pendingStoryReplayReturn: { entryId: string; owner: string | null; runId?: string } | null = null;
   /** @internal 待落账的进入 Area 通知（render 时先于剧情内容入流）。 */
   pendingTravelChats: (string | { text: string; owner: string | null; timestamp?: number; afterStoryOutput?: ChatEntry['afterStoryOutput'] })[] = [];
   /** @internal 待落账通知存在时，避免连续 Tick 重复触发 full render。 */
@@ -1027,14 +1026,17 @@ export class UIController {
     for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
     this.pendingTravelChats = [];
     this.chat.syncCurrentStory(this.panelState, this.game);
+    const activeReplay = this.panelState.storyReplay?.owner === this.panelState.conversationVariantId
+      ? this.panelState.storyReplay : undefined;
+    if (activeReplay?.replayId) this.chat.syncCurrentStory(this.panelState, this.game, activeReplay.replayId);
     const owners = new Set([...this.root.querySelectorAll<HTMLElement>('[data-chat-owner]')].map(pane => pane.dataset.chatOwner || null));
     for (const owner of owners) {
       if (owner !== this.panelState.conversationVariantId) this.chat.syncCurrentStory({ ...this.panelState, conversationVariantId: owner }, this.game);
     }
-    this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
+    this.panelState.sendGate = this.chat.bannerBlocking(this.panelState, activeReplay?.replayId)
       ? 'pause'
-      : this.chat.activeGate(this.panelState);
-    this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
+      : this.chat.activeGate(this.panelState, activeReplay?.replayId);
+    this.panelState.openingBanner = this.chat.activeBanner(this.panelState, activeReplay?.replayId);
     this.scheduleRewardChats();
     const chatRoots = this.columns.ids().flatMap(id => {
       const root = this.columns.node(id);
@@ -1050,15 +1052,19 @@ export class UIController {
       const chatPane = root.querySelector<HTMLElement>('[data-chat-owner]');
       if (!chatPane) continue;
       const owner = chatPane.dataset.chatOwner || null;
-      const entries = owner ? this.panelState.studentChats[owner] ?? [] : this.panelState.chatEntries;
-      const texts = owner ? this.panelState.studentChatTexts[owner] ?? [] : this.panelState.chatTexts;
+      const replayId = chatPane.dataset.storyReplayId || undefined;
+      const replay = replayId && replayId === this.panelState.storyReplay?.replayId ? this.panelState.storyReplay : undefined;
+      const entries = replay ? replay.entries : owner ? this.panelState.studentChats[owner] ?? [] : this.panelState.chatEntries;
+      const texts = replay ? replay.chatTexts : owner ? this.panelState.studentChatTexts[owner] ?? [] : this.panelState.chatTexts;
       const ownerState = { ...this.panelState, conversationVariantId: owner };
-      const ownerGate = this.chat.bannerBlocking(ownerState) ? 'pause' : this.chat.activeGate(ownerState);
+      const ownerGate = this.chat.bannerBlocking(ownerState, replayId) ? 'pause' : this.chat.activeGate(ownerState, replayId);
       const ownerStoryGate = this.panelState.storyGate?.owner === owner ? this.panelState.storyGate : null;
-      const ownerBanner = this.chat.activeBanner(ownerState);
+      const ownerBanner = this.chat.activeBanner(ownerState, replayId);
+      const sendState = replay ? this.game.story.getReplaySendState(replayId!) : this.game.story.getSendState(owner ?? undefined);
+      const replayReadOnly = replay?.completed === true && this.panelState.workspace?.type === 'story';
       const markup = owner
-        ? renderConversationBody(context, owner, entries, texts, this.game.story.getSendState(owner), ownerGate, ownerStoryGate, ownerBanner)
-        : renderChatContent(context, entries, texts, this.game.story.getSendState(), ownerGate, ownerStoryGate, ownerBanner);
+        ? renderConversationBody(context, owner, entries, texts, sendState, ownerGate, ownerStoryGate, ownerBanner, replayReadOnly, replayId)
+        : renderChatContent(context, entries, texts, sendState, ownerGate, ownerStoryGate, ownerBanner, replayReadOnly, replayId);
       const template = document.createElement('template');
       template.innerHTML = markup;
       const nextPane = template.content.querySelector<HTMLElement>('[data-chat-owner]');
@@ -1215,6 +1221,14 @@ export class UIController {
     return ids.length > 0 && this.refreshColumnInstances(ids);
   }
 
+  private createPanelUIContext() {
+    const context = isReplayPresentationActive(this.panelState) ? this.panelState.storyReplay?.context : undefined;
+    const area = context?.type === 'area' ? this.game.registry.areas.get(context.areaId) : undefined;
+    return createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
+      entriesFor: (runId, view, ctx) => this.syncMapFlow(runId, view, ctx),
+    }, area ? { currentAreaId: area.id, activeInit: area.initId } : undefined);
+  }
+
   refreshColumnInstances(ids: readonly string[], expected?: ColumnToken): boolean {
     if (expected && this.columns.token(expected.instanceId)?.generation !== expected.generation) return false;
     if (this.storyEditor.isOpen() && ids.length > 0 && ids.every(id => id.startsWith('story-editor/'))) {
@@ -1224,9 +1238,7 @@ export class UIController {
     if (!this.started) return false;
     this.surfaceRuntime.sync(this.panelState);
     this.syncRuntimeTheme();
-    const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
-      entriesFor: (runId, view, context) => this.syncMapFlow(runId, view, context),
-    });
+    const ctx = this.createPanelUIContext();
     this.collectColumns(ctx);
     renderAppShell(ctx, this.panelState);
     const entries = [...this.columnFrames.values()].flatMap(frame => workspaceColumns(frame).map(column => ({ frame, column, id: columnInstanceId(workspaceScope(frame), column) })));
@@ -1294,8 +1306,11 @@ export class UIController {
       for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
       this.pendingTravelChats = [];
       this.chat.syncCurrentStory(this.panelState, this.game);
-      this.panelState.sendGate = this.chat.bannerBlocking(this.panelState) ? 'pause' : this.chat.activeGate(this.panelState);
-      this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
+      const activeReplay = this.panelState.storyReplay?.owner === this.panelState.conversationVariantId
+        ? this.panelState.storyReplay : undefined;
+      if (activeReplay?.replayId) this.chat.syncCurrentStory(this.panelState, this.game, activeReplay.replayId);
+      this.panelState.sendGate = this.chat.bannerBlocking(this.panelState, activeReplay?.replayId) ? 'pause' : this.chat.activeGate(this.panelState, activeReplay?.replayId);
+      this.panelState.openingBanner = this.chat.activeBanner(this.panelState, activeReplay?.replayId);
       this.scheduleRewardChats();
     }
     if (this.panelState.workspaceNavigation?.current.kind === 'map-entry'
@@ -1313,9 +1328,7 @@ export class UIController {
     this.syncRuntimeTheme();
     this.ensureDatapackWorkspaceState();
     if (!this.storyEditor.isOpen()) this.ensureDebugEditingState();
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
-      entriesFor: (runId, view, ctx) => this.syncMapFlow(runId, view, ctx),
-    });
+    const context = this.createPanelUIContext();
     if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.storyEditor.isOpen()) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       this.columns.releaseWithin(this.root);
@@ -1678,8 +1691,8 @@ export class UIController {
     const currentItems = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-area-nav]')]
       .filter(node => node.dataset.uiAreaNav === key));
     if (!currentItems.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
-    const html = renderAreaNavItem(context, areaId);
+    const context = this.createPanelUIContext();
+    const html = renderAreaNavItem(context, areaId, isReplayPresentationActive(this.panelState));
     if (!html) return false;
     for (const current of currentItems) {
       if (elementMatchesMarkup(current, html)) continue;
@@ -2116,6 +2129,8 @@ export class UIController {
     this.areaMaps.release();
     const route = routeFromLegacyState({ service, workspace: null });
     this.panelState.workspace = undefined;
+    if (this.panelState.storyReplay?.completed && this.panelState.storyReplay.replayId) this.commands.cancelReplayStory(this.panelState.storyReplay.replayId);
+    if (this.panelState.storyReplay?.completed) this.panelState.storyReplay = undefined;
     this.panelState.service = service;
     this.panelState.workspaceNavigation = createWorkspaceNavigation(route);
   }
@@ -2244,6 +2259,10 @@ export class UIController {
   disposeWorkspace(): void {
     const workspace = this.panelState.workspace;
     if (!workspace) return;
+    if (workspace.type === 'story' && this.panelState.storyReplay?.completed) {
+      if (this.panelState.storyReplay.replayId) this.commands.cancelReplayStory(this.panelState.storyReplay.replayId);
+      this.panelState.storyReplay = undefined;
+    }
     if (workspace.type === 'operation') {
       this.operationFocusAfterRender = { eventId: this.game.operationEntry.getView(workspace.runId)?.eventId ?? null };
     }

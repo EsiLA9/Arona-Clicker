@@ -10,7 +10,7 @@ describe('启动内容摘要', () => {
       funcletDefs: [], characters: [],
     });
     const base = pack('base');
-    base.stories = [{ id: 'base:story:one', name: '正文', nodes: [], stages: {} }];
+    base.stories = [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'base:story:one', name: '正文', nodes: [], stages: {} }];
     const extra = pack('extra');
     extra.stories = [...base.stories];
     const summary = describeStartupContent([base, extra]);

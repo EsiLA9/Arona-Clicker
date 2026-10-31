@@ -22,7 +22,7 @@ describe('submitted Choice output admission', () => {
   });
 });
 
-const root: StoryDef = { id: 'story:root', name: 'Root', stages: {}, nodes: [{ id: 'end', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: 'end' } }] };
+const root: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:root', name: 'Root', stages: {}, nodes: [{ id: 'end', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: 'end' } }] };
 const target: StoryDef = { ...root, id: 'story:target', name: 'Target' };
 const entry = (id: string, storyId: string): StoryEntryDef => ({ id, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } });
 const registry: Pick<Registry, 'storyEntries' | 'stories'> = {

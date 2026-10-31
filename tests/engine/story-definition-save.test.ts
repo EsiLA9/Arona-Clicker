@@ -5,7 +5,7 @@ import { createGameCommands } from '../../src/arona-clicker/runtime/runtime-comm
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import { baseDatapack } from '../../src/data/test-datapack';
 
-const document = (id = 'local:story:author_test') => ({ id, name: '作者保存测试',
+const document = (id = 'local:story:author_test') => ({ id, name: '作者保存测试', startContext: { type: 'area' as const, areaId: 'base:area:schale_main' },
   stages: { text: { advance: 'auto' as const } },
   nodes: [{ id: 'line', type: 'talklet' as const, stageId: 'text', content: { kind: 'narration' as const, text: '新第一行' } }],
 });

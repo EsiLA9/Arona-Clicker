@@ -16,7 +16,7 @@ function setup(): GameInstance {
     areas: ['a', 'b', 'c'].map(id => ({ id: `demo:area:${id}`, initId: 'demo:init:main', name: id,
       description: '', defaultSpots: [], ...(id === 'a' ? { adjacentAreaIds: ['demo:area:b'] } : {}),
     })),
-    stories: [{ id: 'demo:story:entry', name: '宿主入口内容', stages: { 'p1': { advance: 'auto' } }, nodes: [
+    stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:entry', name: '宿主入口内容', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '目标入口首句' } },
 ] }],
     activeStories: [{ id: 'demo:activestory:target', type: 'active', storyId: 'demo:story:entry', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }],
@@ -46,7 +46,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
     g.eventBus.on('chatTextShown', event => events.push(event));
     g.eventBus.on('chatTextCleared', event => events.push(event));
     g.eventBus.on('openingTitleShown', event => events.push(event));
-    const document: StoryNodeDocument = { id: 'demo:story:overlay', name: 'Overlay', stages: {}, nodes: [
+    const document: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:overlay', name: 'Overlay', stages: {}, nodes: [
       { id: 'show', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'hint', x: 0.2, y: 0.7, content: { kind: 'text', text: '提示' } } } },
       { id: 'erase', type: 'operation', action: { kind: 'overlay', command: { command: 'clearId', id: 'hint' } } },
       { id: 'title', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '第一章' } } },
@@ -65,7 +65,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
     const events: string[] = [];
     g.eventBus.onAny(event => events.push(event.type));
     const readCredit = { type: 'value', value: { type: 'value', source: 'res', params: { resource: 'demo:resource:credit' } } } as const;
-    const root: StoryNodeDocument = { id: 'demo:story:root', name: 'Root', stages: { choose: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
+    const root: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:root', name: 'Root', stages: { choose: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
       { id: 'prompt', type: 'talklet', stageId: 'choose', content: { kind: 'talk', text: '去哪里？' } },
       { id: 'route', type: 'click', stageId: 'choose', interaction: { kind: 'choice',
         sharedActions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'demo:resource:credit', amount: 2 }] }],
@@ -77,7 +77,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
       { id: 'travel', type: 'operation', action: { kind: 'travel', areaId: 'demo:area:c', notice: true } },
       { id: 'end', type: 'talklet', stageId: 'end', content: { kind: 'narration', text: '已到达。' } },
     ] };
-    const child: StoryNodeDocument = { id: 'demo:story:child', name: 'Child', stages: { line: { advance: 'auto' } }, nodes: [
+    const child: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:child', name: 'Child', stages: { line: { advance: 'auto' } }, nodes: [
       { id: 'line', type: 'talklet', stageId: 'line', content: { kind: 'talk', text: '一段插播。' } },
     ] };
     g.mutations.setResource('demo:resource:credit', 10);
@@ -109,7 +109,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
 
   it('uses this node chain for visited conditions and rejects a missing target before state/events', () => {
     const g = setup();
-    const doc: StoryNodeDocument = { id: 'demo:story:scoped', name: 'Scoped', stages: { ask: { advance: 'input' } }, nodes: [
+    const doc: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:scoped', name: 'Scoped', stages: { ask: { advance: 'input' } }, nodes: [
       { id: 'choose', type: 'click', stageId: 'ask', interaction: { kind: 'choice', options: [
         { id: 'root', text: '本链', condition: { type: 'AND', conditions: [{ target: 'visitedStoryInChain', key: 'demo:story:scoped', comparator: '==', value: 1 }] },
           result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'must-not-write', value: 1 }] }], transfer: { mode: 'goto', storyId: 'demo:story:missing' } } },
@@ -130,7 +130,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
 
   it('launches another owner through the actual Entry service, but same-owner success replaces this source', () => {
     const g = setup();
-    const document = (owner: string | null): StoryNodeDocument => ({ id: 'demo:story:request', name: 'Request', stages: { after: { advance: 'auto' } }, nodes: [
+    const document = (owner: string | null): StoryNodeDocument => ({ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:request', name: 'Request', stages: { after: { advance: 'auto' } }, nodes: [
       { id: 'launch', type: 'operation', action: { kind: 'entryRequest', request: { entryId: 'demo:activestory:target', entryType: 'active', owner, intent: 'ordinary' } } },
       { id: 'after', type: 'talklet', stageId: 'after', content: { kind: 'talk', text: '源链继续。' } },
     ] });
@@ -148,7 +148,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
 
   it('checks Entry admission after preceding writes and keeps an existing cursor when admission fails', () => {
     const g = setup();
-    const document = (unlock: boolean): StoryNodeDocument => ({ id: 'demo:story:admission', name: 'Admission', stages: {}, nodes: [
+    const document = (unlock: boolean): StoryNodeDocument => ({ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:admission', name: 'Admission', stages: {}, nodes: [
       ...(unlock ? [{ id: 'unlock', type: 'operation' as const, action: { kind: 'state' as const, effects: [{ op: 'setFlag' as const, flagId: 'locked', value: 1 }] } }] : []),
       { id: 'request', type: 'operation', action: { kind: 'entryRequest', request: {
         entryId: 'demo:passivestory:blocked', entryType: 'passive', owner: 'guest', intent: 'system',
@@ -169,7 +169,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
 
   it('faults once after a real state event throws and never retries partially installed effects', () => {
     const g = setup();
-    const document: StoryNodeDocument = { id: 'demo:story:fault', name: 'Fault', stages: { press: { advance: 'input' } }, nodes: [
+    const document: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'demo:story:fault', name: 'Fault', stages: { press: { advance: 'input' } }, nodes: [
       { id: 'press', type: 'click', stageId: 'press', interaction: { kind: 'button', text: '领取', result: { actions: [
         { kind: 'state', effects: [{ op: 'addResource', resourceId: 'demo:resource:credit', amount: 1 }] },
         { kind: 'state', effects: [{ op: 'setFlag', flagId: 'late', value: 1 }] },

@@ -54,6 +54,7 @@ export function createAreaNavigationColumn(ctx: UIContext, state: AreaNavigation
   const refreshState: AreaNavigationState = {
     conversationVariantId: state.conversationVariantId,
     storyGate: state.storyGate,
+    storyReplay: state.storyReplay,
     workspace: state.workspace,
     workspaceNavigation: state.workspaceNavigation,
     areaMapSession: state.areaMapSession,

@@ -17,12 +17,19 @@ function validPresentation(value: unknown): boolean {
     && (value.avatarMode === undefined || ['auto', 'hide', 'show'].includes(String(value.avatarMode)));
 }
 function validDocument(value: unknown): boolean {
-  if (!record(value) || typeof value.id !== 'string' || !value.id || typeof value.name !== 'string' || !record(value.stages) || !Array.isArray(value.nodes)) return false;
+  if (!record(value) || typeof value.id !== 'string' || !value.id || typeof value.name !== 'string'
+    || value.startContext !== undefined && (!record(value.startContext)
+      || value.startContext.type === 'area' && typeof value.startContext.areaId !== 'string'
+      || value.startContext.type === 'chara' && typeof value.startContext.characterId !== 'string'
+      || !['area', 'chara'].includes(String(value.startContext.type)))
+    || !record(value.stages) || !Array.isArray(value.nodes)) return false;
   if (!Object.entries(value.stages).every(([key, stage]) => localId(key) && record(stage) && (stage.advance === 'auto' || stage.advance === 'input'))) return false;
   const ids = new Set<string>();
   return value.nodes.every(node => {
     if (!record(node) || !localId(node.id) || ids.has(node.id) || !optionalString(node.requiresFlag)) return false;
     ids.add(node.id);
+    if (node.type === 'moveToArea') return optionalString(node.areaId);
+    if (node.type === 'moveToCharaspace') return optionalString(node.characterId);
     if (node.type === 'operation') return node.action === undefined || record(node.action);
     if (node.type === 'transfer') return node.transfer === undefined || record(node.transfer);
     if (!localId(node.stageId)) return false;

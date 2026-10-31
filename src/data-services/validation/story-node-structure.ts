@@ -4,6 +4,7 @@ import { isStoryLocalFlagAction, validStoryFlagName } from './story-run-flags';
 
 export type StoryNodeStructureIssueCode =
   | 'invalid-id'
+  | 'invalid-context'
   | 'duplicate-id'
   | 'missing-stage'
   | 'interaction-shape'
@@ -38,6 +39,10 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
   const declaredStageIds = Object.keys(document.stages);
   const nodeIds = new Set<string>();
 
+  if (document.startContext?.type === 'area' ? !document.startContext.areaId : document.startContext?.type === 'chara' ? !document.startContext.characterId : true) {
+    issue('startContext', 'invalid-context', 'Story must declare a valid Area or Chara start context');
+  }
+
   for (const stageId of declaredStageIds) {
     if (!LOCAL_NAME.test(stageId)) issue(`stages.${stageId}`, 'invalid-id', 'Stage ID must be a local name of 1–64 letters, digits, underscores, or hyphens, beginning with a letter');
   }
@@ -53,6 +58,8 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
     if (node.requiresFlag !== undefined && !validStoryFlagName(node.requiresFlag)) {
       issue(`${nodePath}.requiresFlag`, 'flag-shape', 'requiresFlag must be one non-empty local flag name');
     }
+    if (node.type === 'moveToArea' && !node.areaId) issue(`${nodePath}.areaId`, 'invalid-context', 'moveToArea requires an Area ID');
+    if (node.type === 'moveToCharaspace' && !node.characterId) issue(`${nodePath}.characterId`, 'invalid-context', 'moveToCharaspace requires a character ID');
     const checkAction = (action: StoryAction | undefined, path: string) => {
       if (action?.kind === 'localFlag' && !isStoryLocalFlagAction(action)) issue(path, 'flag-shape', 'Invalid local flag set/remove action');
     };

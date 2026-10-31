@@ -144,7 +144,7 @@ describe('Story 主流程（click 门控推进）', () => {
 
   test('正文确认与 choice 是两个显式 Click 阶段', () => {
     const entryId = 'test:story:explicit_choice';
-    const story: StoryDef = {
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: 'test:story:explicit_choice_doc', name: '明确确认与选择',
       stages: { confirm: { advance: 'input' }, choice: { advance: 'input' } },
       nodes: [

@@ -140,7 +140,7 @@ export function destroy(ctrl: UIController): void {
  * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
  */
 export function resetSessionPanel(ctrl: UIController): void {
-  ctrl.pendingStoryReplayReturn = null;
+  if (ctrl.panelState.storyReplay?.replayId) ctrl.commands.cancelReplayStory(ctrl.panelState.storyReplay.replayId);
   ctrl.areaMaps.release();
   ctrl.panelState.workspaceNavigation = createWorkspaceNavigation();
   ctrl.panelState.leftTab = 'area';
@@ -157,6 +157,7 @@ export function resetSessionPanel(ctrl: UIController): void {
   ctrl.panelState.studentChats = {};
   ctrl.panelState.studentChatTexts = {};
   ctrl.panelState.storyNavPath = [];
+  ctrl.panelState.storyReplay = undefined;
   ctrl.chat.reset();
   ctrl.scroll.reset();
 }

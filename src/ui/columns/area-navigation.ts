@@ -2,10 +2,10 @@ import type { UIContext } from '../runtime/context';
 import { getAreaReveal } from '../components/tooltip/tooltip';
 import type { PanelState } from '../components/shared/app-shell';
 import { resolveEntityPresentation, renderEntityPresentationOptions } from '../components/presentation/entity-presentation';
-import { getForegroundInteractionStatus } from '../workspace/foreground-interaction';
+import { getForegroundInteractionStatus, isReplayPresentationActive } from '../workspace/foreground-interaction';
 
 export type AreaNavigationState = Pick<PanelState,
-  'conversationVariantId' | 'storyGate' | 'workspace' | 'workspaceNavigation' | 'areaMapSession'>;
+  'conversationVariantId' | 'storyGate' | 'storyReplay' | 'workspace' | 'workspaceNavigation' | 'areaMapSession'>;
 
 export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavigationState, allowAreaMapEntry?: boolean): string {
   const { game, view } = ctx;
@@ -16,7 +16,7 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
   const areaName = currentPresentation?.name ?? currentArea?.name ?? '—';
   const areaDescription = currentPresentation?.description ?? currentArea?.description ?? init?.description ?? '';
   const interactionBlocked = !getForegroundInteractionStatus(game, panelState, 'openAreaOverview').allowed;
-  const quickStoryRouteAllowed = !panelState.workspace
+  const quickStoryRouteAllowed = !isReplayPresentationActive(panelState) && !panelState.workspace
     && (!panelState.workspaceNavigation || panelState.workspaceNavigation.current.kind === 'game');
   const quickStories = currentArea && quickStoryRouteAllowed
     ? game.story.getAreaStoryDeliveries(currentArea.id).slice(0, 5)
@@ -40,7 +40,7 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
           <p>${ctx.escapeHtml(areaDescription)}</p>
         </button>
       </div>
-      ${getAreaReveal(ctx, currentArea).utilityKnown
+      ${getAreaReveal(ctx, currentArea).utilityKnown && !isReplayPresentationActive(panelState)
         ? renderEntityPresentationOptions(ctx, 'area', currentArea.id)
         : ''}`
     : `<div class="area-hero"><h2>${ctx.escapeHtml(areaName)}</h2><p>${ctx.escapeHtml(areaDescription)}</p></div>`;
@@ -50,8 +50,8 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
     ? game.reachableAreaIds().filter(areaId => game.world.areas.get(areaId)?.initId === view.activeInit)
     : [];
   // 非 passive 剧情演出进行中禁止移动（演出锁定）
-  const storyLocked = game.story.isBlockingMovement();
-  const reachableRows = adjacent.map(areaId => renderAreaNavItem(ctx, areaId)).join('');
+  const storyLocked = game.story.isBlockingMovement() || isReplayPresentationActive(panelState);
+  const reachableRows = adjacent.map(areaId => renderAreaNavItem(ctx, areaId, isReplayPresentationActive(panelState))).join('');
 
   return `
     ${hero}
@@ -63,12 +63,12 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
 }
 
 /** 生成单个区域导航项，供元素级揭示刷新复用。 */
-export function renderAreaNavItem(ctx: UIContext, areaId: string): string {
+export function renderAreaNavItem(ctx: UIContext, areaId: string, replayLocked = false): string {
   const { game, view } = ctx;
   const area = game.world.areas.get(areaId);
   if (!area) return '';
   const visible = view.visibility.areas[area.id] ?? false;
-  const storyLocked = game.story.isBlockingMovement();
+  const storyLocked = game.story.isBlockingMovement() || replayLocked;
   const reveal = getAreaReveal(ctx, area);
   const presentation = resolveEntityPresentation(ctx, 'area', area.id);
   const name = reveal.nameKnown ? (presentation?.name ?? area.name) : '未知区域';

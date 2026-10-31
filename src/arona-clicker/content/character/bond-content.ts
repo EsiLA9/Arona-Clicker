@@ -8,7 +8,7 @@ export const baseBondStoryEntries: ActiveStoryEntry[] = [
 ];
 
 export const baseBondStories: StoryDef[] = [
-  story('base:story:bond_hoshino_1', '羁绊剧情 · 星野：午后的堤防').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
+  story('base:story:bond_hoshino_1', '羁绊剧情 · 星野：午后的堤防').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——阿比多斯 · 堤防 · 午后——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '唔……老师也来吹风吗……海风很舒服哦……', speaker: '星野' } },
@@ -20,7 +20,7 @@ export const baseBondStories: StoryDef[] = [
   { id: 'p5-body', type: 'talklet', stageId: 'p5', content: { kind: 'talk', text: '呵呵……没关系哦。反正以后的日子还长着呢，队长。', speaker: '星野' } },
   { id: 'p5-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_done', value: '1' }] } },
 ]).build(),
-  story('base:story:bond_hoshino_evening', '羁绊剧情 · 星野：傍晚的河堤').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p4': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:bond_hoshino_evening', '羁绊剧情 · 星野：傍晚的河堤').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p4': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 傍晚的河堤' } } },
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——阿比多斯 · 河堤 · 黄昏——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '……老师，其实我一直想找机会单独跟您聊聊。', speaker: '星野' } },

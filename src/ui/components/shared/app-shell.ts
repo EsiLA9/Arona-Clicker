@@ -37,6 +37,7 @@ export interface StoryGateState {
   mode: 'active' | 'replay' | 'card';
   sourceRunId?: string;
   sourceOwner?: string | null;
+  sourceReplayId?: string;
   sourceToken?: string;
 }
 
@@ -74,6 +75,8 @@ export interface PanelState {
   studentChats: Record<string, ChatEntry[]>;
   /** 每个学生各自的演出专用文本覆盖层。 */
   studentChatTexts: Record<string, ChatTextEntry[]>;
+  /** 重播 UI 临时流；不并入主聊天或学生聊天历史。 */
+  storyReplay?: StoryReplayState;
   /** 未读消息计数接口（对话空间就绪队列条数，由 controller 提供）。 */
   getUnread?: (variantId: string) => number;
   /**
@@ -132,6 +135,17 @@ export interface StoryWorkspaceState {
   conversationOwner: string | null;
   mode: 'overview' | 'playing';
   returnContext: WorkspaceReturnContext;
+}
+
+export interface StoryReplayState {
+  entryId: string;
+  owner: string | null;
+  context?: import('../../../data-services/contracts/story-node').StoryStartContext;
+  replayId?: string;
+  runId?: string;
+  completed?: boolean;
+  entries: ChatEntry[];
+  chatTexts: ChatTextEntry[];
 }
 
 export interface OperationWorkspaceState {

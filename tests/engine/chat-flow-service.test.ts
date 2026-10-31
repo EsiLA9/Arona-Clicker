@@ -17,7 +17,7 @@ import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
 import { finishWelcome, finishStory, settleStoryPresentation } from './story-test-fixtures';
 
-const chatShowStory: StoryDef = { id: 'test:story:chat_show', name: '演出文本演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+const chatShowStory: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:chat_show', name: '演出文本演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 舞台拉开 ——' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'perf:title', x: 0.5, y: 0.85, align: 'center', content: { kind: 'text', text: '夏莱·前夜祭' } } } },
   { id: 'p1-op2', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'perf:sub', x: 0.2, y: 0.7, content: { kind: 'text', text: '—— 现在开始 ——' } } } },
@@ -34,7 +34,7 @@ const chatShowEntry: ActiveStoryEntry = {
   triggerCondition: { type: 'AND', conditions: [] },
 };
 
-const openingStory: StoryDef = { id: 'test:story:opening_title', name: '开幕标题演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+const openingStory: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:opening_title', name: '开幕标题演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 开幕 ——' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '—— 第二页 ——' } },

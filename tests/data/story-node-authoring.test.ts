@@ -26,7 +26,7 @@ describe('Story authoring primitive composition (declarations only)', () => {
     expect(STORY_NODE_AUTHORING_EXAMPLES.s07Travel.nodes[2].action.notice).toBe(true);
   });
   it('can place typed parameter examples into operation-only documents', () => {
-    const document: StoryNodeDocument = { id: 'test:story:actions', name: '参数覆盖', stages: {},
+    const document: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:actions', name: '参数覆盖', stages: {},
       nodes: STORY_ACTION_PARAMETER_EXAMPLES.map((action, index) => ({ id: `action-${index}`, type: 'operation', action })),
     };
     expect(validateStoryNodeStructure(document).ok).toBe(true);

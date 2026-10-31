@@ -4,21 +4,23 @@
 
 ## 剧情推进
 
-`StoryService` 按故事拥有者维护活动会话。`StoryNodePlayer` 解释作者节点、动作与转移；`StoryPlaybackCoordinator` 管理当前等待点的有限表现步骤、计时和已投递输出。UI 读取 `getPlaybackView(owner)`，提交明确的继续、输入或节奏加速意图；读取和刷新本身不推进剧情。
+`StoryService` 按故事拥有者维护普通活动会话。`StoryNodePlayer` 解释作者节点、动作与转移；`StoryPlaybackCoordinator` 管理当前等待点的有限表现步骤、计时和已投递输出。UI 读取 `getPlaybackView(owner)`，提交明确的继续、输入或节奏加速意图；读取和刷新本身不推进剧情。
 
-启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话与独立文档副本。继续和输入命令携带当前表现阶段的 token；服务复核 owner、阶段和候选，拒绝过期输入，选择提交时再检查条件。正文写入 Runtime 输出记录时才标记已送达和已读，随后按当前等待点决定进入自由继续或 Click 输入。
+重读使用独立的一次性 `replayId` 通道，可与同 owner 的普通故事并行；owner 仍表示故事归属，但重读会话、输出、表现阶段和输入 token 都按 replayId 隔离。UI 将它投影到临时聊天空间，结束后返回故事页；重读输出不进入普通聊天历史、故事游标或存档，取消/重置时清理。重读跳过完成记录与完成奖励，但节点动作仍按现有 replay 语义执行，可能再次产生节点内世界效果。
+
+启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话与独立文档副本。普通播放默认沿用触发时传入的对话 owner 与所在空间；Entry 的 `travelToStartContext` 开启时才按 StoryDef 起始上下文真实前往。Active/Passive Entry 类型不决定起始对话空间。重播始终按 `startContext` 虚拟切到 Area 或 Chara 演出空间；只有 Entry 开启 `travelToStartContext` 才真实前往起始 Area / Chara 空间。后续显式移动节点在重播中只呈现空间变化，不再执行实际移动。继续和输入命令携带当前表现阶段的 token；服务复核 owner、阶段和候选，拒绝过期输入，选择提交时再检查条件。正文写入 Runtime 输出记录时才标记已送达和已读，随后按当前等待点决定进入自由继续或 Click 输入。
 
 ```text
 StoryEntry / StoryDef → StoryService / StoryNodePlayer → 当前逻辑等待点
                     → StoryPlaybackCoordinator → 有限步骤、计时、稳定输出
-                    → getPlaybackView / UI → Controller 显式意图 → StoryService
+                    → getPlaybackView / replayId 查询 → UI 临时流 → Controller 显式意图 → StoryService
 ```
 
 ## 本次 Entry 的局部标记
 
 `StoryNodePlayer` 为每次启动创建独立 `Map<name, value>`。`startActiveStory(entryId, owner, initialFlags)`、`startCardStory(...)` 与对应 GameCommands 可投入初始 JSON 字典；底层 Player 的 start 第三个参数同样接收字典。`StoryService.startStory` 的 options.initialFlags 可供其他类型的入口调用。启动先验证并复制，坏参数不会替换当前会话。name 需要非空，推荐 `StoryName-flagid`，不限制前缀；值为有限 JSON 数据，不提供值比较。
 
-StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接。连续 Operation 逐个处理，无须额外确认。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
+StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 正常播放时先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接；重播会跳过整个一般 Operation 节点，不执行或模拟其动作。`moveToArea` 与 `moveToCharaspace` 是独立移动节点：正常播放分别强制旅行或切换通讯录 owner，重播只改变演出空间并保留一次性输出。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
 
 ## 有限表现步骤与交接
 
@@ -52,7 +54,7 @@ Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事
 
 ## 剧情目录与运行会话
 
-剧情导航目录 `StoryContentTable` 以分类、篇章、章节和条目组织导航，并保存当前活动的 `activeStoryEntryId`；它提供 UI 排序与分层浏览所需的内容结构。实际可启动的 StoryEntry、StoryDef、触发条件与会话游标由 Registry 和 `StoryService` 管理。目录如何展示某剧情，与剧情本身是否可触发、能否推进是两件事。
+剧情导航目录 `StoryContentTable` 以分类、篇章、章节和条目组织导航，并保存当前活动的 `activeStoryEntryId`；它提供 UI 排序与分层浏览所需的内容结构。实际可启动的 StoryEntry、StoryDef、触发条件与会话游标由 Registry 和 `StoryService` 管理。目录如何展示某剧情，与剧情本身是否可触发、能否推进是两件事。StoryDef 的 `startContext` 与 Story Editor 文档属性共同维护 Area/Chara 起始位置；移动节点分别编辑目标 Area 或角色 ID。
 
 ```text
 剧情动作 → EffectEngine → 状态写入或 Runtime 事件 → 领域响应 → 新视图

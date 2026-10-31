@@ -109,8 +109,8 @@ export type StoryError =
   | 'PlaybackFailed';
 
 export type StoryStartResult =
-  | { success: true; finished: false; story: StoryView }
-  | { success: true; finished: true; storyId: StoryId; completed: CompletedStory }
+  | { success: true; finished: false; story: StoryView; replayId?: string }
+  | { success: true; finished: true; storyId: StoryId; completed: CompletedStory; replayId?: string }
   | { success: false; storyId?: StoryId; error: StoryError; detail?: string };
 
 export type StoryAdvanceResult =

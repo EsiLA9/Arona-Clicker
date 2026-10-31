@@ -287,13 +287,17 @@ export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,d
     {id:'click',label:'Click',action:'story-editor-node-type:click'},
     {id:'operation',label:'Operation',action:'story-editor-node-type:operation'},
     {id:'transfer',label:'Transfer',action:'story-editor-node-type:transfer'},
+    {id:'moveToArea',label:'移动到 Area',action:'story-editor-node-type:moveToArea'},
+    {id:'moveToCharaspace',label:'移动到 Chara',action:'story-editor-node-type:moveToCharaspace'},
   ],type,'节点类型');
   const base=`<label class="story-editor-property">节点 ID<code>${esc(ctx,node.id)}</code></label>${scalar(ctx,'需要局部标记（可选）',['requiresFlag'],val(n,'requiresFlag'),state,'text',undefined,'留空时正常执行；填写后只在 Entry 局部表中存在该键时执行。')}`;
   let body='';
   if(type==='talklet') body=talkletEditor(ctx,state,draft,n);
   else if(type==='click') body=clickEditor(ctx,state,['interaction'],record(val(n,'interaction')),draft,node.id);
-  else if(type==='operation') body=actionEditor(ctx,state,['action'],record(val(n,'action')),draft,node.id);
+  else if(type==='operation') body=`<p class="story-editor-hint">重读时一般 Operation 会完全跳过，不结算也不模拟；需要在重读中呈现的空间切换请使用独立移动节点。</p>${actionEditor(ctx,state,['action'],record(val(n,'action')),draft,node.id)}`;
   else if(type==='transfer') body=transferEditor(ctx,state,['transfer'],record(val(n,'transfer')),draft);
+  else if(type==='moveToArea') body=scalar(ctx,'目标 Area',['areaId'],val(n,'areaId'),state,'ref','area');
+  else if(type==='moveToCharaspace') body=scalar(ctx,'目标角色',['characterId'],val(n,'characterId'),state,'ref','variant');
   const error=draft.editorIssues?.filter(issue=>issue.path.startsWith(`nodes[${index}]`)).map(issue=>issueDiagnostic(ctx,state,issue,index)).join('')??'';
   return `<div class="story-editor-fields" data-editor-key="inspector:${esc(ctx,node.id)}" data-story-node-properties="${esc(ctx,node.id)}"><div class="story-editor-node-type-switch">${nodeTypeSwitch}</div>${base}<div class="story-editor-property-content" data-editor-key="property-content:${esc(ctx,node.id)}">${body}</div>${error}<div class="story-editor-actions"><button type="button" class="mini-action" data-editor-action="up"${index===0||state.storageBlocked?' disabled':''}>上移</button><button type="button" class="mini-action" data-editor-action="down"${index===draft.document.nodes.length-1||state.storageBlocked?' disabled':''}>下移</button><button type="button" class="mini-action mini-action--danger" data-editor-action="delete-node"${disabled(state)}>删除节点</button></div></div>`;
 }

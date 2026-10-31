@@ -40,10 +40,11 @@ function studentVariantId(route: WorkspaceRoute, state: PanelState): string | nu
 
 export function createGameWorkspaceFrame(ctx: UIContext, state: PanelState): WorkspaceFrameSpec {
   const variantId = state.conversationVariantId;
+  const replay = state.storyReplay?.owner === variantId && state.storyReplay.replayId ? state.storyReplay : undefined;
   const conversation = variantId ? {
     owner: variantId,
-    entries: state.studentChats[variantId] ?? [],
-    chatTexts: state.studentChatTexts[variantId] ?? [],
+    entries: replay ? replay.entries : state.studentChats[variantId] ?? [],
+    chatTexts: replay ? replay.chatTexts : state.studentChatTexts[variantId] ?? [],
   } : undefined;
   const activityHeading = renderPresentationRegion(ctx.presentation, 'centerPanel') + (conversation
     ? renderConversationColumnHeader(ctx, variantId!)
@@ -53,12 +54,13 @@ export function createGameWorkspaceFrame(ctx: UIContext, state: PanelState): Wor
     : createChatColumn(ctx, {
         key: 'activity', heading: activityHeading,
         owner: conversation?.owner ?? null,
-        entries: conversation?.entries ?? state.chatEntries,
-        chatTexts: conversation?.chatTexts ?? state.chatTexts,
-        sendState: ctx.game.story.getSendState(variantId ?? undefined),
+        entries: replay?.entries ?? conversation?.entries ?? state.chatEntries,
+        chatTexts: replay?.chatTexts ?? conversation?.chatTexts ?? state.chatTexts,
+        sendState: replay ? ctx.game.story.getReplaySendState(replay.replayId!) : ctx.game.story.getSendState(variantId ?? undefined),
         sendGate: state.sendGate ?? null,
         storyGate: state.storyGate ?? null,
         openingBanner: state.openingBanner ?? null,
+        replayId: replay?.replayId,
         appearance: { width: 'var(--workspace-center-width)', workspaceOwner: 'game', slot: 'center', className: `center-panel ui-cluster--center-panel${conversation ? ' conversation-panel' : ''}`, hostId: conversation ? 'centerPanel.conversation' : 'centerPanel.chat', themeScope: conversation ? 'center.conversation' : 'center.chat', surface: 'panel', scroll: 'none' },
       });
   const toolHeading = renderGameColumnActions(ctx, 'tools', state.rightTab, [

@@ -287,10 +287,9 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       const route = ctrl.panelState.workspaceNavigation?.current;
       const currentAreaId = ctrl.game.getView().currentAreaId;
       if (!storyEntryId || !currentAreaId) return;
+      if (!getForegroundInteractionStatus(ctrl.game, ctrl.panelState, 'openAreaOverview', { confirmation: ctrl.modal.isOpen() }).allowed) return;
       if (quickEnter) {
-        if (ctrl.panelState.service !== 'game' || ctrl.panelState.workspace
-          || (route?.kind ?? 'game') !== 'game'
-          || !getForegroundInteractionStatus(ctrl.game, ctrl.panelState, 'openAreaOverview', { confirmation: ctrl.modal.isOpen() }).allowed) return;
+        if (ctrl.panelState.service !== 'game' || ctrl.panelState.workspace || (route?.kind ?? 'game') !== 'game') return;
       } else if (route?.kind !== 'area' || route.areaId !== currentAreaId) return;
       const delivery = ctrl.game.story.getAreaStoryDeliveries(currentAreaId)
         .find(candidate => candidate.entryId === storyEntryId);
@@ -341,6 +340,7 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
     button.addEventListener('click', () => {
       // aria-disabled 行（当前 Area / 锁定 Area）不可移动
       if (button.getAttribute('aria-disabled') === 'true') return;
+      if (!getForegroundInteractionStatus(ctrl.game, ctrl.panelState, 'attemptAreaTravel').allowed) return;
       const areaId = button.dataset.area!;
       const owner = ctrl.panelState.conversationVariantId;
       const before = ctrl.game.story.getPlaybackView(owner);

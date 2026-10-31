@@ -3,6 +3,9 @@ import type { StoryPresentationView } from '../runtime/story-presentation';
 
 export interface StoryQueryPort {
   getPlaybackView(owner?: string | null): StoryPresentationView;
+  getReplayPlaybackView(replayId: string): StoryPresentationView | null;
+  getReplayStoryView(replayId: string): StoryView | null;
+  getReplaySendState(replayId: string): SendState;
   getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[];
   hasCompletedStory(storyId: string): boolean;
   readyStepCount(owner: string): number;

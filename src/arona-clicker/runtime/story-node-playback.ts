@@ -25,6 +25,18 @@ export function createStoryNodePlayback(
   });
   return new StoryNodePlayer(documents, {
     ...actions,
+    move: (node, source) => {
+      const context = node.type === 'moveToArea' ? { type: 'area' as const, areaId: node.areaId }
+        : { type: 'chara' as const, characterId: node.characterId };
+      const owner = context.type === 'chara' ? context.characterId : null;
+      if (node.type === 'moveToArea' && !source.replayId) {
+        const result = game.travelToArea(node.areaId, true, false);
+        if (!result.success) return { status: 'rejected', error: `AreaTravelFailed:${result.error}` };
+      }
+      game.eventBus.emit({ type: 'storyContextMoved', context, owner,
+        ...(source.runId ? { runId: source.runId } : {}), ...(source.replayId ? { replayId: source.replayId } : {}) });
+      return { status: 'applied' };
+    },
     random: options.random ?? Math.random,
     evaluate: (condition, visitedStoryIds) => {
       // 不改全局ConditionSystem的storyChainChecker，避免不同owner互相覆盖。

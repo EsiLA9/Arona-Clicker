@@ -99,6 +99,8 @@ export class StoryNodePlayer {
   /** Read-only presence check for display hints; values stay inside the run. */
   hasLocalFlag(name: string): boolean { return this.run?.localFlags.has(name) ?? false; }
 
+  setOwner(owner: string | null): void { if (this.run) this.run.source.owner = owner; }
+
   /** 仅在等待边界保存，避免同步Effect回调保存半个动作后读档重放。 */
   save(): StoryNodeSnapshot {
     if (this.busy) throw new Error('Busy');
@@ -406,7 +408,20 @@ export class StoryNodePlayer {
         return;
       }
       if (node.type === 'transfer') this.transfer(run, node.transfer);
-      else {
+      else if (node.type === 'moveToArea' || node.type === 'moveToCharaspace') {
+        const result = this.host.move?.(node, run.source) ?? { status: 'rejected' as const, error: 'StorySpaceMovementUnavailable' };
+        if (result.status === 'rejected') throw new Error(result.error);
+        if (result.status === 'replaced') {
+          this.run = undefined;
+          this.terminal = { status: 'replaced' };
+          events.push({ type: 'replaced', source: run.source });
+          return;
+        }
+        run.source.owner = node.type === 'moveToCharaspace' ? node.characterId : null;
+        run.index += 1;
+      } else {
+        // Replays reproduce dialogue and movement, never arbitrary Story Operation side effects.
+        if (run.source.replayId) { run.index += 1; continue; }
         const error = this.preflight(node.action, run.source);
         if (error) throw new Error(error);
         if (this.run !== run) return;

@@ -89,6 +89,7 @@ export function createUIContext(
   presentation?: PresentationView,
   selectorThemePolicy?: UIContext['selectorThemePolicy'],
   mapFlow?: MapFlowReader,
+  viewOverride?: Partial<GameView>,
 ): UIContext {
   const presentationView = presentation ?? emptyPresentation;
   const resolveHostId = (hostId: string): string | undefined => {
@@ -156,7 +157,7 @@ export function createUIContext(
   const context: UIContext = {
     game,
     world: game.world,
-    view: game.getView(),
+    view: { ...game.getView(), ...viewOverride },
     saveExists: SaveSystem.exists(),
     formatNumber,
     escapeHtml,

@@ -2,14 +2,14 @@
 
 本文回答：Story 查询如何变成聊天流，以及运行时主题如何投影到 UI 宿主。
 
-聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示读取同一 owner 的 Runtime 播放视图，不各自创建剧情推进器或 Story 计时器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动按实例隔离。全局与角色空间的输出分别归属对应 owner，不随当前学生选择改变目标。
+聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示读取同一 owner 的 Runtime 播放视图，不各自创建剧情推进器或 Story 计时器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动按实例隔离。普通播放默认从触发时所在的对话流开始；Entry 的 `travelToStartContext` 可要求真实前往 StoryDef 起始空间。重播始终虚拟切到该上下文，Area 三栏与设施按虚拟 Area / Init 渲染，主题也按同一上下文解析；AreaHero 和手动移动交互在播放期间禁用。Entry 开启此选项时另执行真实前往。显式移动节点的 `storyContextMoved` 将后续空间变化交给 Controller：`moveToArea` 正常播放时强制旅行并切换真实 Area，重播中的显式移动只更新虚拟场景并显示“演出场景/演出移动”。
 
 ## Story 到聊天条目
 
-Controller 读取 `game.story.getPlaybackView(owner)` 的输出、phase、token、typing 和 banner。`ChatStream` 只把这些结果映射成对应聊天流，使用 Runtime 稳定输出 ID 关联本地 DOM 条目身份；反复读取、多个显示和重新挂载不会重复投递或推进。打字、思考、效果间隔、开幕标题以及自动衔接由 `StoryPlaybackCoordinator` 持有。无 UI 挂载时 Runtime 仍可完成已开始的有限表现步骤。
+Controller 读取 `game.story.getPlaybackView(owner)` 的输出、phase、token、typing 和 banner；重读则通过 `getReplayPlaybackView(replayId)` 读取。`ChatStream` 以 owner 或 replayId 将结果映射到普通聊天流或独立临时流，使用 Runtime 稳定输出 ID 关联本地 DOM 条目身份；反复读取、多个显示和重新挂载不会重复投递或推进。打字、思考、效果间隔、开幕标题以及自动衔接由 `StoryPlaybackCoordinator` 持有。无 UI 挂载时 Runtime 仍可完成已开始的有限表现步骤。
 
 ```text
-Runtime 输出与表现阶段 → getPlaybackView(owner) → ChatStream 投影
+Runtime 输出与表现阶段 → owner / replayId 查询 → ChatStream 投影
                       → ChatEntry / FlowEntry → renderer → FlowScroll
 UI 继续 / 输入 / 节奏加速 → Controller → GameCommands → Runtime
 ```

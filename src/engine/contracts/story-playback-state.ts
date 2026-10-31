@@ -57,6 +57,7 @@ export interface StoryDeferredStart {
   readonly entryId: string;
   readonly expectedType: 'active' | 'passive';
   readonly owner: string | null;
+  readonly replayId?: string;
   readonly options?: { readonly force?: boolean; readonly skipConditions?: boolean; readonly replaceAny?: boolean; readonly initialFlags?: StoryRunFlags };
   readonly causalChainId: string;
   readonly handoffCount: number;

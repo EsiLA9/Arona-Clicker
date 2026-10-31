@@ -70,25 +70,25 @@ export function finishStory(g: GameInstance, choiceIndex = 0, owner: string | nu
 // 测试数据：阿比多斯沙漠委托（演示分歧 → 共同收尾）
 // ============================================================
 
-export const desertIntro: StoryDef = { id: 'test:story:desert_intro', name: '沙漠委托 · 开场', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
+export const desertIntro: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_intro', name: '沙漠委托 · 开场', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 阿比多斯 · 委托板前 ——' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师，沙漠里出现了大批违规运输队。要怎么处理？', speaker: '白子' } },
   { id: 'p2-choice', type: 'click', stageId: 'p2', interaction: { kind: 'choice', options: [{ id: 'option1', text: '正面突击', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'assault' }] }], transfer: { mode: 'goto', storyId: 'test:story:desert_assault' } } }, { id: 'option2', text: '迂回谈判', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'negotiate' }] }], transfer: { mode: 'goto', storyId: 'test:story:desert_negotiate' } } }] } },
 ] };
 
-export const desertAssault: StoryDef = { id: 'test:story:desert_assault', name: '沙漠委托 · 突击', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+export const desertAssault: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_assault', name: '沙漠委托 · 突击', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '突击队已就位，正面突破！', speaker: '白子' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '运输队投降了。收尾吧。', speaker: '老师' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:desert_epilogue' } },
 ] };
 
-export const desertNegotiate: StoryDef = { id: 'test:story:desert_negotiate', name: '沙漠委托 · 谈判', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+export const desertNegotiate: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_negotiate', name: '沙漠委托 · 谈判', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '大叔我试着跟他们聊聊，结果他们同意付过路费了。', speaker: '星野' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '谈判成功，收尾吧。', speaker: '老师' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:desert_epilogue' } },
 ] };
 
-export const desertEpilogue: StoryDef = { id: 'test:story:desert_epilogue', name: '沙漠委托 · 收尾', stages: { 'p1': { advance: 'auto' } }, nodes: [
+export const desertEpilogue: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_epilogue', name: '沙漠委托 · 收尾', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '委托完成。感谢老师协助。', speaker: '白子' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 10 }] } },
 ] };
@@ -114,7 +114,7 @@ export const desertEntry: StoryEntryDef = {
 // insert 场景：补给任务（子剧情插入后返回）
 // ============================================================
 
-export const supplyMain: StoryDef = { id: 'test:story:supply_main', name: '补给任务', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'auto' } }, nodes: [
+export const supplyMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:supply_main', name: '补给任务', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，补给清单已经列好了。', speaker: '芹香' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '对了，便利店那边有件事要顺路处理一下。', speaker: '芹香' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'test:story:supply_detail' } },
@@ -123,7 +123,7 @@ export const supplyMain: StoryDef = { id: 'test:story:supply_main', name: '补�
   { id: 'p4-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
 ] };
 
-export const supplyDetail: StoryDef = { id: 'test:story:supply_detail', name: '便利店小插曲', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+export const supplyDetail: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:supply_detail', name: '便利店小插曲', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '啊，芹香同学，正好你来了——找零多出来一张优惠券。', speaker: '店员' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '谢谢！帮大忙了。', speaker: '芹香' } },
 ] };
@@ -142,13 +142,13 @@ export const supplyEntry: StoryEntryDef = {
 // 末页 insert 场景：返回点超界时正常收尾
 // ============================================================
 
-export const edgeMain: StoryDef = { id: 'test:story:edge_main', name: '边缘任务', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+export const edgeMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:edge_main', name: '边缘任务', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，这是最后一项检查了。', speaker: '阿罗娜' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '我顺路查一下服务器。', speaker: '阿罗娜' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'test:story:edge_sub' } },
 ] };
 
-export const edgeSub: StoryDef = { id: 'test:story:edge_sub', name: '服务器检查', stages: { 'p1': { advance: 'auto' } }, nodes: [
+export const edgeSub: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:edge_sub', name: '服务器检查', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '服务器一切正常。', speaker: '阿罗娜' } },
 ] };
 
@@ -166,12 +166,12 @@ export const edgeEntry: StoryEntryDef = {
 // 循环跳转场景：内容作者误写死循环
 // ============================================================
 
-export const loopA: StoryDef = { id: 'test:story:loop_a', name: '循环 A', stages: { 'p1': { advance: 'auto' } }, nodes: [
+export const loopA: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:loop_a', name: '循环 A', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '去 B。', speaker: 'A' } },
   { id: 'p1-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:loop_b' } },
 ] };
 
-export const loopB: StoryDef = { id: 'test:story:loop_b', name: '循环 B', stages: { 'p1': { advance: 'auto' } }, nodes: [
+export const loopB: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:loop_b', name: '循环 B', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '回 A。', speaker: 'B' } },
   { id: 'p1-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:loop_a' } },
 ] };
@@ -216,12 +216,12 @@ export const loopPack = makePack([loopEntry], [loopA, loopB]);
 //   click 页必须先经 clickSend 完成点击，才触发跳转与守卫判断。
 // ============================================================
 
-export const clickGateMain: StoryDef = { id: 'test:story:click_gate_main', name: '点击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
+export const clickGateMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_gate_main', name: '点击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '长按开关启动机器', press: { base: 1, } } },
   { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '长按开关启动机器', result: { transfer: { mode: 'goto', storyId: 'test:story:click_gate_target' } } } },
 ] };
 
-export const clickGateTarget: StoryDef = { id: 'test:story:click_gate_target', name: '点击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
+export const clickGateTarget: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_gate_target', name: '点击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '机器启动了，很好。', speaker: '优香' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '好的' } },
 ] };
@@ -237,12 +237,12 @@ export const clickGateEntry: StoryEntryDef = {
 export const clickGatePack = makePack([clickGateEntry], [clickGateMain, clickGateTarget]);
 
 // 多击版本：clickWork(base: 2) + jumpToStory
-export const clickWorkGateMain: StoryDef = { id: 'test:story:clickwork_gate_main', name: '多击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
+export const clickWorkGateMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:clickwork_gate_main', name: '多击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '连续敲击 2 次开启保险库', press: { base: 2, } } },
   { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '连续敲击 2 次开启保险库', result: { transfer: { mode: 'goto', storyId: 'test:story:clickwork_gate_target' } } } },
 ] };
 
-export const clickWorkGateTarget: StoryDef = { id: 'test:story:clickwork_gate_target', name: '多击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
+export const clickWorkGateTarget: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:clickwork_gate_target', name: '多击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '保险库开启了。', speaker: '优香' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '收下钥匙' } },
 ] };
@@ -263,12 +263,12 @@ export const clickWorkGatePack = makePack([clickWorkGateEntry], [clickWorkGateMa
 //   未完成点击不得省略——否则直接返回/完结会跳过该处的点击需求。
 // ============================================================
 
-export const whisperClickSub: StoryDef = { id: 'test:story:whisper_click_sub', name: '悄悄话 · 末页点击', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
+export const whisperClickSub: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:whisper_click_sub', name: '悄悄话 · 末页点击', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '（示意美依继续说下去）', press: { base: 1, } } },
   { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '（示意美依继续说下去）' } },
 ] };
 
-export const whisperClickMain: StoryDef = { id: 'test:story:whisper_click_main', name: '主剧情 · insert 点击子剧情', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
+export const whisperClickMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:whisper_click_main', name: '主剧情 · insert 点击子剧情', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，借一步说话。', speaker: '美依' } },
   { id: 'p1-transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'test:story:whisper_click_sub' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '原来如此。', speaker: '老师' } },
@@ -285,12 +285,12 @@ export const whisperClickEntry: StoryEntryDef = {
 
 export const whisperClickPack = makePack([whisperClickEntry], [whisperClickMain, whisperClickSub]);
 
-export const gotoClickTarget: StoryDef = { id: 'test:story:goto_click_target', name: 'goto 目标 · 末页点击', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
+export const gotoClickTarget: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:goto_click_target', name: 'goto 目标 · 末页点击', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '按下终端的确认键', press: { base: 1, } } },
   { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '按下终端的确认键' } },
 ] };
 
-export const gotoClickMain: StoryDef = { id: 'test:story:goto_click_main', name: 'goto 主 · 跳转', stages: { 'p1': { advance: 'auto' } }, nodes: [
+export const gotoClickMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:goto_click_main', name: 'goto 主 · 跳转', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '去终端看看。', speaker: '老师' } },
   { id: 'p1-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:goto_click_target' } },
 ] };

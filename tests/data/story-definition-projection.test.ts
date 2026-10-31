@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { projectStoryDefinition } from '../../src/data-services/authoring/story-definition-projection';
 
-const baseStory = (overrides: Record<string, unknown> = {}) => ({
+const baseStory = (overrides: Record<string, unknown> = {}) => ({ startContext: { type: 'area', areaId: 'base:area:schale_main' },
   id: 'base:story:projection-test', name: '投影测试',
   stages: { body: { advance: 'auto' } },
   nodes: [{ id: 'line', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: '正文', speaker: '', image: 'images/a.png' }, presentation: { avatarMode: 'hide', avatar: 'face-a' }, pacing: { typing: 0 } }],

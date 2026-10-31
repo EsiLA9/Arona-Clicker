@@ -12,7 +12,7 @@ describe('consecutive Choice input', () => {
   afterEach(() => { controller?.destroy(); game?.dispose(); localStorage.clear(); vi.useRealTimers(); });
   it.each(['none', 'flag', 'notices'] as const)('submits consecutive Choices sharing a stage and option ID (%s)', async effect => {
     vi.useFakeTimers(); localStorage.clear();
-    const story: StoryDef = { id: storyId, name: 'Two choices', stages: { shared: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Two choices', stages: { shared: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
       { id: 'intro', type: 'talklet', stageId: 'shared', content: { kind: 'narration', text: 'choose twice' } },
       ...['first', 'second'].map(id => ({ id, type: 'click' as const, stageId: 'shared', interaction: { kind: 'choice' as const, options: [
         { id: 'option1', text: id, ...(effect !== 'none' ? { result: { actions: [{ kind: 'state' as const, effects: effect === 'flag' ? [{ op: 'setFlag' as const, flagId: 'choice_check', value: id }] : [

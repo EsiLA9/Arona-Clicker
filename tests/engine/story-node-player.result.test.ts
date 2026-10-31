@@ -7,14 +7,14 @@ import type { StoryNodeSnapshot } from '../../src/engine/contracts/story-node-sn
 
 const receipt: EffectReceipt = { effectIndex: 0, op: 'addResource', target: 'credit', status: 'changed', before: 1, after: 3, delta: 2 };
 const source = { entryId: 'entry:root', owner: null, historyId: 'history:root' };
-const root: StoryNodeDocument = { id: 'story:root', name: 'Root', stages: { unused: { advance: 'auto' } }, nodes: [
+const root: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:root', name: 'Root', stages: { unused: { advance: 'auto' } }, nodes: [
   { id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', result: {
     actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] }],
     transfer: { mode: 'insert', storyId: 'story:child' },
   } } },
   { id: 'tail', type: 'talklet', stageId: 'unused', content: { kind: 'talk', text: 'Tail' } },
 ] };
-const child: StoryNodeDocument = { id: 'story:child', name: 'Child', stages: { unused: { advance: 'auto' } }, nodes: [
+const child: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:child', name: 'Child', stages: { unused: { advance: 'auto' } }, nodes: [
   { id: 'body', type: 'talklet', stageId: 'unused', content: { kind: 'talk', text: 'Child' } },
 ] };
 const token = (view: StoryNodePlaybackView): string => {

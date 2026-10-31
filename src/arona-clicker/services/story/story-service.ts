@@ -68,7 +68,9 @@ type CompletedAdvance = Extract<StoryAdvanceResult, { success: true; finished: t
 /** One StoryNodePlayer session per global/chat owner; no legacy Talklet interpreter remains. */
 export class StoryService {
   private readonly sessions = new Map<string, StoryNodeSession>();
-  private readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute'>;
+  private readonly replaySessions = new Map<string, StoryNodeSession>();
+  private readonly completedReplays = new Map<string, string | null>();
+  private readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute' | 'move'>;
   private readonly selection: StoryEntrySelectionContext;
   private readonly coordinator: StoryPlaybackCoordinator;
   private readonly actionOptions: StoryNodeActionHostOptions;
@@ -90,8 +92,8 @@ export class StoryService {
       eventBus: opts.eventBus,
       presentation: opts.presentation,
       deferPresentation: true,
-      getTitle: source => this.sessionFor(source.owner)?.entry.openingTitle
-        ?? this.sessionFor(source.owner)?.documents.get(source.rootStoryId)?.name
+      getTitle: source => this.sessionForSource(source)?.entry.openingTitle
+        ?? this.sessionForSource(source)?.documents.get(source.rootStoryId)?.name
         ?? opts.registry.storyEntries.get(source.entryId)?.openingTitle
         ?? opts.registry.stories.get(source.rootStoryId)?.name,
       requestEntry: (request, source) => this.requestEntry(request, source),
@@ -100,19 +102,19 @@ export class StoryService {
     this.coordinator = new StoryPlaybackCoordinator({
       clock: opts.clock,
       transaction: work => this.transact(work),
-      changed: owner => this.withSource(this.sessionFor(owner)?.source, () => opts.eventBus.emit({ type: 'storyPlaybackChanged', owner })),
+      changed: (owner, replayId) => this.withSource(this.sessionForChannel(owner, replayId)?.source, () => opts.eventBus.emit({ type: 'storyPlaybackChanged', owner, ...(replayId ? { replayId } : {}) })),
       delivered: source => {
-        const session = this.sessionFor(source.owner);
+        const session = this.sessionForSource(source);
         if (!session || session.source.runId !== source.runId) return;
         const delivered = markTalkletDelivered(session, session.player.getView());
-        if (delivered) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal));
+        if (delivered && !session.replay) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal));
       },
       release: (source, token) => {
-        const session = this.sessionFor(source.owner);
+        const session = this.sessionForSource(source);
         if (!session || session.source.runId !== source.runId) return;
         this.withSource(source, () => {
           if (session.finishing) this.finishPresentation(session);
-          else this.advanceNode(undefined, source.owner, token, false);
+          else this.advanceNode(undefined, source.owner, token, false, undefined, source.replayId);
         });
       },
       effect: (effect, source) => {
@@ -120,25 +122,26 @@ export class StoryService {
         if (result.status === 'rejected') throw new Error(result.error);
       },
       failed: (source, error) => this.withSource(source, () => {
-        const session = this.sessionFor(source.owner);
+        const session = this.sessionForSource(source);
         if (!session || session.source.runId !== source.runId) return;
         const view = session.player.getView();
         session.finishing = { terminalStoryId: 'storyId' in view ? view.storyId : source.rootStoryId, settled: false,
           error: error instanceof Error ? error.message : String(error), receipts: 'data' in view ? view.data.receipts : [] };
         session.player.cancel();
         this.opts.presentation?.close(source, 'failed');
-        this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: source.owner });
+        this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: source.owner, ...(source.replayId ? { replayId: source.replayId } : {}) });
       }),
     });
     this.actionHost = {
       preflight: core.preflight,
+      move: (node, source) => this.moveStorySpace(node, source),
       execute: (action, source) => {
         const previous = this.activeSource;
         this.activeSource = source;
         let outcome;
         try { outcome = core.execute(action, source); }
         finally { this.activeSource = previous; }
-        const session = this.sessionFor(source.owner);
+        const session = this.sessionForSource(source);
         if (session && session.source.runId === source.runId) trackStoryFlags(session, action, outcome);
         return outcome;
       },
@@ -153,12 +156,50 @@ export class StoryService {
       startStory: (storyId, expectedType, owner, startOpts) => this.startStory(storyId, expectedType, owner, startOpts),
     };
     opts.eventBus.on('chatFlowCleared', event => {
-      if (!event.runId) this.coordinator.clear(event.owner ?? null);
+      if (!event.runId) this.coordinator.clear(event.owner ?? null, event.replayId);
     });
   }
 
   private get state(): PlayerState { return this.opts.getState(); }
   private get documents(): ReadonlyMap<string, StoryDef> { return this.opts.registry.stories; }
+
+  private moveStorySpace(node: import('../../../data-services/contracts/story-node').StoryMoveToAreaNode | import('../../../data-services/contracts/story-node').StoryMoveToCharaspaceNode,
+    source: StoryNodeSource): import('../../contracts/runtime/story-node-playback').StoryNodeActionOutcome {
+    const session = this.sessionForSource(source);
+    if (!session || session.source.runId !== source.runId) return { status: 'rejected', error: 'NoActiveStory' };
+    if (node.type === 'moveToArea' ? !this.opts.registry.areas.has(node.areaId) : !this.opts.registry.characterVariants.has(node.characterId)) {
+      return { status: 'rejected', error: node.type === 'moveToArea' ? 'AreaNotFound' : 'CharacterNotFound' };
+    }
+    const context = node.type === 'moveToArea' ? { type: 'area' as const, areaId: node.areaId }
+      : { type: 'chara' as const, characterId: node.characterId };
+    const owner = context.type === 'chara' ? context.characterId : null;
+    if (!session.replay && owner !== session.source.owner) {
+      const existing = this.sessionFor(owner);
+      if (existing && existing !== session) return { status: 'rejected', error: 'StorySpaceOccupied' };
+    }
+    if (context.type === 'area' && !session.replay) {
+      const result = this.opts.travelToArea(context.areaId, true, false);
+      if (!result.success) return { status: 'rejected', error: `AreaTravelFailed:${result.error}` };
+      if (!this.isCurrent(session)) return { status: 'replaced' };
+    }
+    if (!session.replay && owner !== session.source.owner) {
+      this.coordinator.end(session.source.owner);
+      this.sessions.delete(ownerKey(session.source.owner));
+      this.sessions.set(ownerKey(owner), session);
+    }
+    session.source.owner = owner;
+    session.player.setOwner(owner);
+    this.withSource(session.source, () => this.opts.eventBus.emit({ type: 'storyContextMoved', context, owner,
+      ...(source.runId ? { runId: source.runId } : {}), ...(source.replayId ? { replayId: source.replayId } : {}) }));
+    return { status: 'applied' };
+  }
+
+  private travelToStartArea(session: StoryNodeSession): string | undefined {
+    const context = session.documents.get(session.source.rootStoryId)?.startContext;
+    if (!session.entry.travelToStartContext || context?.type !== 'area' || this.state.currentAreaId === context.areaId) return undefined;
+    const result = this.opts.travelToArea(context.areaId, true, false);
+    return result.success ? undefined : `AreaTravelFailed:${result.error}`;
+  }
 
   private withSource<T>(source: StoryNodeSource | undefined, work: () => T): T {
     const previous = this.activeSource;
@@ -182,16 +223,16 @@ export class StoryService {
               if (this.isCurrent(pending.session)) this.initializeSession(pending.session, pending.initialFlags);
             }
             const canStart = (item: StoryDeferredStart) => {
-              const finishing = this.sessionFor(item.owner)?.finishing;
+              const finishing = this.sessionForChannel(item.owner, item.replayId)?.finishing;
               return !finishing || !!finishing.error;
             };
             const index = this.pendingStarts.findIndex(canStart);
             if (index >= 0) {
               const pending = this.pendingStarts.splice(index, 1)[0]!;
               const previous = this.activeSource;
-              this.activeSource = { entryId: pending.entryId, rootStoryId: '', owner: pending.owner,
+              this.activeSource = { entryId: pending.entryId, rootStoryId: '', owner: pending.owner, ...(pending.replayId ? { replayId: pending.replayId } : {}),
                 causalChainId: pending.causalChainId, handoffCount: pending.handoffCount };
-              try { this.requestResults.set(pending.requestId, this.startEntry(pending.entryId, pending.expectedType, pending.owner, pending.options, false)); }
+              try { this.requestResults.set(pending.requestId, this.startEntry(pending.entryId, pending.expectedType, pending.owner, pending.options, !!pending.replayId, pending.replayId)); }
               finally { this.activeSource = previous; }
               while (this.requestResults.size > 64) this.requestResults.delete(this.requestResults.keys().next().value!);
             }
@@ -207,21 +248,26 @@ export class StoryService {
   getStartRequestResult(requestId: string): StoryStartResult | null { return structuredClone(this.requestResults.get(requestId) ?? null); }
 
   private startCommand(storyId: string, expectedType: 'active' | 'passive', owner: string | null, options: StartOptions | undefined, replay: boolean): StoryStartResult {
-    const before = this.completions.get(ownerKey(owner));
+    const entry = this.opts.registry.storyEntries.get(storyId);
+    const storyDef = entry && this.documents.get(entry.storyId);
+    const contextOwner = storyDef?.startContext.type === 'chara' ? storyDef.startContext.characterId : null;
+    const target = replay || entry?.travelToStartContext ? contextOwner : normalizeOwner(owner);
+    const before = this.completions.get(ownerKey(target));
     const result = this.transact(() => this.startEntry(storyId, expectedType, owner, options, replay));
-    const failed = this.sessionFor(owner);
+    const failed = this.sessionFor(target);
     if (failed?.finishing?.error) return { success: false, storyId: failed.source.entryId, error: 'PlaybackFailed', detail: failed.finishing.error };
     if (!result.success && result.detail !== 'RunReplaced') return result;
-    const current = this.getCurrentStoryView(owner);
+    if (result.success) return result;
+    const current = this.getCurrentStoryView(target);
     if (current) return { success: true, finished: false, story: current };
-    const completion = this.completions.get(ownerKey(owner));
+    const completion = this.completions.get(ownerKey(target));
     return completion && completion !== before ? completion : result;
   }
   suspendPlayback(): void { this.coordinator.suspend(); }
   resumePlayback(): void { this.transact(() => this.coordinator.resume()); }
-  dispose(): void { this.clearAllCurrentStories(); this.coordinator.reset(); this.pendingStarts.length = 0; }
+  dispose(): void { this.clearAllCurrentStories(); this.completedReplays.clear(); this.coordinator.reset(); this.pendingStarts.length = 0; }
   clearOutput(owner: string | null): void { this.transact(() => this.coordinator.clear(owner)); }
-  resetPlayback(): void { this.clearAllCurrentStories(); this.coordinator.reset(); }
+  resetPlayback(): void { this.clearAllCurrentStories(); this.completedReplays.clear(); this.coordinator.reset(); }
 
   getPlaybackView(owner?: string | null): StoryPresentationView {
     const target = normalizeOwner(owner);
@@ -233,6 +279,17 @@ export class StoryService {
       'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined);
   }
 
+  getReplayPlaybackView(replayId: string): StoryPresentationView | null {
+    const session = this.replaySessions.get(replayId);
+    if (!session && !this.completedReplays.has(replayId)) return null;
+    const owner = session ? session.source.owner : this.completedReplays.get(replayId)!;
+    if (!session) return this.coordinator.view(owner, 'idle', undefined, undefined, undefined, replayId);
+    const view = session.player.getView();
+    if (session.finishing) return this.coordinator.view(owner, session.finishing.error ? 'failed' : 'finishing', undefined, session.source.runId, session.finishing.error, replayId);
+    return this.coordinator.view(owner, view.status === 'input' ? 'input' : view.status === 'failed' ? 'failed' : 'continue',
+      'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined, replayId);
+  }
+
   continueStory(owner: string | null, token: string): StoryAdvanceResult {
     if (this.transactionDepth) return { success: false, error: 'Busy' };
     const current = this.getPlaybackView(owner);
@@ -241,12 +298,54 @@ export class StoryService {
     return this.transact(() => this.advanceNode(undefined, owner, undefined, false, newRunId()));
   }
 
+  continueReplayStory(replayId: string, token: string): StoryAdvanceResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
+    const session = this.replaySessions.get(replayId);
+    const current = this.getReplayPlaybackView(replayId);
+    if (!session || !current) return { success: false, error: 'NoActiveStory' };
+    if (current.token !== token) return { success: false, error: 'StaleToken' };
+    if (current.phase !== 'continue') return { success: false, error: 'PresentationPending' };
+    return this.transact(() => this.advanceNode(undefined, session.source.owner, undefined, false, newRunId(), replayId));
+  }
+
   submitStoryInput(owner: string | null, token: string, optionId?: string): StoryAdvanceResult {
     if (this.transactionDepth) return { success: false, error: 'Busy' };
     const current = this.getPlaybackView(owner);
     if (current.token !== token) return { success: false, error: 'StaleToken' };
     if (current.phase !== 'input') return { success: false, error: 'PresentationPending' };
     return this.transact(() => this.advanceNode(optionId, owner, undefined, true, newRunId()));
+  }
+
+  submitReplayStoryInput(replayId: string, token: string, optionId?: string): StoryAdvanceResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
+    const session = this.replaySessions.get(replayId);
+    const current = this.getReplayPlaybackView(replayId);
+    if (!session || !current) return { success: false, error: 'NoActiveStory' };
+    if (current.token !== token) return { success: false, error: 'StaleToken' };
+    if (current.phase !== 'input') return { success: false, error: 'PresentationPending' };
+    return this.transact(() => this.advanceNode(optionId, session.source.owner, undefined, true, newRunId(), replayId));
+  }
+
+  accelerateReplayStoryPresentation(replayId: string, token: string): boolean {
+    if (this.transactionDepth) return false;
+    const session = this.replaySessions.get(replayId);
+    const view = session?.player.getView();
+    if (!session || !view || !('token' in view)) return false;
+    return this.coordinator.accelerate(session.source.owner, token, view.token, replayId);
+  }
+
+  cancelReplayStory(replayId: string): void {
+    const session = this.replaySessions.get(replayId);
+    if (session) this.endSession(session, 'cancelled');
+    this.replaySessions.delete(replayId);
+    this.completedReplays.delete(replayId);
+    this.coordinator.discardReplay(replayId);
+  }
+
+  getReplayStoryView(replayId: string): StoryView | null {
+    const session = this.replaySessions.get(replayId);
+    if (!session) return null;
+    return this.projectView(session, session.player.getView());
   }
 
   accelerateStoryPresentation(owner: string | null, token: string): boolean {
@@ -335,13 +434,15 @@ export class StoryService {
 
   saveCursors(): StoryCursorCollection {
     if (this.transactionDepth) throw new Error('Busy');
-    return { format: 'story-playback-v2', global: this.saveCursor(), chats: this.saveChatCursors(), pendingStarts: structuredClone(this.pendingStarts) };
+    return { format: 'story-playback-v2', global: this.saveCursor(), chats: this.saveChatCursors(),
+      pendingStarts: structuredClone(this.pendingStarts.filter(item => !item.replayId)) };
   }
 
   restoreCursors(collection: StoryCursorCollection | undefined): void {
     this.validateCursors(collection);
     this.clearAllCurrentStories();
     this.coordinator.reset();
+    this.completedReplays.clear();
     this.pendingStarts.length = 0;
     if (!collection) return;
     this.pendingStarts.push(...structuredClone(collection.pendingStarts));
@@ -355,8 +456,10 @@ export class StoryService {
   }
 
   clearAllCurrentStories(): void {
-    for (const session of [...this.sessions.values()]) this.endSession(session, 'cancelled');
+    for (const session of [...this.sessions.values(), ...this.replaySessions.values()]) this.endSession(session, 'cancelled');
     this.sessions.clear();
+    this.replaySessions.clear();
+    this.completedReplays.clear();
     this.reserved.clear();
     this.pendingStarts.length = 0;
   }
@@ -434,7 +537,7 @@ export class StoryService {
       const requestId = `${newRunId()}:request`;
       const cause = this.activeSource;
       if (this.pendingStarts.length >= 64) return { success: false, error: 'PlaybackFailed', detail: 'StoryRequestLimitExceeded' };
-      this.pendingStarts.push({ requestId, entryId: storyId, expectedType, owner: normalizeOwner(owner), options: options && structuredClone(options),
+      this.pendingStarts.push({ requestId, entryId: storyId, expectedType, owner: normalizeOwner(owner), ...(cause?.replayId ? { replayId: cause.replayId } : {}), options: options && structuredClone(options),
         causalChainId: cause?.causalChainId ?? newRunId(), handoffCount: cause?.handoffCount ?? 0 });
       return { success: false, error: 'StartDeferred', detail: requestId };
     }
@@ -456,8 +559,44 @@ export class StoryService {
     const entry = this.opts.registry.storyEntries.get(storyId);
     if (!entry) return { success: false, storyId, error: 'NotFound' };
     if (!entry.replayable) return { success: false, storyId, error: 'NotReplayable' };
-    if (this.sessionFor(normalizeOwner(owner))) return { success: false, storyId, error: 'AlreadyActive' };
-    return this.startCommand(storyId, entry.type, normalizeOwner(owner), { skipConditions: true }, true);
+    const replayId = newRunId();
+    const target = normalizeOwner(owner);
+    const prepared = this.prepareEntry(storyId, entry.type, target, { skipConditions: true }, true, replayId);
+    if ('error' in prepared) return prepared.error;
+    const areaError = this.travelToStartArea(prepared.session);
+    if (areaError) return { success: false, storyId, error: 'PlaybackFailed', detail: areaError };
+    this.replaySessions.set(replayId, prepared.session);
+    this.completedReplays.delete(replayId);
+    this.initializeSession(prepared.session, prepared.initialFlags);
+    if (prepared.session.finishing?.error) {
+      this.replaySessions.delete(replayId);
+      this.coordinator.discardReplay(replayId);
+      return { success: false, storyId, error: 'PlaybackFailed', detail: prepared.session.finishing.error };
+    }
+    const current = this.getReplayStoryView(replayId);
+    if (current) return { success: true, finished: false, story: current, replayId };
+    return { success: true, finished: true, storyId, completed: this.completedRecord(prepared.session, prepared.session.source.rootStoryId), replayId };
+  }
+
+  startReplayEntry(replayId: string, storyEntryId: string): StoryStartResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
+    const previous = this.replaySessions.get(replayId);
+    if (!previous) return { success: false, storyId: storyEntryId, error: 'NoActiveStory' };
+    const entry = this.opts.registry.storyEntries.get(storyEntryId);
+    if (!entry) return { success: false, storyId: storyEntryId, error: 'NotFound' };
+    const prepared = this.prepareEntry(storyEntryId, entry.type, previous.source.owner,
+      { force: true, replaceAny: true, skipConditions: true }, true, replayId);
+    if ('error' in prepared) return prepared.error;
+    const areaError = this.travelToStartArea(prepared.session);
+    if (areaError) return { success: false, storyId: storyEntryId, error: 'PlaybackFailed', detail: areaError };
+    const cleanupError = this.installSession(prepared.session);
+    if (cleanupError) return { success: false, storyId: storyEntryId, error: 'PlaybackFailed', detail: cleanupError };
+    this.initializeSession(prepared.session, prepared.initialFlags);
+    if (prepared.session.finishing?.error) return { success: false, storyId: storyEntryId, error: 'PlaybackFailed', detail: prepared.session.finishing.error };
+    const story = this.getReplayStoryView(replayId);
+    return story
+      ? { success: true, finished: false, story, replayId }
+      : { success: true, finished: true, storyId: entry.storyId, completed: this.completedRecord(prepared.session, entry.storyId), replayId };
   }
 
   advanceStory(choiceIndex?: number | string, owner?: string | null, token?: string): StoryAdvanceResult {
@@ -481,9 +620,10 @@ export class StoryService {
     token: string | undefined,
     allowClickInput: boolean,
     causalChainId?: string,
+    replayId?: string,
   ): StoryAdvanceResult {
     const normalizedOwner = normalizeOwner(owner);
-    const session = this.sessionFor(normalizedOwner);
+    const session = this.sessionForChannel(normalizedOwner, replayId);
     if (!session) return { success: false, error: 'NoActiveStory' };
     const current = session.player.getView();
     const commandToken = token ?? ('token' in current ? current.token : undefined);
@@ -525,12 +665,12 @@ export class StoryService {
               options: current.node.interaction.options.map(option => ({ id: option.id, text: option.text })),
               selectedOptionId: current.node.interaction.options[selectedOptionIndex]!.id,
             },
-          });
+          }, replayId);
         }
         session.lastChoiceIndex = selectedOptionIndex;
         session.lastChoiceStoryId = current.storyId;
         const talkletOrdinal = this.precedingTalkletOrdinal(session, current.storyId, current.node.id);
-        if (talkletOrdinal !== null) {
+        if (talkletOrdinal !== null && !session.replay) {
           this.opts.mutations.recordStoryRead(current.storyId, talkletOrdinal, selectedOptionIndex);
         }
       }
@@ -538,13 +678,21 @@ export class StoryService {
 
     if (command.ok && causalChainId) Object.assign(session.source, { causalChainId, handoffCount: 0 });
     this.syncPresentation(session, command.view);
-    return this.advanceResultFromCommand(session, normalizedOwner, command);
+    return this.advanceResultFromCommand(session, session.source.owner, command);
   }
 
   getSendState(owner?: string | null): SendState {
     const normalizedOwner = normalizeOwner(owner);
     const session = this.sessionFor(normalizedOwner);
-    if (!session) return { mode: 'idle', reason: 'noStory' };
+    return session ? this.sendStateFor(session) : { mode: 'idle', reason: 'noStory' };
+  }
+
+  getReplaySendState(replayId: string): SendState {
+    const session = this.replaySessions.get(replayId);
+    return session ? this.sendStateFor(session) : { mode: 'idle', reason: 'noStory' };
+  }
+
+  private sendStateFor(session: StoryNodeSession): SendState {
     const view = session.player.getView();
     const storyView = this.projectView(session, view);
     if (!storyView) return { mode: 'idle', reason: 'noStory' };
@@ -610,7 +758,7 @@ export class StoryService {
   private projectView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
     const projected = projectStoryNodeView(session, view);
     if (!projected) return null;
-    return { ...projected, token: this.coordinator.intentToken(session.source.owner, projected.token, session.source.runId),
+    return { ...projected, token: this.coordinator.intentToken(session.source.owner, projected.token, session.source.runId, session.source.replayId),
       ...(view.status === 'operation' || view.status === 'result' ? { operationCheckpoint: true as const } : {}) };
   }
 
@@ -637,8 +785,8 @@ export class StoryService {
     if (!this.isCurrent(session) || session.finishing) return;
     const owner = session.source.owner;
     if (view.status === 'input') {
-      this.coordinator.end(owner);
-      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner });
+      this.coordinator.end(owner, session.source.replayId);
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
       return;
     }
     if (view.status !== 'delivery' && view.status !== 'operation' && view.status !== 'result') return;
@@ -662,7 +810,7 @@ export class StoryService {
       ];
     } else steps = this.resultSteps(view.data);
     this.coordinator.accept(session.source, view.token, key, steps, automatic);
-    this.coordinator.pump(owner);
+    this.coordinator.pump(owner, session.source.replayId);
   }
 
   private resolveStartDocument(storyId: string, expectedType: 'active' | 'passive', initialFlags?: StoryRunFlags):
@@ -684,23 +832,26 @@ export class StoryService {
   }
 
   private prepareEntry(storyId: string, expectedType: 'active' | 'passive', owner: string | null,
-    options: StartOptions | undefined, replay: boolean): { session: StoryNodeSession; initialFlags: StoryRunFlags } | { error: StoryStartResult } {
+    options: StartOptions | undefined, replay: boolean, replayId?: string): { session: StoryNodeSession; initialFlags: StoryRunFlags } | { error: StoryStartResult } {
     const checked = this.resolveStartDocument(storyId, expectedType, options?.initialFlags);
     if ('error' in checked) return checked;
     const { entry, root } = checked;
+    const contextOwner = replay || entry.travelToStartContext
+      ? root.startContext.type === 'chara' ? root.startContext.characterId : null
+      : normalizeOwner(owner);
     const fail = (error: import('../../contracts/runtime/results').StoryError, detail?: string) =>
       ({ error: { success: false as const, storyId, error, ...(detail ? { detail } : {}) } });
     if (!options?.skipConditions && (entry.availableInits.length > 0 && !entry.availableInits.includes(this.state.activeInit)
       || !this.opts.conditionSystem.evaluateGroup(entry.triggerCondition, this.state))) return fail('ConditionNotMet');
     if (!replay && !options?.force && !(entry.type === 'passive' && entry.repeatable) && this.hasCompletedStory(root.id)) return fail('AlreadyCompleted');
-    const existing = this.sessionFor(owner);
-    if (existing && !existing.finishing?.error && (replay || existing.finishing || existing.entry.type === 'passive' && existing.entry.blocksInteraction)) return fail('AlreadyActive');
+    const existing = replay ? undefined : this.sessionFor(contextOwner);
+    if (existing && !existing.finishing?.error && (existing.finishing || existing.entry.type === 'passive' && existing.entry.blocksInteraction)) return fail('AlreadyActive');
     if (existing && !existing.finishing?.error && !options?.replaceAny && !(existing.entry.type === 'passive' && (expectedType === 'active' || options?.force))) return fail('AlreadyActive');
     const cause = this.activeSource;
     const handoffCount = cause ? (cause.handoffCount ?? 0) + 1 : 0;
     if (handoffCount > 64) return fail('PlaybackFailed', 'StoryHandoffLimitExceeded');
     const runId = newRunId();
-    const source: StoryNodeSource = { entryId: entry.id, rootStoryId: root.id, owner, runId, historyId: runId,
+    const source: StoryNodeSource = { entryId: entry.id, rootStoryId: root.id, owner: contextOwner, runId, historyId: runId, ...(replayId ? { replayId } : {}),
       causalChainId: cause?.causalChainId ?? runId, handoffCount };
     let session!: StoryNodeSession;
     session = createStoryNodeSession({
@@ -715,19 +866,30 @@ export class StoryService {
   /** Installed but unstarted sessions must fail explicitly rather than remain idle without a ticket. */
   private failInstalledSession(session: StoryNodeSession, diagnostic: string): string {
     const owner = session.source.owner;
-    if (this.isCurrent(session)) this.coordinator.end(owner);
+    if (this.isCurrent(session)) this.coordinator.end(owner, session.source.replayId);
     session.player.cancel();
     session.finishing = { terminalStoryId: session.source.rootStoryId, settled: false, error: diagnostic, receipts: [] };
-    try { this.withSource(session.source, () => this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner })); }
+    try { this.withSource(session.source, () => this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) })); }
     catch (notificationError) { session.finishing.error += `;StoryFailureNotificationFailed:${notificationError instanceof Error ? notificationError.message : String(notificationError)}`; }
     return session.finishing.error!;
   }
 
   private installSession(session: StoryNodeSession): string | undefined {
+    if (session.source.replayId) {
+      const existing = this.replaySessions.get(session.source.replayId);
+      this.replaySessions.set(session.source.replayId, session);
+      this.coordinator.end(session.source.owner, session.source.replayId);
+      if (existing) {
+        markSessionClosed(existing);
+        existing.player.cancel();
+        this.opts.presentation?.close(existing.source, 'replaced');
+      }
+      return undefined;
+    }
     const owner = session.source.owner;
     const existing = this.sessionFor(owner);
     // Retire the old barrier before publishing a new slot, even if cleanup observers fail.
-    this.coordinator.end(owner);
+    this.coordinator.end(owner, session.source.replayId);
     this.sessions.set(ownerKey(owner), session);
     try {
       if (existing) this.endSession(existing, 'replaced');
@@ -740,11 +902,13 @@ export class StoryService {
   private requestEntry(request: StoryEntryRequest, source: StoryNodeSource): import('../../contracts/runtime/story-node-playback').StoryNodeActionOutcome {
     const prepared = this.prepareEntry(request.entryId, request.entryType, request.owner,
       request.intent === 'card' ? { force: true, replaceAny: true, skipConditions: true }
-        : request.intent === 'system' ? { force: true } : undefined, false);
+        : request.intent === 'system' ? { force: true } : undefined, !!source.replayId, source.replayId);
     if ('error' in prepared) return { status: 'rejected', error: prepared.error.success ? 'EntryStartFailed' : `EntryStartFailed:${prepared.error.error}` };
+    const areaError = this.travelToStartArea(prepared.session);
+    if (areaError) return { status: 'rejected', error: areaError };
     const cleanupError = this.installSession(prepared.session);
     if (cleanupError) return { status: 'rejected', error: `EntryStartFailed:${cleanupError}` };
-    this.reserved.set(ownerKey(request.owner), prepared);
+    this.reserved.set(source.replayId ? `replay:${source.replayId}` : ownerKey(request.owner), prepared);
     return { status: request.owner === source.owner ? 'replaced' : 'applied' };
   }
 
@@ -753,7 +917,7 @@ export class StoryService {
     this.activeSource = session.source;
     try {
       try {
-        this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner, runId: session.source.runId });
+        this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner, runId: session.source.runId, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
       } catch (error) {
         this.failInstalledSession(session, `StoryInitializationFailed:${error instanceof Error ? error.message : String(error)}`);
         return;
@@ -763,19 +927,29 @@ export class StoryService {
       this.captureVisited(session, command);
       this.handleTerminal(session, command.view);
       this.syncPresentation(session, command.view);
-      this.coordinator.pump(session.source.owner);
+      this.coordinator.pump(session.source.owner, session.source.replayId);
     } finally { this.activeSource = previous; }
   }
 
   private startEntry(storyId: string, expectedType: 'active' | 'passive', owner: string | null,
-    options: StartOptions | undefined, replay: boolean): StoryStartResult {
-    const prepared = this.prepareEntry(storyId, expectedType, owner, options, replay);
+    options: StartOptions | undefined, replay: boolean, replayId?: string): StoryStartResult {
+    const prepared = this.prepareEntry(storyId, expectedType, owner, options, replay, replayId);
     if ('error' in prepared) return prepared.error;
+    const areaError = this.travelToStartArea(prepared.session);
+    if (areaError) return { success: false, storyId, error: 'PlaybackFailed', detail: areaError };
     const cleanupError = this.installSession(prepared.session);
     if (cleanupError) return { success: false, storyId, error: 'PlaybackFailed', detail: cleanupError };
     this.initializeSession(prepared.session, prepared.initialFlags);
     if (prepared.session.finishing?.error) return { success: false, error: 'PlaybackFailed', detail: prepared.session.finishing.error };
-    const view = this.getCurrentStoryView(owner);
+    if (replay && replayId) {
+      const replayView = this.getReplayStoryView(replayId);
+      if (replayView) return { success: true, finished: false, story: replayView, replayId };
+      const terminal = prepared.session.player.getView();
+      if (terminal.status === 'completed') return { success: true, finished: true, storyId: terminal.completion.terminalStoryId,
+        completed: this.completedRecord(prepared.session, terminal.completion.terminalStoryId), replayId };
+      return { success: false, storyId, error: 'PlaybackFailed', detail: terminal.status === 'failed' ? terminal.error : 'RunReplaced' };
+    }
+    const view = this.getCurrentStoryView(prepared.session.source.owner);
     if (view) return { success: true, finished: false, story: view };
     const terminal = prepared.session.player.getView();
     if (terminal.status === 'completed') return { success: true, finished: true, storyId: terminal.completion.terminalStoryId,
@@ -788,7 +962,7 @@ export class StoryService {
     owner: string | null,
     command: StoryNodeCommandResult,
   ): StoryAdvanceResult {
-    const currentOwner = this.sessionFor(owner);
+    const currentOwner = this.sessionForChannel(owner, session.source.replayId);
     if (currentOwner?.finishing?.error) return { success: false, storyId: currentOwner.source.entryId, error: 'PlaybackFailed', detail: currentOwner.finishing.error };
     this.captureVisited(session, command);
     if (session.finishing?.error) return { success: false, storyId: session.source.entryId, error: 'PlaybackFailed', detail: session.finishing.error };
@@ -798,7 +972,8 @@ export class StoryService {
     if (session.finishing?.settled && !session.finishing.error) return { success: true, finished: true,
       storyId: session.finishing.terminalStoryId, completed: this.completedRecord(session, session.finishing.terminalStoryId) };
     if (!this.isCurrent(session)) {
-      const replacement = this.getCurrentStoryView(owner);
+      const replacementSession = this.sessionForChannel(owner, session.source.replayId);
+      const replacement = replacementSession ? this.projectView(replacementSession, replacementSession.player.getView()) : null;
       return replacement
         ? { success: true, finished: false, story: replacement }
         : { success: false, storyId: session.source.entryId, error: 'NoActiveStory' };
@@ -808,7 +983,8 @@ export class StoryService {
       return { success: false, storyId: session.source.entryId, error: mapped.error,
         ...(session.denialMessage ? { denialMessage: session.denialMessage } : {}), ...(mapped.detail ? { detail: mapped.detail } : {}) };
     }
-    const view = this.getCurrentStoryView(owner);
+    const current = this.sessionForChannel(owner, session.source.replayId);
+    const view = current ? this.projectView(current, current.player.getView()) : null;
     return view
       ? { success: true, finished: false, story: view }
       : { success: false, storyId: session.source.entryId, error: 'NoActiveStory' };
@@ -818,9 +994,9 @@ export class StoryService {
     if (view.status === 'completed') return this.completeSession(session, view.completion);
     if (view.status === 'failed' && this.isCurrent(session)) {
       session.finishing = { terminalStoryId: session.source.rootStoryId, settled: false, error: view.error, receipts: [...view.data.receipts] };
-      this.coordinator.end(session.source.owner);
+      this.coordinator.end(session.source.owner, session.source.replayId);
       this.opts.presentation?.close(session.source, 'failed');
-      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
     }
     else if (view.status === 'replaced' && this.isCurrent(session)) this.endSession(session, 'replaced');
     return null;
@@ -893,38 +1069,44 @@ export class StoryService {
       const data: StoryNodePresentationData = { receipts, presentation: [], order: receipts.map((_, index) => ({ kind: 'receipt', index })) };
       const key = `${session.source.historyId}:finishing`;
       this.coordinator.accept(session.source, key, key, this.resultSteps(data), true);
-      this.coordinator.pump(session.source.owner);
+      this.coordinator.pump(session.source.owner, session.source.replayId);
     } catch (error) {
       const failed = error as { receipts?: typeof receipts; rewardSettlement?: { receipts: typeof receipts } };
       session.finishing.receipts = failed.rewardSettlement?.receipts ?? failed.receipts ?? receipts;
       session.finishing.error = error instanceof Error ? error.message : String(error);
       this.pendingStarts.splice(0, this.pendingStarts.length, ...this.pendingStarts.filter(item => item.causalChainId !== session.source.causalChainId));
-      this.coordinator.end(session.source.owner);
+      this.coordinator.end(session.source.owner, session.source.replayId);
       this.opts.presentation?.close(session.source, 'failed');
-      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
     } finally { this.activeSource = previous; }
     if (session.finishing.error) return { success: false, error: 'PlaybackFailed', detail: session.finishing.error };
     const result = { success: true as const, finished: true as const, storyId: terminalStoryId, completed };
-    if (!session.finishing.error) this.completions.set(ownerKey(session.source.owner), result);
+    if (!session.finishing.error && !session.replay) this.completions.set(ownerKey(session.source.owner), result);
     return result;
   }
 
   private finishPresentation(session: StoryNodeSession): void {
     if (!this.isCurrent(session) || !markSessionClosed(session)) return;
-    this.coordinator.end(session.source.owner);
-    this.sessions.delete(ownerKey(session.source.owner));
+    this.coordinator.end(session.source.owner, session.source.replayId);
+    if (session.source.replayId) {
+      this.replaySessions.delete(session.source.replayId);
+      this.completedReplays.set(session.source.replayId, session.source.owner);
+    } else this.sessions.delete(ownerKey(session.source.owner));
     const previous = this.activeSource;
     this.activeSource = session.source;
     try {
       this.opts.presentation?.close(session.source, 'completed');
-      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
     } finally { this.activeSource = previous; }
   }
 
   private endSession(session: StoryNodeSession, reason: StoryNodeRunEndReason): void {
     if (!markSessionClosed(session)) return;
-    if (this.isCurrent(session)) this.coordinator.end(session.source.owner);
-    if (this.isCurrent(session)) this.sessions.delete(ownerKey(session.source.owner));
+    if (this.isCurrent(session)) this.coordinator.end(session.source.owner, session.source.replayId);
+    if (this.isCurrent(session)) {
+      if (session.source.replayId) this.replaySessions.delete(session.source.replayId);
+      else this.sessions.delete(ownerKey(session.source.owner));
+    }
     session.player.cancel();
     this.opts.presentation?.close(session.source, reason);
   }
@@ -944,7 +1126,17 @@ export class StoryService {
   }
 
   private isCurrent(session: StoryNodeSession): boolean {
-    return this.sessions.get(ownerKey(session.source.owner)) === session;
+    return session.source.replayId
+      ? this.replaySessions.get(session.source.replayId) === session
+      : this.sessions.get(ownerKey(session.source.owner)) === session;
+  }
+
+  private sessionForSource(source: StoryNodeSource): StoryNodeSession | undefined {
+    return source.replayId ? this.replaySessions.get(source.replayId) : this.sessionFor(source.owner);
+  }
+
+  private sessionForChannel(owner: string | null, replayId?: string): StoryNodeSession | undefined {
+    return replayId ? this.replaySessions.get(replayId) : this.sessionFor(owner);
   }
 
   private sessionFor(owner?: string | null): StoryNodeSession | undefined {

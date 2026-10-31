@@ -67,7 +67,7 @@ export interface GameCommandSource {
   clearDevLogs(): void;
   save(): SaveData;
   load(saveData: SaveData): void;
-  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend' | 'continueStory' | 'submitStoryInput' | 'accelerateStoryPresentation'>;
+  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'startReplayEntry' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend' | 'continueStory' | 'submitStoryInput' | 'accelerateStoryPresentation' | 'continueReplayStory' | 'submitReplayStoryInput' | 'accelerateReplayStoryPresentation' | 'cancelReplayStory'>;
   items: Pick<ItemService, 'useItem'>;
   enhancements: Pick<EnhancementService, 'purchaseEnhancement' | 'removeEnhancement'>;
   spot: Pick<SpotService, 'unlockSpot' | 'upgradeSpot'>;
@@ -110,6 +110,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     acceptAreaStoryDelivery: (storyEntryId, areaId) => game.story.acceptAreaStoryDelivery(storyEntryId, areaId),
     startCardStory: (storyId, owner, initialFlags) => game.story.startCardStory(storyId, owner, initialFlags),
     replayStory: (storyId, owner) => game.story.replayStory(storyId, owner),
+    startReplayEntry: (replayId, entryId) => game.story.startReplayEntry(replayId, entryId),
     triggerPassiveStory: (initId, owner) => game.story.triggerPassiveStory(initId, owner),
     triggerAffectionPush: owner => game.story.triggerAffectionPush(owner),
     triggerTailPush: (owner, storyId) => game.story.triggerTailPush(owner, storyId),
@@ -145,6 +146,10 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     continueStory: (owner, token) => game.story.continueStory(owner, token),
     submitStoryInput: (owner, token, optionId) => game.story.submitStoryInput(owner, token, optionId),
     accelerateStoryPresentation: (owner, token) => game.story.accelerateStoryPresentation(owner, token),
+    continueReplayStory: (replayId, token) => game.story.continueReplayStory(replayId, token),
+    submitReplayStoryInput: (replayId, token, optionId) => game.story.submitReplayStoryInput(replayId, token, optionId),
+    accelerateReplayStoryPresentation: (replayId, token) => game.story.accelerateReplayStoryPresentation(replayId, token),
+    cancelReplayStory: replayId => game.story.cancelReplayStory(replayId),
     useItem: itemId => game.items.useItem(itemId),
     purchaseEnhancement: enhancementId => game.enhancements.purchaseEnhancement(enhancementId),
     removeEnhancement: enhancementId => game.enhancements.removeEnhancement(enhancementId),

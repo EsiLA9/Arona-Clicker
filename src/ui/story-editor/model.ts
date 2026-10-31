@@ -1,14 +1,16 @@
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode } from '../../data-services/contracts/story-node';
+import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode, StoryMoveToAreaNode, StoryMoveToCharaspaceNode } from '../../data-services/contracts/story-node';
 import { isStoryLocalFlagAction, validStoryFlagName } from '../../data-services/validation/story-run-flags';
 import { localFlagAction, localFlagInput, parseLocalFlagInput, type LocalFlagInputs, type LocalFlagInput } from './flag-fields';
 import { projectStoryDefinition, stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
 import { applyLiteralKinds, clearNodeEditorState, editProperty as editStoryProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
 
-export type StoryDraftNode = Exclude<StoryNode, StoryOperationNode | StoryTransferNode>
+export type StoryDraftNode = Exclude<StoryNode, StoryOperationNode | StoryTransferNode | StoryMoveToAreaNode | StoryMoveToCharaspaceNode>
   | (Omit<StoryOperationNode, 'action'> & { action?: StoryOperationNode['action'] })
-  | (Omit<StoryTransferNode, 'transfer'> & { transfer?: StoryTransferNode['transfer'] });
-export type StoryDraftDocument = Omit<StoryDef, 'nodes'> & { nodes: StoryDraftNode[] };
+  | (Omit<StoryTransferNode, 'transfer'> & { transfer?: StoryTransferNode['transfer'] })
+  | (Omit<StoryMoveToAreaNode, 'areaId'> & { areaId?: StoryMoveToAreaNode['areaId'] })
+  | (Omit<StoryMoveToCharaspaceNode, 'characterId'> & { characterId?: StoryMoveToCharaspaceNode['characterId'] });
+export type StoryDraftDocument = Omit<StoryDef, 'nodes' | 'startContext'> & { nodes: StoryDraftNode[]; startContext?: StoryDef['startContext'] };
 export interface StoryEditorDraftState {
   version: 1;
   branches: Record<string, unknown>;
@@ -224,7 +226,7 @@ function insertAtCurrentPoint(state: StoryEditorState, draft: StoryDraft, node: 
   state.selectedNodeId = node.id;
   return true;
 }
-export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'operation' | 'transfer', senders: readonly StorySender[]): StoryDraftNode | undefined {
+export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'operation' | 'transfer' | 'moveToArea' | 'moveToCharaspace', senders: readonly StorySender[]): StoryDraftNode | undefined {
   const draft = currentDraft(state);
   if (!draft) return;
   const input = composer(state);

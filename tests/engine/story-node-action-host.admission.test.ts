@@ -106,7 +106,7 @@ describe('StoryNodeActionHost execute admission', () => {
       }
       return h.batches.length;
     });
-    const document: StoryNodeDocument = { id: 'story:sequence', name: 'Sequence', stages: { ask: { advance: 'input' } }, nodes: [
+    const document: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:sequence', name: 'Sequence', stages: { ask: { advance: 'input' } }, nodes: [
       { id: 'ask', type: 'click', stageId: 'ask', interaction: { kind: 'button', text: '获得并加好感', result: { actions: [
         { kind: 'state', effects: [{ op: 'grantCharacter', variantId: 'variant:test' }] },
         { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'variant:test', amount: 2 }] },

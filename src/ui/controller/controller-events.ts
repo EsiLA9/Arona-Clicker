@@ -8,6 +8,26 @@ import { createUIContext } from '../runtime/context';
 import { refreshAchievementRows, refreshRevealIfChanged } from './controller-core';
 import type { UIController } from './controller';
 import { refreshCultivation } from './controller-actions-contacts';
+import type { StoryStartContext } from '../../data-services/contracts/story-node';
+
+function routeToStoryContext(ctrl: UIController, context: StoryStartContext): void {
+  if (context.type === 'chara') {
+    ctrl.openContactsWorkspace(context.characterId);
+    return;
+  }
+  ctrl.navigateToService('game');
+  ctrl.panelState.leftTab = 'area';
+  ctrl.panelState.centerTab = 'chat';
+  ctrl.panelState.rightTab = 'spot';
+  ctrl.panelState.selectedVariantId = null;
+  ctrl.panelState.conversationVariantId = null;
+}
+
+function storyContextLabel(ctrl: UIController, context: StoryStartContext): string {
+  return context.type === 'area'
+    ? `Area · ${ctrl.game.registry.areas.get(context.areaId)?.name ?? context.areaId}`
+    : `通讯录 · ${ctrl.game.rosterSystem.getVariant(context.characterId)?.displayName ?? context.characterId}`;
+}
 
 /** 绑定引擎 EventBus 事件 → UI 响应（mount 时调用一次）。 */
 export function bindEvents(ctrl: UIController): void {
@@ -16,6 +36,7 @@ export function bindEvents(ctrl: UIController): void {
   let areaStoryQuickRefreshQueued = false;
   let playbackRefreshQueued = false;
   const playbackOwners = new Set<string | null>();
+  const playbackReplays = new Set<string>();
   let storyMovementBlocked = ctrl.game.story.isBlockingMovement();
   const scheduleAreaStoryQuickRefresh = (): void => {
     if (areaStoryQuickRefreshQueued) return;
@@ -56,30 +77,75 @@ export function bindEvents(ctrl: UIController): void {
       if (ctrl.started) ctrl.refreshPanels(['left']);
     });
   };
-  ctrl.game.eventBus.on('storyTriggered', () => scheduleStoryMovementRefresh());
+  ctrl.game.eventBus.on('storyTriggered', event => { if (event.type === 'storyTriggered' && !event.replayId) scheduleStoryMovementRefresh(); });
   ctrl.game.eventBus.on('storyTriggered', event => {
     if (event.type !== 'storyTriggered') return;
-    const pending = ctrl.pendingStoryReplayReturn;
-    if (pending?.entryId === event.storyId && pending.owner === (event.owner ?? null) && event.runId) pending.runId = event.runId;
+    const entry = ctrl.game.registry.storyEntries.get(event.storyId);
+    const context = entry ? ctrl.game.registry.stories.get(entry.storyId)?.startContext : undefined;
+    const replay = ctrl.panelState.storyReplay;
+    if (event.replayId && replay?.entryId === event.storyId && replay.owner === (event.owner ?? null)) {
+      replay.replayId = event.replayId;
+      replay.runId = event.runId;
+    }
+    if (context && (event.replayId || entry?.travelToStartContext)) {
+      if (event.replayId && replay?.replayId === event.replayId) {
+        replay.context = context;
+        replay.owner = context.type === 'chara' ? context.characterId : null;
+      }
+      routeToStoryContext(ctrl, context);
+      if (event.replayId && replay?.replayId === event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出场景：${storyContextLabel(ctrl, context)}` });
+      ctrl.scheduleRender();
+    }
+  });
+  ctrl.game.eventBus.on('storyContextMoved', event => {
+    if (event.type !== 'storyContextMoved') return;
+    if (event.replayId) {
+      const replay = ctrl.panelState.storyReplay;
+      if (!replay || replay.replayId !== event.replayId) return;
+      replay.context = event.context;
+      replay.owner = event.owner;
+    }
+    routeToStoryContext(ctrl, event.context);
+    if (event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出移动：${storyContextLabel(ctrl, event.context)}` });
+    ctrl.scheduleRender();
   });
   ctrl.game.eventBus.on('storyRunEnded', event => {
     if (event.type !== 'storyRunEnded') return;
-    const pending = ctrl.pendingStoryReplayReturn;
-    if (!pending || !pending.runId || pending.runId !== event.runId) return;
-    ctrl.pendingStoryReplayReturn = null;
-    if (event.reason !== 'completed') return;
-    ctrl.openStoryWorkspace({ selectedEntryId: pending.entryId, conversationOwner: pending.owner, mode: 'overview' });
+    const replay = ctrl.panelState.storyReplay;
+    if (event.replayId && replay?.replayId === event.replayId && replay.runId === event.runId) {
+      if (event.reason === 'replaced' && ctrl.game.story.getReplayPlaybackView(event.replayId)?.runId) return;
+      if (event.reason === 'completed') {
+        replay.completed = true;
+        ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
+      } else {
+        ctrl.commands.cancelReplayStory(event.replayId);
+        ctrl.panelState.storyReplay = undefined;
+      }
+      ctrl.scheduleRender();
+      return;
+    }
+    if (!replay?.runId || replay.runId !== event.runId) return;
+    if (event.reason === 'completed') {
+      replay.completed = true;
+      ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
+    } else ctrl.panelState.storyReplay = undefined;
     ctrl.scheduleRender();
   });
   ctrl.game.eventBus.on('storyPlaybackChanged', event => {
     if (event.type !== 'storyPlaybackChanged') return;
-    playbackOwners.add(event.owner);
+    if (event.replayId) playbackReplays.add(event.replayId);
+    else playbackOwners.add(event.owner);
     if (playbackRefreshQueued) return;
     playbackRefreshQueued = true;
     queueMicrotask(() => {
       playbackRefreshQueued = false;
       for (const owner of playbackOwners) ctrl.chat.syncCurrentStory({ ...ctrl.panelState, conversationVariantId: owner }, ctrl.game);
       playbackOwners.clear();
+      for (const replayId of playbackReplays) {
+        const replay = ctrl.panelState.storyReplay;
+        if (replay?.replayId === replayId) ctrl.chat.syncCurrentStory({ ...ctrl.panelState, conversationVariantId: replay.owner }, ctrl.game, replayId);
+      }
+      playbackReplays.clear();
       if (ctrl.started) ctrl.refreshChatPanel();
       scheduleStoryMovementRefresh();
     });
@@ -181,11 +247,19 @@ export function bindEvents(ctrl: UIController): void {
   });
   // 聊天流演出服务（Talklet）：清理全部聊天内容
   ctrl.game.eventBus.on('chatFlowCleared', event => {
-    if (event.type === 'chatFlowCleared') ctrl.chat.clearAll(ctrl.panelState, event.owner ?? null);
+    if (event.type !== 'chatFlowCleared') return;
+    const replay = ctrl.panelState.storyReplay;
+    if (event.replayId && replay?.replayId === event.replayId) {
+      replay.entries.length = 0;
+      replay.chatTexts.length = 0;
+    } else if (!event.replayId) ctrl.chat.clearAll(ctrl.panelState, event.owner ?? null);
   });
   // 聊天流演出服务（Talklet）：删除全部可变位置的演出文本（保留聊天历史）
   ctrl.game.eventBus.on('chatTextClearedAll', event => {
-    if (event.type === 'chatTextClearedAll') ctrl.chat.clearAllTexts(ctrl.panelState, event.owner);
+    if (event.type === 'chatTextClearedAll') {
+      if (event.replayId) ctrl.chat.activeChatTexts(ctrl.panelState, event.owner, event.replayId).length = 0;
+      else ctrl.chat.clearAllTexts(ctrl.panelState, event.owner);
+    }
   });
   // Story 开始前默认清理：避免中途进入（如羁绊卡片 startCardStory）时残留上一场的演出文本
   // 开幕标题横幅（showOpeningTitle 效果呼出）：挂到当前活跃流；标题优先级
@@ -205,7 +279,7 @@ export function bindEvents(ctrl: UIController): void {
   // Story 完结默认清理：结束后自动删除全部演出文本覆盖层（与 clearAllChatText 一致）
   ctrl.game.eventBus.on('storyRunEnded', event => {
     if (event.type !== 'storyRunEnded') return;
-    ctrl.chat.endRun(ctrl.panelState, event.owner, event.runId);
+    ctrl.chat.endRun(ctrl.panelState, event.owner, event.runId, event.replayId);
     scheduleStoryMovementRefresh();
   });
   // 聊天流演出服务（Talklet）：显示演出专用文本（临时 id + 百分比坐标，可嵌入标准 Talklet）
@@ -214,6 +288,7 @@ export function bindEvents(ctrl: UIController): void {
     ctrl.chat.pushChatText(ctrl.panelState, {
       id: event.id,
       runId: event.runId,
+      replayId: event.replayId,
       sourceOwner: event.owner,
       cardRequest: event.cardRequest,
       text: event.text,
@@ -227,13 +302,13 @@ export function bindEvents(ctrl: UIController): void {
       buttonText: event.buttonText,
       targetStoryId: event.targetStoryId,
       timestamp: Date.now(),
-    }, event.owner);
+    }, event.owner, event.replayId);
     if (!event.runId) ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：按临时 id 擦除演出专用文本
   ctrl.game.eventBus.on('chatTextCleared', event => {
     if (event.type !== 'chatTextCleared') return;
-    ctrl.chat.clearChatText(ctrl.panelState, event.id, event.owner);
+    ctrl.chat.clearChatText(ctrl.panelState, event.id, event.owner, event.replayId);
     if (!event.runId) ctrl.refreshChatPanel();
   });
 }

@@ -78,7 +78,7 @@ function makeDatapack(): Datapack {
       },
     ],
     stories: [
-      { id: 'test:story:bond_hoshino_1', name: '羁绊剧情 · 星野：测试', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+      { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:bond_hoshino_1', name: '羁绊剧情 · 星野：测试', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——测试——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师……', speaker: '星野' } },
 ] },

@@ -8,7 +8,7 @@ import type { StoryRunFlags } from '../../src/engine/contracts/story-run-flags';
 
 const storyId = 'test:story:local_flags';
 const entryId = 'test:activestory:local_flags';
-const definition: StoryDef = { id: storyId, name: 'Local Flags', stages: { first: { advance: 'auto' }, click: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
+const definition: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Local Flags', stages: { first: { advance: 'auto' }, click: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
   { id: 'set', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'internal', value: null } },
   { id: 'first', type: 'talklet', stageId: 'first', requiresFlag: 'provided', content: { kind: 'talk', text: 'provided' } },
   { id: 'click', type: 'click', stageId: 'click', requiresFlag: 'provided', interaction: { kind: 'button', text: 'continue', result: { actions: [{ kind: 'localFlag', op: 'remove', name: 'internal' }] } } },

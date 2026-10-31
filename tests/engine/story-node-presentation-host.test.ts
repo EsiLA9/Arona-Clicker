@@ -30,7 +30,7 @@ function pack(): Datapack {
     spots: [], enhancements: [],
     activeStories: [{ id: 'test:activestory:target', storyId: 'test:story:target', type: 'active', availableInits: [], triggerCondition: emptyCondition }],
     passiveStories: [],
-    stories: [{
+    stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: 'test:story:target', name: 'Target Story', stages: { main: { advance: 'auto' } },
       nodes: [{ id: 'line', type: 'talklet', stageId: 'main', content: { kind: 'narration', text: 'Target body' } }],
     }],

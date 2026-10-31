@@ -14,7 +14,7 @@ const button = (id: string, stageId: string, press?: { base: number; rand?: numb
   id, type: 'click', stageId,
   interaction: { kind: 'button', text: id, ...(press ? { press } : {}), ...(actions.length ? { result: { actions } } : {}) },
 });
-const documentOf = (id: string, nodes: StoryNodeDocument['nodes'], stages: StoryNodeDocument['stages']): StoryNodeDocument => ({ id, name: id, nodes, stages });
+const documentOf = (id: string, nodes: StoryNodeDocument['nodes'], stages: StoryNodeDocument['stages']): StoryNodeDocument => ({ id, name: id, startContext: { type: 'area', areaId: 'base:area:schale_main' }, nodes, stages });
 const documents = (...items: StoryNodeDocument[]): StoryNodeDocuments => new Map(items.map(item => [item.id, item]));
 const addResource = (resourceId: string, amount: number): StoryAction => ({ kind: 'state', effects: [{ op: 'addResource', resourceId, amount }] });
 

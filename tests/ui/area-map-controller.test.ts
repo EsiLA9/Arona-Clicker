@@ -94,7 +94,7 @@ describe('AreaMap real Controller flow', () => {
   });
 
   test('real passive leaveArea:false permits browsing but blocks travel, and a protected owner blocks entry', () => {
-    game.registry.load({ ...mergeFragments([]), stories: [{ id: 'area-map-demo:story:passive', name: '闲聊', stages: { 'p1': { advance: 'auto' } }, nodes: [
+    game.registry.load({ ...mergeFragments([]), stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'area-map-demo:story:passive', name: '闲聊', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '暂时留在这里。' } },
 ] }],
       passiveStories: [
@@ -186,7 +186,7 @@ describe('AreaMap real Controller flow', () => {
     vi.spyOn(Date, 'now').mockImplementation(() => now);
     const priorStory = 'area-map-demo:story:before-travel';
     const priorEntry = 'area-map-demo:activestory:before-travel';
-    game.registry.load({ ...mergeFragments([]), stories: [{ id: priorStory, name: 'Before travel', stages: { unused: { advance: 'auto' } }, nodes: [
+    game.registry.load({ ...mergeFragments([]), stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: priorStory, name: 'Before travel', stages: { unused: { advance: 'auto' } }, nodes: [
       { id: 'body', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: '移动前已有的正文' } },
     ] }], activeStories: [{ id: priorEntry, storyId: priorStory, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }] });
     expect(game.story.startActiveStory(priorEntry).success).toBe(true);

@@ -6,6 +6,7 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0347-story-context-and-presentation-movement]] | 实施中 | 按裁定扩展 StoryDef、StoryNode、编辑器与重播运行语义 |
 | [[ai/plan/task-0344-story-operation-checkpoints]] | 代码与构建验收完成 | Operation 作者语义已承接到 0345 的 Runtime 队列；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |
 | [[ai/plan/task-0343-story-authoring-full-coverage]] | 待审阅，未施工 | 已核对 StoryNode 契约与编辑/保存链路；含入口—含义全覆盖清单、缺口、投放闭环和分组验收，等待审阅 |
 | [[ai/plan/task-0342-free-story-flow]] | 代码与静态验收完成 | 自由 nodes 及 Click 衔接语义已承接到 0345；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |

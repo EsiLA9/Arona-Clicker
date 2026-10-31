@@ -1,6 +1,6 @@
 {
   "name": "AronaClicker",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "inits": [
     {
       "id": "base:init:schale_office",
@@ -10012,27 +10012,27 @@
   "pics": [
     {
       "id": "base:avatar(pic):hoshino",
-      "src": "/src/data/Hoshino.png",
+      "src": "zip:images/Hoshino.png",
       "label": "星野头像"
     },
     {
       "id": "base:sticker(pic):hoshino_selfie",
-      "src": "/src/data/Hoshino.png",
+      "src": "zip:images/Hoshino.png",
       "label": "星野自拍"
     },
     {
       "id": "base:background(pic):hoshino",
-      "src": "/src/data/Hoshino.png",
+      "src": "zip:images/Hoshino.png",
       "label": "场景背景示例"
     },
     {
       "id": "base:overlay(pic):triangles",
-      "src": "/src/data/background-triangles.svg",
+      "src": "zip:images/background-triangles.svg",
       "label": "三角形装饰叠层"
     },
     {
       "id": "base:overlay(pic):ba_triangles_svg",
-      "src": "/src/data/ba_triangles.svg",
+      "src": "zip:images/ba_triangles.svg",
       "label": "蔚蓝档案白色三角形叠层（SVG）"
     }
   ],
@@ -13734,6 +13734,10 @@
     {
       "id": "base:story:schale_welcome",
       "name": "欢迎来到夏莱",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -13931,6 +13935,10 @@
     {
       "id": "base:story:schale_briefing",
       "name": "设备简报",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -14006,6 +14014,10 @@
     {
       "id": "base:story:schale_flow_show",
       "name": "流剧场预演",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -14656,6 +14668,10 @@
     {
       "id": "base:story:schale_theme_lite_test",
       "name": "夏莱主厅·主题演出压力测试",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15132,6 +15148,10 @@
     {
       "id": "base:story:schale_theme_lite_insert",
       "name": "夏莱主题测试·插入支线",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15230,6 +15250,10 @@
     {
       "id": "base:story:schale_theme_lite_finish",
       "name": "夏莱主题测试·直接收束",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15320,6 +15344,10 @@
     {
       "id": "base:story:schale_tea",
       "name": "阿罗娜的茶点",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15380,6 +15408,10 @@
     {
       "id": "base:story:schale_printer",
       "name": "打印机的抱怨",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15440,6 +15472,10 @@
     {
       "id": "base:story:schale_archive",
       "name": "档案室的尘埃",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15500,6 +15536,10 @@
     {
       "id": "base:story:schale_sunset",
       "name": "窗边的晚霞",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15560,6 +15600,10 @@
     {
       "id": "base:story:schale_planner",
       "name": "日程表攻防",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15677,6 +15721,10 @@
     {
       "id": "base:story:schale_vending",
       "name": "贩卖机的秘密",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15737,6 +15785,10 @@
     {
       "id": "base:story:schale_night",
       "name": "深夜的夏莱",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -15797,6 +15849,10 @@
     {
       "id": "base:story:abydos_welcome",
       "name": "沙漠中的学园",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16002,6 +16058,10 @@
     {
       "id": "base:story:abydos_daily_committee",
       "name": "对策委员会的日常",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16062,6 +16122,10 @@
     {
       "id": "base:story:abydos_siesta",
       "name": "星野的午睡",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16131,6 +16195,10 @@
     {
       "id": "base:story:abydos_serika_shift",
       "name": "芹香的兼职",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16191,6 +16259,10 @@
     {
       "id": "base:story:abydos_money",
       "name": "还债日记",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16251,6 +16323,10 @@
     {
       "id": "base:story:millennium_calculation",
       "name": "优香的财务报告",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16311,6 +16387,10 @@
     {
       "id": "base:story:millennium_game_dev",
       "name": "游戏开发部的坚持",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16371,6 +16451,10 @@
     {
       "id": "base:story:millennium_hack",
       "name": "小雪的恶作剧",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16431,6 +16515,10 @@
     {
       "id": "base:story:millennium_server",
       "name": "服务器的秘密",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:abydos_campus"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16491,6 +16579,10 @@
     {
       "id": "base:story:millennium_welcome",
       "name": "数据与新生",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16658,6 +16750,10 @@
     {
       "id": "base:story:millennium_game_crisis_intro",
       "name": "游戏开发部的危机 · 开场",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16807,6 +16903,10 @@
     {
       "id": "base:story:millennium_game_crisis_whisper",
       "name": "美依的悄悄话",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16847,6 +16947,10 @@
     {
       "id": "base:story:millennium_game_crisis_debug",
       "name": "游戏开发部的危机 · 调试",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16914,6 +17018,10 @@
     {
       "id": "base:story:millennium_game_crisis_bribe",
       "name": "游戏开发部的危机 · 补给",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -16981,6 +17089,10 @@
     {
       "id": "base:story:millennium_game_crisis_end",
       "name": "游戏开发部的危机 · 收尾",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:millennium_lab"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17054,6 +17166,10 @@
     {
       "id": "base:story:serika_side_1",
       "name": "芹香的烦恼 (上)",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Serika"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17195,6 +17311,10 @@
     {
       "id": "base:story:serika_side_2",
       "name": "芹香的烦恼 (下)",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Serika"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17298,6 +17418,10 @@
     {
       "id": "base:story:run_chain_1",
       "name": "深夜巡逻 (一)",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17411,6 +17535,10 @@
     {
       "id": "base:story:run_chain_2",
       "name": "深夜巡逻 (二)",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17509,6 +17637,10 @@
     {
       "id": "base:story:run_chain_3",
       "name": "深夜巡逻 (三)",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17612,6 +17744,10 @@
     {
       "id": "base:story:hoshino_tea_time",
       "name": "星野的茶点时间",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17724,6 +17860,10 @@
     {
       "id": "base:story:hoshino_rooftop_hint",
       "name": "星野的天台邀约",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -17836,6 +17976,10 @@
     {
       "id": "base:story:hoshino_rooftop_meet",
       "name": "天台的相遇",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -18005,6 +18149,10 @@
     {
       "id": "base:story:hoshino_selfie",
       "name": "星野的自拍",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -18121,6 +18269,10 @@
     {
       "id": "base:story:hoshino_bond_invite",
       "name": "羁绊邀请",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -18212,6 +18364,10 @@
     {
       "id": "base:story:bond_hoshino_1",
       "name": "羁绊剧情 · 星野：午后的堤防",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-opening-0",
@@ -18383,6 +18539,10 @@
     {
       "id": "base:story:bond_hoshino_evening",
       "name": "羁绊剧情 · 星野：傍晚的河堤",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-opening-0",
@@ -18541,6 +18701,10 @@
     {
       "id": "base:story:affinity_hoshino_1",
       "name": "好感台阶 · 星野：午后的便当",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -18589,6 +18753,10 @@
     {
       "id": "base:story:affinity_hoshino_2",
       "name": "好感台阶 · 星野：黄昏的堤防",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -18652,6 +18820,10 @@
     {
       "id": "base:story:affinity_hoshino_bond_tail",
       "name": "羁绊尾巴 · 星野：堤防之后",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Hoshino"
+      },
       "nodes": [
         {
           "id": "p1-body",
@@ -19478,6 +19650,5 @@
       "t": "int",
       "v": 0
     }
-  },
-  "modName": "base"
+  }
 }

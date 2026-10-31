@@ -26,6 +26,7 @@ export const storyErrorText: Record<string, string> = {
   NoAvailableStory: '当前没有可触发的被动剧情',
   NotFound: '找不到剧情数据',
   NotReplayable: '该剧情不可重阅读',
+  PlaybackFailed: '剧情启动失败',
   PresentationPending: '当前演出尚未结束',
   StaleToken: '剧情状态已变化，请重新操作',
   WrongStoryType: '剧情类型不匹配',
@@ -70,6 +71,7 @@ export interface ChatEntry {
 export interface ChatTextEntry {
   id: string;
   runId?: string;
+  replayId?: string;
   sourceOwner?: string | null;
   cardRequest?: import('../../../data-services/contracts/story-node-actions').StoryEntryCard['request'];
   /** 直接文本内容（无 talklet 时使用）。 */
@@ -472,7 +474,7 @@ export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[]): strin
         ? renderOverlayTalklet(ctx, entry.talklet, entry.targetStoryId, inline)
         : renderOverlayText(ctx, entry, inline);
       return `
-      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}"${entry.cardRequest ? ` data-story-card-owner="${ctx.escapeHtml(entry.cardRequest.owner ?? '')}"` : ''}${entry.runId ? ` data-story-source-run="${ctx.escapeHtml(entry.runId)}" data-story-source-owner="${ctx.escapeHtml(entry.sourceOwner ?? '')}"` : ''} style="left: ${pctX}%; bottom: ${pctY}%;">
+      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}"${entry.cardRequest ? ` data-story-card-owner="${ctx.escapeHtml(entry.cardRequest.owner ?? '')}"` : ''}${entry.runId ? ` data-story-source-run="${ctx.escapeHtml(entry.runId)}" data-story-source-owner="${ctx.escapeHtml(entry.sourceOwner ?? '')}"` : ''}${entry.replayId ? ` data-story-source-replay="${ctx.escapeHtml(entry.replayId)}"` : ''} style="left: ${pctX}%; bottom: ${pctY}%;">
         ${body}
       </div>`;
     })

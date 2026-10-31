@@ -25,10 +25,10 @@ describe('Story 历史恢复', () => {
       { id: ENTRY, storyId: STORY, type: 'active', availableInits: [], triggerCondition: and(), replayable: true },
       { id: RESET, storyId: 'test:story:history-reset', type: 'active', availableInits: [], triggerCondition: and() },
     ], [
-      { id: 'test:story:history-reset', name: '清空测试历史', stages: {}, nodes: [
+      { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:history-reset', name: '清空测试历史', stages: {}, nodes: [
         { id: 'clear', type: 'operation', action: { kind: 'overlay', command: { command: 'clearFlow' } } },
       ] },
-      { id: STORY, name: '历史恢复', stages: { body: { advance: 'auto' } }, nodes: [
+      { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: STORY, name: '历史恢复', stages: { body: { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
   { id: 'p2-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
 ] },

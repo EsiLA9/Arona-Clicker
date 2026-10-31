@@ -165,10 +165,13 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     } : undefined);
   } else {
     if (node.type === 'operation') body = renderOperationPreview(ctx, node.action);
-    else {
+    else if (node.type === 'transfer') {
       const configured = Boolean(node.transfer);
       const label = configured ? '转移至另一 Story' : '尚未配置转移';
       body = `<div class="story-editor-action-node"><span>Transfer</span><strong>${label}</strong></div>`;
+    } else {
+      const target = node.type === 'moveToArea' ? node.areaId : node.characterId;
+      body = `<div class="story-editor-action-node"><span>${node.type === 'moveToArea' ? '移动到 Area' : '移动到 Chara'}</span><strong>${ctx.escapeHtml(target || '尚未选择目标')}</strong></div>`;
     }
   }
   const flagRecord = node.requiresFlag ? `<code class="story-editor-flag-reader-record" data-story-drop-target="story-flag-reader" data-story-flag-name="${ctx.escapeHtml(node.requiresFlag)}" style="--story-editor-choice-flag-color:${choiceFlagColor(node.requiresFlag)}" title="拖动节点到此记录上，以使用局部标记「${ctx.escapeHtml(node.requiresFlag)}」" aria-label="局部标记 ${ctx.escapeHtml(node.requiresFlag)}；可将其他节点拖到此处">${ctx.escapeHtml(node.requiresFlag)}</code>` : '';
@@ -198,10 +201,15 @@ function inspector(ctx: UIContext, state: StoryEditorState): string {
   const draft = currentDraft(state);
   if (!draft) return empty('新建或选择一个 Story 开始编辑。');
   const node = currentNode(state);
+  const startContext = draft.document.startContext;
   const e = ctx.escapeHtml;
   const readOnly = state.storageBlocked ? ' readonly' : '';
   if (!node) return `<div class="story-editor-fields" data-editor-key="document:${e(draft.draftId)}">
     <label>名称<input data-editor-key="name" data-editor-field="name" value="${e(draft.document.name)}"${readOnly}></label>
+    <label>起始对话空间<select data-editor-field="story-context-type"${state.storageBlocked ? ' disabled' : ''}><option value="area"${startContext?.type !== 'chara' ? ' selected' : ''}>Area / 通用聊天</option><option value="chara"${startContext?.type === 'chara' ? ' selected' : ''}>Chara / 通讯录</option></select></label>
+    ${startContext?.type === 'chara'
+      ? `<label>起始角色<select data-editor-field="story-context-character"${state.storageBlocked ? ' disabled' : ''}><option value="">选择角色</option>${[...ctx.game.registry.characterVariants.values()].map(item => `<option value="${e(item.id)}"${startContext.characterId === item.id ? ' selected' : ''}>${e(item.displayName)} · ${e(item.id)}</option>`).join('')}</select></label>`
+      : `<label>起始区域<select data-editor-field="story-context-area"${state.storageBlocked ? ' disabled' : ''}><option value="">选择 Area</option>${[...ctx.game.registry.areas.values()].map(item => `<option value="${e(item.id)}"${startContext?.type === 'area' && startContext.areaId === item.id ? ' selected' : ''}>${e(item.name)} · ${e(item.id)}</option>`).join('')}</select></label>`}
     <label>Story ID<code>${e(draft.document.id)}</code></label>
     <label>来源<span>${e(draft.sourceId ?? '本地新建')}</span></label>
     <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p></div>`;
@@ -264,7 +272,7 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
           <span class="send-bubble${canSend ? '' : ' disabled'}"><span class="send-text">确认发送</span><span class="send-arrow" aria-hidden="true">↗</span></span>
         </button>
       </div>
-      <div class="story-editor-actions">${button('click', '＋ Click', !editable)}${button('operation', '＋ Operation', !editable)}${button('transfer', '＋ Transfer', !editable)}</div></div>` };
+      <div class="story-editor-actions">${button('click', '＋ Click', !editable)}${button('operation', '＋ Operation', !editable)}${button('transfer', '＋ Transfer', !editable)}${button('moveToArea', '＋ 移动到 Area', !editable)}${button('moveToCharaspace', '＋ 移动到 Chara', !editable)}</div></div>` };
 }
 export function createStoryEditorInspectorColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
   return { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', '属性'), content: `<div data-editor-key="inspector">${inspector(ctx, state)}</div>` };

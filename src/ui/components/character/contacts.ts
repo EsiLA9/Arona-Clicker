@@ -267,6 +267,8 @@ export function renderConversationBody(
   sendGate: import('../shared/app-shell').SendGatePhase | null = null,
   storyGate: import('../shared/app-shell').StoryGateState | null = null,
   openingBanner: import('../shared/app-shell').ActiveBanner | null = null,
+  readOnly = false,
+  replayId?: string,
 ): string {
   const { game } = ctx;
   const variant = game.rosterSystem.getVariant(variantId);
@@ -276,7 +278,7 @@ export function renderConversationBody(
 
   return `
     <div class="ui-cluster ui-cluster--center-chat panel-body character-workspace__conversation" data-conversation="${ctx.escapeHtml(variantId)}">
-      ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner, true)}
+      ${renderConversationFlow(ctx, variantId, entries, chatTexts, sendState, sendGate, storyGate, openingBanner, true, readOnly, replayId)}
     </div>`;
 }
 
@@ -290,11 +292,13 @@ function renderConversationFlow(
   storyGate: import('../shared/app-shell').StoryGateState | null,
   openingBanner: import('../shared/app-shell').ActiveBanner | null,
   embedded = false,
+  readOnly = false,
+  replayId?: string,
 ): string {
   // 聊天沙盒：读取该角色对话空间自己游标上的当前剧情（与全局/其他角色并行互不干扰）
-  const story = ctx.game.getStoryView(variantId);
+  const story = replayId ? ctx.game.story.getReplayStoryView(replayId) : ctx.game.getStoryView(variantId);
   // 剧情演出中：choice 确认后渲染选项卡片；kizuna 页渲染羁绊卡片（均在流内）
-  const current = story && (
+  const current = !readOnly && story && (
     (sendState.mode === 'choice' && sendState.confirmed) ||
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
@@ -307,7 +311,7 @@ function renderConversationFlow(
     && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
 
   // 底部固定推进按钮：始终存在；门控/阻塞时不可推进（门控态由点击处理器转为节奏加速）
-  const footer = blocked
+  const footer = readOnly ? '' : blocked
     ? `
       <button class="send-button disabled" disabled>
         <span class="send-bubble disabled">
@@ -321,7 +325,7 @@ function renderConversationFlow(
     : renderSendButton(sendState, sendGate);
 
   return `
-    <div class="chat-pane" data-chat-owner="${ctx.escapeHtml(variantId)}">
+    <div class="chat-pane" data-chat-owner="${ctx.escapeHtml(variantId)}"${replayId ? ` data-story-replay-id="${ctx.escapeHtml(replayId)}"` : ''}>
       <div class="chat-stream conversation-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" ${FLOW_STREAM_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" role="log" aria-label="对话信息">
         ${renderChatHistory(entries, ctx)}
         ${current}
@@ -329,7 +333,7 @@ function renderConversationFlow(
       ${renderChatTexts(ctx, chatTexts)}
       ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
-      ${embedded ? footer : `<div class="conversation-footer">${footer}</div>`}
+      ${readOnly ? '' : embedded ? footer : `<div class="conversation-footer">${footer}</div>`}
     </div>`;
 }
 

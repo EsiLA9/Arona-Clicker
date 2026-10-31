@@ -25,7 +25,7 @@ export interface StoryFollowUp {
 }
 export interface StoryEntryBase {
   id: StoryId; storyId: StoryId; availableInits: InitId[]; tags?: TagPath[]; triggerCondition: ConditionGroup;
-  revealTriggers?: RevealTrigger[]; replayable?: boolean; completionStrategy?: 'simple' | 'conditional';
+  revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';
   conditionalRewards?: ConditionalReward[]; branchGuards?: BranchGuard[]; openingTitle?: string; extra?: ExtraCompound;
   reactions?: StoryEntryReaction[];
   followUps?: StoryFollowUp[];

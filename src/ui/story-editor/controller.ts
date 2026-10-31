@@ -262,10 +262,10 @@ export class StoryEditorController {
       const sender = element.dataset.editorSender;
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
       const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
-      if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer'].includes(nodeTypeTab)) {
+      if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(nodeTypeTab)) {
         const draft = currentDraft(this.state);
         const node = currentNode(this.state);
-        if (draft && node) selectNodeType(draft, node.id, nodeTypeTab as 'talklet' | 'click' | 'operation' | 'transfer');
+        if (draft && node) selectNodeType(draft, node.id, nodeTypeTab as import('./property-model').StoryNodeType);
       } else if (sidebarTab === 'stories' || sidebarTab === 'senders') this.state.sidebarMode = sidebarTab;
       else if (sender) {
         const draft = currentDraft(this.state);
@@ -287,6 +287,19 @@ export class StoryEditorController {
       else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
       else if (target.hasAttribute('data-editor-composer-text')) composer(this.state).text = target.value;
       else if (target.dataset.editorField === 'name') renameStory(this.state, target.value);
+      else if (draft && target.dataset.editorField === 'story-context-type' && event.type === 'change') {
+        const previous = draft.document.startContext;
+        draft.document = { ...draft.document, startContext: target.value === 'chara'
+          ? { type: 'chara', characterId: previous?.type === 'chara' ? previous.characterId : '' }
+          : { type: 'area', areaId: previous?.type === 'area' ? previous.areaId : '' } };
+        draft.dirty = true;
+      } else if (draft && target.dataset.editorField === 'story-context-area' && event.type === 'change') {
+        draft.document = { ...draft.document, startContext: { type: 'area', areaId: target.value } };
+        draft.dirty = true;
+      } else if (draft && target.dataset.editorField === 'story-context-character' && event.type === 'change') {
+        draft.document = { ...draft.document, startContext: { type: 'chara', characterId: target.value } };
+        draft.dirty = true;
+      }
       else if (target.dataset.editorField === 'text' || target.dataset.editorField === 'sender') editNode(this.state, target.dataset.editorField, target.value, senders);
       else if (target.dataset.editorField === 'local-flag-name') {
         if (event.type !== 'change') return;
@@ -529,7 +542,7 @@ export class StoryEditorController {
     if (this.state.storageBlocked && action !== 'info') return;
     if (action === 'save-to-runtime') { this.saveToRuntime(); return; }
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
-    if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer'].includes(action)) this.state.notice = null;
+    if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
     if (action === 'new') {
       if (this.save(false, false)) newStory(this.state);
     } else if (action === 'save') this.save(true, false);
@@ -537,7 +550,7 @@ export class StoryEditorController {
     else if (action === 'info' || action === 'rename') { this.state.selectedNodeId = null; this.focusName = action === 'rename'; }
     else if (action === 'delete-node') deleteNode(this.state);
     else if (action === 'up' || action === 'down') moveNode(this.state, action === 'up' ? -1 : 1);
-    else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer') {
+    else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer' || action === 'moveToArea' || action === 'moveToCharaspace') {
       const added = appendNode(this.state, action === 'send' ? 'text' : action, storySenders(createUIContext(this.ctrl.game)));
       if (added) this.revealNodeId = added.id;
     } else if (action === 'delete-draft') this.confirmDelete();

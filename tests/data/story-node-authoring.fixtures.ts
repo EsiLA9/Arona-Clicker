@@ -8,7 +8,7 @@ const card: StoryEntryCard = {
 };
 
 export const STORY_NODE_AUTHORING_EXAMPLES = {
-  s01Sequential: {
+  s01Sequential: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:sequential', name: '先敲门再进门',
     stages: { knock: { advance: 'input' }, enter: { advance: 'input' } },
     nodes: [
@@ -16,13 +16,13 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'enter', type: 'click', stageId: 'enter', interaction: { kind: 'button', text: '进门' } },
     ],
   },
-  s01Choice: {
+  s01Choice: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:choice', name: '敲门或离开', stages: { decide: { advance: 'input' } },
     nodes: [{ id: 'decide', type: 'click', stageId: 'decide', interaction: { kind: 'choice', options: [
       { id: 'knock', text: '敲门' }, { id: 'leave', text: '离开' },
     ] } }],
   },
-  s02ConfirmationAndSharedActions: {
+  s02ConfirmationAndSharedActions: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:routes', name: '确认后选择路线',
     stages: { briefing: { advance: 'input' }, decide: { advance: 'input' } },
     nodes: [
@@ -39,7 +39,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       } },
     ],
   },
-  s03WorkThenConfirm: {
+  s03WorkThenConfirm: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:work', name: '多击后确认',
     stages: { work: { advance: 'input' }, confirm: { advance: 'input' } },
     nodes: [
@@ -48,7 +48,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'reward', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 1 }] } },
     ],
   },
-  s04InsertThenContinue: {
+  s04InsertThenContinue: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:insert', name: '插播后回共同后继',
     stages: { ask: { advance: 'input' }, next: { advance: 'auto' } },
     nodes: [
@@ -61,7 +61,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'next', type: 'talklet', stageId: 'next', content: { kind: 'narration', text: '进入下一阶段。' } },
     ],
   },
-  s05Overlay: {
+  s05Overlay: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:overlay', name: '定位提示与正文分开', stages: { notice: { advance: 'input' } },
     nodes: [
       { id: 'show', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'tip', x: 0.85, y: 0.18,
@@ -72,7 +72,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'clear', type: 'operation', action: { kind: 'overlay', command: { command: 'clearId', id: 'tip' } } },
     ],
   },
-  s06EntryRequests: {
+  s06EntryRequests: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:requests', name: '系统请求与两种卡片宿主', stages: { invitation: { advance: 'input' } },
     nodes: [
       { id: 'system', type: 'operation', action: { kind: 'entryRequest', request: {
@@ -82,7 +82,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'card', type: 'click', stageId: 'invitation', interaction: { kind: 'entryCard', card } },
     ],
   },
-  s07Travel: {
+  s07Travel: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:travel', name: '旅行并提示', stages: { depart: { advance: 'input' }, arrived: { advance: 'auto' } },
     nodes: [
       { id: 'line', type: 'talklet', stageId: 'depart', content: { kind: 'talk', text: '我们去办公室。' } },
@@ -91,7 +91,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'arrived', type: 'talklet', stageId: 'arrived', content: { kind: 'talk', text: '到了。' } },
     ],
   },
-  multiLineStage: {
+  multiLineStage: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:multiple_lines', name: '两条正文共用一次输入', stages: { dialogue: { advance: 'input' } },
     nodes: [
       { id: 'first', type: 'talklet', stageId: 'dialogue', content: { kind: 'talk', text: '第一件事。' } },
@@ -99,7 +99,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'continue', type: 'click', stageId: 'dialogue', interaction: { kind: 'button', text: '继续' } },
     ],
   },
-  standaloneTransfer: {
+  standaloneTransfer: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
     id: 'test:story:transfer', name: '无显示的换段', stages: {},
     nodes: [{ id: 'jump', type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:next' } }],
   },

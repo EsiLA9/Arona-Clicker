@@ -31,9 +31,10 @@ export type GameEvent =
   | { type: 'initUnlocked'; initId: string }
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
   | { type: 'storyAreaTraveled'; areaId: string; owner?: string | null; runId?: string }
-  | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string }
-  | { type: 'storyPlaybackChanged'; owner: string | null }
-  | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason }
+  | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string; replayId?: string }
+  | { type: 'storyPlaybackChanged'; owner: string | null; replayId?: string }
+  | { type: 'storyContextMoved'; context: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string }; owner: string | null; runId?: string; replayId?: string }
+  | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason; replayId?: string }
   | { type: 'storyCompleted'; storyId: string }
   | { type: 'storyRewarded'; storyId: string; source: 'first' | 'repeat' | 'conditional'; effects: Effect[]; flags: string[]; owner?: string | null; runId?: string }
   | { type: 'poolGateChanged'; poolId: string; available: boolean }
@@ -68,17 +69,17 @@ export type GameEvent =
   | { type: 'themeEffectRequested'; effect: Effect }
   | { type: 'storyEffectRequested'; effect: Effect }
   | { type: 'chatFlowEffectRequested'; effect: Effect }
-  | { type: 'chatFlowCleared'; owner?: string | null; runId?: string }
-  | { type: 'chatTextClearedAll'; owner?: string | null; runId?: string }
+  | { type: 'chatFlowCleared'; owner?: string | null; runId?: string; replayId?: string }
+  | { type: 'chatTextClearedAll'; owner?: string | null; runId?: string; replayId?: string }
   | {
       type: 'chatTextShown'; id: string; text?: string; talklet?: EngineTalklet; x?: number; y?: number;
       align?: 'left' | 'center' | 'right'; kind?: ChatTextKind; style?: ChatTextStyle; title?: string;
       buttonText?: string; targetStoryId?: string;
       /** Minimal engine-side request shape; it deliberately does not import the data-services contract. */
       cardRequest?: { entryId: string; entryType: 'active'; owner: string | null; intent: 'card' };
-      owner?: string | null; runId?: string;
+      owner?: string | null; runId?: string; replayId?: string;
     }
-  | { type: 'chatTextCleared'; id: string; owner?: string | null; runId?: string }
+  | { type: 'chatTextCleared'; id: string; owner?: string | null; runId?: string; replayId?: string }
   | { type: 'openingTitleShown'; title?: string; owner?: string | null; runId?: string }
   & { stats?: StatsContext };
 

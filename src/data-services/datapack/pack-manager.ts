@@ -394,6 +394,9 @@ export class PackManager {
     }
     const orderIndex = new Map(this.order.map((id, index) => [id, index] as const));
     entries.sort((left, right) => (orderIndex.get(left.packRecordId) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(right.packRecordId) ?? Number.MAX_SAFE_INTEGER));
+    const orderedPacks = this.orderPacksByDependencies(entries.map(entry => this.packs.get(entry.packRecordId)!));
+    const orderedIds = new Map(orderedPacks.map((pack, index) => [pack.id, index] as const));
+    entries.sort((left, right) => orderedIds.get(left.packRecordId)! - orderedIds.get(right.packRecordId)!);
     return { entries };
   }
 
@@ -402,6 +405,8 @@ export class PackManager {
     const plan = this.buildRuntimeApplyPlan();
     this.applyRuntimePlan(plan, target);
     this.enabledIds = new Set(plan.entries.map(entry => entry.packRecordId));
+    const nextEnabledIds = plan.entries.map(entry => entry.packRecordId)[Symbol.iterator]();
+    this.order = this.order.map(id => this.enabledIds.has(id) ? nextEnabledIds.next().value! : id);
     const selectedByPane = new Map(plan.entries.map(entry => [entry.paneKey, entry.selectedSlot] as const));
     for (const pane of this.panes()) this.selectedSlots.set(pane.paneKey, selectedByPane.get(pane.paneKey) ?? 'none');
     this.persist();
@@ -442,16 +447,18 @@ export class PackManager {
   applyConfiguration(draft: PackConfigurationDraft, target: PackApplyTarget): void {
     this.validateConfiguration(draft);
     const enabled = new Set(draft.enabledIds);
-    const datapacks = draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!.datapack);
+    const orderedIds = this.orderPacksByDependencies(draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!)).map(pack => pack.id);
+    const datapacks = orderedIds.map(id => this.packs.get(id)!.datapack);
     target.validate?.(datapacks);
     const previousRuntimeState = this.runtimePackRecordIds;
     try {
-      this.applyDatapacks(datapacks, draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!), target);
+      this.applyDatapacks(datapacks, orderedIds.map(id => this.packs.get(id)!), target);
     } catch (error) {
       this.runtimePackRecordIds = previousRuntimeState;
       throw error;
     }
-    this.order = [...draft.order];
+    const nextEnabledIds = orderedIds[Symbol.iterator]();
+    this.order = draft.order.map(id => enabled.has(id) ? nextEnabledIds.next().value! : id);
     this.enabledIds = enabled;
     this.runtimePackRecordIds = new Map(draft.order
       .filter(id => enabled.has(id))
@@ -739,7 +746,13 @@ export class PackManager {
 
   enabledPacks(): readonly Datapack[] {
     this.validateEnabledSet();
-    return this.order.filter(id => this.enabledIds.has(id)).map(id => this.packs.get(id)!.datapack);
+    return this.orderPacksByDependencies(this.order.filter(id => this.enabledIds.has(id)).map(id => this.packs.get(id)!)).map(pack => pack.datapack);
+  }
+
+  datapacksForConfiguration(draft: PackConfigurationDraft): readonly Datapack[] {
+    this.validateConfiguration(draft);
+    const enabled = new Set(draft.enabledIds);
+    return this.orderPacksByDependencies(draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!)).map(pack => pack.datapack);
   }
 
   dependencyHints(): readonly PackDependencyHint[] {
@@ -823,7 +836,7 @@ export class PackManager {
 
   private datapacksFor(draft: PackConfigurationDraft): readonly Datapack[] {
     const enabled = new Set(draft.enabledIds);
-    return draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!.datapack);
+    return this.orderPacksByDependencies(draft.order.filter(id => enabled.has(id)).map(id => this.packs.get(id)!)).map(pack => pack.datapack);
   }
 
   private dependencyClosure(rootId: string, enabledIds: ReadonlySet<string>): Set<string> {
@@ -867,6 +880,27 @@ export class PackManager {
       throw error;
     }
     this.runtimePackRecordIds = new Map(plan.entries.map(entry => [entry.paneKey, entry.packRecordId] as const));
+  }
+
+  private orderPacksByDependencies(packs: readonly StoredPack[]): StoredPack[] {
+    const byModName = new Map(packs.map(pack => [pack.manifest.modName, pack] as const));
+    const ordered: StoredPack[] = [];
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+    const visit = (pack: StoredPack): void => {
+      if (visited.has(pack.id)) return;
+      if (visiting.has(pack.id)) throw new PackManagerError(`数据包依赖存在循环：${pack.manifest.modName}。`, 'runtime-plan-invalid');
+      visiting.add(pack.id);
+      for (const dependency of pack.manifest.dependencies) {
+        const dependencyPack = byModName.get(dependency);
+        if (dependencyPack) visit(dependencyPack);
+      }
+      visiting.delete(pack.id);
+      visited.add(pack.id);
+      ordered.push(pack);
+    };
+    for (const pack of packs) visit(pack);
+    return ordered;
   }
 
   private applyDatapacks(datapacks: readonly Datapack[], packs: readonly StoredPack[], target: PackApplyTarget): void {

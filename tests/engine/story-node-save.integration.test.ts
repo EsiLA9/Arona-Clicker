@@ -11,7 +11,7 @@ function setup() {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
     { id: entryId, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
-  ], [{ id: storyId, name: 'Checkpoint', stages: { work: { advance: 'input' }, body: { advance: 'auto' } }, nodes: [
+  ], [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Checkpoint', stages: { work: { advance: 'input' }, body: { advance: 'auto' } }, nodes: [
     { id: 'award', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 7 }] } },
     { id: 'overlay', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'hint', x: 0.2, y: 0.3, content: { kind: 'text', text: '恢复提示' } } } },
     { id: 'work', type: 'click', stageId: 'work', interaction: { kind: 'button', text: '继续', press: { base: 3, rand: 2 } } },

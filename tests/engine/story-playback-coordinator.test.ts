@@ -10,7 +10,7 @@ let game: GameInstance;
 function setup(nodes: StoryDef['nodes']) {
   game = new GameInstance();
   game.init([baseDatapack, makePack([{ id: entryId, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }],
-    [{ id: storyId, name: 'Runtime queue', stages: { body: { advance: 'auto' } }, nodes }])]);
+    [{ id: storyId, name: 'Runtime queue', startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { body: { advance: 'auto' } }, nodes }])]);
   game.story.clearAllCurrentStories();
   game.story.clearOutput(null);
   return game;
@@ -88,7 +88,7 @@ describe('Runtime Story presentation has one advancement authority', () => {
         { op: 'addResource', target: 'base:resource:credit', value: 3 },
       ] } },
       { id: tail, storyId: 'test:story:queue_tail', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
-    ], [g.registry.stories.get(storyId)!, { id: 'test:story:queue_tail', name: 'Tail', stages: { body: { advance: 'auto' } }, nodes: [
+    ], [g.registry.stories.get(storyId)!, { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:queue_tail', name: 'Tail', stages: { body: { advance: 'auto' } }, nodes: [
       { id: 'tail', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'tail' } },
     ] }]));
     g.eventBus.on('storyCompleted', event => { if (event.storyId === storyId) g.story.startActiveStory(tail); });

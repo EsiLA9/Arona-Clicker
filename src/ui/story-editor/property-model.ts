@@ -2,7 +2,7 @@ import type { StoryDraft, StoryDraftNode } from './model';
 
 /** Paths are relative to the selected node. Numeric segments address the current row position only. */
 export type PropertyPath = readonly (string | number)[];
-export type StoryNodeType = 'talklet' | 'click' | 'operation' | 'transfer';
+export type StoryNodeType = 'talklet' | 'click' | 'operation' | 'transfer' | 'moveToArea' | 'moveToCharaspace';
 export type Discriminator = 'kind' | 'command' | 'op' | 'entryType' | 'mode' | 'valueKind' | 'type';
 
 type PropertyEditorState = NonNullable<StoryDraft['editorState']>;
@@ -339,7 +339,7 @@ export function moveRowBy(draft: StoryDraft, nodeId: string, path: PropertyPath,
 }
 
 export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNodeType): boolean {
-  if (!['talklet', 'click', 'operation', 'transfer'].includes(type)) return false;
+  if (!['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(type)) return false;
   const node = selectedNode(draft, nodeId);
   if (!node || node.type === type) return Boolean(node);
   const state = editorState(draft);
@@ -353,7 +353,8 @@ export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNod
     if (!state.inactiveStageIds.includes(oldStage)) state.inactiveStageIds.push(oldStage);
   }
   const saved = state.branches[`${nodeId}|node:${type}`];
-  const next: Record<string, unknown> = { id: nodeId, ...(typeof node.requiresFlag === 'string' ? { requiresFlag: node.requiresFlag } : {}), ...(object(saved) ? structuredClone(saved) : {}), type };
+  const seed = type === 'moveToArea' ? { areaId: '' } : type === 'moveToCharaspace' ? { characterId: '' } : {};
+  const next: Record<string, unknown> = { id: nodeId, ...(typeof node.requiresFlag === 'string' ? { requiresFlag: node.requiresFlag } : {}), ...seed, ...(object(saved) ? structuredClone(saved) : {}), type };
   // Talklet and Click require their own stage declaration; a switched node keeps its cached stage or gets a fresh one.
   if (type === 'talklet' || type === 'click') {
     const stages = { ...draft.document.stages } as Record<string, { advance: 'auto' | 'input' }>;

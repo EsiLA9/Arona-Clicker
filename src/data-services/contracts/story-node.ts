@@ -2,6 +2,8 @@ import type { ExtraCompound } from '../../engine/types/extra';
 import type { ConditionGroup } from '../../engine/types/expression';
 import type { StoryId } from '../../engine/types/ids';
 import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-actions';
+import type { AreaId } from '../../engine/types/ids';
+import type { VariantId } from '../../engine/types/character';
 
 /** 文档内唯一的稳定局部身份：1–64位ASCII名，首位字母，后续字母/数字/_/-。 */
 export type StoryNodeId = string;
@@ -29,7 +31,9 @@ export interface StoryNodeDocument {
   readonly id: StoryId;
   /** 作者可读名称。 */
   readonly name: string;
-  /** 按执行顺序排列的四类顶层节点。 */
+  /** 起始对话空间由故事本体声明，不从 Active/Passive Entry 推断。 */
+  readonly startContext: StoryStartContext;
+  /** 按执行顺序排列的顶层节点。 */
   readonly nodes: readonly StoryNode[];
   /** 旧阶段兼容元数据；可继续保存，但不参与播放与节点顺序校验。 */
   readonly stages: Readonly<Record<StoryStageId, StoryStageDeclaration>>;
@@ -37,12 +41,18 @@ export interface StoryNodeDocument {
   readonly extra?: ExtraCompound;
 }
 
-/** 新作者原语允许的四类顶层执行节点。 */
+export type StoryStartContext =
+  | { readonly type: 'area'; readonly areaId: AreaId }
+  | { readonly type: 'chara'; readonly characterId: VariantId };
+
+/** 新作者原语允许的顶层执行节点。 */
 export type StoryNode =
   | StoryTalkletNode
   | StoryClickNode
   | StoryOperationNode
-  | StoryTransferNode;
+  | StoryTransferNode
+  | StoryMoveToAreaNode
+  | StoryMoveToCharaspaceNode;
 
 /** 四类顶层节点共有的稳定作者身份。 */
 export interface StoryNodeBase {
@@ -84,6 +94,18 @@ export interface StoryTransferNode extends StoryNodeBase {
   /** 顶层节点类型，固定为 transfer。 */ readonly type: 'transfer';
   /** goto 或 insert 控制流意图。 */
   readonly transfer: StoryTransfer;
+}
+
+/** 强制切换正式 Area，或在重播中仅呈现空间移动。 */
+export interface StoryMoveToAreaNode extends StoryNodeBase {
+  readonly type: 'moveToArea';
+  readonly areaId: AreaId;
+}
+
+/** 切换到指定角色通讯录空间；重播时只改变呈现目标。 */
+export interface StoryMoveToCharaspaceNode extends StoryNodeBase {
+  readonly type: 'moveToCharaspace';
+  readonly characterId: VariantId;
 }
 
 /** 可作为 Story 正文的有限呈现内容。 */

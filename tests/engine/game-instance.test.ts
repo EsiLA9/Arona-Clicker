@@ -741,7 +741,7 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{ id: 'test:story:click_flow', name: 'click flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
+      stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_flow', name: 'click flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '请按下按钮。', speaker: '阿罗娜' } },
   { id: 'p2-work', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '按下按钮', press: { base: 1, } } },
 ] }],
@@ -788,7 +788,7 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{ id: 'test:story:auto_flow', name: 'auto flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' } }, nodes: [
+      stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:auto_flow', name: 'auto flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '过渡一', speaker: '阿罗娜' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'narration', text: '过渡二' } },
   { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '过渡三', speaker: '阿罗娜' } },
@@ -845,7 +845,7 @@ describe('GameInstance (integration)', () => {
         triggerCondition: and(),
       }],
       passiveStories: [],
-      stories: [{ id: 'test:story:plain_flow', name: 'plain flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
+      stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:plain_flow', name: 'plain flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '没有后续 click 页的旁白' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '仍然点击推进', speaker: '阿罗娜' } },
 ] }],
@@ -1198,7 +1198,7 @@ describe('Extra 引擎消费（M4）', () => {
     ],
     passiveStories: [],
     stories: [
-      { id: 'test:story:story_a', name: 'Extra Story', stages: { 'p1': { advance: 'input' }, 'p2': { advance: 'auto' } }, nodes: [
+      { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:story_a', name: 'Extra Story', stages: { 'p1': { advance: 'input' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: 'page0' } },
   { id: 'p1-choice', type: 'click', stageId: 'p1', interaction: { kind: 'choice', sharedActions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 2 }, { op: 'addExtra', path: 'meta/power', amount: Expr.val(value('data', { path: 'meta/kills' })) }] }], options: [{ id: 'option1', text: 'A', condition: and(cond('extra', 'meta/kills', '>=', 5)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 3 }] }] } }, { id: 'option2', text: 'B', condition: and(cond('extra', 'meta/kills', '>=', 100)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 99 }] }] } }] } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: 'end' } },
@@ -1366,7 +1366,7 @@ describe('Extra 引擎消费（M4）', () => {
 function withStoryNodes(storyId: string, nodes: StoryNode[]): Datapack {
   return {
     ...baseDatapack,
-    stories: [...baseDatapack.stories, { id: storyId, name: storyId, stages: { input: { advance: 'input' }, response: { advance: 'auto' } }, nodes }],
+    stories: [...baseDatapack.stories, { id: storyId, name: storyId, startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { input: { advance: 'input' }, response: { advance: 'auto' } }, nodes }],
     passiveStories: [
       ...baseDatapack.passiveStories,
       { id: storyId, storyId, type: 'passive', triggerCondition: and(), repeatable: true, weight: 1, availableInits: [] },

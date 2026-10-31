@@ -327,11 +327,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   validatePackConfiguration(draft: PackConfigurationDraft): { ok: boolean; errors: readonly string[]; warnings: readonly string[] } {
     try {
-      this.packManager.validateConfiguration(draft);
       const registry = new Registry();
-      for (const id of draft.order) {
-        if (draft.enabledIds.includes(id)) registry.load(this.packManager.getPack(id)!.datapack);
-      }
+      for (const datapack of this.packManager.datapacksForConfiguration(draft)) registry.load(datapack);
       registry.validateAreaMapRefs();
       return { ok: true, errors: [], warnings: [] };
     } catch (error) {

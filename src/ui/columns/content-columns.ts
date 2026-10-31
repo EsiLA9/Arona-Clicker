@@ -33,12 +33,14 @@ export interface ChatColumnBinding extends ColumnAppearance {
   sendGate?: SendGatePhase | null;
   storyGate?: StoryGateState | null;
   openingBanner?: ActiveBanner | null;
+  readOnly?: boolean;
+  replayId?: string;
 }
 /** Display a chosen business stream; mounting is never a Story start/advance operation. */
 export function createChatColumn(ctx: UIContext, binding: ChatColumnBinding): WorkspaceColumnSpec {
   const body = binding.owner
-    ? renderConversationBody(ctx, binding.owner, binding.entries, binding.chatTexts ?? [], binding.sendState, binding.sendGate ?? null, binding.storyGate ?? null, binding.openingBanner ?? null)
-    : '<div class="ui-cluster ui-cluster--center-chat panel-body">' + renderChatContent(ctx, binding.entries, binding.chatTexts ?? [], binding.sendState, binding.sendGate ?? null, binding.storyGate ?? null, binding.openingBanner ?? null) + '</div>';
+    ? renderConversationBody(ctx, binding.owner, binding.entries, binding.chatTexts ?? [], binding.sendState, binding.sendGate ?? null, binding.storyGate ?? null, binding.openingBanner ?? null, binding.readOnly ?? false, binding.replayId)
+    : '<div class="ui-cluster ui-cluster--center-chat panel-body">' + renderChatContent(ctx, binding.entries, binding.chatTexts ?? [], binding.sendState, binding.sendGate ?? null, binding.storyGate ?? null, binding.openingBanner ?? null, binding.readOnly ?? false, binding.replayId) + '</div>';
   return { key: binding.key ?? 'chat', definitionId: 'chat', bindingKey: binding.owner ?? '#global',
     slot: 'center', hostId: 'centerPanel.chat', themeScope: 'center.chat', surface: 'panel', scroll: 'none',
     ...binding.appearance, header: heading(ctx, binding, 'center'), onBack: binding.onBack, ...actions(binding), content: body };

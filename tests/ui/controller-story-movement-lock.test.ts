@@ -10,7 +10,7 @@ const WELCOME_STORY = 'base:story:schale_welcome';
 const WELCOME_ENTRY = 'base:activestory:schale_welcome';
 const TARGET_AREA = 'base:area:schale_library';
 
-const oneBodyWelcome: StoryDef = {
+const oneBodyWelcome: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
   id: WELCOME_STORY,
   name: '单页欢迎剧情',
   stages: { body: { advance: 'auto' } },

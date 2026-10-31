@@ -5,8 +5,8 @@ import type { ConditionGroup } from '../../src/engine/types/expression';
 import { projectStoryDefinition } from '../../src/data-services/authoring/story-definition-projection';
 import { STORY_NODE_AUTHORING_EXAMPLES } from './story-node-authoring.fixtures';
 
-const operation = (action: StoryAction): StoryDef => ({ id: 'test:story:acceptance', name: '验收', stages: {}, nodes: [{ id: 'op', type: 'operation', action }] });
-const withClick = (interaction: unknown): unknown => ({ id: 'test:story:acceptance', name: '验收', stages: { input: { advance: 'input' } }, nodes: [{ id: 'click', type: 'click', stageId: 'input', interaction }] });
+const operation = (action: StoryAction): StoryDef => ({ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:acceptance', name: '验收', stages: {}, nodes: [{ id: 'op', type: 'operation', action }] });
+const withClick = (interaction: unknown): unknown => ({ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:acceptance', name: '验收', stages: { input: { advance: 'input' } }, nodes: [{ id: 'click', type: 'click', stageId: 'input', interaction }] });
 
 describe('0336 independent data acceptance', () => {
   it('round-trips the complete declared StoryNode example set through detached explicit construction', () => {

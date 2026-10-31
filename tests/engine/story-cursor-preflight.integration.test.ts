@@ -63,7 +63,7 @@ describe('Story cursor save preflight', () => {
     const entry: ActiveStoryEntry = {
       id: 'test:activestory:choice_insert_root', storyId: rootId, type: 'active', availableInits: [], triggerCondition: and(),
     };
-    const root: StoryDef = {
+    const root: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: rootId, name: 'choice insert root',
       stages: { choose: { advance: 'input' }, after: { advance: 'auto' } },
       nodes: [
@@ -74,7 +74,7 @@ describe('Story cursor save preflight', () => {
         { id: 'root-return', type: 'talklet', stageId: 'after', content: { kind: 'narration', text: 'Back in root.' } },
       ],
     };
-    const child: StoryDef = {
+    const child: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: childId, name: 'choice insert child', stages: { child: { advance: 'auto' } },
       nodes: [{ id: 'child-body', type: 'talklet', stageId: 'child', content: { kind: 'narration', text: 'Child.' } }],
     };

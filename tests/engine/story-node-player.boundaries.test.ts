@@ -7,7 +7,7 @@ import { StoryNodePlayer } from '../../src/arona-clicker/services/story/story-no
 const ROOT = 'test:story:boundary-root';
 const source = { entryId: 'test:activestory:boundary', owner: null } as const;
 const talk = (id: string, stageId: string, text = id): StoryTalkletNode => ({ id, type: 'talklet', stageId, content: { kind: 'talk', text } });
-const documentOf = (id: string, nodes: StoryNodeDocument['nodes'], stages: StoryNodeDocument['stages'] = {}): StoryNodeDocument => ({ id, name: id, nodes, stages });
+const documentOf = (id: string, nodes: StoryNodeDocument['nodes'], stages: StoryNodeDocument['stages'] = {}): StoryNodeDocument => ({ id, name: id, startContext: { type: 'area', areaId: 'base:area:schale_main' }, nodes, stages });
 const documents = (...items: StoryNodeDocument[]): StoryNodeDocuments => new Map(items.map(item => [item.id, item]));
 const credit = (amount = 1): StoryAction => ({ kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount }] });
 

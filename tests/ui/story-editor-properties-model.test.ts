@@ -5,7 +5,7 @@ import { StoryDraftPersistence } from '../../src/ui/story-editor/persistence';
 import { addRow, editProperty, editStage, missingEnabledOptionalIssues, moveRow, optionalEnabled, readProperty, removeRow, rowIdAt, selectDiscriminant, selectNodeType, selectThemeScope, setNodeStage, toggleOptional } from '../../src/ui/story-editor/property-model';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
 
-const story: StoryDef = {
+const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
   id: 'test:story:properties', name: '属性缓存',
   nodes: [
     { id: 'talk', type: 'talklet', stageId: 's1', content: { kind: 'talk', speaker: '老师', text: 'Hi', image: 'test:image:portrait' }, presentation: { side: 'left' }, pacing: { typing: 2 } },

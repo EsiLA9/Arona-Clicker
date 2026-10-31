@@ -39,7 +39,7 @@ const transfer = (id: string): StoryTransferNode => ({
 });
 
 const documentOf = (nodes: readonly StoryNode[], stages: StoryNodeDocument['stages']): StoryNodeDocument => ({
-  id: 'base:story:structure-test', name: '结构校验样例', nodes, stages,
+  id: 'base:story:structure-test', name: '结构校验样例', startContext: { type: 'area', areaId: 'base:area:schale_main' }, nodes, stages,
 });
 
 const expectIssue = (document: StoryNodeDocument, path: string, code: string) => {

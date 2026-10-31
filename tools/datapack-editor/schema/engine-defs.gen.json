@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T17:10:19.237Z",
+  "generatedAt": "2026-10-31T15:48:01.542Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -17567,6 +17567,12 @@
           "tsType": "boolean"
         },
         {
+          "key": "travelToStartContext",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean"
+        },
+        {
           "key": "completionStrategy",
           "required": false,
           "kind": "enum",
@@ -17828,6 +17834,12 @@
         },
         {
           "key": "replayable",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean"
+        },
+        {
+          "key": "travelToStartContext",
           "required": false,
           "kind": "bool",
           "tsType": "boolean"
@@ -18185,11 +18197,18 @@
           "description": "作者可读名称。"
         },
         {
+          "key": "startContext",
+          "required": true,
+          "kind": "hand",
+          "tsType": "StoryStartContext",
+          "description": "起始对话空间由故事本体声明，不从 Active/Passive Entry 推断。"
+        },
+        {
           "key": "nodes",
           "required": true,
           "kind": "hand",
           "tsType": "readonly StoryNode[]",
-          "description": "按执行顺序排列的四类顶层节点。"
+          "description": "按执行顺序排列的顶层节点。"
         },
         {
           "key": "stages",
@@ -24294,6 +24313,8 @@
     "StoryFollowUp",
     "StoryId",
     "StoryLocalFlagAction",
+    "StoryMoveToAreaNode",
+    "StoryMoveToCharaspaceNode",
     "StoryNarrationContent",
     "StoryNode",
     "StoryNodeBase",
@@ -24325,6 +24346,7 @@
     "StoryStageAdvance",
     "StoryStageDeclaration",
     "StoryStageId",
+    "StoryStartContext",
     "StoryStateAction",
     "StoryTalkContent",
     "StoryTalkletNode",

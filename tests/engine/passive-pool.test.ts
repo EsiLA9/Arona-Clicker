@@ -457,7 +457,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     const sourceId = 'base:passivestory:hoshino_conv_2';
     const source = g.registry.passiveStories.get(sourceId)!;
-    const parallelStory: StoryDef = { id: 'test:story:parallel_offer', name: '并行邀约', stages: { 'p1': { advance: 'auto' } }, nodes: [
+    const parallelStory: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:parallel_offer', name: '并行邀约', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '并行剧情。' } },
 ] };
     const parallelActive: ActiveStoryEntry = {
@@ -534,7 +534,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     finishStory(g);
-    const story: StoryDef = { id: 'test:story:condition_gate', name: '条件剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:condition_gate', name: '条件剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '条件已达成。' } },
 ] };
     const entry: ActiveStoryEntry = {
@@ -568,7 +568,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     finishStory(g);
-    const story: StoryDef = { id: 'test:story:shared_delivery', name: '共用剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:shared_delivery', name: '共用剧情', stages: { 'p1': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '同一份剧情。' } },
 ] };
     const makeEntry = (id: string): ActiveStoryEntry => ({

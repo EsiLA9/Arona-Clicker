@@ -17,6 +17,7 @@ import { createUIContext, type UIContext } from '../runtime/context';
 import { buildScopedThemeCompatibilityVars, buildScopedThemeNodeVars, buildThemeNodeVars, resolveThemeNodes, type ThemeNodeName } from '../presentation/theme-palette';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import { syncOuterBackground } from '../presentation/outer-background';
+import { isReplayPresentationActive } from '../workspace/foreground-interaction';
 
 /**
  * 主题浮窗跨 render 重建 #app 的存活：render 全量重建会销毁浮窗 DOM，
@@ -55,12 +56,20 @@ export function restoreThemeFloat(ctrl: UIController): void {
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
   ctrl.game.storyPresentation.activate(ctrl.panelState.conversationVariantId);
-  ctrl.game.colorSystem.syncSelectedThemeFromState(
-    ctrl.game.state,
-    ctrl.game.userThemeService.capability().active,
-    ctrl.panelState.workspace?.type === 'contacts'
+  const replayContext = isReplayPresentationActive(ctrl.panelState) ? ctrl.panelState.storyReplay?.context : undefined;
+  const area = replayContext?.type === 'area' ? ctrl.game.registry.areas.get(replayContext.areaId) : undefined;
+  const state = area
+    ? { ...ctrl.game.state, activeInit: area.initId, currentAreaId: area.id }
+    : ctrl.game.state;
+  const conversationVariantId = replayContext?.type === 'chara'
+    ? replayContext.characterId
+    : ctrl.panelState.workspace?.type === 'contacts'
       ? ctrl.panelState.workspace.conversationVariantId
-      : undefined,
+      : undefined;
+  ctrl.game.colorSystem.syncSelectedThemeFromState(
+    state,
+    ctrl.game.userThemeService.capability().active,
+    conversationVariantId,
   );
 }
 

@@ -693,6 +693,7 @@ export interface GameCommands {
   acceptAreaStoryDelivery(storyEntryId: string, areaId: AreaId): StoryStartResult;
   startCardStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult;
   replayStory(storyId: string, owner?: string | null): StoryStartResult;
+  startReplayEntry(replayId: string, storyEntryId: string): StoryStartResult;
   triggerPassiveStory(initId?: string, owner?: string | null): StoryStartResult;
   triggerAffectionPush(owner: string): StoryStartResult;
   triggerTailPush(owner: string, storyId: string): StoryStartResult;
@@ -721,6 +722,10 @@ export interface GameCommands {
   continueStory(owner: string | null, token: string): StoryAdvanceResult;
   submitStoryInput(owner: string | null, token: string, optionId?: string): StoryAdvanceResult;
   accelerateStoryPresentation(owner: string | null, token: string): boolean;
+  continueReplayStory(replayId: string, token: string): StoryAdvanceResult;
+  submitReplayStoryInput(replayId: string, token: string, optionId?: string): StoryAdvanceResult;
+  accelerateReplayStoryPresentation(replayId: string, token: string): boolean;
+  cancelReplayStory(replayId: string): void;
   useItem(itemId: string): UseItemResult;
   purchaseEnhancement(enhancementId: string): EnhancementPurchaseResult;
   removeEnhancement(enhancementId: string): boolean;

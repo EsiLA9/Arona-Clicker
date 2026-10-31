@@ -9,7 +9,7 @@ import { and } from '../../../engine/def-factory/condition';
 abstract class StoryEntryBaseBuilder {
   protected readonly _id: StoryId; protected _storyId: StoryId; protected _triggerCondition: ConditionGroup = and();
   protected _availableInits: InitId[] = []; protected _tags: TagPath[] = []; protected _revealTriggers: RevealTrigger[] = [];
-  protected _replayable = false; protected _completionStrategy?: 'simple' | 'conditional'; protected _conditionalRewards: ConditionalReward[] = [];
+  protected _replayable = false; protected _travelToStartContext = false; protected _completionStrategy?: 'simple' | 'conditional'; protected _conditionalRewards: ConditionalReward[] = [];
   protected _branchGuards: BranchGuard[] = []; protected _openingTitle?: string; protected _extra?: ExtraCompound;
   protected _reactions: StoryEntryReaction[] = [];
   protected _followUps: StoryFollowUp[] = [];
@@ -19,6 +19,7 @@ abstract class StoryEntryBaseBuilder {
   when(condition: ConditionGroup): this { this._triggerCondition = condition; return this; }
   tags(...paths: TagPath[]): this { this._tags.push(...paths); return this; }
   replayable(): this { this._replayable = true; return this; }
+  travelToStartContext(value = true): this { this._travelToStartContext = value; return this; }
   conditionalReward(condition: ConditionGroup, ...effects: Effect[]): this { this._conditionalRewards.push({ condition, effects }); return this; }
   branchGuard(storyId: StoryId, prerequisites: { storyId: StoryId; talkletIndex: number }[], denialMessage: string): this { this._branchGuards.push({ storyId, prerequisites, denialMessage }); return this; }
   reveal(target: RevealTarget, condition?: Condition | ConditionGroup): this { this._revealTriggers.push(condition ? { reveal: target, condition } : { reveal: target }); return this; }
@@ -29,7 +30,7 @@ abstract class StoryEntryBaseBuilder {
   protected toBase(): StoryEntryBase {
     const def: StoryEntryBase = { id: this._id, storyId: this._storyId, triggerCondition: this._triggerCondition, availableInits: this._availableInits };
     if (this._tags.length) def.tags = this._tags; if (this._revealTriggers.length) def.revealTriggers = this._revealTriggers;
-    if (this._replayable) def.replayable = true; if (this._completionStrategy) def.completionStrategy = this._completionStrategy;
+    if (this._replayable) def.replayable = true; if (this._travelToStartContext) def.travelToStartContext = true; if (this._completionStrategy) def.completionStrategy = this._completionStrategy;
     if (this._conditionalRewards.length) def.conditionalRewards = this._conditionalRewards; if (this._branchGuards.length) def.branchGuards = this._branchGuards;
     if (this._openingTitle) def.openingTitle = this._openingTitle; if (this._extra) def.extra = this._extra;
     if (this._reactions.length) def.reactions = this._reactions;

@@ -5,6 +5,7 @@ export type { StoryOutputContent, StoryOutputEntry };
 /** One pure projection; reading it never creates timers or advances the Player. */
 export interface StoryPresentationView {
   readonly owner: string | null;
+  readonly replayId?: string;
   readonly runId?: string;
   readonly epoch: number;
   readonly revision: number;
