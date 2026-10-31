@@ -15,7 +15,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import type { GameEvent } from '../../src/engine/types';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
-import { finishWelcome, finishStory } from './story-test-fixtures';
+import { finishWelcome, finishStory, settleStoryPresentation } from './story-test-fixtures';
 
 const chatShowStory: StoryDef = { id: 'test:story:chat_show', name: '演出文本演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 舞台拉开 ——' } },
@@ -77,7 +77,7 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
   });
 
   afterEach(() => {
-    game.stop();
+    game.dispose();
     events.length = 0;
   });
 
@@ -161,7 +161,7 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     expect(cleared?.id).toBe('perf:title');
   });
 
-  test('首页 showOpeningTitle 随剧情开始立即呼出（无需先推进），推进离开首页不重复', () => {
+  test('首页 showOpeningTitle 开始即呼出，展示结束后自动衔接正文且不重复', () => {
     finishWelcome(game);
     const before = events.filter(e => e.type === 'openingTitleShown').length;
     game.story.startActiveStory('test:story:opening_title');
@@ -169,9 +169,13 @@ describe('聊天流演出服务（clearAllChatFlow / showChatText / clearIdChatF
     expect(afterStart).toBe(before + 1);
     const shown = events.filter(e => e.type === 'openingTitleShown').at(-1) as { title?: string };
     expect(shown.title).toBe('星野 · 午后的堤防');
-    // 推进离开首页：跳过该 op 防重复
+    expect(game.story.getPlaybackView().phase).toBe('banner');
+    expect(game.story.continueStory(null, game.story.getPlaybackView().token!).success).toBe(false);
+    settleStoryPresentation(game);
+    // 标题展示结束才进入正文；继续正文不再执行标题 Operation。
     const first = game.story.getCurrentStoryView()!;
-    expect(game.story.advanceStory(undefined, null, first.token).success).toBe(true);
+    expect(first.nodeId).toBe('p1-body');
+    expect(game.story.continueStory(null, game.story.getPlaybackView().token!).success).toBe(true);
     expect(events.filter(e => e.type === 'openingTitleShown').length).toBe(afterStart);
   });
 

@@ -258,9 +258,13 @@ export class AreaMapController {
     s.submitting = true;
     this.apply();
     try {
+      const owner = this.ctrl.panelState.conversationVariantId;
+      const before = this.ctrl.game.story.getPlaybackView(owner);
+      const timestamp = Date.now();
+      const afterStoryOutput = { epoch: before.epoch, sequence: before.entries.at(-1)?.sequence ?? 0 };
       const result = this.ctrl.commands.travelToArea(areaId);
       if (result.success) {
-        this.ctrl.pendingTravelChats.push(`移动到了 ${this.ctrl.game.world.areas.get(result.areaId)?.name ?? '目标区域'}`);
+        this.ctrl.pendingTravelChats.push({ text: `移动到了 ${this.ctrl.game.world.areas.get(result.areaId)?.name ?? '目标区域'}`, owner, timestamp, afterStoryOutput });
         this.close(false); this.ctrl.scheduleRender();
       } else {
         s.feedback = { mapId: s.currentMapId, nodeId, text: areaMapReason(result.error) };

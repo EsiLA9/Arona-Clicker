@@ -27,4 +27,4 @@ startMap gameplay-b:map:maprun-status-example --enter-office --move-to practice
 - `target: 'source'` 让本例无需额外目标选择。若使用 `target: 'primary'`，来源 Action 的主目标必须是 Party Character，且持有者仍须属于固定队伍。
 - Status 时长只随成功的 Encounter roundEnd 推进。Shop、节点移动、Activity 转场和页面停留都不会消耗时长；新施加的实例也不会在创建它的同一 Commit 中触发。
 
-历史宽屏人工屏幕验收步骤和记录字段见 [[ai/archive/plan/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U30-screen-acceptance-report]]。本文件介绍作者语义，不记录人工屏幕验收结论。
+历史宽屏人工屏幕验收步骤和记录字段见 Task 0320（原归档已删除）。本文件介绍作者语义，不记录人工屏幕验收结论。

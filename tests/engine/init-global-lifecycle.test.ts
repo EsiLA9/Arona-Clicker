@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import { whisperClickPack, finishWelcome } from './story-test-fixtures';
+import { whisperClickPack, finishWelcome, settleStoryPresentation } from './story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';
@@ -105,8 +105,13 @@ describe('Init 生命周期：Global 数据与 per-Init 数据分离', () => {
     finishWelcome(game);
 
     expect(game.story.startActiveStory('test:story:whisper_click').success).toBe(true);
-    expect(game.story.advanceStory()).toMatchObject({ success: true, finished: false });
+    settleStoryPresentation(game);
+    const ready = game.story.getPlaybackView();
+    expect(ready.phase).toBe('continue');
+    expect(game.story.continueStory(null, ready.token!)).toMatchObject({ success: true, finished: false });
+    settleStoryPresentation(game);
     expect(game.getView().currentStory?.storyDefId).toBe('test:story:whisper_click_sub');
+    expect(game.story.getPlaybackView().phase).toBe('input');
     expect(game.state.initSnapshots?.[OFFICE]).toBeUndefined();
 
     expect(game.inits.resumeInit(MILLENNIUM)).toBe(true);
@@ -118,6 +123,7 @@ describe('Init 生命周期：Global 数据与 per-Init 数据分离', () => {
     expect(game.inits.resumeInit(OFFICE)).toBe(true);
     expect(game.getView().currentStory?.storyDefId).toBe('test:story:whisper_click_sub');
     expect(game.getView().currentStory?.pageIndex).toBe(0);
+    expect(game.story.getPlaybackView().phase).toBe('input');
   });
 
   test('同一 Runtime 读档前清理旧 Affector 实例', () => {

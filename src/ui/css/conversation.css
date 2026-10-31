@@ -29,7 +29,7 @@
    height: auto;
 }
 
-/* 底部回复按钮与一般聊天共用同款容器语义：只排布间隔，内边距由 panel-body 统一提供。 */
+/* 底部推进按钮与一般聊天共用同款容器语义：只排布间隔，内边距由 panel-body 统一提供。 */
 .conversation-footer {
    flex-shrink: 0;
    display: flex;

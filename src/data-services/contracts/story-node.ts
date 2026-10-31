@@ -6,22 +6,22 @@ import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-ac
 /** 文档内唯一的稳定局部身份：1–64位ASCII名，首位字母，后续字母/数字/_/-。 */
 export type StoryNodeId = string;
 
-/** 一组正文与至多一个输入点的显式阶段局部名；词法与StoryNodeId一致。 */
+/** 兼容旧 StoryDef 的阶段局部名；播放顺序由 nodes 决定。 */
 export type StoryStageId = string;
 
-/** 阶段结束时的作者推进意图。 */
+/** 兼容旧 StoryDef 的推进标记；当前播放不读取它。 */
 export type StoryStageAdvance = 'auto' | 'input';
 
-/** 声明一个阶段是否自动继续或等待其显式 Click。 */
+/** 旧阶段声明，保留以兼容已有定义；不约束节点顺序、等待点或播放。 */
 export interface StoryStageDeclaration {
-  /** auto 阶段有正文且无 Click；input 阶段恰有一个末位 Click，正文可为空。 */
+  /** 历史标记；当前播放器不按 auto/input 分组。 */
   readonly advance: StoryStageAdvance;
 }
 
 /**
  * 正式 StoryDef 的作者文档结构。
  *
- * nodes 是唯一执行顺序；stages 只声明阶段推进方式，不复制节点成员或阶段顺序。
+ * nodes 是唯一执行顺序；stages 是兼容旧数据的元信息，不复制节点成员或阶段顺序。
  * StoryDef、Datapack、Registry 与节点播放器均直接使用此格式；不包含旧 Talklet 作者格式。
  */
 export interface StoryNodeDocument {
@@ -31,7 +31,7 @@ export interface StoryNodeDocument {
   readonly name: string;
   /** 按执行顺序排列的四类顶层节点。 */
   readonly nodes: readonly StoryNode[];
-  /** 以 stageId 为键的阶段模式声明；键的枚举顺序不表示播放顺序。 */
+  /** 旧阶段兼容元数据；可继续保存，但不参与播放与节点顺序校验。 */
   readonly stages: Readonly<Record<StoryStageId, StoryStageDeclaration>>;
   /** 剧情附加数据。 */
   readonly extra?: ExtraCompound;
@@ -52,10 +52,10 @@ export interface StoryNodeBase {
   readonly requiresFlag?: string;
 }
 
-/** 正文呈现节点；stageId 指定它所属的显式呈现阶段。 */
+/** 正文呈现节点；stageId 仅为旧定义兼容元数据。 */
 export interface StoryTalkletNode extends StoryNodeBase {
   /** 顶层节点类型，固定为 talklet。 */ readonly type: 'talklet';
-  /** 此正文所属的显式阶段。 */ readonly stageId: StoryStageId;
+  /** 旧阶段兼容 ID；不会控制相邻 Click 或节点顺序。 */ readonly stageId: StoryStageId;
   /** 对话或旁白内容。 */
   readonly content: StoryContent;
   /** 左右侧、对齐和头像呈现意图。 */
@@ -67,7 +67,7 @@ export interface StoryTalkletNode extends StoryNodeBase {
 /** 交互输入节点；选择候选属于本 Click，不由相邻 Click 推断。 */
 export interface StoryClickNode extends StoryNodeBase {
   /** 顶层节点类型，固定为 click。 */ readonly type: 'click';
-  /** 此交互所属的显式阶段。 */ readonly stageId: StoryStageId;
+  /** 旧阶段兼容 ID；当前输入次序完全由 nodes 顺序决定。 */ readonly stageId: StoryStageId;
   /** 本次输入的明确形式。 */
   readonly interaction: StoryClickInteraction;
 }
@@ -86,7 +86,7 @@ export interface StoryTransferNode extends StoryNodeBase {
   readonly transfer: StoryTransfer;
 }
 
-/** 可作为正文、按钮回复或选项回复的有限呈现内容。 */
+/** 可作为 Story 正文的有限呈现内容。 */
 export type StoryContent = StoryTalkContent | StoryNarrationContent;
 
 /** 角色对话正文；图片仅属于 talk。 */
@@ -111,7 +111,7 @@ export interface StoryPresentation {
   /** 头像显示策略。 */ readonly avatarMode?: 'auto' | 'hide' | 'show';
 }
 
-/** 正文节奏意图；不决定阶段推进或输入次数。 */
+/** 正文节奏意图；不决定节点顺序或 Click 输入次数。 */
 export interface StoryPacing {
   /** 对方文字输入节奏参数。 */
   readonly typing?: number;
@@ -125,12 +125,11 @@ export type StoryClickInteraction =
   | StoryChoiceInteraction
   | StoryEntryCardInteraction;
 
-/** 单按钮输入；可声明按击工作量、回复和成功结果。 */
+/** 单按钮输入；可声明按击工作量和成功结果。 */
 export interface StoryButtonInteraction {
   /** 交互类型，固定为单按钮。 */ readonly kind: 'button';
   /** 按钮文案。 */ readonly text: string;
   /** 可选基础与随机按击工作量。 */ readonly press?: StoryClickPress;
-  /** 输入成功后可选呈现的玩家回复。 */ readonly reply?: StoryContent;
   /** 输入成功后的动作与控制流结果。 */ readonly result?: StoryNodeResult;
 }
 
@@ -153,7 +152,6 @@ export interface StoryChoiceOption {
   /** 稳定候选身份。 */ readonly id: string;
   /** 候选显示文案。 */ readonly text: string;
   /** 候选可选条件。 */ readonly condition?: ConditionGroup;
-  /** 选择后可选呈现的玩家回复。 */ readonly reply?: StoryContent;
   /** 该候选的动作与控制流结果。 */ readonly result?: StoryNodeResult;
 }
 

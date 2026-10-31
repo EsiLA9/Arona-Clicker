@@ -63,16 +63,15 @@ describe('StoryNodePlayer boundary regressions', () => {
     expect(click.node.id).toBe('continue');
   });
 
-  it('keeps the same input ticket when action preflight rejects before reply or effects', () => {
+  it('keeps the same input ticket when action preflight rejects before effects', () => {
     const root = documentOf(ROOT, [{ id: 'choose', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{
-      id: 'go', text: '开始', reply: { kind: 'talk', text: '已经开始' }, result: { actions: [credit(3)] },
+      id: 'go', text: '开始', result: { actions: [credit(3)] },
     }] } }], { pick: { advance: 'input' } });
     const { host, state } = makeHost({ rejectPreflight: action => action.kind === 'state' });
     const player = new StoryNodePlayer(documents(root), host);
     const waiting = input(player.start(ROOT, source).view);
     const rejected = player.submit(waiting.token, 'go');
     expect(rejected).toMatchObject({ ok: false, error: 'preflight rejected', view: { status: 'input', token: waiting.token } });
-    expect(rejected.events.some(event => event.type === 'reply')).toBe(false);
     expect(state.credit).toBe(0);
     expect(state.applied).toHaveLength(0);
     expect(state.preflighted).toHaveLength(1);
@@ -85,19 +84,19 @@ describe('StoryNodePlayer boundary regressions', () => {
     expect(overLimit).toMatchObject({ ok: false, error: 'TransferLimitExceeded', view: { status: 'failed', error: 'TransferLimitExceeded' } });
   });
 
-  it('allows 256 automatic nodes and fails at 257 without replaying prior effects', () => {
+  it('allows 256 automatic local writes and fails at 257 without calling domain effects', () => {
     const operations = (count: number) => documentOf(ROOT, Array.from({ length: count }, (_, index) => ({
-      id: `operation-${index}`, type: 'operation' as const, action: credit(),
+      id: `operation-${index}`, type: 'operation' as const, action: { kind: 'localFlag' as const, op: 'set' as const, name: `flag-${index}`, value: true },
     })));
     const exactState = makeHost();
     const exact = new StoryNodePlayer(documents(operations(256)), exactState.host).start(ROOT, source);
     expect(exact).toMatchObject({ ok: true, view: { status: 'completed' } });
-    expect(exactState.state.credit).toBe(256);
+    expect(exactState.state.applied).toHaveLength(0);
     const overState = makeHost();
     const over = new StoryNodePlayer(documents(operations(257)), overState.host).start(ROOT, source);
     expect(over).toMatchObject({ ok: false, error: 'AutoStepLimitExceeded', view: { status: 'failed', error: 'AutoStepLimitExceeded' } });
-    expect(overState.state.credit).toBe(256);
-    expect(overState.state.applied).toHaveLength(256);
+    expect(overState.state.credit).toBe(0);
+    expect(overState.state.applied).toHaveLength(0);
   });
 
   it('preserves root identity when an insert at the chain tail ends in another story', () => {

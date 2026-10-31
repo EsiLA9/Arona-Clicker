@@ -13033,7 +13033,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_tea",
@@ -13069,7 +13070,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_printer",
@@ -13105,7 +13107,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_archive",
@@ -13141,7 +13144,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_sunset",
@@ -13177,7 +13181,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_planner",
@@ -13213,7 +13218,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_vending",
@@ -13249,7 +13255,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_night",
@@ -13285,7 +13292,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_daily_committee",
@@ -13315,7 +13323,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_siesta",
@@ -13345,7 +13354,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_serika_shift",
@@ -13375,7 +13385,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_money",
@@ -13405,7 +13416,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_calculation",
@@ -13435,7 +13447,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_game_dev",
@@ -13465,7 +13478,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_hack",
@@ -13495,7 +13509,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_server",
@@ -13525,7 +13540,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_conv_1",
@@ -13539,7 +13555,8 @@
       "repeatable": true,
       "weight": 1,
       "owner": "Hoshino",
-      "cooldownFrames": 600
+      "cooldownFrames": 600,
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_conv_2",
@@ -13593,7 +13610,8 @@
       "type": "passive",
       "repeatable": false,
       "weight": 1,
-      "owner": "Hoshino"
+      "owner": "Hoshino",
+      "interruptible": true
     },
     {
       "id": "base:passivestory:cooldown_demo_1",
@@ -13605,7 +13623,8 @@
       "availableInits": [],
       "type": "passive",
       "repeatable": true,
-      "weight": 1
+      "weight": 1,
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_selfie",
@@ -13641,7 +13660,8 @@
             "value": 5
           }
         ]
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_1",
@@ -13655,7 +13675,8 @@
       "repeatable": false,
       "weight": 1,
       "owner": "Hoshino",
-      "affectionRequired": 1
+      "affectionRequired": 1,
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_2",
@@ -13669,7 +13690,8 @@
       "repeatable": false,
       "weight": 1,
       "owner": "Hoshino",
-      "affectionRequired": 3
+      "affectionRequired": 3,
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_bond_tail",
@@ -13683,7 +13705,8 @@
       "repeatable": false,
       "weight": 1,
       "owner": "Hoshino",
-      "pushAfterStory": "base:story:bond_hoshino_1"
+      "pushAfterStory": "base:story:bond_hoshino_1",
+      "interruptible": true
     },
     {
       "id": "base:passivestory:theme_showcase",
@@ -13703,7 +13726,8 @@
       ],
       "type": "passive",
       "repeatable": true,
-      "weight": 1
+      "weight": 1,
+      "interruptible": true
     }
   ],
   "stories": [
@@ -13937,10 +13961,6 @@
           "interaction": {
             "kind": "button",
             "text": "了解，阿罗娜。",
-            "reply": {
-              "kind": "talk",
-              "text": "了解，阿罗娜。"
-            },
             "result": {
               "actions": [
                 {
@@ -13956,6 +13976,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "了解，阿罗娜。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -13964,6 +13997,9 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -14030,10 +14066,6 @@
           "interaction": {
             "kind": "button",
             "text": "我看到了，位置很精准。",
-            "reply": {
-              "kind": "talk",
-              "text": "我看到了，位置很精准。"
-            },
             "result": {
               "actions": [
                 {
@@ -14055,6 +14087,19 @@
           }
         },
         {
+          "id": "p3-button-response",
+          "type": "talklet",
+          "stageId": "p3-response",
+          "content": {
+            "kind": "talk",
+            "text": "我看到了，位置很精准。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p4-body",
           "type": "talklet",
           "stageId": "p4",
@@ -14071,10 +14116,6 @@
           "interaction": {
             "kind": "button",
             "text": "很雅致。",
-            "reply": {
-              "kind": "talk",
-              "text": "很雅致。"
-            },
             "result": {
               "actions": [
                 {
@@ -14139,6 +14180,19 @@
           }
         },
         {
+          "id": "p4-button-response",
+          "type": "talklet",
+          "stageId": "p4-response",
+          "content": {
+            "kind": "talk",
+            "text": "很雅致。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p5-body",
           "type": "talklet",
           "stageId": "p5",
@@ -14155,10 +14209,6 @@
           "interaction": {
             "kind": "button",
             "text": "一目了然。",
-            "reply": {
-              "kind": "talk",
-              "text": "一目了然。"
-            },
             "result": {
               "actions": [
                 {
@@ -14186,6 +14236,19 @@
           }
         },
         {
+          "id": "p5-button-response",
+          "type": "talklet",
+          "stageId": "p5-response",
+          "content": {
+            "kind": "talk",
+            "text": "一目了然。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p6-body",
           "type": "talklet",
           "stageId": "p6",
@@ -14202,10 +14265,6 @@
           "interaction": {
             "kind": "button",
             "text": "好，期待你的操作。",
-            "reply": {
-              "kind": "talk",
-              "text": "好，期待你的操作。"
-            },
             "result": {
               "actions": [
                 {
@@ -14224,6 +14283,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p6-button-response",
+          "type": "talklet",
+          "stageId": "p6-response",
+          "content": {
+            "kind": "talk",
+            "text": "好，期待你的操作。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -14266,10 +14338,6 @@
           "interaction": {
             "kind": "button",
             "text": "见证一下。",
-            "reply": {
-              "kind": "talk",
-              "text": "见证一下。"
-            },
             "result": {
               "actions": [
                 {
@@ -14280,6 +14348,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p8-button-response",
+          "type": "talklet",
+          "stageId": "p8-response",
+          "content": {
+            "kind": "talk",
+            "text": "见证一下。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -14311,10 +14392,6 @@
           "interaction": {
             "kind": "button",
             "text": "比想象中干净利落。",
-            "reply": {
-              "kind": "talk",
-              "text": "比想象中干净利落。"
-            },
             "result": {
               "actions": [
                 {
@@ -14336,6 +14413,19 @@
           }
         },
         {
+          "id": "p10-button-response",
+          "type": "talklet",
+          "stageId": "p10-response",
+          "content": {
+            "kind": "talk",
+            "text": "比想象中干净利落。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p11-body",
           "type": "talklet",
           "stageId": "p11",
@@ -14352,10 +14442,6 @@
           "interaction": {
             "kind": "button",
             "text": "连头像和名字都有。",
-            "reply": {
-              "kind": "talk",
-              "text": "连头像和名字都有。"
-            },
             "result": {
               "actions": [
                 {
@@ -14384,6 +14470,19 @@
           }
         },
         {
+          "id": "p11-button-response",
+          "type": "talklet",
+          "stageId": "p11-response",
+          "content": {
+            "kind": "talk",
+            "text": "连头像和名字都有。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p12-body",
           "type": "talklet",
           "stageId": "p12",
@@ -14400,10 +14499,6 @@
           "interaction": {
             "kind": "button",
             "text": "我来点。",
-            "reply": {
-              "kind": "talk",
-              "text": "我来点。"
-            },
             "result": {
               "actions": [
                 {
@@ -14434,6 +14529,19 @@
           }
         },
         {
+          "id": "p12-button-response",
+          "type": "talklet",
+          "stageId": "p12-response",
+          "content": {
+            "kind": "talk",
+            "text": "我来点。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p13-body",
           "type": "talklet",
           "stageId": "p13",
@@ -14450,10 +14558,6 @@
           "interaction": {
             "kind": "button",
             "text": "辛苦了。",
-            "reply": {
-              "kind": "talk",
-              "text": "辛苦了。"
-            },
             "result": {
               "actions": [
                 {
@@ -14464,6 +14568,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p13-button-response",
+          "type": "talklet",
+          "stageId": "p13-response",
+          "content": {
+            "kind": "talk",
+            "text": "辛苦了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         }
       ],
@@ -14506,6 +14623,33 @@
         },
         "p13": {
           "advance": "input"
+        },
+        "p13-response": {
+          "advance": "auto"
+        },
+        "p12-response": {
+          "advance": "auto"
+        },
+        "p11-response": {
+          "advance": "auto"
+        },
+        "p10-response": {
+          "advance": "auto"
+        },
+        "p8-response": {
+          "advance": "auto"
+        },
+        "p6-response": {
+          "advance": "auto"
+        },
+        "p5-response": {
+          "advance": "auto"
+        },
+        "p4-response": {
+          "advance": "auto"
+        },
+        "p3-response": {
+          "advance": "auto"
         }
       }
     },
@@ -14609,11 +14753,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "开始测试。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "开始测试。",
-            "reply": {
-              "kind": "talk",
-              "text": "开始测试。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -14645,10 +14798,6 @@
           "interaction": {
             "kind": "button",
             "text": "继续。",
-            "reply": {
-              "kind": "talk",
-              "text": "继续。"
-            },
             "result": {
               "actions": [
                 {
@@ -14670,6 +14819,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p4-button-response",
+          "type": "talklet",
+          "stageId": "p4-response",
+          "content": {
+            "kind": "talk",
+            "text": "继续。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -14811,10 +14973,6 @@
           "interaction": {
             "kind": "button",
             "text": "我记下了。",
-            "reply": {
-              "kind": "talk",
-              "text": "我记下了。"
-            },
             "result": {
               "actions": [
                 {
@@ -14839,6 +14997,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p8-button-response",
+          "type": "talklet",
+          "stageId": "p8-response",
+          "content": {
+            "kind": "talk",
+            "text": "我记下了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -14870,10 +15041,6 @@
           "interaction": {
             "kind": "button",
             "text": "测试完成。",
-            "reply": {
-              "kind": "talk",
-              "text": "测试完成。"
-            },
             "result": {
               "actions": [
                 {
@@ -14898,6 +15065,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p10-button-response",
+          "type": "talklet",
+          "stageId": "p10-response",
+          "content": {
+            "kind": "talk",
+            "text": "测试完成。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         }
       ],
@@ -14934,6 +15114,18 @@
         },
         "p10": {
           "advance": "input"
+        },
+        "p10-response": {
+          "advance": "auto"
+        },
+        "p8-response": {
+          "advance": "auto"
+        },
+        "p4-response": {
+          "advance": "auto"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -14991,11 +15183,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "继续观察。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "继续观察。",
-            "reply": {
-              "kind": "talk",
-              "text": "继续观察。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -15019,6 +15220,9 @@
           "advance": "input"
         },
         "p3": {
+          "advance": "auto"
+        },
+        "p2-response": {
           "advance": "auto"
         }
       }
@@ -15084,11 +15288,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "确认收束。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "确认收束。",
-            "reply": {
-              "kind": "talk",
-              "text": "确认收束。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         }
       ],
@@ -15098,6 +15311,9 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15122,10 +15338,6 @@
           "interaction": {
             "kind": "button",
             "text": "那就麻烦你了。",
-            "reply": {
-              "kind": "talk",
-              "text": "那就麻烦你了。"
-            },
             "result": {
               "actions": [
                 {
@@ -15141,11 +15353,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "那就麻烦你了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15170,10 +15398,6 @@
           "interaction": {
             "kind": "button",
             "text": "让它休息一下吧。",
-            "reply": {
-              "kind": "talk",
-              "text": "让它休息一下吧。"
-            },
             "result": {
               "actions": [
                 {
@@ -15189,11 +15413,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "让它休息一下吧。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15218,10 +15458,6 @@
           "interaction": {
             "kind": "button",
             "text": "明天再说吧。",
-            "reply": {
-              "kind": "talk",
-              "text": "明天再说吧。"
-            },
             "result": {
               "actions": [
                 {
@@ -15237,11 +15473,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "明天再说吧。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15266,10 +15518,6 @@
           "interaction": {
             "kind": "button",
             "text": "很适合停下来看看。",
-            "reply": {
-              "kind": "talk",
-              "text": "很适合停下来看看。"
-            },
             "result": {
               "actions": [
                 {
@@ -15285,11 +15533,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "很适合停下来看看。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15314,10 +15578,6 @@
           "interaction": {
             "kind": "button",
             "text": "说得这么直白真的好吗。",
-            "reply": {
-              "kind": "talk",
-              "text": "说得这么直白真的好吗。"
-            },
             "result": {
               "actions": [
                 {
@@ -15332,6 +15592,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "说得这么直白真的好吗。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -15351,10 +15624,6 @@
           "interaction": {
             "kind": "button",
             "text": "那就这么定了。",
-            "reply": {
-              "kind": "talk",
-              "text": "那就这么定了。"
-            },
             "result": {
               "actions": [
                 {
@@ -15375,6 +15644,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "那就这么定了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -15383,6 +15665,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15407,10 +15695,6 @@
           "interaction": {
             "kind": "button",
             "text": "谁干的？",
-            "reply": {
-              "kind": "talk",
-              "text": "谁干的？"
-            },
             "result": {
               "actions": [
                 {
@@ -15426,11 +15710,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "谁干的？",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15455,10 +15755,6 @@
           "interaction": {
             "kind": "button",
             "text": "再十分钟就好。",
-            "reply": {
-              "kind": "talk",
-              "text": "再十分钟就好。"
-            },
             "result": {
               "actions": [
                 {
@@ -15474,11 +15770,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "再十分钟就好。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15514,11 +15826,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "请多关照，白子。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "请多关照，白子。",
-            "reply": {
-              "kind": "talk",
-              "text": "请多关照，白子。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -15549,11 +15870,20 @@
           "stageId": "p4",
           "interaction": {
             "kind": "button",
+            "text": "星野前辈，请认真一点！"
+          }
+        },
+        {
+          "id": "p4-button-response",
+          "type": "talklet",
+          "stageId": "p4-response",
+          "content": {
+            "kind": "talk",
             "text": "星野前辈，请认真一点！",
-            "reply": {
-              "kind": "talk",
-              "text": "星野前辈，请认真一点！"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -15660,6 +15990,12 @@
         },
         "p6": {
           "advance": "auto"
+        },
+        "p4-response": {
+          "advance": "auto"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15684,10 +16020,6 @@
           "interaction": {
             "kind": "button",
             "text": "做得好，彩奈。",
-            "reply": {
-              "kind": "talk",
-              "text": "做得好，彩奈。"
-            },
             "result": {
               "actions": [
                 {
@@ -15703,11 +16035,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "做得好，彩奈。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15732,10 +16080,6 @@
           "interaction": {
             "kind": "button",
             "text": "不行，工作还没做完。",
-            "reply": {
-              "kind": "talk",
-              "text": "不行，工作还没做完。"
-            },
             "result": {
               "actions": [
                 {
@@ -15760,11 +16104,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "不行，工作还没做完。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15789,10 +16149,6 @@
           "interaction": {
             "kind": "button",
             "text": "辛苦了，芹香。",
-            "reply": {
-              "kind": "talk",
-              "text": "辛苦了，芹香。"
-            },
             "result": {
               "actions": [
                 {
@@ -15808,11 +16164,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "辛苦了，芹香。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15837,10 +16209,6 @@
           "interaction": {
             "kind": "button",
             "text": "一步一步来。",
-            "reply": {
-              "kind": "talk",
-              "text": "一步一步来。"
-            },
             "result": {
               "actions": [
                 {
@@ -15856,11 +16224,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "一步一步来。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15885,10 +16269,6 @@
           "interaction": {
             "kind": "button",
             "text": "放心，优香。",
-            "reply": {
-              "kind": "talk",
-              "text": "放心，优香。"
-            },
             "result": {
               "actions": [
                 {
@@ -15904,11 +16284,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "放心，优香。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15933,10 +16329,6 @@
           "interaction": {
             "kind": "button",
             "text": "需要帮忙调试吗？",
-            "reply": {
-              "kind": "talk",
-              "text": "需要帮忙调试吗？"
-            },
             "result": {
               "actions": [
                 {
@@ -15952,11 +16344,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "需要帮忙调试吗？",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -15981,10 +16389,6 @@
           "interaction": {
             "kind": "button",
             "text": "记得报告给乃爱。",
-            "reply": {
-              "kind": "talk",
-              "text": "记得报告给乃爱。"
-            },
             "result": {
               "actions": [
                 {
@@ -16000,11 +16404,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "记得报告给乃爱。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16029,10 +16449,6 @@
           "interaction": {
             "kind": "button",
             "text": "让优香批一下。",
-            "reply": {
-              "kind": "talk",
-              "text": "让优香批一下。"
-            },
             "result": {
               "actions": [
                 {
@@ -16048,11 +16464,27 @@
               ]
             }
           }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "让优香批一下。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
         "p1": {
           "advance": "input"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16088,11 +16520,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "效率很高，不愧是千禧年。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "效率很高，不愧是千禧年。",
-            "reply": {
-              "kind": "talk",
-              "text": "效率很高，不愧是千禧年。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16208,6 +16649,9 @@
         },
         "p5": {
           "advance": "auto"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16243,11 +16687,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "冷静一下，桃依。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "冷静一下，桃依。",
-            "reply": {
-              "kind": "talk",
-              "text": "冷静一下，桃依。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16345,6 +16798,9 @@
         },
         "p4": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16408,11 +16864,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "我来修。"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "我来修。",
-            "reply": {
-              "kind": "talk",
-              "text": "我来修。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16440,6 +16905,9 @@
         },
         "p2": {
           "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16463,11 +16931,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "我请客。"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "我请客。",
-            "reply": {
-              "kind": "talk",
-              "text": "我请客。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16494,6 +16971,9 @@
           "advance": "input"
         },
         "p2": {
+          "advance": "auto"
+        },
+        "p1-response": {
           "advance": "auto"
         }
       }
@@ -16542,11 +17022,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "这是老师应该做的。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "这是老师应该做的。",
-            "reply": {
-              "kind": "talk",
-              "text": "这是老师应该做的。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         }
       ],
@@ -16556,6 +17045,9 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16579,11 +17071,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "怎么回事？"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "怎么回事？",
-            "reply": {
-              "kind": "talk",
-              "text": "怎么回事？"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16602,11 +17103,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "我会帮你查清楚的。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "我会帮你查清楚的。",
-            "reply": {
-              "kind": "talk",
-              "text": "我会帮你查清楚的。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16673,6 +17183,12 @@
         },
         "p4-confirm": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16696,11 +17212,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "真的吗？"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "真的吗？",
-            "reply": {
-              "kind": "talk",
-              "text": "真的吗？"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16720,10 +17245,6 @@
           "interaction": {
             "kind": "button",
             "text": "不用谢，这是老师应该做的。",
-            "reply": {
-              "kind": "talk",
-              "text": "不用谢，这是老师应该做的。"
-            },
             "result": {
               "actions": [
                 {
@@ -16744,6 +17265,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "不用谢，这是老师应该做的。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -16752,6 +17286,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16787,11 +17327,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "我想再巡视一圈。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "我想再巡视一圈。",
-            "reply": {
-              "kind": "talk",
-              "text": "我想再巡视一圈。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16811,10 +17360,6 @@
           "interaction": {
             "kind": "button",
             "text": "走吧，阿罗娜。",
-            "reply": {
-              "kind": "talk",
-              "text": "走吧，阿罗娜。"
-            },
             "result": {
               "actions": [
                 {
@@ -16830,6 +17375,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p3-button-response",
+          "type": "talklet",
+          "stageId": "p3-response",
+          "content": {
+            "kind": "talk",
+            "text": "走吧，阿罗娜。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -16841,6 +17399,12 @@
         },
         "p3": {
           "advance": "input"
+        },
+        "p3-response": {
+          "advance": "auto"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16864,11 +17428,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "进去看看。"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "进去看看。",
-            "reply": {
-              "kind": "talk",
-              "text": "进去看看。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16888,10 +17461,6 @@
           "interaction": {
             "kind": "button",
             "text": "虚惊一场。关好窗户吧。",
-            "reply": {
-              "kind": "talk",
-              "text": "虚惊一场。关好窗户吧。"
-            },
             "result": {
               "actions": [
                 {
@@ -16907,6 +17476,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "虚惊一场。关好窗户吧。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -16915,6 +17497,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -16938,11 +17526,20 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
+            "text": "辛苦了，阿罗娜。"
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
             "text": "辛苦了，阿罗娜。",
-            "reply": {
-              "kind": "talk",
-              "text": "辛苦了，阿罗娜。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -16962,10 +17559,6 @@
           "interaction": {
             "kind": "button",
             "text": "晚安（早安），阿罗娜。",
-            "reply": {
-              "kind": "talk",
-              "text": "晚安（早安），阿罗娜。"
-            },
             "result": {
               "actions": [
                 {
@@ -16986,6 +17579,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "晚安（早安），阿罗娜。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -16994,6 +17600,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17018,10 +17630,6 @@
           "interaction": {
             "kind": "button",
             "text": "那我不客气了。",
-            "reply": {
-              "kind": "talk",
-              "text": "那我不客气了。"
-            },
             "result": {
               "actions": [
                 {
@@ -17036,6 +17644,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "那我不客气了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17055,10 +17676,6 @@
           "interaction": {
             "kind": "button",
             "text": "我也是。",
-            "reply": {
-              "kind": "talk",
-              "text": "我也是。"
-            },
             "result": {
               "actions": [
                 {
@@ -17074,6 +17691,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "我也是。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -17082,6 +17712,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17106,10 +17742,6 @@
           "interaction": {
             "kind": "button",
             "text": "想去看看。",
-            "reply": {
-              "kind": "talk",
-              "text": "想去看看。"
-            },
             "result": {
               "actions": [
                 {
@@ -17124,6 +17756,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "想去看看。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17143,10 +17788,6 @@
           "interaction": {
             "kind": "button",
             "text": "这就来。",
-            "reply": {
-              "kind": "talk",
-              "text": "这就来。"
-            },
             "result": {
               "actions": [
                 {
@@ -17162,6 +17803,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "这就来。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -17170,6 +17824,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17194,10 +17854,6 @@
           "interaction": {
             "kind": "button",
             "text": "我答应过你呀。",
-            "reply": {
-              "kind": "talk",
-              "text": "我答应过你呀。"
-            },
             "result": {
               "actions": [
                 {
@@ -17212,6 +17868,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "我答应过你呀。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17231,10 +17900,6 @@
           "interaction": {
             "kind": "button",
             "text": "以后也要一起来。",
-            "reply": {
-              "kind": "talk",
-              "text": "以后也要一起来。"
-            },
             "result": {
               "actions": [
                 {
@@ -17257,6 +17922,19 @@
           }
         },
         {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "以后也要一起来。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
+        },
+        {
           "id": "p3-body",
           "type": "talklet",
           "stageId": "p3",
@@ -17273,10 +17951,6 @@
           "interaction": {
             "kind": "button",
             "text": "好，边走边讲。",
-            "reply": {
-              "kind": "talk",
-              "text": "好，边走边讲。"
-            },
             "result": {
               "actions": [
                 {
@@ -17292,6 +17966,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p3-button-response",
+          "type": "talklet",
+          "stageId": "p3-response",
+          "content": {
+            "kind": "talk",
+            "text": "好，边走边讲。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -17303,6 +17990,15 @@
         },
         "p3": {
           "advance": "input"
+        },
+        "p3-response": {
+          "advance": "auto"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17331,10 +18027,6 @@
           "interaction": {
             "kind": "button",
             "text": "哦？我看看。",
-            "reply": {
-              "kind": "talk",
-              "text": "哦？我看看。"
-            },
             "result": {
               "actions": [
                 {
@@ -17349,6 +18041,19 @@
                 }
               ]
             }
+          }
+        },
+        {
+          "id": "p1-button-response",
+          "type": "talklet",
+          "stageId": "p1-response",
+          "content": {
+            "kind": "talk",
+            "text": "哦？我看看。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17368,10 +18073,6 @@
           "interaction": {
             "kind": "button",
             "text": "好呀，那就说定了。",
-            "reply": {
-              "kind": "talk",
-              "text": "好呀，那就说定了。"
-            },
             "result": {
               "actions": [
                 {
@@ -17387,6 +18088,19 @@
               ]
             }
           }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
+            "text": "好呀，那就说定了。",
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
+          }
         }
       ],
       "stages": {
@@ -17395,6 +18109,12 @@
         },
         "p2": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17430,11 +18150,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "嗯？什么事？"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "嗯？什么事？",
-            "reply": {
-              "kind": "talk",
-              "text": "嗯？什么事？"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17474,6 +18203,9 @@
         },
         "p3": {
           "advance": "input"
+        },
+        "p2-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17530,11 +18262,20 @@
           "stageId": "p3",
           "interaction": {
             "kind": "button",
+            "text": "（默默坐下）"
+          }
+        },
+        {
+          "id": "p3-button-response",
+          "type": "talklet",
+          "stageId": "p3-response",
+          "content": {
+            "kind": "talk",
             "text": "（默默坐下）",
-            "reply": {
-              "kind": "talk",
-              "text": "（默默坐下）"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17633,6 +18374,9 @@
         },
         "p5": {
           "advance": "auto"
+        },
+        "p3-response": {
+          "advance": "auto"
         }
       }
     },
@@ -17679,11 +18423,20 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
+            "text": "我也有话想跟你说。"
+          }
+        },
+        {
+          "id": "p2-button-response",
+          "type": "talklet",
+          "stageId": "p2-response",
+          "content": {
+            "kind": "talk",
             "text": "我也有话想跟你说。",
-            "reply": {
-              "kind": "talk",
-              "text": "我也有话想跟你说。"
-            }
+            "speaker": "老师"
+          },
+          "presentation": {
+            "side": "right"
           }
         },
         {
@@ -17778,6 +18531,9 @@
           "advance": "input"
         },
         "p4": {
+          "advance": "auto"
+        },
+        "p2-response": {
           "advance": "auto"
         }
       }

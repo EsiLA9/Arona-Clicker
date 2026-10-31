@@ -10,6 +10,7 @@ import type { Effect, ValueExpression } from '../types';
 import type { EffectRuntimeState } from '../contracts/state-query';
 import type { EffectRuntimeHandler } from '../contracts/effect-runtime';
 import type { StateMutationPort } from '../contracts/mutation';
+import type { EffectReceipt } from '../contracts/effect-receipt';
 import { ValueSystem } from '../expression/value-system';
 
 export class EffectEngine {
@@ -39,6 +40,31 @@ export class EffectEngine {
       return true;
     });
     if (stateEffects.length > 0) this.mutations.applyEffects(stateEffects);
+  }
+
+  /** Same batch-wide expression resolution as applyEffects, with committed state results. */
+  applyEffectsWithReceipts(effects: Effect[], onReceipt?: (receipt: EffectReceipt) => void): EffectReceipt[] {
+    const receipts: EffectReceipt[] = [];
+    const resolved = effects.map(effect => this.resolveValue(effect));
+    const stateEffects: Effect[] = [];
+    const indexes: number[] = [];
+    try {
+      for (const [index, effect] of resolved.entries()) {
+        if (!this.runtimeEffectHandler?.(effect)) { stateEffects.push(effect); indexes.push(index); }
+      }
+      if (!stateEffects.length) return receipts;
+      if (!this.mutations.applyEffectsWithReceipts) throw new Error('EffectReceiptsUnsupported');
+      this.mutations.applyEffectsWithReceipts(stateEffects, receipt => {
+        const committed = { ...receipt, effectIndex: indexes[receipt.effectIndex]! };
+        receipts.push(committed);
+        onReceipt?.(committed);
+      });
+      return receipts;
+    } catch (error) {
+      const failure = new Error(error instanceof Error ? error.message : String(error)) as Error & { receipts: EffectReceipt[] };
+      failure.receipts = receipts;
+      throw failure;
+    }
   }
 
   /** 把 value 为 ValueExpression 的效果解析为数值；无 valueSystem 或非表达式（含 ExtraValue 等结构化对象）时原样保留。 */

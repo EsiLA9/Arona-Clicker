@@ -40,4 +40,4 @@ damage Trace 在实际减免时包含总减免量及参与 Status ID、来源、
 
 含 `damageReduction` 定义的 Map 使用 Status Receipt v5；Restore 从 scheduler 起点重放并比较 damage、Status 与 Shield Trace。Scheduler v5/v6、Program Receipt v1/v2、Shield Receipt v1 不因本能力升级。演练 Map 自身 `resumeVersion` 为 1，不升级其他 Map。
 
-历史屏幕验收步骤见 [[ai/archive/plan/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U22-screen-acceptance-report]]。
+历史屏幕验收步骤见 Task 0320（原归档已删除）。

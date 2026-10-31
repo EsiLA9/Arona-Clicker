@@ -1,6 +1,6 @@
 # Task 0338：缩短游戏启动等待并展示真实进度
 
-状态：待处理 — 已核对启动入口并建立任务，尚未进行性能测量或代码实施。
+状态：实施中 — 启动阶段反馈、详细当前内容与可导出的分段耗时日志已补齐；偶发重启慢的现场数据、性能基线和按数据优化仍待完成。
 
 ## 目标与范围
 
@@ -8,7 +8,7 @@
 - 目标：找出并减少启动关键路径耗时；从打开游戏到 Lobby 可操作，持续提供真实、易懂的阶段反馈，失败时能够判断停在哪一步。
 - 范围：游戏入口、模块加载、Runtime 创建、本机包库恢复、开发包发现与读取、启用包应用、Registry 初始化、UI 首次挂载及首个可操作画面。
 - 非目标：独立 Datapack Editor、游戏运行中性能、重塑 Lobby、改变存档语义或启用包顺序。不得为了提速跳过必要校验、静默忽略坏包或提前启动 Tick。
-- 本任务当前交付是可执行的任务说明；以下代码、测试和测量工作均待实施。
+- 当前实现先交付启动阶段反馈和诊断能力；达到性能目标仍需完成同配置基线与优化后测量。
 
 ## 已核实事实与待查问题
 
@@ -43,22 +43,47 @@
 
 | 路径或链接 | 用途 | 当前状态 |
 | --- | --- | --- |
-| `src/ui/index.html`、`src/ui/main.ts` | 静态启动壳、模块入口、启动编排 | 已核对相关入口；未修改 |
+| `src/ui/index.html`、`src/ui/main.ts`、`src/ui/startup/startup-phase.ts` | 静态启动壳、动态模块入口、可测阶段编排、等待 / 诊断反馈 | 首轮实现和正常启动浏览器验收完成；错误 / 慢阶段路径待验 |
 | `src/app/runtime-bootstrap.ts` | Runtime 创建、启用包应用入口 | 已核对；未修改 |
-| `src/ui/development/development-datapack-loader.ts` | 开发包发现、读取和解析 | 已核对；未修改 |
+| `src/ui/development/development-datapack-loader.ts` | 开发包发现、读取和解析 | 已增加真实包总数 / 完成数回调与失败后续计数 |
 | `src/arona-clicker/runtime/runtime-game-instance.ts` | Registry 预检、初始化及 reload | 已定位 init；待完整调用链与实测 |
 | `src/arona-clicker/runtime/runtime.ts` 及包管理相关实现 | 包恢复、计划、应用、资源与失败回退 | 待沿调用链核对 |
 | `src/ui/controller/controller-core.ts` 及首屏依赖 | UI 创建与首次挂载成本 | 待核对 |
 | `src/ui/css/variables.css`、`vite.config.ts` | 字体依赖、开发 / 构建入口与产物 | 字体引用已核对；构建规则待核对 |
-| `tests/ui/development-datapack-loader.test.ts`、`tests/engine/arona-runtime-pack.test.ts` | 现有回归入口 | 已定位；待阅读与扩充 |
+| `tests/ui/development-datapack-loader.test.ts`、`tests/ui/startup-phase.test.ts`、`tests/engine/arona-runtime-pack.test.ts` | 启动阶段、真实计数及包回归入口 | 全量回归通过；保留后续错误路径浏览器验收 |
 | [[startup-and-runtime]] | 当前启动机制说明 | 已核对 |
 | [[ai/guide/conventions/testing]]、[[ai/guide/conventions/architecture-discipline]] | 已报告问题的回归要求、跨层与状态边界 | 实施前按影响读取 |
 | [[ai/guide/context-packs/ui-presentation]] | UI 与视觉规范入口 | 已读取；实施 UI 时使用 frontend-design skill |
 
 ## 验证与结果
 
-- 已完成：核对项目身份、任务约定、启动入口和关键调用，创建本 Task 并登记活动索引。
-- 文档检查：`npm run check:docs` 通过（108 篇，0 错误）。地图已对本 Task 和索引分别做 changed 只读复核，均返回 `unreferenced_path`（尚无直接关联），未改图、刷新或写观察。
-- 未执行：性能基线、浏览器复现、代码修改及游戏回归测试；本次只建立任务，不将候选瓶颈写成已确认根因。
-- 工作区已有大量文档迁移和源码改动；实施前重新核对在飞状态，保留其他工作。
-- 下一步：从用户当前包集复现，先记录导航至 Lobby 的请求、长任务和阶段耗时，再选择优化点。
+### 2026-10-30：偶发重启慢的现场记录
+
+- 用户补充：偶尔重启时前序工作等待很久，先记录日志以便反馈占比。本轮只增加观测，不在没有现场数据时裁定或优化瓶颈。
+- 计时提前至静态壳内联脚本；覆盖 `main.ts` 执行前的入口加载、导航前段、八个阶段、绘制前等待、工作中的异步等待与阶段间隙。记录并行模块耗时和当前内容，模块耗时不作为互斥占比累计。
+- `window.__startupLog.print()` 输出表格；`report()` 返回可序列化报告，`report(1)` / `report(2)` 读取此前两次启动。独立本机缓存仅保存最近三次，阶段边界和页面离开时写入；存储损坏或写入失败不阻止游戏启动。完成、失败及中断现场不被迟到回调覆盖，原复制诊断按钮附带同一报告。
+- 待收集：用户下一次慢启动时发送当前 `report()`，如已刷新则发送 `report(1)`；区分入口加载、等待绘制、实际阶段工作，随后再按占比调查对应请求或调用链。
+- 验证：启动壳、阶段编排、内容摘要及开发包读取的定向回归共 4 文件 / 20 项通过，包含入口前等待、导航耗时占比、绘制 / 工作拆分、失败现场冻结、三次日志轮换、坏缓存及写入失败降级；类型、架构、文档检查通过。生产构建输出到 `.test-artifacts/startup-log-build/` 通过，保留已有大 chunk 提示；测试日志保存为 `.test-artifacts/startup-log-tests.log`。未进行本次浏览器实测或偶发慢启动性能结论。
+
+### 2026-10-30：详细载入流程续接
+
+- 按用户追加要求直接实施：静态壳增加八步流程、当前 / 待处理 / 完成 / 提醒 / 失败状态和每步完成耗时，进度条仅统计真实已处理步骤。左侧显示模块就绪与待加载列表、开发包名称 / 文件路径 / 读取计数、启用包身份 / 版本 / 顺序及本批内容声明数量。
+- 修复内联脚本在 DOM 建立前查询计时元素与绑定按钮的问题；脚本移到壳之后、入口模块之前。诊断使用真实换行，加载失败保留当前内容并停止计时 / 慢提示，迟到的并行模块完成回调不覆盖错误现场；重试 / 复制仍在静态壳提供。
+- 复用既有 `runStartupPhase`，新增可选 detail；`startup-content.ts` 只读汇总当前选中包的声明，不调用额外的启用集校验，不影响原有坏包停用 / 回退逻辑。开发包 reporter 增加可选文件 / 读取阶段字段；ZIP 不报告虚构的内部文件数。
+- 修改范围：`src/ui/index.html`、`main.ts`、`startup/startup-phase.ts`、新增 `startup/startup-content.ts`、开发包加载器；新增壳与摘要测试、更新阶段 / 开发包测试；本页、启动 Wiki、风格模式与任务索引。没有修改 Runtime / Registry / 存档 / 内容合同，也未触碰其他在飞 Story 改动。
+- 回归：先复现计时不递增等旧壳失败；最终 `npm test -- tests/ui/startup-shell.test.ts tests/ui/startup-phase.test.ts tests/ui/startup-content.test.ts tests/ui/development-datapack-loader.test.ts tests/engine/arona-runtime-pack.test.ts` 通过，5 文件 / 27 项，输出 `.test-artifacts/latest.log`。覆盖阶段详情先于工作、真实文件计数、ZIP 边界、当前 DOM 稳定、降级 / 错误 / 入口异常、迟到回调及诊断复制。
+- 检查：`npx tsc --noEmit`、`npm run check:architecture` 通过。生产构建用 `npm run build -- --outDir .test-artifacts/startup-build --emptyOutDir` 通过，保留已有大 chunk 提示，不写禁改的发布目录。本轮未重跑全量游戏测试，不把此前全量结果当成本轮证据。
+- 浏览器：真实开发页观察到模块实际就绪数量、等待模块名称与总等待秒数；在 1440×900 桌面视口及人为慢网下核对流程布局和慢阶段说明，恢复正常网络后进入 Lobby，未出现启动错误。随后临时拦截 Controller 模块：第 7 步准确标为失败，前 6 步完成，第 8 步待处理；展开诊断可见当前内容与具体失败模块 URL，解除拦截后实际点击“刷新重试”重新启动。网络与视口测试设置在结束前恢复。
+- 限制：校验 / 系统构建仍是同步工作；当前显示本批真实内容和阶段，不承诺校验期间有逐实体刷新。本轮没有进行性能基线或宣称启动速度达到目标。
+- 收尾检查：`npm run check:docs` 通过（115 篇、0 错误），本次路径 `git diff --check` 通过，仅有索引 CRLF 将规范为 LF 的提示。地图已统一只读核对 13 条直接修改路径；index.html、main.ts、启动 Wiki、风格模式存在旧 Evidence 的 `content_changed`，main.ts owner 分页已读完，其余无直接关联。没有改图、刷新或写 freshness。
+
+### 先前阶段交付记录
+
+- 已完成：核对项目身份、任务约定和启动调用链；启动壳等待时间、阶段提示、阶段计时、实际开发包计数、包恢复 / 坏包告警、失败诊断与刷新重试已实现。主要依赖与样式改为阶段内动态加载，包校验与应用顺序保持不变。
+- 浏览器正常启动验收：Edge / Windows 本机开发页先显示“装载游戏模块”，随后观察到开发包登记、内容校验、界面准备；首屏挂载后启动壳撤去。未手工触发离线字体、慢 CPU、浏览器模块加载失败或包库恢复失败路径。
+- 测试：`npm test` 最终通过（350 个文件、3494 项）；第一轮全量曾有一个无关的导出测试触发 20 秒超时，单测复跑通过，后续全量通过。阶段和包计数定向测试通过（3 个文件、12 项）。完整全量输出见 `.test-artifacts/latest.log`。
+- 工程检查：`npx tsc --noEmit`、`npm run build`、`npm run check:docs`（108 篇，0 错误）、`npm run check:architecture`、`git diff --check` 均通过。
+- 项目地图只读复核：`src/ui/index.html`、`src/ui/main.ts`、`startup-and-runtime.md` 有已映射内容变化，现存 Evidence 对应旧版本；`src/ui/startup/startup-phase.ts`、开发包加载器 / 测试、启动阶段测试及 Task 记录均无直接地图关联。`main.ts` owner 分页已读完。未改图、刷新或写 freshness。
+- 已有 `.test-artifacts/dev-startup-investigation.md` 只测了 Vite 根首页的 PostCSS 首次发现，不能作为本任务“导航到游戏首屏”的基线。尚未完成本任务规定的三类包配置、每组至少 5 次的冷 / 热启动分段基线，也没有优化前后报告；因此不能判断 25% 目标是否达到，未把动态加载的结构变化当作性能结论。
+- 工作区在开始前为干净状态；本轮没有覆盖其它用户代码改动。
+- 下一步：在同一设备、Edge、相同缓存条件下记录游戏入口至首屏可操作的基线和阶段 measure，覆盖仅 Base、当前开发包集、本机已安装启用包；随后按占比最高的等待优化，并验收慢阶段、模块错误和包库恢复降级路径。

@@ -31,6 +31,7 @@ import type { GameplayMapDef } from '../contracts/gameplay-map';
 import type { AreaMapDef } from '../contracts/area-map';
 import { validateAreaMapReferences } from './area-map-validation';
 import { prepareStoryDefinition } from './registry-story-mutation';
+import { stripLegacyStoryReplies } from '../authoring/story-definition-projection';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
 // ============================================================
@@ -224,7 +225,7 @@ export class Registry {
       },
       {
         table: 'stories',
-        merge: dp => { for (const story of dp.stories) this._stories.set(story.id, story); },
+        merge: dp => { for (const story of dp.stories) { const candidate = structuredClone(story); this._stories.set(story.id, stripLegacyStoryReplies(candidate) ? candidate : story); } },
         clear: () => this._stories.clear(),
       },
       {
@@ -806,6 +807,12 @@ export class Registry {
       pics: this.pics, funclets: this.funcletDefs, resources: this.resourceDisplays,
     });
     this._stories.set(candidate.id, candidate);
+  }
+  /** Restore one Story from the data currently loaded into this Runtime, or remove a runtime-only addition. */
+  restoreStoryDefinition(storyId: string, source?: StoryDef): void {
+    if (!source) { this._stories.delete(storyId); return; }
+    if (source.id !== storyId) throw new RegistryError(`Story source id "${source.id}" does not match "${storyId}"`);
+    this._stories.set(storyId, structuredClone(source));
   }
   /** 剧情入口（对外故事 id → Entry）。 */
   get activeStories(): ReadonlyMap<string, ActiveStoryEntry> { return this._activeStories; }

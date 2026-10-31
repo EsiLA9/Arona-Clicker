@@ -1,3 +1,4 @@
+import { GAME_SAVE_VERSION } from '../../engine/contracts/save-version';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type {
   GameplayEncounterDef,
@@ -91,7 +92,7 @@ import { ImageStore } from '../../data-services/assets/image-store';
 import { hasExistenceGate } from '../../engine/visibility/reveal';
 import { Registry } from '../../data-services/registry/registry';
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
 import { createRuntimeContentBrowser } from '../../data-services/registry/runtime-content-browser';
 import type { RuntimeContentBrowserQueryPort } from '../../data-services/contracts/runtime-content-browser';
 import type { WorldCatalogQueryPort } from '../contracts/world/world-catalog';
@@ -378,6 +379,8 @@ export class GameInstance {
   // 子系统（构造期由 game/wiring.ts 装配赋值）
   readonly eventBus!: EventBus;
   readonly registry!: Registry;
+  /** Exact effective Story definitions loaded from datapacks before current-session editor writes. */
+  private readonly sourceStoryDefinitions = new Map<string, StoryDef>();
   readonly areaMap = new AreaMapQuery({
     registry: () => this.registry, state: () => this._state,
     conditions: () => this.conditionSystem, travelStatus: areaId => this.getAreaTravelStatus(areaId),
@@ -1703,6 +1706,16 @@ export class GameInstance {
     }
   }
 
+  restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult {
+    try {
+      const source = this.sourceStoryDefinitions.get(storyId);
+      this.registry.restoreStoryDefinition(storyId, source);
+      return { ok: true, storyId, operation: source ? 'restore' : 'remove' };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
   setRuntimeAreaTopology(connections: readonly RuntimeAreaTopologyConnection[]): void {
     this.runtimeAreaTopology = connections.map(connection => ({ ...connection }));
   }
@@ -1735,6 +1748,7 @@ export class GameInstance {
     const candidate = new Registry();
     for (const datapack of datapacks) candidate.load(datapack);
     candidate.validateAreaMapRefs();
+    const sourceStoryDefinitions = new Map([...candidate.stories].map(([id, story]) => [id, structuredClone(story)]));
     this.operationObservationStore.clear();
     this.#operationRuntimeOwner.reset();
     this.replaceMapRunOwner();
@@ -1754,6 +1768,8 @@ export class GameInstance {
     this.registry.validateAreaMapRefs();
     this.registry.validateShopRefs();
     this.registry.validateTagRefs();
+    this.sourceStoryDefinitions.clear();
+    for (const [id, story] of sourceStoryDefinitions) this.sourceStoryDefinitions.set(id, story);
     this.effectEngine.setState(this._state);
     this.tickSystem.setState(this._state);
 
@@ -1773,6 +1789,7 @@ export class GameInstance {
     // 计算可见性（事件驱动：建立反向索引并全量重算）
     this.visibilityEngine.rebuild(this._state);
 
+    this.storyService.resumePlayback();
     if (options.enterDefaultInit !== false) {
       // 兼容非 UI 调用方：传统初始化默认进入第一个可见 Init。
       const defaultInit = [...this.registry.inits.values()].find(
@@ -1849,11 +1866,13 @@ export class GameInstance {
 
   /** 开始 Tick 循环 (1 tick/秒)。 */
   start(): void {
+    this.storyService.resumePlayback();
     this.sessionService.start();
   }
 
   /** 停止 Tick 循环 */
   stop(): void {
+    this.storyService.suspendPlayback();
     this.sessionService.stop();
   }
 
@@ -1862,6 +1881,7 @@ export class GameInstance {
     this._variantTranslationService.invalidatePreviews();
     this.variantTrainingService.reset();
     this.stop();
+    this.storyService.dispose();
     this.#operationRuntimeOwner.dispose();
     this.replaceMapRunOwner();
   }
@@ -1872,8 +1892,8 @@ export class GameInstance {
    * 非 passive 剧情演出进行中时禁止移动（防止演出背景被切换）；该限制对
    * Story 自身要求移动（travelToArea effect）放开；Story 移动可跳过拓扑（checkAdjacency=false）。
    */
-  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
-    const result = this.initService.travelToArea(areaId, allowDuringStory, checkAdjacency);
+  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true, onCommitted?: (result: Extract<TravelResult, { success: true }>) => void): TravelResult {
+    const result = this.initService.travelToArea(areaId, allowDuringStory, checkAdjacency, onCommitted);
     if (result.success) this.recheckStudentBlocks(); // 到达新区域可能满足对话空间阻断条件
     return result;
   }
@@ -1961,7 +1981,7 @@ export class GameInstance {
   load(saveData: SaveData): void {
     this._variantTranslationService.invalidatePreviews();
     this.variantTrainingService.reset();
-    if (saveData.version !== '2.0.0' || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
+    if (saveData.version !== GAME_SAVE_VERSION || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-playback-v2');
     this.storyService.validateCursors(saveData.storyPlayback);
     this.operationObservationStore.clear();
     this.#operationRuntimeOwner.reset();

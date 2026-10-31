@@ -181,6 +181,39 @@ describe('AreaMap real Controller flow', () => {
     expect(texts.findIndex(text => text.includes('移动到了'))).toBeLessThan(texts.findIndex(text => text.includes('你穿过街道')));
   });
 
+  test.each([0, 20])('travel preserves prior output and precedes immediate arrival output with a %i ms command delay', async delay => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const priorStory = 'area-map-demo:story:before-travel';
+    const priorEntry = 'area-map-demo:activestory:before-travel';
+    game.registry.load({ ...mergeFragments([]), stories: [{ id: priorStory, name: 'Before travel', stages: { unused: { advance: 'auto' } }, nodes: [
+      { id: 'body', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: '移动前已有的正文' } },
+    ] }], activeStories: [{ id: priorEntry, storyId: priorStory, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }] });
+    expect(game.story.startActiveStory(priorEntry).success).toBe(true);
+    ctrl.refreshChatPanel();
+    game.story.clearAllCurrentStories();
+    ctrl.refreshChatPanel();
+    click('[data-area-map-open]'); click('[data-area-map-node="plaza"]');
+    vi.spyOn(ctrl.commands, 'travelToArea').mockImplementation(id => {
+      now += delay;
+      const result = game.travelToArea(id);
+      now += 20; // The later UI refresh must retain the captured pre-travel order.
+      return result;
+    });
+    click('[data-area-map-action="travel"]'); await settle();
+    const text = () => ctrl.panelState.chatEntries.map(entry => entry.text);
+    const prior = text().findIndex(value => value.includes('移动前已有的正文'));
+    const notice = text().findIndex(value => value.includes('移动到了 中央广场'));
+    const arrival = text().findIndex(value => value.includes('你穿过街道'));
+    expect(prior).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(prior);
+    expect(arrival).toBeGreaterThan(notice);
+    const stable = [...text()];
+    ctrl.refreshChatPanel(); ctrl.render();
+    expect(text()).toEqual(stable);
+    expect(text().filter(value => value.includes('移动到了 中央广场'))).toHaveLength(1);
+  });
+
   test('stale/changed node action refuses travel and clears obsolete selection; Tick reconciles locally', () => {
     click('[data-area-map-open]'); click('[data-area-map-node="plaza"]');
     const travel = vi.spyOn(ctrl.commands, 'travelToArea');

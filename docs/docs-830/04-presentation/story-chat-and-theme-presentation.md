@@ -2,18 +2,23 @@
 
 本文回答：Story 查询如何变成聊天流，以及运行时主题如何投影到 UI 宿主。
 
-聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示共享业务 ChatStream 的送达与自动推进，不各自创建剧情推进器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动则按实例隔离。全局流的自动推进回执固定投递到全局历史，不随当前学生选择改变目标。
+聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示读取同一 owner 的 Runtime 播放视图，不各自创建剧情推进器或 Story 计时器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动按实例隔离。全局与角色空间的输出分别归属对应 owner，不随当前学生选择改变目标。
 
 ## Story 到聊天条目
 
-Controller 获取全局 StoryView 或指定对话 owner 的 StoryView；`ChatStream` 将当前 Talklet 同步到对应聊天流，并以 Entry、StoryDef、页码组成的指纹去重。全局聊天和学生对话空间使用不同 stream key，彼此不串页。`ChatStream` 负责送达 token、typing/pause/thinking 门控、自动连发和开幕标题等呈现节奏；推进命令仍回到 Controller / Runtime 的 Story 命令入口。
+Controller 读取 `game.story.getPlaybackView(owner)` 的输出、phase、token、typing 和 banner。`ChatStream` 只把这些结果映射成对应聊天流，使用 Runtime 稳定输出 ID 关联本地 DOM 条目身份；反复读取、多个显示和重新挂载不会重复投递或推进。打字、思考、效果间隔、开幕标题以及自动衔接由 `StoryPlaybackCoordinator` 持有。无 UI 挂载时 Runtime 仍可完成已开始的有限表现步骤。
 
 ```text
-StoryView → ChatStream 按流同步当前页 → ChatEntry / FlowEntry
-         → Story renderer 转义并输出语义 DOM → FlowScroll 管理滚动
+Runtime 输出与表现阶段 → getPlaybackView(owner) → ChatStream 投影
+                      → ChatEntry / FlowEntry → renderer → FlowScroll
+UI 继续 / 输入 / 节奏加速 → Controller → GameCommands → Runtime
 ```
 
-聊天条目由 `src/ui/components/story/story.ts` 的 renderer 输出，Map 信息流也复用 Flow 条目能力。渲染器负责转义文本、呈现图片/头像/选项等类型；任意 HTML 和内联脚本不是内容接口。输入 token 是业务推进的一部分，动画完成本身不会推进 Story。
+聊天条目由 `src/ui/components/story/story.ts` 的 renderer 输出，Map 信息流也复用 Flow 条目能力。渲染器负责转义文本、呈现图片/头像/选项等类型；任意 HTML 和内联脚本不是内容接口。继续、输入和节奏加速分别提交显式命令与当前 token，Runtime 检查阶段；UI 动画、刷新与滚动不会调用隐式送达确认。正式 Story 横幅显示 Runtime 的剩余时间；独立于 Story run 的旧效果仍可使用 UI 自己的横幅计时。
+
+Story 正文、实际动作通知和尾奖励属于 Runtime 输出；商店、地图等非 Story 的本地通知仍由 UI 聊天历史持有。ChatStream 保留 Runtime 内部序号顺序，普通通知按时间合并；玩家移动提示使用提交移动前捕获的输出位置，保证已有正文、移动提示、到达正文的顺序，即使同一毫秒或延迟刷新也稳定。Runtime 输出保留 `storyOutputId`，保存 UI 历史时排除这些条目及瞬态 typing。读档后分别恢复非 Story 历史和 Runtime 输出，避免同一正文保存两次。清空 Runtime 流通过 epoch 通知投影清理显示，不以本地数组长度改变业务进度。
+
+Choice 提交成功后，Runtime 输出保存完整选项组和所选 option ID，排在该选项的结果通知之前。UI 复用当前 Choice 卡片，将全部按钮禁用并标记已选择项，不携带可提交的 token 或命令绑定；连续 Choice 的下一组仍以当前输入独立渲染。历史卡片随 Runtime 输出保存和恢复，遵循同一条目上限与清空规则。
 
 ## 主题与 Presentation 投影
 
@@ -42,6 +47,6 @@ Theme 内容编辑与玩家主题选择是两条写入路径。`ThemeContentEdit
 
 ## 例子：在聊天中阅读剧情
 
-当 StoryView 的当前页变化时，ChatStream 为对应 stream 同步条目；全局流与角色对话流使用不同 key。呈现可能等待输入 token、typing 或 pause，但是否推进剧情由 Story 命令和领域状态决定。调查页面重复送达时，检查条目指纹和 stream key；调查剧情没有推进时，继续检查 token 和命令，不应只检查动画。
+当 Runtime 输出或表现阶段变化时，`storyPlaybackChanged` 触发对应 owner 的刷新；全局流与角色对话流使用不同 key。调查重复显示时，检查 Runtime 输出 ID、storyOutputId 和 owner；调查无法推进时，检查 Runtime phase、当前 token、输入资格与失败诊断。Operation 和 finishing 的通知顺序由 Runtime 步骤保证，不由 UI 抢先插入声明式奖励。
 
 有新内容时是否自动滚到末尾由滚动恢复策略决定：原本贴底且允许跟随时才跟随；普通聊天上翻时按比例恢复，Map 信息流使用锚点模式。其刷新前后入口见 [[ui-refresh-focus-scroll]]。

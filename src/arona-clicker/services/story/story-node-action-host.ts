@@ -12,6 +12,8 @@ import type { StoryService } from './story-service';
 import type { StoryAction, StoryEntryRequest, StoryOverlayCommand, StoryPresentationCommand, StoryStateAction } from '../../../data-services/contracts/story-node-actions';
 import type { StoryNodeActionOutcome, StoryNodePlaybackHost, StoryNodeSource } from '../../contracts/runtime/story-node-playback';
 import type { StoryNodePresentationPort } from './story-node-presentation-host';
+import type { EffectReceipt } from '../../../engine/contracts/effect-receipt';
+import { displayName } from '../../../engine/core/display-name';
 
 /** 只读访问适配器可静态核验的领域引用表。 */
 export type StoryNodeActionRegistry = Pick<Registry,
@@ -20,14 +22,18 @@ export type StoryNodeActionRegistry = Pick<Registry,
 /** 产品组合根提供的既有端口；不持有或反向依赖 GameInstance。 */
 export interface StoryNodeActionHostOptions {
   readonly registry: StoryNodeActionRegistry;
-  readonly effectEngine: Pick<EffectEngine, 'applyEffects'>;
+  readonly effectEngine: Pick<EffectEngine, 'applyEffects'> & Partial<Pick<EffectEngine, 'applyEffectsWithReceipts'>>;
   readonly conditionSystem: Pick<ConditionSystem, 'evaluateGroup'>;
   readonly getState: () => PlayerState;
   readonly storyService: Pick<StoryService, 'getCurrentStoryId' | 'hasCompletedStory' | 'startStory' | 'startCardStory'>;
-  readonly travelToArea: (areaId: string, allowDuringStory: boolean, checkAdjacency: boolean) => TravelResult;
+  readonly travelToArea: (areaId: string, allowDuringStory: boolean, checkAdjacency: boolean, onCommitted?: (result: Extract<TravelResult, { success: true }>) => void) => TravelResult;
   readonly eventBus: Pick<EventBus, 'emit'>;
   /** Optional lifecycle-aware route for StoryNode overlay and presentation commands. */
   readonly presentation?: Pick<StoryNodePresentationPort, 'preflight' | 'execute'>;
+  /** Formal playback queues detached intents and applies them only at their presentation step. */
+  readonly deferPresentation?: boolean;
+  readonly getTitle?: (source: StoryNodeSource) => string | undefined;
+  readonly requestEntry?: (request: StoryEntryRequest, source: StoryNodeSource) => StoryNodeActionOutcome;
 }
 
 /** Playback factory 合并本端口与自身的链级 evaluate/random。 */
@@ -36,6 +42,43 @@ export type StoryNodeActionHost = Pick<StoryNodePlaybackHost, 'preflight' | 'exe
 const rejected = (error: string): StoryNodeActionOutcome => ({ status: 'rejected', error });
 const nonEmpty = (value: string): boolean => value.trim().length > 0;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
+
+/** Materialize readable notifications from actual committed results, never requested amounts. */
+export function formatStoryEffectReceipt(receipt: EffectReceipt, registry: Registry): string | undefined {
+  if (receipt.status !== 'changed') return undefined;
+  const number = (value: number) => value.toLocaleString('zh-CN');
+  const signed = (value: number) => `${value > 0 ? '+' : ''}${number(value)}`;
+  const name = (kind: Parameters<typeof displayName>[1], id = receipt.target) => displayName(registry, kind, id);
+  const details = receipt.details && typeof receipt.details === 'object' && !Array.isArray(receipt.details)
+    ? receipt.details as Record<string, unknown> : {};
+  switch (receipt.op) {
+    case 'addResource': case 'setResource':
+      return typeof receipt.delta === 'number' && receipt.delta !== 0 ? `${name('resource')} ${signed(receipt.delta)}` : undefined;
+    case 'addItem':
+      return typeof receipt.delta === 'number' && receipt.delta !== 0 ? `${name('item')} ${signed(receipt.delta)}` : undefined;
+    case 'setSpotLevel': case 'addSpotLevel':
+      return typeof receipt.before === 'number' && typeof receipt.after === 'number' ? `${name('spot')}等级 ${number(receipt.before)} → ${number(receipt.after)}` : undefined;
+    case 'setManager': return `${name('spot')}的经理变更为${typeof receipt.after === 'string' && receipt.after !== 'none' ? name('character', receipt.after) : '未指派'}`;
+    case 'addEnhancement': return `获得强化 ${name('enhancement')}`;
+    case 'unlockInit': return `解锁世界线 ${name('init')}`;
+    case 'grantCharacter': {
+      const variant = registry.characterVariants.get(receipt.target)?.displayName ?? receipt.target;
+      if (details.duplicate === true) return typeof details.shards === 'number' && details.shards !== 0 ? `${variant}碎片 ${signed(details.shards)}` : `${variant}重复获得`;
+      return `获得学生 ${variant}`;
+    }
+    case 'addAffectionExp': {
+      const before = receipt.before as { level?: number; exp?: number } | undefined;
+      const after = receipt.after as { level?: number; exp?: number } | undefined;
+      if (!before || !after || typeof after.level !== 'number' || typeof after.exp !== 'number') return undefined;
+      const variant = registry.characterVariants.get(receipt.target)?.displayName ?? receipt.target;
+      return before.level === after.level && typeof before.exp === 'number'
+        ? `${variant} 好感经验 ${signed(after.exp - before.exp)}`
+        : `${variant} 好感等级 ${before.level ?? 1} → ${after.level}（经验 ${number(after.exp)}）`;
+    }
+    case 'travel': return details.notice === true ? `已移动到 ${name('area')}` : undefined;
+    default: return undefined;
+  }
+}
 
 function hasVisitedStoryCondition(group: ConditionGroup): boolean {
   return group.conditions.some(condition => 'conditions' in condition
@@ -155,20 +198,32 @@ function toEffect(action: StoryStateAction): Effect {
   return { op: action.op, target, value };
 }
 
-function toOverlayEffect(command: StoryOverlayCommand): Effect {
+type PreparedChatTextValue = ChatTextEffectValue & { cardRequest?: Extract<StoryEntryRequest, { intent: 'card' }> };
+
+function toOverlayEffect(command: StoryOverlayCommand, options?: StoryNodeActionHostOptions): Effect {
   if (command.command === 'clearId') return { op: 'clearIdChatFlow', target: command.id, value: 0 };
   if (command.command === 'clearAllTexts') return { op: 'clearAllChatText', target: '', value: 0 };
   if (command.command === 'clearFlow') return { op: 'clearAllChatFlow', target: '', value: 0 };
 
   const { content } = command;
-  if (content.kind === 'entryCard') throw new Error('OverlayCardRoutingUnsupported');
   const location = {
     ...(command.x === undefined ? {} : { x: command.x }),
     ...(command.y === undefined ? {} : { y: command.y }),
     ...(command.align === undefined ? {} : { align: command.align }),
   };
-  let value: ChatTextEffectValue;
-  if (content.kind === 'text') {
+  let value: PreparedChatTextValue;
+  if (content.kind === 'entryCard') {
+    if (!options?.presentation) throw new Error('OverlayCardRoutingUnsupported');
+    const resolved = resolveEntry(options.registry, content.card.request);
+    if ('error' in resolved) throw new Error(resolved.error);
+    value = { kind: 'kizuna', targetStoryId: resolved.storyId, cardRequest: { ...content.card.request },
+      talklet: { kind: 'click', text: content.card.buttonText ?? '', kizuna: { storyId: resolved.storyId,
+        ...(content.card.title === undefined ? {} : { title: content.card.title }),
+        ...(content.card.buttonText === undefined ? {} : { buttonText: content.card.buttonText }),
+        ...(content.card.align === undefined ? {} : { align: content.card.align }) } },
+      ...(content.card.title === undefined ? {} : { title: content.card.title }),
+      ...(content.card.buttonText === undefined ? {} : { buttonText: content.card.buttonText }), ...location };
+  } else if (content.kind === 'text') {
     value = { text: content.text, ...location, ...(content.template === undefined ? {} : { kind: content.template }), ...(content.style === undefined ? {} : { style: content.style }) };
   } else {
     const presentation = content.presentation;
@@ -182,7 +237,7 @@ function toOverlayEffect(command: StoryOverlayCommand): Effect {
         ...(presentation?.avatarMode === 'hide' ? { noAvatar: true } : {}),
         ...(presentation?.avatarMode === 'show' ? { showAvatar: true } : {}),
       },
-      ...(presentation?.align === undefined ? {} : { align: presentation.align }),
+      ...(presentation?.align === undefined || options?.presentation ? {} : { align: presentation.align }),
       ...(content.style === undefined ? {} : { style: content.style }),
       ...location,
     };
@@ -200,6 +255,65 @@ function toPresentationEffect(command: StoryPresentationCommand): Effect {
     case 'clearEntityPresentation': return { op: command.command, target: command.target, value: { owner: command.owner } };
     case 'openingTitle': return { op: 'showOpeningTitle', target: '', value: command.title ?? '' };
   }
+}
+
+/** Only run-owned visual effects may survive as deferred presentation instructions. */
+export function isDeferredStoryPresentationEffect(effect: Effect): boolean {
+  switch (effect.op) {
+    case 'showChatText': case 'clearIdChatFlow': case 'clearAllChatText': case 'clearAllChatFlow': case 'showOpeningTitle': return true;
+    case 'setTheme': {
+      if (!effect.value || typeof effect.value !== 'object' || Array.isArray(effect.value)) return false;
+      const scope = 'scope' in effect.value ? effect.value.scope : undefined;
+      return scope === undefined || scope === 'ephemeral';
+    }
+    case 'setEntityPresentation': return Boolean(effect.value && typeof effect.value === 'object' && 'lifetime' in effect.value && effect.value.lifetime === 'story');
+    // clearEntityPresentation can fall back to manual/area/init ownership, so it commits logically.
+    default: return false;
+  }
+}
+
+/** Execute a previously materialized intent through the same run-aware lifecycle host. */
+export function executeStoryPresentationEffect(options: Pick<StoryNodeActionHostOptions, 'presentation' | 'effectEngine'>, effect: Effect, source: StoryNodeSource): StoryNodeActionOutcome {
+  if (!isDeferredStoryPresentationEffect(effect)) return rejected('PresentationEffectMustExecuteLogically');
+  if (!options.presentation) {
+    try { options.effectEngine.applyEffects([effect]); return { status: 'applied' }; }
+    catch (error) { return rejected(`ActionExecutionFailed:${errorText(error)}`); }
+  }
+  let action: StoryAction;
+  switch (effect.op) {
+    case 'clearIdChatFlow': action = { kind: 'overlay', command: { command: 'clearId', id: effect.target } }; break;
+    case 'clearAllChatText': action = { kind: 'overlay', command: { command: 'clearAllTexts' } }; break;
+    case 'clearAllChatFlow': action = { kind: 'overlay', command: { command: 'clearFlow' } }; break;
+    case 'showChatText': {
+      const value = effect.value as PreparedChatTextValue;
+      const location = { ...(value.x === undefined ? {} : { x: value.x }), ...(value.y === undefined ? {} : { y: value.y }), ...(value.align === undefined ? {} : { align: value.align }) };
+      let content: Extract<StoryOverlayCommand, { command: 'show' }>['content'];
+      if (value.cardRequest) {
+        const card = value.talklet?.kizuna as { align?: 'left' | 'right' } | undefined;
+        content = { kind: 'entryCard', card: { request: value.cardRequest,
+          ...(value.title === undefined ? {} : { title: value.title }),
+          ...(value.buttonText === undefined ? {} : { buttonText: value.buttonText }),
+          ...(card?.align === undefined ? {} : { align: card.align }) } };
+      } else if (value.talklet) {
+        const talklet = value.talklet as typeof value.talklet & { kind?: string; side?: 'left' | 'right'; align?: 'left' | 'center' | 'right'; noAvatar?: boolean; showAvatar?: boolean };
+        content = { kind: 'message', content: talklet.kind === 'narration' ? { kind: 'narration', text: talklet.text }
+          : { kind: 'talk', text: talklet.text, ...(talklet.speaker === undefined ? {} : { speaker: talklet.speaker }), ...(talklet.image === undefined ? {} : { image: talklet.image }) },
+          presentation: { ...(talklet.side === undefined ? {} : { side: talklet.side }), ...(talklet.align === undefined ? {} : { align: talklet.align }),
+            ...(talklet.avatar === undefined ? {} : { avatar: talklet.avatar }), ...(talklet.noAvatar ? { avatarMode: 'hide' as const } : talklet.showAvatar ? { avatarMode: 'show' as const } : {}) },
+          ...(value.style === undefined ? {} : { style: value.style }) };
+      } else content = { kind: 'text', text: value.text ?? '', ...(value.kind === undefined || value.kind === 'kizuna' ? {} : { template: value.kind }), ...(value.style === undefined ? {} : { style: value.style }) };
+      action = { kind: 'overlay', command: { command: 'show', id: effect.target, content, ...location } }; break;
+    }
+    case 'setTheme': action = { kind: 'presentation', command: { command: 'theme', value: effect.value as Extract<StoryPresentationCommand, { command: 'theme' }>['value'] } }; break;
+    case 'setEntityPresentation': {
+      const value = effect.value as { optionId: string; owner: string; lifetime?: Extract<StoryPresentationCommand, { command: 'setEntityPresentation' }>['lifetime'] };
+      action = { kind: 'presentation', command: { command: 'setEntityPresentation', target: effect.target as EntityPresentationKey, optionId: value.optionId, owner: value.owner, ...(value.lifetime === undefined ? {} : { lifetime: value.lifetime }) } }; break;
+    }
+    case 'clearEntityPresentation': action = { kind: 'presentation', command: { command: 'clearEntityPresentation', target: effect.target as EntityPresentationKey, owner: (effect.value as { owner: string }).owner } }; break;
+    case 'showOpeningTitle': action = { kind: 'presentation', command: { command: 'openingTitle', title: String(effect.value) } }; break;
+    default: return rejected('PresentationEffectUnsupported');
+  }
+  return options.presentation.execute(action, source);
 }
 
 function conditionGateError(options: StoryNodeActionHostOptions, entry: StoryEntryDef): string | undefined {
@@ -250,6 +364,7 @@ function executeEntryRequest(options: StoryNodeActionHostOptions, request: Story
     && options.storyService.hasCompletedStory(resolved.storyId)) return rejected('EntryAlreadyCompleted');
   const cursorError = cursorGateError(options, request);
   if (cursorError) return rejected(cursorError);
+  if (options.requestEntry) return options.requestEntry(request, source);
 
   let result: StoryStartResult;
   if (request.intent === 'card') result = options.storyService.startCardStory(request.entryId, request.owner);
@@ -268,39 +383,59 @@ export function createStoryNodeActionHost(options: StoryNodeActionHostOptions): 
     return actionError(options.registry, action, source);
   };
   const execute = (action: StoryAction, source: StoryNodeSource): StoryNodeActionOutcome => {
+    if (options.deferPresentation && action.kind === 'presentation' && action.command.command === 'openingTitle') {
+      const title = nonEmpty(action.command.title ?? '') ? action.command.title! : options.getTitle?.(source) ?? '';
+      if (!nonEmpty(title)) return rejected('OpeningTitleDefaultSourceMissing');
+      action = { ...action, command: { ...action.command, title } };
+    }
     const error = preflight(action, source);
     if (error) return rejected(error);
+    const receipts: EffectReceipt[] = [];
     try {
       switch (action.kind) {
         case 'localFlag': return rejected('LocalFlagRequiresPlayback');
         case 'state': {
           const gateError = stateBatchGateError(options, action.effects);
           if (gateError) return rejected(gateError);
+          if (options.effectEngine.applyEffectsWithReceipts) {
+            options.effectEngine.applyEffectsWithReceipts(action.effects.map(toEffect), receipt => receipts.push(receipt));
+            return { status: 'applied', receipts };
+          }
           options.effectEngine.applyEffects(action.effects.map(toEffect));
           return { status: 'applied' };
         }
         case 'travel': {
-          const result = options.travelToArea(action.areaId, true, false);
+          const recordTravel = (result: Extract<TravelResult, { success: true }>) => receipts.push({
+            effectIndex: 0, op: 'travel', target: action.areaId, status: result.fromAreaId === result.areaId ? 'noop' : 'changed',
+            before: result.fromAreaId, after: result.areaId, details: { notice: action.notice ?? false, ...result },
+          });
+          const result = options.travelToArea(action.areaId, true, false, recordTravel);
           // Story travel was historically best-effort: domain-level denials such as
           // AlreadyThere or NotInThisInit do not fault the Story action chain.
-          if (result.success && action.notice) options.eventBus.emit({
-            type: 'storyAreaTraveled', areaId: action.areaId, owner: source.owner,
-            ...(source.runId === undefined ? {} : { runId: source.runId }),
-          });
-          return { status: 'applied' };
+          if (!receipts.length) {
+            if (result.success) recordTravel(result);
+            else receipts.push({ effectIndex: 0, op: 'travel', target: action.areaId, status: 'noop', details: { notice: action.notice ?? false, ...result } });
+          }
+          return { status: 'applied', receipts };
         }
         case 'overlay':
+          if (options.deferPresentation) return { status: 'applied', presentation: [JSON.parse(JSON.stringify(toOverlayEffect(action.command, options))) as Effect] };
           if (options.presentation) return options.presentation.execute(action, source);
           options.effectEngine.applyEffects([toOverlayEffect(action.command)]);
           return { status: 'applied' };
         case 'presentation':
+          if (options.deferPresentation) {
+            const effect = toPresentationEffect(action.command);
+            if (isDeferredStoryPresentationEffect(effect)) return { status: 'applied', presentation: [JSON.parse(JSON.stringify(effect)) as Effect] };
+          }
           if (options.presentation) return options.presentation.execute(action, source);
           options.effectEngine.applyEffects([toPresentationEffect(action.command)]);
           return { status: 'applied' };
         case 'entryRequest': return executeEntryRequest(options, action.request, source);
       }
     } catch (error) {
-      return rejected(`ActionExecutionFailed:${errorText(error)}`);
+      const committed = receipts.length ? receipts : (error as { receipts?: EffectReceipt[] } | null)?.receipts;
+      return { ...rejected(`ActionExecutionFailed:${errorText(error)}`), ...(committed?.length ? { receipts: committed } : {}) };
     }
   };
   return { preflight, execute };

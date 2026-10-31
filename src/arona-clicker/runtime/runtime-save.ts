@@ -17,6 +17,7 @@ import type { SaveData } from '../contracts/runtime/save-data';
 import { mergeTagEffects, mergeTagOverrides } from '../state/tag-residue';
 import { splitTagEffects, splitTagOverrides, type TagOverrideResidue } from '../state/tag-residue';
 import type { EventBus } from '../../engine/core/event-bus';
+import { GAME_SAVE_VERSION } from '../../engine/contracts/save-version';
 
 export type { SaveData };
 
@@ -44,7 +45,7 @@ export interface RestoreContext {
 }
 
 export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
-  if (saveData.version !== '2.0.0' || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
+  if (saveData.version !== GAME_SAVE_VERSION || !saveData.storyPlayback) throw new Error('UnsupportedSaveFormat:story-nodes');
   ctx.storyService.validateCursors(saveData.storyPlayback);
   const state = clonePlayerState(saveData.playerState);
   const tagOverrides = splitTagOverrides(

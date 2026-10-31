@@ -51,9 +51,14 @@ describe('Story Editor workspace prototype', () => {
     open();
     click('new');
     click('operation');
+    const behaviorType = [...root.querySelectorAll<HTMLSelectElement>('[data-story-branch-field="kind"]')]
+      .find(control => control.dataset.storyBranchPath === JSON.stringify(['action']))!;
+    behaviorType.value = 'localFlag';
+    behaviorType.dispatchEvent(new Event('change', { bubbles: true })); ctrl.flushUIUpdates();
     input('[data-editor-field="requires-flag"]', 'StoryName-started');
     input('[data-editor-field="local-flag-op"]', 'set');
     input('[data-editor-field="local-flag-name"]', '自由名称');
+    find('[data-editor-field="local-flag-name"]').dispatchEvent(new Event('change', { bubbles: true })); ctrl.flushUIUpdates();
     input('[data-editor-field="local-flag-type"]', 'number');
     const field = find<HTMLInputElement>('[data-editor-field="local-flag-value"]');
     field.focus();
@@ -105,14 +110,66 @@ describe('Story Editor workspace prototype', () => {
     expect(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)).not.toBeNull();
   });
 
+  it('shows an image sender avatar without also exposing its text fallback', () => {
+    open();
+    click('new');
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:senders"]').click(); ctrl.flushUIUpdates();
+    const hoshinoSender = storySenders(createUIContext(game)).find(sender => sender.label === '小鸟游星野')!;
+    const hoshino = find<HTMLButtonElement>(`[data-editor-sender="${hoshinoSender.id}"]`);
+    const avatar = hoshino.querySelector('.story-editor-sender-avatar')!;
+    expect(avatar.querySelector('img')?.getAttribute('src')).toMatch(/Hoshino\.png/i);
+    expect(avatar.querySelector(':scope > span[hidden]')?.textContent).toBe('小');
+    expect(hoshino.querySelector('small')).toBeNull();
+  });
+
+  it('updates the composer avatar immediately when the sender changes', () => {
+    open(); click('new');
+    const oldButton = find<HTMLButtonElement>('.story-editor-composer-speaker');
+    expect(oldButton.textContent).toContain('旁');
+
+    click('choose-sender');
+    const hoshino = storySenders(createUIContext(game)).find(sender => sender.label === '小鸟游星野')!;
+    find<HTMLButtonElement>(`[data-editor-sender="${hoshino.id}"]`).click(); ctrl.flushUIUpdates();
+    const selectedButton = find<HTMLButtonElement>('.story-editor-composer-speaker');
+    expect(selectedButton).not.toBe(oldButton);
+    expect(selectedButton.getAttribute('aria-label')).toContain('小鸟游星野');
+    expect(selectedButton.querySelector('.story-editor-sender-avatar img')?.getAttribute('src')).toMatch(/Hoshino\.png/i);
+
+    click('choose-sender');
+    find<HTMLButtonElement>('[data-editor-sender="teacher"]').click(); ctrl.flushUIUpdates();
+    const teacherButton = find<HTMLButtonElement>('.story-editor-composer-speaker');
+    expect(teacherButton).not.toBe(selectedButton);
+    expect(teacherButton.getAttribute('aria-label')).toContain('老师');
+    expect(teacherButton.querySelector('.story-editor-sender-avatar img')).toBeNull();
+    expect(teacherButton.querySelector('.story-editor-sender-avatar')?.textContent).toBe('老');
+  });
+
+  it('switches node types from the top of the property column without changing node identity', () => {
+    open(); click('new'); click('operation');
+    const nodeId = currentNode(ctrl.storyEditor.state)!.id;
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-column-action^="story-editor-node-type:"]')];
+    expect(tabs.map(tab => tab.textContent?.trim())).toEqual(['Talklet', 'Click', 'Operation', 'Transfer']);
+    expect(tabs.find(tab => tab.dataset.columnAction?.endsWith(':operation'))?.getAttribute('aria-selected')).toBe('true');
+    expect(root.querySelector('[data-story-node-type]')).toBeNull();
+
+    find<HTMLButtonElement>('[data-column-action="story-editor-node-type:talklet"]').click(); ctrl.flushUIUpdates();
+    expect(currentNode(ctrl.storyEditor.state)?.type).toBe('talklet');
+    expect(currentNode(ctrl.storyEditor.state)?.id).toBe(nodeId);
+    find<HTMLButtonElement>('[data-column-action="story-editor-node-type:operation"]').click(); ctrl.flushUIUpdates();
+    expect(currentNode(ctrl.storyEditor.state)?.type).toBe('operation');
+    expect(currentNode(ctrl.storyEditor.state)?.id).toBe(nodeId);
+  });
+
   it('creates all three voices and Click, edits, reorders, saves, and restores with a fresh controller', () => {
     open();
     click('new');
-    const role = find<HTMLSelectElement>('[data-editor-composer-sender]');
-    const character = [...role.options].find(option => option.value.startsWith('character:'))!;
+    const character = storySenders(createUIContext(game)).find(sender => sender.id.startsWith('character:'))!;
     expect(character).toBeTruthy();
-    for (const [sender, text] of [[character.value, '角色发言'], ['narrator', '旁白\n第二行'], ['teacher', '老师回复']]) {
-      input('[data-editor-composer-sender]', sender);
+    expect(find('.story-editor-composer-talklet').classList.contains('chat-talk')).toBe(true);
+    expect(find('[data-editor-action="send"]').classList.contains('send-button')).toBe(true);
+    for (const [sender, text] of [[character.id, '角色发言'], ['narrator', '旁白\n第二行'], ['teacher', '老师回复']]) {
+      click('choose-sender');
+      find<HTMLButtonElement>(`[data-editor-sender="${sender}"]`).click(); ctrl.flushUIUpdates();
       input('[data-editor-composer-text]', text);
       click('send');
     }
@@ -281,7 +338,8 @@ describe('Story Editor workspace prototype', () => {
     const sync = vi.spyOn(ctrl.chat, 'syncCurrentStory');
     const send = vi.spyOn(ctrl.commands, 'clickSend');
     find<HTMLButtonElement>('#story-editor-launch').click();
-    click('new'); input('[data-editor-composer-sender]', 'teacher');
+    click('new'); click('choose-sender');
+    find<HTMLButtonElement>('[data-editor-sender="teacher"]').click(); ctrl.flushUIUpdates();
     input('[data-editor-composer-text]', '作者的台词'); click('send'); click('click');
     ctrl.refreshChatPanel(); ctrl.flushUIUpdates();
     expect(sync).not.toHaveBeenCalled();
@@ -352,7 +410,8 @@ describe('Story Editor workspace prototype', () => {
     document.body.append(live);
     try {
       open(); click('new');
-      input('[data-editor-composer-sender]', 'teacher');
+      click('choose-sender');
+      find<HTMLButtonElement>('[data-editor-sender="teacher"]').click(); ctrl.flushUIUpdates();
       input('[data-editor-composer-text]', text); click('send');
       const wrapper = find('[data-editor-node]');
       const wrapperStyle = getComputedStyle(wrapper);
@@ -424,16 +483,47 @@ describe('Story Editor workspace prototype', () => {
     expect(original.name).not.toBe('真正写入的名称');
   });
 
-  it('keeps incomplete drafts saveable while rejecting invalid Runtime content', () => {
+  it('keeps a second Choice through draft save, explicit Registry publish, and content reload', () => {
+    open();
+    const id = 'base:story:schale_welcome';
+    find<HTMLButtonElement>(`[data-editor-story="source:${id}"]`).click(); ctrl.flushUIUpdates();
+    const draft = currentDraft(ctrl.storyEditor.state)!;
+    const position = draft.document.nodes.findIndex(node => node.id === 'p6-choice') + 1;
+    draft.document = { ...draft.document, stages: { ...draft.document.stages, extra: { advance: 'input' } } };
+    draft.document.nodes.splice(position, 0, { id: 'second-choice', type: 'click', stageId: 'extra', interaction: {
+      kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'mygo' }], options: [
+        { id: 'foo', text: 'foo', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'mygo', value: true }] } },
+      ],
+    } });
+    draft.dirty = true;
+    const authored = structuredClone(draft.document);
+    click('save');
+    expect(draft.dirty).toBe(false);
+    expect(game.registry.stories.get(id)?.nodes.some(node => node.id === 'second-choice')).toBe(false);
+    click('save-to-runtime');
+    expect(game.registry.stories.get(id)).toEqual(authored);
+
+    ctrl.destroy();
+    game.init([baseDatapack]);
+    ctrl = new UIController(game, root);
+    open();
+    expect(currentDraft(ctrl.storyEditor.state)?.document).toEqual(authored);
+    expect(game.registry.stories.get(id)?.nodes.some(node => node.id === 'second-choice')).toBe(false);
+    click('save-to-runtime');
+    expect(game.registry.stories.get(id)).toEqual(authored);
+  });
+
+  it('omits an empty Operation placeholder while rejecting other invalid Runtime content', () => {
     open(); click('new'); click('operation');
     const draft = currentDraft(ctrl.storyEditor.state)!;
     click('save'); click('save-to-runtime');
-    expect(root.textContent).toContain('nodes[0].action：StoryAction 必须是对象');
-    expect(game.registry.stories.has(draft.document.id)).toBe(false);
+    expect(root.textContent).toContain('已保存到运行内容，仅当前运行有效');
+    expect(game.registry.stories.get(draft.document.id)?.nodes).toEqual([]);
+    const savedEmpty = game.registry.stories.get(draft.document.id)!;
     expect(draft.persisted).toBe(true);
     click('delete-node'); click('click'); click('save-to-runtime');
     expect(root.textContent).toContain('nodes[0].interaction.text：必须是非空字符串');
-    expect(game.registry.stories.has(draft.document.id)).toBe(false);
+    expect(game.registry.stories.get(draft.document.id)).toBe(savedEmpty);
     input('[data-editor-field="text"]', '继续'); click('save-to-runtime');
     expect(game.registry.stories.get(draft.document.id)).toEqual(draft.document);
   });

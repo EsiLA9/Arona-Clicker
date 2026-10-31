@@ -116,7 +116,7 @@ export function guardPrereqsMet(registry: Registry, state: PlayerState, guard: B
 export function isStoryCursorSnapshot(value: unknown): value is StoryCursorSnapshot {
   if (!value || typeof value !== 'object') return false;
   const snapshot = value as Partial<StoryCursorSnapshot>;
-  return !!snapshot.playback && snapshot.playback.format === 'story-nodes'
+  return !!snapshot.playback && snapshot.playback.format === 'story-nodes-v2' && !!snapshot.output
     && typeof snapshot.isReplay === 'boolean'
     && Number.isSafeInteger(snapshot.lastChoiceIndex)
     && (snapshot.lastChoiceStoryId === null

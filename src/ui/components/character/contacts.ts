@@ -306,7 +306,7 @@ function renderConversationFlow(
   const blocked = !story && !!(blockEntry && blockEntry.block)
     && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
 
-  // 底部固定回复按钮：始终存在；门控/阻塞时不可推进（门控态由点击处理器转为节奏加速）
+  // 底部固定推进按钮：始终存在；门控/阻塞时不可推进（门控态由点击处理器转为节奏加速）
   const footer = blocked
     ? `
       <button class="send-button disabled" disabled>

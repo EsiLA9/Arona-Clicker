@@ -18,7 +18,7 @@ export interface MapEntrySourceBinding {
   readonly mapId: string;
 }
 
-/** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 按钮"想回复"中。 */
+/** 底部按钮门控阶段（§4 页级节奏）：typing = 对方打字中；pause = 连发停顿拍；thinking = 等待按钮操作。 */
 export type SendGatePhase = 'typing' | 'pause' | 'thinking';
 
 /** 开幕标题横幅快照：标题 + 呼出时刻（render 重建元素时按 startedAt 断点续播 CSS 动画，见 story-gate.ts）。 */
@@ -78,7 +78,7 @@ export interface PanelState {
   getUnread?: (variantId: string) => number;
   /**
    * 底部按钮门控阶段（§4 页级节奏，render 前由 ChatStream 计算当前活跃流）：
-   * typing = 对方消息未送达；pause = 连发停顿拍；thinking = 按钮"想回复"中。
+   * typing = 对方消息未送达；pause = 连发停顿拍；thinking = 等待按钮操作。
    * 三阶段内按钮均无文案、不可推进、点击仅加速 0.1s/次。
    */
   sendGate?: SendGatePhase | null;

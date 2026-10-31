@@ -7,7 +7,7 @@ import { StoryDraftPersistence, STORY_EDITOR_STORAGE_KEY } from '../../src/ui/st
 const senders: StorySender[] = [{ id: 'narrator', label: '旁白' }, { id: 'teacher', label: '老师', speaker: '老师' }, { id: 'character:hoshino', label: '星野', speaker: '星野' }];
 const source: StoryDef = { id: 'test:story:source', name: '原始 Story', nodes: [
   { id: 'text', type: 'talklet', stageId: 'one', content: { kind: 'talk', speaker: '未注册角色', text: '原文', image: 'test:pic:photo' }, presentation: { side: 'left', avatarMode: 'show', align: 'left' }, pacing: { typing: 2 } },
-  { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'yes', text: '同意', reply: { kind: 'talk', text: '好的' } }] } },
+  { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'yes', text: '同意' }] } },
   { id: 'op', type: 'operation', action: { kind: 'travel', areaId: 'test:area:home' } },
   { id: 'transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'test:story:next' } },
 ], stages: { one: { advance: 'input' } }, extra: { t: 'dict', v: { note: { t: 'str', v: '作者附加信息' } } } };

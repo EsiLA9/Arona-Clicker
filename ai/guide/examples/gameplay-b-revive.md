@@ -29,4 +29,4 @@
 
 ## 正式演练
 
-“复苏原语演练”中，敌人先攻击当前 HP 最低的芹香，白子选择 Ability 复苏她；后续来源让芹香继续行动。先后顺序与 Restore 断言由 `tests/engine/gameplay-b-effect-example.test.ts` 覆盖。历史屏幕验收步骤见 [[ai/archive/plan/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U21-screen-acceptance-report]]。
+“复苏原语演练”中，敌人先攻击当前 HP 最低的芹香，白子选择 Ability 复苏她；后续来源让芹香继续行动。先后顺序与 Restore 断言由 `tests/engine/gameplay-b-effect-example.test.ts` 覆盖。历史屏幕验收步骤见 Task 0320（原归档已删除）。

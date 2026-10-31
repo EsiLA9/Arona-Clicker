@@ -1,7 +1,12 @@
 import type { ConditionGroup } from '../../../engine/types/expression';
-import type { StoryClickNode, StoryContent, StoryNodeDocument, StoryTalkletNode } from '../../../data-services/contracts/story-node';
+import type { StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import type { StoryAction } from '../../../data-services/contracts/story-node-actions';
 import type { StoryTransfer } from '../../../data-services/contracts/story-node-actions';
+import type { EffectReceipt } from '../../../engine/contracts/effect-receipt';
+import type { Effect } from '../../../engine/types/expression';
+import type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
+
+export type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
 
 /** 新节点内存播放的来源身份；不代表旧Entry已入场或结算。 */
 export interface StoryNodeSource {
@@ -12,12 +17,18 @@ export interface StoryNodeSource {
   readonly runId?: string;
   /** 跨保存恢复保持不变的逻辑播放身份；与新的演出运行身份分离。 */
   readonly historyId?: string;
+  readonly causalChainId?: string;
+  readonly handoffCount?: number;
 }
 
 /** 同步行为端口；applied沿用领域的上限/零增量政策，不保证数值增长或可回滚。 */
-export type StoryNodeActionOutcome =
+export type StoryNodeActionOutcome = {
+  readonly receipts?: readonly EffectReceipt[];
+  readonly presentation?: readonly Effect[];
+} & (
   | { readonly status: 'applied' | 'replaced' }
-  | { readonly status: 'rejected'; readonly error: string };
+  | { readonly status: 'rejected'; readonly error: string }
+);
 
 export interface StoryNodePlaybackHost {
   evaluate(condition: ConditionGroup, visitedStoryIds: readonly string[]): boolean;
@@ -37,8 +48,12 @@ export interface StoryNodeCompletion extends StoryNodeSource {
 export type StoryNodePlaybackView =
   | { readonly status: 'idle' | 'running' | 'replaced' }
   | { readonly status: 'completed'; readonly completion: StoryNodeCompletion }
-  | { readonly status: 'failed'; readonly error: string }
+  | { readonly status: 'failed'; readonly error: string; readonly data: StoryNodePresentationData }
   | { readonly status: 'delivery'; readonly token: string; readonly storyId: string; readonly sequence: number; readonly node: StoryTalkletNode }
+  /** Operation action has been applied; acknowledge it before draining the next StoryNode. */
+  | { readonly status: 'operation'; readonly token: string; readonly storyId: string; readonly sequence: number; readonly node: StoryOperationNode; readonly data: StoryNodePresentationData }
+  /** Click actions have committed; delivery acknowledgment applies the accepted continuation. */
+  | { readonly status: 'result'; readonly token: string; readonly storyId: string; readonly sequence: number; readonly node: StoryClickNode; readonly data: StoryNodePresentationData }
   | {
       readonly status: 'input'; readonly token: string; readonly storyId: string; readonly node: StoryClickNode;
       readonly sequence: number;
@@ -49,7 +64,6 @@ export type StoryNodePlaybackView =
 /** 命令回执中的有序交付事件；不是GameEvent，不发布到全局EventBus。 */
 export type StoryNodePlaybackEvent =
   | { readonly type: 'view'; readonly view: StoryNodePlaybackView }
-  | { readonly type: 'reply'; readonly source: StoryNodeSource; readonly storyId: string; readonly clickId: string; readonly content: StoryContent }
   | { readonly type: 'completed'; readonly completion: StoryNodeCompletion }
   | { readonly type: 'replaced'; readonly source: StoryNodeSource };
 

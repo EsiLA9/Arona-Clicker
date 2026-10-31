@@ -281,7 +281,8 @@ describe('Story Editor property panel', () => {
 
   it('removes an optional enum value instead of writing a placeholder and surfaces unknown source fields as diagnostics', () => {
     open(); click('new');
-    composer('[data-editor-composer-sender]', 'teacher');
+    click('choose-sender');
+    q<HTMLButtonElement>('[data-editor-sender="teacher"]').click(); ctrl.flushUIUpdates();
     composer('[data-editor-composer-text]', '老师发言'); click('send');
 
     setProperty(['presentation', 'align'], 'center');
@@ -307,8 +308,10 @@ describe('Story Editor property panel', () => {
   it('keeps local flag input the only value source while the dedicated form and the panel share one draft', () => {
     open(); click('new'); click('operation');
     selectBranch(['action'], 'kind', 'localFlag');
-    expect(root.textContent).toContain('局部标记字段沿用已接通的专用表单');
-    expect(root.querySelector('[data-editor-field="local-flag-op"]')).not.toBeNull();
+    const flagFields = root.querySelector<HTMLElement>('[data-editor-key="local-flag-fields"]');
+    const actionGroup = flagFields?.closest('.story-editor-property-group');
+    expect(actionGroup?.querySelector('[data-story-branch-field="kind"]')?.closest('label')?.textContent).toContain('行为类型');
+    expect(flagFields?.querySelector('[data-editor-field="local-flag-op"]')).not.toBeNull();
     selectBranch(['action'], 'kind', 'travel');
     expect(root.querySelector('[data-editor-field="local-flag-op"]')).toBeNull();
     selectBranch(['action'], 'kind', 'localFlag');

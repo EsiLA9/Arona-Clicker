@@ -7,12 +7,15 @@ import { FLOW_ENTRY_KEY_ATTRIBUTE, FLOW_MARK_NAME, chatEntryToFlowContent, chatI
 import { isReservedCardMark, mapCardAttachmentAttributes, mapCardHostAttributes } from '../../cards/card-host';
 import { renderAttachedCardFace } from '../../cards/card-face';
 import { renderMapActionCardButton, stableMapActionCardAngle } from '../../cards/action-card';
+import type { StoryClickInteraction } from '../../../data-services/contracts/story-node';
+import type { StoryOutputContent } from '../../../engine/contracts/story-playback-state';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
   AlreadyCompleted: '该剧情已经完成',
   AreaDeliveryUnavailable: '这条区域故事已无法接取，请返回区域列表后重试',
   BranchGuardDenied: '分歧点准入条件未满足',
+  Busy: '剧情正在处理，请稍后重试',
   ChoiceConditionNotMet: '当前选择条件未满足',
   ChoiceRequired: '请先选择一个回应',
   ClickRequired: '请先完成本页点击再继续',
@@ -23,6 +26,8 @@ export const storyErrorText: Record<string, string> = {
   NoAvailableStory: '当前没有可触发的被动剧情',
   NotFound: '找不到剧情数据',
   NotReplayable: '该剧情不可重阅读',
+  PresentationPending: '当前演出尚未结束',
+  StaleToken: '剧情状态已变化，请重新操作',
   WrongStoryType: '剧情类型不匹配',
 };
 
@@ -33,7 +38,7 @@ export interface ChatEntry {
   speaker?: string;
   text: string;
   storyType?: 'active' | 'passive';
-  /** 是否为玩家（老师）发出的回复。 */
+  /** 是否为玩家（老师）发出的消息。 */
   isPlayer?: boolean;
   /** 旁白对齐（center/left/right），仅 kind === 'narration' 生效。 */
   align?: 'center' | 'left' | 'right';
@@ -49,6 +54,11 @@ export interface ChatEntry {
   image?: string;
   /** 已送达剧情页的同步标识，随历史保存；用于读档去重，不按台词文本合并消息。 */
   storyPageKey?: string;
+  /** Stable Runtime output identity; numeric id remains local to the display projection. */
+  storyOutputId?: string;
+  choice?: StoryOutputContent['choice'];
+  /** A local notice belongs after this already committed Runtime output position. */
+  afterStoryOutput?: { epoch: number; sequence: number };
   /** 共享投递策略的逻辑身份；普通 Chat 不写入，保留现有数字 ID 与 storyPageKey 语义。 */
   contentId?: string;
   /** 共享投递策略；普通 Chat 不写入（缺省追加）。 */
@@ -178,8 +188,6 @@ export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderCh
   const { instanceKey, hideIdentity = false, inlineStyle } = options;
   const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
-  // 仅玩家回复保留"回复"标签（当前注释禁用，见同步流）；NPC 不再显示 PASSIVE/ACTIVE
-  const badge = /* entry.isPlayer ? '<span class="chat-kind">回复</span>' : */ '';
   const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : '';
   // 聊天流发送图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败则整图不渲染
   const image = entry.image ? renderChatImage(ctx, entry.image) : '';
@@ -190,7 +198,7 @@ export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderCh
       ${renderBubbleContent(ctx, entry)}
       ${renderMapLocations(ctx, entry, options)}
     </div>`;
-  const nameLine = hideIdentity ? '' : `<div class="chat-name">${badge}${name}</div>`;
+  const nameLine = hideIdentity ? '' : `<div class="chat-name">${name}</div>`;
   const main = `<div class="chat-talk-main">${nameLine}${bubble}</div>`;
   const avatar = entry.noAvatar
     ? ''
@@ -213,29 +221,70 @@ function renderNarration(ctx: UIContext, entry: FlowContent, options: RenderChat
   return `<div class="chat-narration chat-narration-${align}"${entryAttributes(ctx, entry, options.instanceKey)}><span class="chat-narration-text">${ctx.escapeHtml(entry.text)}</span></div>`;
 }
 
-/** 回复选择卡片：header 竖条装饰 + 白底居中选项列表（LOCKED 态保留）。 */
-function renderReplyCard(
+/** Choice 选项卡：保留不可用项，并沿用剧情运行态左右方向。 */
+function renderChoiceCard(
   ctx: UIContext,
-  choices: NonNullable<StoryView['page']['choices']>,
+  choices: readonly NonNullable<StoryView['page']['choices']>[number][],
   availableIndexes: number[],
   align: NonNullable<StoryView['page']['align']>,
   token?: string,
+  preview = false,
+  optionAddon?: (choice: { id: string; text: string }, index: number) => string,
+  selectedOptionId?: string,
 ): string {
+  const completed = selectedOptionId !== undefined;
   const rows = choices
     .map((choice, index) => {
       const available = availableIndexes.includes(index);
-      return `
-      <button class="reply-choice" data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''} ${available ? '' : 'disabled'}>
-        <span class="reply-choice-text">${ctx.escapeHtml(choice.text)}</span>
-        ${available ? '<span class="reply-choice-arrow">↗</span>' : '<small class="reply-choice-locked">LOCKED</small>'}
+      const bindings = completed ? '' : preview ? ' data-story-editor-click-option'
+        : ` data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''}`;
+      let indicator = preview || available ? '<span class="choice-option-arrow">↗</span>' : '<small class="choice-option-locked">LOCKED</small>';
+      if (completed) indicator = choice.id === selectedOptionId ? '<small class="choice-option-locked">已选择</small>' : '';
+      const button = `
+      <button class="choice-option"${bindings} ${completed || preview || !available ? 'disabled' : ''}>
+        <span class="choice-option-text">${ctx.escapeHtml(choice.text)}</span>
+        ${indicator}
       </button>`;
+      return optionAddon && preview
+        ? `<div class="choice-option-row">${optionAddon({ id: choice.id ?? String(index), text: choice.text }, index)}${button}</div>`
+        : button;
     })
     .join('');
   return `
-    <div class="reply-card reply-card--${align}">
-      <div class="reply-card-header"><span class="reply-card-bar"></span><span class="reply-card-title">回复</span></div>
-      <div class="reply-card-choices">${rows}</div>
+    <div class="choice-card choice-card--${align}">
+      <div class="choice-card-header"><span class="choice-card-bar"></span><span class="choice-card-title">选项</span></div>
+      <div class="choice-card-options">${rows}</div>
     </div>`;
+}
+
+export interface StoryClickPreviewOptions {
+  /** Editor-only decoration placed beside each Choice option; Runtime rendering does not use it. */
+  readonly choiceOptionAddon?: (option: { id: string; text: string }, index: number) => string;
+}
+
+/** Read-only author preview of the input controls as they appear during Story playback. */
+export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickInteraction | undefined, previewOptions: StoryClickPreviewOptions = {}): string {
+  if (!interaction) return '<div class="story-editor-action-node"><span>Click</span><strong>未配置交互</strong></div>';
+  if (interaction.kind === 'button') {
+    const label = (interaction.text ?? '').trim() || '点击';
+    const multiStep = Boolean(interaction.press);
+    const indicator = multiStep ? '<span class="send-work-count">多段</span>' : '';
+    return `<div class="chat-current story-editor-click-preview"><button type="button" class="send-button send-player" disabled aria-label="${ctx.escapeHtml(label)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(label)}</span>${indicator}<span class="send-arrow" aria-hidden="true">↗</span></span></button></div>`;
+  }
+  if (interaction.kind === 'choice') {
+    const options = (interaction.options ?? []).map((option, index) => ({ id: option.id ?? String(index), text: option.text ?? '' }));
+    if (!options.length) return '<div class="chat-current story-editor-click-preview"><div class="choice-card choice-card--right"><div class="choice-card-header"><span class="choice-card-bar"></span><span class="choice-card-title">选项</span></div><div class="story-editor-click-empty">尚未添加选项</div></div></div>';
+    const optionAddon = previewOptions.choiceOptionAddon;
+    const card = renderChoiceCard(ctx, options, options.map((_, index) => index), 'right', undefined, true, optionAddon);
+    return `<div class="chat-current story-editor-click-preview${optionAddon ? ' story-editor-click-preview--choice-bindings' : ''}">${card}</div>`;
+  }
+  const card = interaction.card;
+  return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
+    storyId: card?.request?.entryId ?? '',
+    title: card?.title,
+    buttonText: card?.buttonText,
+    align: card?.align ?? 'left',
+  }, undefined, true)}</div>`;
 }
 
 /** "正在输入"气泡：复用 talk 气泡骨架（头像/名字/侧向），正文为 send-dots 节奏点（§4 页级打字提示）。
@@ -257,7 +306,7 @@ function renderTyping(ctx: UIContext, entry: FlowContent, options: RenderChatEnt
 
 /** 连发分组判定（§4）：相邻两条均为简单 chat（talk/typing）且同人同侧——
  *  speaker / avatar / 气泡侧 / 玩家身份 / noAvatar 形态全部一致。其余条目（旁白、
- *  系统行、奖励行、他人回复等）一律打断分组。 */
+ *  系统行、奖励行、其他角色发言等）一律打断分组。 */
 function sameChainGroup(a: ChatEntry | undefined, b: ChatEntry): boolean {
   if (!a || (a.kind !== 'talk' && a.kind !== 'typing')) return false;
   if (b.kind !== 'talk' && b.kind !== 'typing') return false;
@@ -360,6 +409,7 @@ export function renderChatEntry(
   entry: FlowContent,
   options: RenderChatEntryOptions = {},
 ): string {
+  if (entry.choice) return `<div class="chat-current"${entryAttributes(ctx, entry, options.instanceKey)}>${renderChoiceCard(ctx, entry.choice.options, [], entry.align ?? 'right', undefined, false, undefined, entry.choice.selectedOptionId)}</div>`;
   if (entry.mapCards?.length) return renderMapCards(ctx, entry, options);
   if (entry.kind === 'map') return renderMapTalklet(ctx, entry, options);
   if (entry.kind === 'narration') return renderNarration(ctx, entry, options);
@@ -395,13 +445,13 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
 }
 
 /**
- * 渲染当前剧情页的回复选择卡片。
+ * 渲染当前剧情页的 Choice 选项卡。
  * 页体（旁白/对话）由聊天流呈现，推进交互统一由底部 send-button 承担。
  */
 export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
   if (story.phase === 'delivery') return '';
   const choices = story.page.choices ?? [];
-  if (choices.length > 0) return `<div class="chat-current">${renderReplyCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`;
+  if (choices.length > 0) return `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`;
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
     return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token)}</div>`;
@@ -504,13 +554,14 @@ function renderKizunaCard(
   ctx: UIContext,
   kizuna: NonNullable<StoryView['page']['kizuna']>,
   token?: string,
+  preview = false,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText ?? '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
   return `
-    <div class="kizuna-card${alignCls}" ${token ? `data-story-card-token="${ctx.escapeHtml(token)}"` : `data-kizuna="${entryId}"`}>
+    <div class="kizuna-card${alignCls}"${token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">

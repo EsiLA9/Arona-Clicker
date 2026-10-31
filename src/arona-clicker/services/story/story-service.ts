@@ -1,8 +1,7 @@
 import type { PlayerState } from '../../types/state';
 import type { StoryEntryDef, BranchGuard } from '../../../data-services/contracts/story-entry';
 import type { StoryDef } from '../../../data-services/contracts/story';
-import type { StoryAction, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
-import type { StoryContent } from '../../../data-services/contracts/story-node';
+import type { StoryEntryRequest, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
 import type {
   AreaStoryDeliveryView, SendResult, SendState, StoryAdvanceResult, StoryStartResult, StoryView,
 } from '../../contracts/runtime/results';
@@ -13,7 +12,9 @@ import { ConditionSystem } from '../../../engine/expression/condition-system';
 import type { EffectEngine } from '../../../engine/effect/effect-engine';
 import type { StoryMutationPort } from '../../contracts/runtime/mutation';
 import type { StoryNodeCommandResult, StoryNodePlaybackHost, StoryNodePlaybackView, StoryNodeSource } from '../../contracts/runtime/story-node-playback';
-import type { StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
+import type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
+import type { StoryPlaybackStep, StoryDeferredStart } from '../../../engine/contracts/story-playback-state';
+import type { StoryPresentationView } from '../../contracts/runtime/story-presentation';
 import type { StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import { isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { CompletedStory } from '../../types/story-state';
@@ -21,7 +22,10 @@ import type { TravelResult } from '../../contracts/runtime/results';
 import type { StoryNodePresentationPort } from './story-node-presentation-host';
 import { PassivePoolSystem } from '../economy/passive-pool-system';
 import { validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
-import { createStoryNodeActionHost } from './story-node-action-host';
+import { createStoryNodeActionHost, executeStoryPresentationEffect, formatStoryEffectReceipt } from './story-node-action-host';
+import type { StoryNodeActionHostOptions } from './story-node-action-host';
+import { StoryPlaybackCoordinator, type StoryPlaybackClock } from './story-playback-coordinator';
+import { documentFingerprints, validateStoryPresentationSnapshot, validateStoryDeferredStarts } from './story-playback-snapshot';
 import {
   createStoryNodeSession, markSessionClosed, markTalkletDelivered, projectStoryNodeView,
   trackStoryFlags, type StoryNodeRunEndReason, type StoryNodeSession,
@@ -51,10 +55,11 @@ export interface StoryServiceOptions {
   eventBus: EventBus;
   passivePools: PassivePoolSystem;
   getState: () => PlayerState;
-  travelToArea: (areaId: string, allowDuringStory?: boolean, checkAdjacency?: boolean) => TravelResult;
+  travelToArea: (areaId: string, allowDuringStory?: boolean, checkAdjacency?: boolean, onCommitted?: (result: Extract<TravelResult, { success: true }>) => void) => TravelResult;
   /** Owns run-scoped overlay and entity presentation lifetime. UI selects its active owner explicitly. */
   presentation?: StoryNodePresentationPort;
   random?: () => number;
+  clock?: StoryPlaybackClock;
 }
 
 type StartOptions = { force?: boolean; skipConditions?: boolean; replaceAny?: boolean; initialFlags?: StoryRunFlags };
@@ -65,9 +70,17 @@ export class StoryService {
   private readonly sessions = new Map<string, StoryNodeSession>();
   private readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute'>;
   private readonly selection: StoryEntrySelectionContext;
+  private readonly coordinator: StoryPlaybackCoordinator;
+  private readonly actionOptions: StoryNodeActionHostOptions;
+  private transactionDepth = 0;
+  private readonly pendingStarts: StoryDeferredStart[] = [];
+  private readonly reserved = new Map<string, { session: StoryNodeSession; initialFlags: StoryRunFlags }>();
+  private activeSource?: StoryNodeSource;
+  private readonly requestResults = new Map<string, StoryStartResult>();
+  private readonly completions = new Map<string, CompletedAdvance>();
 
   constructor(private readonly opts: StoryServiceOptions) {
-    const core = createStoryNodeActionHost({
+    this.actionOptions = {
       registry: opts.registry,
       effectEngine: opts.effectEngine,
       conditionSystem: opts.conditionSystem,
@@ -76,11 +89,55 @@ export class StoryService {
       travelToArea: opts.travelToArea,
       eventBus: opts.eventBus,
       presentation: opts.presentation,
+      deferPresentation: true,
+      getTitle: source => this.sessionFor(source.owner)?.entry.openingTitle
+        ?? this.sessionFor(source.owner)?.documents.get(source.rootStoryId)?.name
+        ?? opts.registry.storyEntries.get(source.entryId)?.openingTitle
+        ?? opts.registry.stories.get(source.rootStoryId)?.name,
+      requestEntry: (request, source) => this.requestEntry(request, source),
+    };
+    const core = createStoryNodeActionHost(this.actionOptions);
+    this.coordinator = new StoryPlaybackCoordinator({
+      clock: opts.clock,
+      transaction: work => this.transact(work),
+      changed: owner => this.withSource(this.sessionFor(owner)?.source, () => opts.eventBus.emit({ type: 'storyPlaybackChanged', owner })),
+      delivered: source => {
+        const session = this.sessionFor(source.owner);
+        if (!session || session.source.runId !== source.runId) return;
+        const delivered = markTalkletDelivered(session, session.player.getView());
+        if (delivered) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal));
+      },
+      release: (source, token) => {
+        const session = this.sessionFor(source.owner);
+        if (!session || session.source.runId !== source.runId) return;
+        this.withSource(source, () => {
+          if (session.finishing) this.finishPresentation(session);
+          else this.advanceNode(undefined, source.owner, token, false);
+        });
+      },
+      effect: (effect, source) => {
+        const result = this.withSource(source, () => executeStoryPresentationEffect(this.actionOptions, effect, source));
+        if (result.status === 'rejected') throw new Error(result.error);
+      },
+      failed: (source, error) => this.withSource(source, () => {
+        const session = this.sessionFor(source.owner);
+        if (!session || session.source.runId !== source.runId) return;
+        const view = session.player.getView();
+        session.finishing = { terminalStoryId: 'storyId' in view ? view.storyId : source.rootStoryId, settled: false,
+          error: error instanceof Error ? error.message : String(error), receipts: 'data' in view ? view.data.receipts : [] };
+        session.player.cancel();
+        this.opts.presentation?.close(source, 'failed');
+        this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: source.owner });
+      }),
     });
     this.actionHost = {
       preflight: core.preflight,
       execute: (action, source) => {
-        const outcome = core.execute(action, source);
+        const previous = this.activeSource;
+        this.activeSource = source;
+        let outcome;
+        try { outcome = core.execute(action, source); }
+        finally { this.activeSource = previous; }
         const session = this.sessionFor(source.owner);
         if (session && session.source.runId === source.runId) trackStoryFlags(session, action, outcome);
         return outcome;
@@ -95,16 +152,117 @@ export class StoryService {
       getCurrentStoryId: owner => this.getCurrentStoryId(owner),
       startStory: (storyId, expectedType, owner, startOpts) => this.startStory(storyId, expectedType, owner, startOpts),
     };
+    opts.eventBus.on('chatFlowCleared', event => {
+      if (!event.runId) this.coordinator.clear(event.owner ?? null);
+    });
   }
 
   private get state(): PlayerState { return this.opts.getState(); }
   private get documents(): ReadonlyMap<string, StoryDef> { return this.opts.registry.stories; }
 
+  private withSource<T>(source: StoryNodeSource | undefined, work: () => T): T {
+    const previous = this.activeSource;
+    this.activeSource = source ?? previous;
+    try { return work(); }
+    finally { this.activeSource = previous; }
+  }
+
+  private transact<T>(work: () => T): T {
+    this.transactionDepth += 1;
+    try { return work(); }
+    finally {
+      this.transactionDepth -= 1;
+      if (this.transactionDepth === 0) {
+        this.transactionDepth = 1;
+        try {
+          let remaining = 128;
+          while (remaining-- > 0) {
+            for (const [key, pending] of [...this.reserved]) {
+              this.reserved.delete(key);
+              if (this.isCurrent(pending.session)) this.initializeSession(pending.session, pending.initialFlags);
+            }
+            const canStart = (item: StoryDeferredStart) => {
+              const finishing = this.sessionFor(item.owner)?.finishing;
+              return !finishing || !!finishing.error;
+            };
+            const index = this.pendingStarts.findIndex(canStart);
+            if (index >= 0) {
+              const pending = this.pendingStarts.splice(index, 1)[0]!;
+              const previous = this.activeSource;
+              this.activeSource = { entryId: pending.entryId, rootStoryId: '', owner: pending.owner,
+                causalChainId: pending.causalChainId, handoffCount: pending.handoffCount };
+              try { this.requestResults.set(pending.requestId, this.startEntry(pending.entryId, pending.expectedType, pending.owner, pending.options, false)); }
+              finally { this.activeSource = previous; }
+              while (this.requestResults.size > 64) this.requestResults.delete(this.requestResults.keys().next().value!);
+            }
+            this.coordinator.pumpAll();
+            if (!this.reserved.size && !this.pendingStarts.some(canStart)) break;
+          }
+          this.coordinator.pumpAll();
+        } finally { this.transactionDepth = 0; }
+      }
+    }
+  }
+
+  getStartRequestResult(requestId: string): StoryStartResult | null { return structuredClone(this.requestResults.get(requestId) ?? null); }
+
+  private startCommand(storyId: string, expectedType: 'active' | 'passive', owner: string | null, options: StartOptions | undefined, replay: boolean): StoryStartResult {
+    const before = this.completions.get(ownerKey(owner));
+    const result = this.transact(() => this.startEntry(storyId, expectedType, owner, options, replay));
+    const failed = this.sessionFor(owner);
+    if (failed?.finishing?.error) return { success: false, storyId: failed.source.entryId, error: 'PlaybackFailed', detail: failed.finishing.error };
+    if (!result.success && result.detail !== 'RunReplaced') return result;
+    const current = this.getCurrentStoryView(owner);
+    if (current) return { success: true, finished: false, story: current };
+    const completion = this.completions.get(ownerKey(owner));
+    return completion && completion !== before ? completion : result;
+  }
+  suspendPlayback(): void { this.coordinator.suspend(); }
+  resumePlayback(): void { this.transact(() => this.coordinator.resume()); }
+  dispose(): void { this.clearAllCurrentStories(); this.coordinator.reset(); this.pendingStarts.length = 0; }
+  clearOutput(owner: string | null): void { this.transact(() => this.coordinator.clear(owner)); }
+  resetPlayback(): void { this.clearAllCurrentStories(); this.coordinator.reset(); }
+
+  getPlaybackView(owner?: string | null): StoryPresentationView {
+    const target = normalizeOwner(owner);
+    const session = this.sessionFor(target);
+    if (!session) return this.coordinator.view(target, 'idle');
+    const view = session.player.getView();
+    if (session.finishing) return this.coordinator.view(target, session.finishing.error ? 'failed' : 'finishing', undefined, session.source.runId, session.finishing.error);
+    return this.coordinator.view(target, view.status === 'input' ? 'input' : view.status === 'failed' ? 'failed' : 'continue',
+      'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined);
+  }
+
+  continueStory(owner: string | null, token: string): StoryAdvanceResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
+    const current = this.getPlaybackView(owner);
+    if (current.token !== token) return { success: false, error: 'StaleToken' };
+    if (current.phase !== 'continue') return { success: false, error: 'PresentationPending' };
+    return this.transact(() => this.advanceNode(undefined, owner, undefined, false, newRunId()));
+  }
+
+  submitStoryInput(owner: string | null, token: string, optionId?: string): StoryAdvanceResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
+    const current = this.getPlaybackView(owner);
+    if (current.token !== token) return { success: false, error: 'StaleToken' };
+    if (current.phase !== 'input') return { success: false, error: 'PresentationPending' };
+    return this.transact(() => this.advanceNode(optionId, owner, undefined, true, newRunId()));
+  }
+
+  accelerateStoryPresentation(owner: string | null, token: string): boolean {
+    if (this.transactionDepth) return false;
+    const session = this.sessionFor(owner);
+    const view = session?.player.getView();
+    if (!view || !('token' in view)) return false;
+    return this.transact(() => this.coordinator.accelerate(owner, token, view.token));
+  }
+
   /** UI calls this when the player selects a global or owner-specific conversation surface. */
   activateOwner(owner?: string | null): void { this.opts.presentation?.activate(normalizeOwner(owner)); }
 
   getCurrentStoryId(owner?: string | null): string | null {
-    return this.sessionFor(normalizeOwner(owner))?.source.entryId ?? null;
+    const session = this.sessionFor(normalizeOwner(owner));
+    return session?.finishing ? null : session?.source.entryId ?? null;
   }
 
   /** Actual Story.id at the current delivery/input wait point, or null while idle. */
@@ -112,7 +270,7 @@ export class StoryService {
     const session = this.sessionFor(normalizeOwner(owner));
     if (!session) return null;
     const view = session.player.getView();
-    return view.status === 'delivery' || view.status === 'input' ? view.storyId : null;
+    return view.status === 'delivery' || view.status === 'operation' || view.status === 'result' || view.status === 'input' ? view.storyId : null;
   }
 
   /** The compatibility condition target is scoped to the global owner's active chain. */
@@ -122,13 +280,18 @@ export class StoryService {
 
   saveCursor(): StoryCursor {
     const session = this.sessionFor(null);
+    if (this.transactionDepth) throw new Error('Busy');
     return session ? this.snapshot(session) : this.emptySnapshot();
   }
 
   saveChatCursors(): Record<string, StoryCursor> {
+    if (this.transactionDepth) throw new Error('Busy');
     const result: Record<string, StoryCursor> = {};
     for (const session of this.sessions.values()) {
       if (session.source.owner !== null) result[ownerKey(session.source.owner)] = this.snapshot(session);
+    }
+    for (const owner of this.coordinator.outputOwners()) {
+      if (owner !== null && !result[ownerKey(owner)]) result[ownerKey(owner)] = this.emptySnapshot(owner);
     }
     return result;
   }
@@ -136,7 +299,7 @@ export class StoryService {
   /** Purely validates every owner checkpoint before callers replace PlayerState or live cursors. */
   validateCursors(collection: StoryCursorCollection | undefined): void {
     if (collection === undefined) return;
-    if (!collection || typeof collection !== 'object'
+    if (!collection || collection.format !== 'story-playback-v2' || !Array.isArray(collection.pendingStarts) || collection.pendingStarts.length > 64 || typeof collection !== 'object'
       || !collection.global || !collection.chats || typeof collection.chats !== 'object'
       || Array.isArray(collection.chats)) throw new Error('InvalidStoryCursorCollection');
     this.validateCursorSnapshot(collection.global, null);
@@ -144,6 +307,7 @@ export class StoryService {
       const owner = this.ownerFromCursorKey(key);
       this.validateCursorSnapshot(snapshot, owner);
     }
+    validateStoryDeferredStarts(collection, this.opts.registry);
   }
 
   restoreCursor(snapshot: StoryCursor): void {
@@ -170,13 +334,17 @@ export class StoryService {
   }
 
   saveCursors(): StoryCursorCollection {
-    return { global: this.saveCursor(), chats: this.saveChatCursors() };
+    if (this.transactionDepth) throw new Error('Busy');
+    return { format: 'story-playback-v2', global: this.saveCursor(), chats: this.saveChatCursors(), pendingStarts: structuredClone(this.pendingStarts) };
   }
 
   restoreCursors(collection: StoryCursorCollection | undefined): void {
     this.validateCursors(collection);
     this.clearAllCurrentStories();
+    this.coordinator.reset();
+    this.pendingStarts.length = 0;
     if (!collection) return;
+    this.pendingStarts.push(...structuredClone(collection.pendingStarts));
     const global = this.restoreSession(collection.global, null);
     if (global) this.sessions.set(ownerKey(null), global);
     for (const [key, snapshot] of Object.entries(collection.chats)) {
@@ -189,6 +357,8 @@ export class StoryService {
   clearAllCurrentStories(): void {
     for (const session of [...this.sessions.values()]) this.endSession(session, 'cancelled');
     this.sessions.clear();
+    this.reserved.clear();
+    this.pendingStarts.length = 0;
   }
 
   clearCurrentStory(owner?: string | null): void {
@@ -209,10 +379,12 @@ export class StoryService {
   }
 
   clearPassiveIfPlaying(owner?: string | null): void {
-    const session = this.sessionFor(normalizeOwner(owner));
-    const entry = session?.entry;
-    if (session && entry?.type === 'passive' && entry.interruptible !== false && entry.blocksInteraction !== true) {
-      this.endSession(session, 'cancelled');
+    const sessions = owner === undefined ? [...this.sessions.values()] : [this.sessionFor(normalizeOwner(owner))];
+    for (const session of sessions) {
+      const entry = session?.entry;
+      if (session && entry?.type === 'passive' && entry.interruptible !== false && entry.blocksInteraction !== true) {
+        this.endSession(session, 'cancelled');
+      }
     }
   }
 
@@ -244,7 +416,6 @@ export class StoryService {
     if (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit)) return unavailable();
     if (this.hasCompletedStory(entry.storyId)) return { success: false, storyId: storyEntryId, error: 'AlreadyCompleted' };
     const owner = entry.owner ?? null;
-    if (this.getCurrentStoryId(owner) !== null) return { success: false, storyId: storyEntryId, error: 'AlreadyActive' };
     return this.startStory(storyEntryId, 'active', owner);
   }
 
@@ -253,15 +424,21 @@ export class StoryService {
   }
 
   startCardStory(storyId: string, owner?: string | null, initialFlags?: StoryRunFlags): StoryStartResult {
-    const existing = this.sessionFor(normalizeOwner(owner));
-    if (existing?.entry.type === 'passive' && existing.entry.blocksInteraction === true) {
-      return { success: false, storyId, error: 'AlreadyActive' };
-    }
-    return this.startEntry(storyId, 'active', normalizeOwner(owner), { skipConditions: true, force: true, replaceAny: true, initialFlags }, false);
+    return this.startStory(storyId, 'active', owner, { skipConditions: true, force: true, replaceAny: true, initialFlags });
   }
 
   startStory(storyId: string, expectedType: 'active' | 'passive', owner?: string | null, options?: StartOptions): StoryStartResult {
-    return this.startEntry(storyId, expectedType, normalizeOwner(owner), options, false);
+    if (this.transactionDepth) {
+      const checked = this.resolveStartDocument(storyId, expectedType, options?.initialFlags);
+      if ('error' in checked) return checked.error;
+      const requestId = `${newRunId()}:request`;
+      const cause = this.activeSource;
+      if (this.pendingStarts.length >= 64) return { success: false, error: 'PlaybackFailed', detail: 'StoryRequestLimitExceeded' };
+      this.pendingStarts.push({ requestId, entryId: storyId, expectedType, owner: normalizeOwner(owner), options: options && structuredClone(options),
+        causalChainId: cause?.causalChainId ?? newRunId(), handoffCount: cause?.handoffCount ?? 0 });
+      return { success: false, error: 'StartDeferred', detail: requestId };
+    }
+    return this.startCommand(storyId, expectedType, normalizeOwner(owner), options, false);
   }
 
   triggerPassiveStory(initId = this.state.activeInit, owner?: string | null): StoryStartResult {
@@ -275,15 +452,27 @@ export class StoryService {
   readyStepCount(owner: string): number { return readyStepIds(this.selection, owner).length; }
 
   replayStory(storyId: string, owner?: string | null): StoryStartResult {
+    if (this.transactionDepth) return { success: false, error: 'Busy' };
     const entry = this.opts.registry.storyEntries.get(storyId);
     if (!entry) return { success: false, storyId, error: 'NotFound' };
     if (!entry.replayable) return { success: false, storyId, error: 'NotReplayable' };
     if (this.sessionFor(normalizeOwner(owner))) return { success: false, storyId, error: 'AlreadyActive' };
-    return this.startEntry(storyId, entry.type, normalizeOwner(owner), { skipConditions: true }, true);
+    return this.startCommand(storyId, entry.type, normalizeOwner(owner), { skipConditions: true }, true);
   }
 
   advanceStory(choiceIndex?: number | string, owner?: string | null, token?: string): StoryAdvanceResult {
-    return this.advanceNode(choiceIndex, owner, token, false);
+    const target = normalizeOwner(owner);
+    const current = this.getPlaybackView(target);
+    const session = this.sessionFor(target);
+    if (!session) return { success: false, error: 'NoActiveStory' };
+    const input = session.player.getView();
+    if (choiceIndex === undefined) return current.phase === 'input'
+      ? { success: false, error: input.status === 'input' && input.node.interaction.kind === 'choice' ? 'ChoiceRequired' : 'ClickRequired' }
+      : this.continueStory(target, token ?? current.token ?? '');
+    if (input.status !== 'input' || input.node.interaction.kind !== 'choice') return { success: false, error: 'InvalidChoice' };
+    const optionId = typeof choiceIndex === 'number' ? input.node.interaction.options[choiceIndex]?.id : choiceIndex;
+    if (!optionId) return { success: false, error: 'InvalidChoice' };
+    return this.submitStoryInput(target, token ?? current.token ?? '', optionId);
   }
 
   private advanceNode(
@@ -291,13 +480,14 @@ export class StoryService {
     owner: string | null | undefined,
     token: string | undefined,
     allowClickInput: boolean,
+    causalChainId?: string,
   ): StoryAdvanceResult {
     const normalizedOwner = normalizeOwner(owner);
     const session = this.sessionFor(normalizedOwner);
     if (!session) return { success: false, error: 'NoActiveStory' };
     const current = session.player.getView();
-    const commandToken = token ?? (current.status === 'delivery' || current.status === 'input' ? current.token : undefined);
-    if (!commandToken || current.status !== 'delivery' && current.status !== 'input') return { success: false, error: 'NoActiveStory' };
+    const commandToken = token ?? ('token' in current ? current.token : undefined);
+    if (!commandToken || current.status !== 'delivery' && current.status !== 'operation' && current.status !== 'result' && current.status !== 'input') return { success: false, error: 'NoActiveStory' };
     if (current.status === 'input' && current.node.interaction.kind !== 'choice' && !allowClickInput) {
       return { success: false, storyId: session.source.entryId, error: 'ClickRequired' };
     }
@@ -305,18 +495,9 @@ export class StoryService {
     session.denialMessage = undefined;
     let command;
     let selectedOptionIndex: number | undefined;
-    if (current.status === 'delivery') {
+    if (current.status === 'delivery' || current.status === 'operation' || current.status === 'result') {
       if (choiceIndex !== undefined) return { success: false, storyId: session.source.entryId, error: 'InvalidChoice' };
-      let acknowledgementIsCurrent = current.token === commandToken;
-      if (acknowledgementIsCurrent) {
-        try { session.player.save(); }
-        catch { acknowledgementIsCurrent = false; }
-      }
-      if (acknowledgementIsCurrent) {
-        const delivered = markTalkletDelivered(session, current);
-        if (delivered) this.opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal);
-      }
-      command = session.player.ackDelivery(commandToken);
+      command = session.player.ackDelivery(commandToken, causalChainId);
     } else {
       let optionId: string | undefined;
       if (current.node.interaction.kind === 'choice') {
@@ -335,8 +516,17 @@ export class StoryService {
       } else if (choiceIndex !== undefined) {
         return { success: false, storyId: session.source.entryId, error: 'InvalidChoice' };
       }
-      command = session.player.submit(commandToken, optionId);
+      command = session.player.submit(commandToken, optionId, causalChainId);
       if (command.ok && selectedOptionIndex !== undefined) {
+        if (current.node.interaction.kind === 'choice') {
+          this.coordinator.append(normalizedOwner, `${session.source.historyId}:${current.sequence}:choice`, session.source.historyId!, {
+            kind: 'narration', text: '', align: 'right',
+            choice: {
+              options: current.node.interaction.options.map(option => ({ id: option.id, text: option.text })),
+              selectedOptionId: current.node.interaction.options[selectedOptionIndex]!.id,
+            },
+          });
+        }
         session.lastChoiceIndex = selectedOptionIndex;
         session.lastChoiceStoryId = current.storyId;
         const talkletOrdinal = this.precedingTalkletOrdinal(session, current.storyId, current.node.id);
@@ -346,8 +536,9 @@ export class StoryService {
       }
     }
 
-    const reply = command.events.find(event => event.type === 'reply')?.content;
-    return this.advanceResultFromCommand(session, normalizedOwner, command, reply);
+    if (command.ok && causalChainId) Object.assign(session.source, { causalChainId, handoffCount: 0 });
+    this.syncPresentation(session, command.view);
+    return this.advanceResultFromCommand(session, normalizedOwner, command);
   }
 
   getSendState(owner?: string | null): SendState {
@@ -355,197 +546,261 @@ export class StoryService {
     const session = this.sessionFor(normalizedOwner);
     if (!session) return { mode: 'idle', reason: 'noStory' };
     const view = session.player.getView();
-    const storyView = projectStoryNodeView(session, view);
+    const storyView = this.projectView(session, view);
     if (!storyView) return { mode: 'idle', reason: 'noStory' };
+    if (view.status === 'operation' || view.status === 'result') {
+      return {
+        mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex,
+        text: '正在逐项呈现效果', token: storyView.token, checkpoint: 'operation',
+      };
+    }
     if (view.status === 'delivery') {
-      return { mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: '', token: view.token };
+      return {
+        mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex,
+        text: '', token: storyView.token,
+      };
     }
     if (view.status !== 'input') return { mode: 'idle', reason: 'noStory' };
     const interaction = view.node.interaction;
-    if (interaction.kind === 'choice') return { mode: 'choice', confirmed: true, token: view.token };
+    if (interaction.kind === 'choice') return { mode: 'choice', confirmed: true, token: storyView.token };
     if (interaction.kind === 'entryCard') {
       const card = interaction.card;
       return {
         mode: 'kizuna', storyId: session.source.entryId, pageIndex: storyView.pageIndex,
         targetStoryId: card.request.entryId, title: card.title, buttonText: card.buttonText,
-        align: card.align ?? 'left', token: view.token,
+        align: card.align ?? 'left', token: storyView.token,
       };
     }
     return {
-      mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: interaction.text, token: view.token,
+      mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: interaction.text, token: storyView.token,
       ...(view.press ? { clickWork: { total: view.press.total, done: view.press.done } } : {}),
     };
   }
 
   clickSend(owner?: string | null, token?: string): SendResult {
-    const normalizedOwner = normalizeOwner(owner);
-    const state = this.getSendState(normalizedOwner);
-    const session = this.sessionFor(normalizedOwner);
-    if (!session || state.mode === 'idle') {
-      if (normalizedOwner !== null) {
-        const pushed = this.triggerAffectionPush(normalizedOwner);
-        if (pushed.success) return { type: 'idle', started: true };
+    const target = normalizeOwner(owner);
+    const session = this.sessionFor(target);
+    if (!session) {
+      let started = target !== null ? this.triggerAffectionPush(target) : this.triggerPassiveStory(this.state.activeInit, target);
+      if (target !== null && !started.success && started.error === 'NoAvailableStory') {
+        started = this.triggerPassiveStory(this.state.activeInit, target);
       }
-      const started = this.triggerPassiveStory(this.state.activeInit, normalizedOwner);
-      return started.success
-        ? { type: 'idle', started: true }
-        : { type: 'idle', started: false, error: started.error };
+      return { type: 'idle', started: started.success, ...(!started.success ? { error: started.error } : {}) };
     }
+    const playback = this.getPlaybackView(target);
     const current = session.player.getView();
-    const currentToken = token ?? (current.status === 'delivery' || current.status === 'input' ? current.token : undefined);
-    if (state.mode === 'choice') return { type: 'choice' };
-
-    if (current.status === 'delivery') {
-      const advance = this.advanceStory(undefined, normalizedOwner, currentToken);
-      return {
-        type: 'completed', storyId: session.source.entryId, finished: advance.success && advance.finished,
-        sentText: '', echoReply: false, advance, absorbed: [],
-      };
+    if (current.status === 'input' && current.node.interaction.kind === 'choice') return { type: 'choice' };
+    const previousDone = current.status === 'input' ? current.press?.done : undefined;
+    const result = playback.phase === 'input'
+      ? this.submitStoryInput(target, token ?? playback.token ?? '')
+      : this.continueStory(target, token ?? playback.token ?? '');
+    const next = session.player.getView();
+    if (result.success && previousDone !== undefined && next.status === 'input' && next.press && next.press.done > previousDone) {
+      return { type: 'working', storyId: session.source.entryId, pageIndex: this.getCurrentStoryView(target)?.pageIndex ?? 0,
+        clicksDone: next.press.done, clicksTotal: next.press.total };
     }
-    if (current.status !== 'input' || !currentToken) return { type: 'idle', started: false, error: 'NoActiveStory' };
-
-    if (current.node.interaction.kind === 'button' && current.press) {
-      const done = current.press.done + 1;
-      if (done < current.press.total) {
-        const advance = this.advanceNode(undefined, normalizedOwner, currentToken, true);
-        const next = session.player.getView();
-        if (advance.success && !advance.finished && next.status === 'input' && next.press) {
-          return {
-            type: 'working', storyId: session.source.entryId, pageIndex: state.mode === 'advance' ? state.pageIndex : 0,
-            clicksDone: next.press.done, clicksTotal: next.press.total,
-          };
-        }
-        return { type: 'completed', storyId: session.source.entryId, finished: false, sentText: '', echoReply: false, advance, absorbed: [] };
-      }
-    }
-
-    const interaction = current.node.interaction;
-    const sentText = interaction.kind === 'button'
-      ? interaction.reply?.text ?? interaction.text
-      : interaction.kind === 'entryCard' ? interaction.card.buttonText ?? '' : '';
-    const advance = this.advanceNode(undefined, normalizedOwner, currentToken, true);
-    const echoReply = interaction.kind === 'button' && interaction.reply !== undefined && advance.success;
-    return {
-      type: 'completed', storyId: session.source.entryId,
-      finished: advance.success && advance.finished,
-      sentText, echoReply, advance, absorbed: [],
-    };
+    return { type: 'completed', storyId: session.source.entryId, finished: result.success && result.finished, advance: result, absorbed: [] };
   }
 
   getCurrentStoryView(owner?: string | null): StoryView | null {
     const session = this.sessionFor(normalizeOwner(owner));
-    return session ? projectStoryNodeView(session, session.player.getView()) : null;
+    return session ? this.projectView(session, session.player.getView()) : null;
   }
 
-  private startEntry(
-    storyId: string,
-    expectedType: 'active' | 'passive',
-    owner: string | null,
-    options: StartOptions | undefined,
-    replay: boolean,
-  ): StoryStartResult {
-    const suppliedFlags = options?.initialFlags === undefined ? {} : options.initialFlags;
-    if (!isStoryRunFlags(suppliedFlags)) return { success: false, storyId, error: 'PlaybackFailed', detail: 'InvalidLocalFlags' };
-    const initialFlags = structuredClone(suppliedFlags);
+  private projectView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
+    const projected = projectStoryNodeView(session, view);
+    if (!projected) return null;
+    return { ...projected, token: this.coordinator.intentToken(session.source.owner, projected.token, session.source.runId),
+      ...(view.status === 'operation' || view.status === 'result' ? { operationCheckpoint: true as const } : {}) };
+  }
+
+  private resultSteps(data: StoryNodePresentationData): StoryPlaybackStep[] {
+    const steps: StoryPlaybackStep[] = [];
+    let noticeCount = 0;
+    for (const item of data.order) {
+      if (item.kind === 'presentation') {
+        const effect = data.presentation[item.index]!;
+        steps.push({ kind: 'effect', effect });
+        if (effect.op === 'showOpeningTitle') steps.push({ kind: 'delay', phase: 'banner', durationMs: 3000, title: String(effect.value ?? '') });
+      } else {
+        const receipt = data.receipts[item.index]!;
+        const text = formatStoryEffectReceipt(receipt, this.opts.registry);
+        if (!text) continue;
+        if (noticeCount++ > 0) steps.push({ kind: 'delay', phase: 'operation', durationMs: 360 });
+        steps.push({ kind: 'output', content: { kind: receipt.op === 'travel' ? 'travel' : 'reward', text } });
+      }
+    }
+    return steps;
+  }
+
+  private syncPresentation(session: StoryNodeSession, view: StoryNodePlaybackView): void {
+    if (!this.isCurrent(session) || session.finishing) return;
+    const owner = session.source.owner;
+    if (view.status === 'input') {
+      this.coordinator.end(owner);
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner });
+      return;
+    }
+    if (view.status !== 'delivery' && view.status !== 'operation' && view.status !== 'result') return;
+    const key = `${session.source.historyId}:${view.sequence}`;
+    let steps: StoryPlaybackStep[];
+    let automatic = view.status !== 'delivery';
+    if (view.status === 'delivery') {
+      const page = projectStoryNodeView(session, view)!;
+      automatic = page.nextIsInput === true;
+      const { content, presentation, pacing } = view.node;
+      const { typing: _typing, thinking: _thinking, choices: _choices, kizuna: _card, ...display } = page.page;
+      const body = { ...display, kind: content.kind, storyType: session.entry.type, storyPageKey: key };
+      const rhythm = (value: number | undefined, fallback: number) => Math.min(10, Math.max(0, value ?? fallback)) * 1000;
+      const paced = content.kind === 'talk' && presentation?.side !== 'right';
+      const typing = paced ? rhythm(pacing?.typing, 0.9) : 0;
+      const thinking = paced && (automatic || pacing?.thinking !== undefined) ? rhythm(pacing?.thinking, automatic ? 0.9 : 0) : 0;
+      steps = [
+        ...(typing ? [{ kind: 'delay' as const, phase: 'typing' as const, durationMs: typing, typing: body }] : []),
+        { kind: 'output', content: body },
+        ...(thinking ? [{ kind: 'delay' as const, phase: 'thinking' as const, durationMs: thinking }] : []),
+      ];
+    } else steps = this.resultSteps(view.data);
+    this.coordinator.accept(session.source, view.token, key, steps, automatic);
+    this.coordinator.pump(owner);
+  }
+
+  private resolveStartDocument(storyId: string, expectedType: 'active' | 'passive', initialFlags?: StoryRunFlags):
+    { entry: StoryEntryDef; root: StoryDef } | { error: StoryStartResult } {
+    const fail = (error: import('../../contracts/runtime/results').StoryError, detail?: string) =>
+      ({ error: { success: false as const, storyId, error, ...(detail ? { detail } : {}) } });
+    const suppliedFlags = initialFlags === undefined ? {} : initialFlags;
+    if (!isStoryRunFlags(suppliedFlags)) return fail('PlaybackFailed', 'InvalidLocalFlags');
     const entry = this.opts.registry.storyEntries.get(storyId);
-    if (!entry) return { success: false, storyId, error: 'NotFound' };
-    if (entry.type !== expectedType) return { success: false, storyId, error: 'WrongStoryType' };
-    const root = this.opts.registry.stories.get(entry.storyId);
-    if (!root) return { success: false, storyId, error: 'NotFound' };
+    if (!entry) return fail('NotFound');
+    if (entry.type !== expectedType) return fail('WrongStoryType');
+    const root = this.documents.get(entry.storyId);
+    if (!root) return fail('NotFound');
     const validation = validateStoryNodeStructure(root);
-    if (!validation.ok) return { success: false, storyId, error: 'PlaybackFailed', detail: `InvalidDocument:${validation.issues[0]?.path ?? 'unknown'}` };
-    if (!options?.skipConditions) {
-      const state = this.state;
-      if (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit)) {
-        return { success: false, storyId, error: 'ConditionNotMet' };
-      }
-      if (entry.triggerCondition && !this.opts.conditionSystem.evaluateGroup(entry.triggerCondition, state)) {
-        return { success: false, storyId, error: 'ConditionNotMet' };
-      }
-    }
-    const repeatable = entry.type === 'passive' && entry.repeatable;
-    if (!replay && !options?.force && !repeatable && this.hasCompletedStory(root.id)) {
-      return { success: false, storyId, error: 'AlreadyCompleted' };
-    }
-
-    const existing = this.sessionFor(owner);
-    if (replay && existing) return { success: false, storyId, error: 'AlreadyActive' };
-    if (existing) {
-      if (existing.entry.type === 'passive' && existing.entry.blocksInteraction === true) {
-        return { success: false, storyId, error: 'AlreadyActive' };
-      }
-      const mayReplacePassive = existing.entry.type === 'passive'
-        && (expectedType === 'active' || options?.force === true);
-      if (!mayReplacePassive && !options?.replaceAny) return { success: false, storyId, error: 'AlreadyActive' };
-    }
-
-    const runId = newRunId();
-    const source: StoryNodeSource = { entryId: entry.id, rootStoryId: root.id, owner, runId, historyId: runId };
-    let session!: StoryNodeSession;
-    const preflightTransfer = (transfer: StoryTransfer, _source: StoryNodeSource): string | undefined => {
-      session.denialMessage = undefined;
-      if (!session.replay) return undefined;
-      const guard = session.entry.branchGuards?.find(candidate => candidate.storyId === transfer.storyId);
-      if (!guard || guardPrereqsMet(this.opts.registry, this.state, guard)) return undefined;
-      session.denialMessage = guard.denialMessage;
-      return 'BranchGuardDenied';
-    };
-    session = createStoryNodeSession({
-      source, entry, replay, documents: this.documents,
-      conditionSystem: this.opts.conditionSystem,
-      getState: this.opts.getState,
-      actionHost: this.actionHost,
-      random: this.opts.random,
-      preflightTransfer,
-    });
-
-    const rememberReplacement = (result: StoryStartResult): StoryStartResult => {
-      if (existing) existing.replacementResult = result;
-      return result;
-    };
-    this.sessions.set(ownerKey(owner), session);
-    // Publish the replacement before the old run's close event can synchronously start another run.
-    if (existing) this.endSession(existing, 'replaced');
-    if (!this.isCurrent(session)) return rememberReplacement(this.startResultForCurrent(owner, storyId));
-    this.opts.eventBus.emit({ type: 'storyTriggered', storyId: entry.id, owner, runId: source.runId });
-    // Synchronous listeners may replace this session before its Player is initialized.
-    if (!this.isCurrent(session)) return rememberReplacement(this.startResultForCurrent(owner, storyId));
-
-    const command = session.player.start(root.id, source, initialFlags);
-    this.captureVisited(session, command);
-    const completion = this.handleTerminal(session, command.view);
-    if (completion) return rememberReplacement({ success: true, finished: true, storyId: completion.storyId, completed: completion.completed });
-    if (session.replacementResult !== undefined) return rememberReplacement(session.replacementResult);
-    if (command.view.status === 'failed') return rememberReplacement({ success: false, storyId, error: 'PlaybackFailed', detail: command.view.error });
-    if (!this.isCurrent(session)) return rememberReplacement(this.startResultForCurrent(owner, storyId));
-    const view = this.getCurrentStoryView(owner);
-    return rememberReplacement(view
-      ? { success: true, finished: false, story: view }
-      : { success: false, storyId, error: command.ok ? 'NoActiveStory' : this.mapError(command.error).error });
+    if (!validation.ok) return fail('PlaybackFailed', `InvalidDocument:${validation.issues[0]?.path}`);
+    try { documentFingerprints(this.documents, root.id); }
+    catch (error) { return fail('PlaybackFailed', error instanceof Error ? error.message : String(error)); }
+    return { entry, root };
   }
 
-  private startResultForCurrent(owner: string | null, requestedStoryId: string): StoryStartResult {
+  private prepareEntry(storyId: string, expectedType: 'active' | 'passive', owner: string | null,
+    options: StartOptions | undefined, replay: boolean): { session: StoryNodeSession; initialFlags: StoryRunFlags } | { error: StoryStartResult } {
+    const checked = this.resolveStartDocument(storyId, expectedType, options?.initialFlags);
+    if ('error' in checked) return checked;
+    const { entry, root } = checked;
+    const fail = (error: import('../../contracts/runtime/results').StoryError, detail?: string) =>
+      ({ error: { success: false as const, storyId, error, ...(detail ? { detail } : {}) } });
+    if (!options?.skipConditions && (entry.availableInits.length > 0 && !entry.availableInits.includes(this.state.activeInit)
+      || !this.opts.conditionSystem.evaluateGroup(entry.triggerCondition, this.state))) return fail('ConditionNotMet');
+    if (!replay && !options?.force && !(entry.type === 'passive' && entry.repeatable) && this.hasCompletedStory(root.id)) return fail('AlreadyCompleted');
+    const existing = this.sessionFor(owner);
+    if (existing && !existing.finishing?.error && (replay || existing.finishing || existing.entry.type === 'passive' && existing.entry.blocksInteraction)) return fail('AlreadyActive');
+    if (existing && !existing.finishing?.error && !options?.replaceAny && !(existing.entry.type === 'passive' && (expectedType === 'active' || options?.force))) return fail('AlreadyActive');
+    const cause = this.activeSource;
+    const handoffCount = cause ? (cause.handoffCount ?? 0) + 1 : 0;
+    if (handoffCount > 64) return fail('PlaybackFailed', 'StoryHandoffLimitExceeded');
+    const runId = newRunId();
+    const source: StoryNodeSource = { entryId: entry.id, rootStoryId: root.id, owner, runId, historyId: runId,
+      causalChainId: cause?.causalChainId ?? runId, handoffCount };
+    let session!: StoryNodeSession;
+    session = createStoryNodeSession({
+      source, entry: structuredClone(entry), replay, documents: this.documents,
+      conditionSystem: this.opts.conditionSystem, getState: this.opts.getState,
+      actionHost: this.actionHost, random: this.opts.random,
+      preflightTransfer: transfer => this.preflightTransfer(session, transfer),
+    });
+    return { session, initialFlags: structuredClone(options?.initialFlags ?? {}) };
+  }
+
+  /** Installed but unstarted sessions must fail explicitly rather than remain idle without a ticket. */
+  private failInstalledSession(session: StoryNodeSession, diagnostic: string): string {
+    const owner = session.source.owner;
+    if (this.isCurrent(session)) this.coordinator.end(owner);
+    session.player.cancel();
+    session.finishing = { terminalStoryId: session.source.rootStoryId, settled: false, error: diagnostic, receipts: [] };
+    try { this.withSource(session.source, () => this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner })); }
+    catch (notificationError) { session.finishing.error += `;StoryFailureNotificationFailed:${notificationError instanceof Error ? notificationError.message : String(notificationError)}`; }
+    return session.finishing.error!;
+  }
+
+  private installSession(session: StoryNodeSession): string | undefined {
+    const owner = session.source.owner;
+    const existing = this.sessionFor(owner);
+    // Retire the old barrier before publishing a new slot, even if cleanup observers fail.
+    this.coordinator.end(owner);
+    this.sessions.set(ownerKey(owner), session);
+    try {
+      if (existing) this.endSession(existing, 'replaced');
+    } catch (error) {
+      const diagnostic = `StoryReplacementCleanupFailed:${error instanceof Error ? error.message : String(error)}`;
+      return this.failInstalledSession(session, diagnostic);
+    }
+  }
+
+  private requestEntry(request: StoryEntryRequest, source: StoryNodeSource): import('../../contracts/runtime/story-node-playback').StoryNodeActionOutcome {
+    const prepared = this.prepareEntry(request.entryId, request.entryType, request.owner,
+      request.intent === 'card' ? { force: true, replaceAny: true, skipConditions: true }
+        : request.intent === 'system' ? { force: true } : undefined, false);
+    if ('error' in prepared) return { status: 'rejected', error: prepared.error.success ? 'EntryStartFailed' : `EntryStartFailed:${prepared.error.error}` };
+    const cleanupError = this.installSession(prepared.session);
+    if (cleanupError) return { status: 'rejected', error: `EntryStartFailed:${cleanupError}` };
+    this.reserved.set(ownerKey(request.owner), prepared);
+    return { status: request.owner === source.owner ? 'replaced' : 'applied' };
+  }
+
+  private initializeSession(session: StoryNodeSession, initialFlags: StoryRunFlags): void {
+    const previous = this.activeSource;
+    this.activeSource = session.source;
+    try {
+      try {
+        this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner, runId: session.source.runId });
+      } catch (error) {
+        this.failInstalledSession(session, `StoryInitializationFailed:${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+      if (!this.isCurrent(session)) return;
+      const command = session.player.start(session.source.rootStoryId, session.source, initialFlags);
+      this.captureVisited(session, command);
+      this.handleTerminal(session, command.view);
+      this.syncPresentation(session, command.view);
+      this.coordinator.pump(session.source.owner);
+    } finally { this.activeSource = previous; }
+  }
+
+  private startEntry(storyId: string, expectedType: 'active' | 'passive', owner: string | null,
+    options: StartOptions | undefined, replay: boolean): StoryStartResult {
+    const prepared = this.prepareEntry(storyId, expectedType, owner, options, replay);
+    if ('error' in prepared) return prepared.error;
+    const cleanupError = this.installSession(prepared.session);
+    if (cleanupError) return { success: false, storyId, error: 'PlaybackFailed', detail: cleanupError };
+    this.initializeSession(prepared.session, prepared.initialFlags);
+    if (prepared.session.finishing?.error) return { success: false, error: 'PlaybackFailed', detail: prepared.session.finishing.error };
     const view = this.getCurrentStoryView(owner);
-    return view ? { success: true, finished: false, story: view } : { success: false, storyId: requestedStoryId, error: 'NoActiveStory' };
+    if (view) return { success: true, finished: false, story: view };
+    const terminal = prepared.session.player.getView();
+    if (terminal.status === 'completed') return { success: true, finished: true, storyId: terminal.completion.terminalStoryId,
+      completed: this.completedRecord(prepared.session, terminal.completion.terminalStoryId) };
+    return { success: false, storyId, error: 'PlaybackFailed', detail: terminal.status === 'failed' ? terminal.error : 'RunReplaced' };
   }
 
   private advanceResultFromCommand(
     session: StoryNodeSession,
     owner: string | null,
     command: StoryNodeCommandResult,
-    reply?: StoryContent,
   ): StoryAdvanceResult {
+    const currentOwner = this.sessionFor(owner);
+    if (currentOwner?.finishing?.error) return { success: false, storyId: currentOwner.source.entryId, error: 'PlaybackFailed', detail: currentOwner.finishing.error };
     this.captureVisited(session, command);
-    if (session.replacementResult !== undefined) {
-      return this.advanceResultFromStart(session.replacementResult, session.source.entryId, reply);
-    }
+    if (session.finishing?.error) return { success: false, storyId: session.source.entryId, error: 'PlaybackFailed', detail: session.finishing.error };
     const completion = this.handleTerminal(session, command.view);
-    if (completion) return { ...completion, ...(reply ? { reply } : {}) };
+    if (completion) return completion;
     if (command.view.status === 'failed') return { success: false, storyId: session.source.entryId, error: 'PlaybackFailed', detail: command.view.error };
+    if (session.finishing?.settled && !session.finishing.error) return { success: true, finished: true,
+      storyId: session.finishing.terminalStoryId, completed: this.completedRecord(session, session.finishing.terminalStoryId) };
     if (!this.isCurrent(session)) {
       const replacement = this.getCurrentStoryView(owner);
       return replacement
-        ? { success: true, finished: false, story: replacement, ...(reply ? { reply } : {}) }
+        ? { success: true, finished: false, story: replacement }
         : { success: false, storyId: session.source.entryId, error: 'NoActiveStory' };
     }
     if (!command.ok) {
@@ -555,38 +810,29 @@ export class StoryService {
     }
     const view = this.getCurrentStoryView(owner);
     return view
-      ? { success: true, finished: false, story: view, ...(reply ? { reply } : {}) }
+      ? { success: true, finished: false, story: view }
       : { success: false, storyId: session.source.entryId, error: 'NoActiveStory' };
   }
 
-  private advanceResultFromStart(result: StoryStartResult, fallbackStoryId: string, reply?: StoryContent): StoryAdvanceResult {
-    if (!result.success) {
-      return {
-        success: false,
-        ...(result.storyId === undefined ? { storyId: fallbackStoryId } : { storyId: result.storyId }),
-        error: result.error,
-        ...(result.detail === undefined ? {} : { detail: result.detail }),
-      };
-    }
-    return result.finished
-      ? { success: true, finished: true, storyId: result.storyId, completed: result.completed, ...(reply ? { reply } : {}) }
-      : { success: true, finished: false, story: result.story, ...(reply ? { reply } : {}) };
-  }
-
-  private handleTerminal(session: StoryNodeSession, view: StoryNodePlaybackView): CompletedAdvance | null {
+  private handleTerminal(session: StoryNodeSession, view: StoryNodePlaybackView): StoryAdvanceResult | null {
     if (view.status === 'completed') return this.completeSession(session, view.completion);
-    if (view.status === 'failed' && this.isCurrent(session)) this.endSession(session, 'failed');
+    if (view.status === 'failed' && this.isCurrent(session)) {
+      session.finishing = { terminalStoryId: session.source.rootStoryId, settled: false, error: view.error, receipts: [...view.data.receipts] };
+      this.coordinator.end(session.source.owner);
+      this.opts.presentation?.close(session.source, 'failed');
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+    }
     else if (view.status === 'replaced' && this.isCurrent(session)) this.endSession(session, 'replaced');
     return null;
   }
 
   private captureVisited(session: StoryNodeSession, command: StoryNodeCommandResult): void {
     for (const event of command.events) {
-      if (event.type === 'view' && (event.view.status === 'delivery' || event.view.status === 'input')) {
+      if (event.type === 'view' && (event.view.status === 'delivery' || event.view.status === 'operation' || event.view.status === 'input')) {
         session.visitedStoryIds.add(event.view.storyId);
       }
     }
-    if (command.view.status === 'delivery' || command.view.status === 'input') session.visitedStoryIds.add(command.view.storyId);
+    if (command.view.status === 'delivery' || command.view.status === 'operation' || command.view.status === 'input') session.visitedStoryIds.add(command.view.storyId);
   }
 
   /** Associates a Click choice with the latest Talklet in the same Story document. */
@@ -606,39 +852,80 @@ export class StoryService {
     return preceding >= 0 ? preceding : null;
   }
 
-  /** Remove source before close, reward, mutation events, or listeners can synchronously start a new run. */
-  private completeSession(session: StoryNodeSession, completion: { terminalStoryId: string }): CompletedAdvance | null {
-    if (!markSessionClosed(session)) return null;
+  /** Completion metadata remains attached through settlement and trailing presentation. */
+  private completedRecord(session: StoryNodeSession, terminalStoryId: string): CompletedStory {
+    return session.entry.type === 'active'
+      ? { type: 'active', storyId: terminalStoryId, choiceIndex: session.lastChoiceStoryId === terminalStoryId ? session.lastChoiceIndex : -1 }
+      : { type: 'passive', storyId: terminalStoryId };
+  }
+
+  private completeSession(session: StoryNodeSession, completion: { terminalStoryId: string }): StoryAdvanceResult {
+    if (session.finishing?.error) return { success: false, error: 'PlaybackFailed', detail: session.finishing.error };
+    if (session.finishing) return { success: true, finished: true, storyId: completion.terminalStoryId,
+      completed: this.completedRecord(session, completion.terminalStoryId) };
+    const terminalStoryId = completion.terminalStoryId;
+    const completed = this.completedRecord(session, terminalStoryId);
+    session.finishing = { terminalStoryId, settled: false };
+    let receipts: import('../../../engine/contracts/effect-receipt').EffectReceipt[] = [];
+    const previous = this.activeSource;
+    this.activeSource = session.source;
+    try {
+      if (!session.replay) {
+        const rewardContext = {
+          registry: this.opts.registry, conditionSystem: this.rewardConditionSystem(session),
+          effectEngine: this.opts.effectEngine, mutations: this.opts.mutations,
+          getState: this.opts.getState, hasCompletedStory: (storyId: string) => this.hasCompletedStory(storyId),
+        };
+        const reward = applyCompletionReward(rewardContext, session.entry, terminalStoryId);
+        receipts = reward?.receipts ?? [];
+        session.finishing.receipts = receipts;
+        this.opts.mutations.completeStory(completed, session.entry.id, () => { session.finishing!.completionRecorded = true; });
+        session.finishing.completionRecorded = true;
+        if (session.entry.type === 'passive') {
+          recordPassiveCooldown(rewardContext, session.entry);
+          maybeBlockConversation(rewardContext, session.entry);
+        }
+        session.finishing.settled = true;
+        if (reward) this.opts.eventBus.emit({ type: 'storyRewarded', storyId: terminalStoryId, source: reward.source,
+          effects: reward.effects, flags: [...session.flags], owner: session.source.owner, runId: session.source.runId });
+        if (session.source.owner !== null) triggerTailPush(this.selection, session.source.owner, terminalStoryId);
+      } else session.finishing.settled = true;
+      const data: StoryNodePresentationData = { receipts, presentation: [], order: receipts.map((_, index) => ({ kind: 'receipt', index })) };
+      const key = `${session.source.historyId}:finishing`;
+      this.coordinator.accept(session.source, key, key, this.resultSteps(data), true);
+      this.coordinator.pump(session.source.owner);
+    } catch (error) {
+      const failed = error as { receipts?: typeof receipts; rewardSettlement?: { receipts: typeof receipts } };
+      session.finishing.receipts = failed.rewardSettlement?.receipts ?? failed.receipts ?? receipts;
+      session.finishing.error = error instanceof Error ? error.message : String(error);
+      this.pendingStarts.splice(0, this.pendingStarts.length, ...this.pendingStarts.filter(item => item.causalChainId !== session.source.causalChainId));
+      this.coordinator.end(session.source.owner);
+      this.opts.presentation?.close(session.source, 'failed');
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+    } finally { this.activeSource = previous; }
+    if (session.finishing.error) return { success: false, error: 'PlaybackFailed', detail: session.finishing.error };
+    const result = { success: true as const, finished: true as const, storyId: terminalStoryId, completed };
+    if (!session.finishing.error) this.completions.set(ownerKey(session.source.owner), result);
+    return result;
+  }
+
+  private finishPresentation(session: StoryNodeSession): void {
+    if (!this.isCurrent(session) || !markSessionClosed(session)) return;
+    this.coordinator.end(session.source.owner);
     this.sessions.delete(ownerKey(session.source.owner));
-    this.opts.presentation?.close(session.source, 'completed');
-    const completed: CompletedStory = session.entry.type === 'active'
-      ? { type: 'active', storyId: completion.terminalStoryId,
-          choiceIndex: session.lastChoiceStoryId === completion.terminalStoryId ? session.lastChoiceIndex : -1 }
-      : { type: 'passive', storyId: completion.terminalStoryId };
-    if (!session.replay) {
-      const rewardContext = {
-        registry: this.opts.registry, conditionSystem: this.rewardConditionSystem(session),
-        effectEngine: this.opts.effectEngine, mutations: this.opts.mutations,
-        getState: this.opts.getState, hasCompletedStory: (storyId: string) => this.hasCompletedStory(storyId),
-      };
-      const reward = applyCompletionReward(rewardContext, session.entry, completion.terminalStoryId);
-      this.opts.mutations.completeStory(completed, session.entry.id);
-      if (session.entry.type === 'passive') {
-        recordPassiveCooldown(rewardContext, session.entry);
-        maybeBlockConversation(rewardContext, session.entry);
-      }
-      if (reward) this.opts.eventBus.emit({
-        type: 'storyRewarded', storyId: completion.terminalStoryId, source: reward.source,
-        effects: reward.effects, flags: [...session.flags], owner: session.source.owner, runId: session.source.runId,
-      });
-    }
-    return { success: true, finished: true, storyId: completion.terminalStoryId, completed };
+    const previous = this.activeSource;
+    this.activeSource = session.source;
+    try {
+      this.opts.presentation?.close(session.source, 'completed');
+      this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner: session.source.owner });
+    } finally { this.activeSource = previous; }
   }
 
   private endSession(session: StoryNodeSession, reason: StoryNodeRunEndReason): void {
     if (!markSessionClosed(session)) return;
+    if (this.isCurrent(session)) this.coordinator.end(session.source.owner);
     if (this.isCurrent(session)) this.sessions.delete(ownerKey(session.source.owner));
-    if (reason === 'cancelled') session.player.cancel();
+    session.player.cancel();
     this.opts.presentation?.close(session.source, reason);
   }
 
@@ -665,112 +952,82 @@ export class StoryService {
   }
 
   private sessionsForInteractionGate(owner?: string | null): StoryNodeSession[] {
-    if (owner == null) return [...this.sessions.values()];
+    if (owner == null) return [...this.sessions.values()].filter(session => !session.finishing?.error);
     const result = new Set<StoryNodeSession>();
     const global = this.sessionFor(null);
     const owned = this.sessionFor(owner);
-    if (global) result.add(global);
-    if (owned) result.add(owned);
+    if (global && !global.finishing?.error) result.add(global);
+    if (owned && !owned.finishing?.error) result.add(owned);
     return [...result];
   }
 
   private snapshot(session: StoryNodeSession): StoryCursorSnapshot {
     const presentation = this.opts.presentation?.save(session.source);
+    const queue = this.coordinator.saveQueue(session.source.owner);
     return {
       playback: session.player.save(), isReplay: session.replay,
       lastChoiceIndex: session.lastChoiceIndex, lastChoiceStoryId: session.lastChoiceStoryId, flags: [...session.flags],
+      output: this.coordinator.saveOutputs(session.source.owner),
+      documents: documentFingerprints(session.documents, session.source.rootStoryId),
+      ...(queue ? { queue } : {}),
+      ...(session.finishing ? { finishing: { ...session.finishing, source: session.source } } : {}),
       ...(presentation === undefined ? {} : { presentation }),
     };
   }
 
-  private emptySnapshot(): StoryCursorSnapshot {
-    return {
-      playback: { format: 'story-nodes', run: null }, isReplay: false,
-      lastChoiceIndex: -1, lastChoiceStoryId: null, flags: [],
-    };
+  private emptySnapshot(owner: string | null = null): StoryCursorSnapshot {
+    return { playback: { format: 'story-nodes-v2', run: null }, isReplay: false,
+      lastChoiceIndex: -1, lastChoiceStoryId: null, flags: [], output: this.coordinator.saveOutputs(owner) };
   }
 
   private restoreSession(snapshot: StoryCursorSnapshot, expectedOwner: string | null): StoryNodeSession | null {
-    if (!isStoryCursorSnapshot(snapshot)) throw new Error('InvalidStoryCursorSnapshot');
+    this.coordinator.restoreOutputs(expectedOwner, snapshot.output);
     const run = snapshot.playback.run;
-    if (!run) {
-      if (snapshot.isReplay || snapshot.lastChoiceIndex !== -1 || snapshot.lastChoiceStoryId !== null
-        || snapshot.flags.length > 0 || snapshot.presentation !== undefined) {
-        throw new Error('InvalidEmptyStoryCursor');
-      }
-      return null;
-    }
-    const source = run.source;
-    if (source.owner !== expectedOwner || typeof source.runId !== 'string' || source.runId.length === 0) throw new Error('InvalidStoryCursorSource');
-    const entry = this.opts.registry.storyEntries.get(source.entryId);
-    const root = this.opts.registry.stories.get(source.rootStoryId);
-    if (!entry || entry.storyId !== source.rootStoryId || !root) throw new Error('StoryCursorSourceNotFound');
+    const source = snapshot.finishing?.source ?? run?.source;
+    if (!source) return null;
+    const entry = this.opts.registry.storyEntries.get(source.entryId)!;
     const restoredSource: StoryNodeSource = { ...source, runId: newRunId(), historyId: source.historyId ?? source.runId };
-    const playback: StoryNodeSnapshot = { ...snapshot.playback, run: { ...run, source: restoredSource } };
-    const session = createStoryNodeSession({
-      source: restoredSource, entry, replay: snapshot.isReplay, documents: this.documents,
-      conditionSystem: this.opts.conditionSystem, getState: this.opts.getState,
-      actionHost: this.actionHost, random: this.opts.random,
-      preflightTransfer: transfer => this.preflightTransfer(session, transfer),
-    });
-    try {
-      session.player.restore(playback);
-      if (snapshot.presentation !== undefined) {
-        if (!this.opts.presentation?.restore) throw new Error('StoryPresentationRestoreUnavailable');
-        this.opts.presentation.restore(restoredSource, snapshot.presentation);
-      }
-    } catch (error) {
-      this.opts.presentation?.close(restoredSource, 'failed');
-      throw error;
-    }
+    let session!: StoryNodeSession;
+    session = createStoryNodeSession({ source: restoredSource, entry: structuredClone(entry), replay: snapshot.isReplay,
+      documents: this.documents, conditionSystem: this.opts.conditionSystem, getState: this.opts.getState,
+      actionHost: this.actionHost, random: this.opts.random, preflightTransfer: transfer => this.preflightTransfer(session, transfer) });
+    if (run) session.player.restore({ ...snapshot.playback, run: { ...run, source: restoredSource } });
     session.lastChoiceIndex = snapshot.lastChoiceIndex;
     session.lastChoiceStoryId = snapshot.lastChoiceStoryId;
-    session.flags.clear();
     for (const flag of snapshot.flags) session.flags.add(flag);
-    for (const visited of run.visited) session.visitedStoryIds.add(visited);
+    for (const visited of run?.visited ?? []) session.visitedStoryIds.add(visited);
+    if (snapshot.finishing) session.finishing = { ...snapshot.finishing };
+    if (snapshot.presentation !== undefined) this.opts.presentation?.restore?.(restoredSource, snapshot.presentation);
+    if (snapshot.queue) {
+      const view = session.player.getView();
+      const automatic = snapshot.queue.automatic;
+      this.coordinator.restoreQueue(restoredSource, 'token' in view ? view.token : `${restoredSource.historyId}:finishing`, snapshot.queue, automatic);
+    }
     return session;
   }
 
   private validateCursorSnapshot(snapshot: StoryCursorSnapshot, expectedOwner: string | null): void {
     if (!isStoryCursorSnapshot(snapshot)) throw new Error('InvalidStoryCursorSnapshot');
-    if (!Number.isSafeInteger(snapshot.lastChoiceIndex) || snapshot.lastChoiceIndex < -1) {
-      throw new Error('InvalidStoryCursorMetadata');
-    }
-    if (new Set(snapshot.flags).size !== snapshot.flags.length) throw new Error('InvalidStoryCursorMetadata');
+    if (!Number.isSafeInteger(snapshot.lastChoiceIndex) || snapshot.lastChoiceIndex < -1 || new Set(snapshot.flags).size !== snapshot.flags.length) throw new Error('InvalidStoryCursorMetadata');
     const run = snapshot.playback.run;
-    if (!run) {
-      if (snapshot.isReplay || snapshot.lastChoiceIndex !== -1 || snapshot.lastChoiceStoryId !== null
-        || snapshot.flags.length > 0 || snapshot.presentation !== undefined) {
-        throw new Error('InvalidEmptyStoryCursor');
-      }
+    const source = snapshot.finishing?.source ?? run?.source;
+    validateStoryPresentationSnapshot(snapshot, this.documents, source?.rootStoryId);
+    if (!source) {
+      if (snapshot.isReplay || snapshot.lastChoiceIndex !== -1 || snapshot.lastChoiceStoryId !== null || snapshot.flags.length || snapshot.presentation) throw new Error('InvalidEmptyStoryCursor');
       return;
     }
-
-    const source = run.source;
-    if (!source || source.owner !== expectedOwner
-      || typeof source.entryId !== 'string' || source.entryId.trim().length === 0
-      || typeof source.rootStoryId !== 'string' || source.rootStoryId.trim().length === 0
-      || typeof source.runId !== 'string' || source.runId.trim().length === 0
-      || source.historyId !== undefined && (typeof source.historyId !== 'string' || source.historyId.trim().length === 0)) {
-      throw new Error('InvalidStoryCursorSource');
-    }
+    if (source.owner !== expectedOwner || typeof source.runId !== 'string' || !source.runId.trim() || !source.historyId
+      || typeof source.causalChainId !== 'string' || !source.causalChainId.trim()
+      || !Number.isSafeInteger(source.handoffCount) || source.handoffCount! < 0 || source.handoffCount! > 64) throw new Error('InvalidStoryCursorSource');
     const entry = this.opts.registry.storyEntries.get(source.entryId);
-    const root = this.opts.registry.stories.get(source.rootStoryId);
-    if (!entry || entry.storyId !== source.rootStoryId || !root) throw new Error('StoryCursorSourceNotFound');
-    const validationSource: StoryNodeSource = { ...source, historyId: source.historyId ?? source.runId };
-    const session = createStoryNodeSession({
-      source: validationSource, entry, replay: snapshot.isReplay, documents: this.documents,
-      conditionSystem: this.opts.conditionSystem, getState: this.opts.getState,
-      actionHost: this.actionHost, random: this.opts.random,
-      preflightTransfer: transfer => this.preflightTransfer(session, transfer),
-    });
-    const playback: StoryNodeSnapshot = { ...snapshot.playback, run: { ...run, source: validationSource } };
-    session.player.restore(playback);
-    this.validateLastChoiceMetadata(snapshot, run.visited);
-    if (snapshot.presentation !== undefined) {
-      if (!this.opts.presentation?.validateSnapshot) throw new Error('StoryPresentationValidationUnavailable');
-      this.opts.presentation.validateSnapshot(validationSource, snapshot.presentation);
+    if (!entry || entry.storyId !== source.rootStoryId) throw new Error('StoryCursorSourceNotFound');
+    const session = createStoryNodeSession({ source, entry, replay: snapshot.isReplay, documents: this.documents,
+      conditionSystem: this.opts.conditionSystem, getState: this.opts.getState, actionHost: this.actionHost, random: this.opts.random });
+    if (run) {
+      session.player.restore(snapshot.playback);
+      this.validateLastChoiceMetadata(snapshot, run.visited);
     }
+    if (snapshot.presentation !== undefined) this.opts.presentation?.validateSnapshot?.(source, snapshot.presentation);
   }
 
   private validateLastChoiceMetadata(snapshot: StoryCursorSnapshot, visited: readonly string[]): void {

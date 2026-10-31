@@ -4,32 +4,51 @@
 
 ## 剧情推进
 
-`StoryService` 按故事拥有者维护活动会话。UI 提交继续、选择或点击命令后，服务检查当前节点状态与可用选项，再推进节点并记录阅读进度。剧情定义由 Registry 提供；服务将运行中的剧情状态投影为查询视图。
+`StoryService` 按故事拥有者维护活动会话。`StoryNodePlayer` 解释作者节点、动作与转移；`StoryPlaybackCoordinator` 管理当前等待点的有限表现步骤、计时和已投递输出。UI 读取 `getPlaybackView(owner)`，提交明确的继续、输入或节奏加速意图；读取和刷新本身不推进剧情。
 
-启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话。推进命令携带当前节点 token，防止界面提交已过期的输入；选择会在提交时再次检查选项条件。交付节点确认后记录已读进度，输入节点则由 `StoryNodePlayer` 执行动作并推进到下一节点。
+启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话与独立文档副本。继续和输入命令携带当前表现阶段的 token；服务复核 owner、阶段和候选，拒绝过期输入，选择提交时再检查条件。正文写入 Runtime 输出记录时才标记已送达和已读，随后按当前等待点决定进入自由继续或 Click 输入。
 
 ```text
-StoryEntry / StoryDef → StoryService 会话 → Controller 命令推进
-                                      → StoryView / UI
+StoryEntry / StoryDef → StoryService / StoryNodePlayer → 当前逻辑等待点
+                    → StoryPlaybackCoordinator → 有限步骤、计时、稳定输出
+                    → getPlaybackView / UI → Controller 显式意图 → StoryService
 ```
 
 ## 本次 Entry 的局部标记
 
 `StoryNodePlayer` 为每次启动创建独立 `Map<name, value>`。`startActiveStory(entryId, owner, initialFlags)`、`startCardStory(...)` 与对应 GameCommands 可投入初始 JSON 字典；底层 Player 的 start 第三个参数同样接收字典。`StoryService.startStory` 的 options.initialFlags 可供其他类型的入口调用。启动先验证并复制，坏参数不会替换当前会话。name 需要非空，推荐 `StoryName-flagid`，不限制前缀；值为有限 JSON 数据，不提供值比较。
 
-所有四类 StoryNode 都可声明一个 `requiresFlag?: string`。到达时用 Map.has 检查，false、0、空字符串、null 都表示键存在；未声明则正常执行。缺键时直接跳过整个节点：正文不投递，Click 不等待、不取随机也不触发回复/结果，Operation 不执行，Transfer 不跳转。跳过不改变作者 stages，不补 Click，全部跳过可以自然结束；同步自动步数保护仍生效。已经接受的等待点不会在查询或恢复时重复判断。
+StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接。连续 Operation 逐个处理，无须额外确认。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
 
-局部写入使用 StoryAction `{ kind: 'localFlag', op: 'set', name, value }`，同名覆盖；移除使用 `{ kind: 'localFlag', op: 'remove', name }`，不存在时无操作。可用于 Operation、Click 共享动作或结果动作；保持作者顺序，由播放器直接处理，不调用 EffectEngine。goto/insert 沿用同一张表；启动另一 Entry、另一个 owner 或重新开始时不自动继承。
+## 有限表现步骤与交接
+
+每个逻辑等待点只编译当前批次的 `delay`、`output`、`effect` 步骤，不预执行未来 Click 后的逻辑。协调器持有步骤位置、剩余等待时间、正文送达状态和自动衔接策略；打字、思考、效果间隔和开幕标题计时均在 Runtime。`continueStory()`、`submitStoryInput()`、`accelerateStoryPresentation()` 分别处理自由继续、玩家输入和打字/思考加速；Operation、banner、finishing 等未完成阶段拒绝越过当前表现的输入。
+
+Runtime 输出有稳定逻辑 ID、递增序号、时间戳与 historyId，正文和玩家可读通知保留有界记录。保存恢复依赖步骤游标与输出检查点，不从 UI 聊天条目数量倒推动作是否执行。`clearFlow` 增加输出 epoch 并清空记录；若当前正文仍未送达，标记本等待点的输出受抑制，后续计时不会让旧正文复活。历史裁剪和显式清理不回退已提交的逻辑进度。
+
+完成链进入 `finishing`：先结算奖励、记录完成及相关冷却，再顺序呈现实际奖励通知。当前 owner 的运行槽在尾通知完成后释放，随后才安装已接纳的后继 Entry；角色剧情完成时会请求已达标的羁绊尾巴，交接后自动启动，不必再次由 UI 手动推送。同步动作或完成通知中提出的新启动先取得明确准入结果与请求身份，延后目标播放器的执行，避免监听器在当前动作批次中递归启动新链。待交接请求随快照保存，并受队列和因果链交接次数上限约束。恢复 finishing 不重发已结算奖励或完成事件。执行中发生晚拒绝或通知异常时保留已提交回执并进入失败状态，不声称回滚已有状态。
+
+所有四类 StoryNode 都可声明一个 `requiresFlag?: string`。到达时用 Map.has 检查，false、0、空字符串、null 都表示键存在；未声明则正常执行。缺键时直接跳过整个节点：正文不投递，Click 不等待、不取随机也不触发结果，Operation 不执行，Transfer 不跳转。Talklet 后续 Click 若被条件跳过，则该 Talklet 按无紧邻可用 Click 处理，等待用户自由继续。已经接受的等待点不会在查询或恢复时重复判断。
+
+局部写入使用 StoryAction `{ kind: 'localFlag', op: 'set', name, value }`，同名覆盖；移除使用 `{ kind: 'localFlag', op: 'remove', name }`，不存在时无操作。可用于 Operation、Click 共享动作或结果动作；保持作者顺序，由播放器直接处理，不调用 EffectEngine。需要选项触发不同后续 Talklet 时，可在各选项结果写入各自的局部标记，并在对应 Talklet 上声明 `requiresFlag`；该条件只检查键存在，不比较值。若 Choice 可能在同一 Entry 中重复到达，共享动作应先清除旧分支标记，再由所选结果写入当前标记。goto/insert 沿用同一张表；启动另一 Entry、另一个 owner 或重新开始时不自动继承。
 
 本次表随播放等待点的 `run.localFlags` 保存恢复，结束、取消、替换或失败后不供后续 Run 使用。它与 `PlayerState.flags` 的持久 setFlag，以及 `session.flags` 的“本次执行过哪些持久 setFlag”名称记录相互独立。局部标记不会写入这两处，条件系统的普通 flag 目标也不读取局部表。快照必须包含有效 localFlags；不为旧的活动会话快照补默认值或编写迁移。
+
+Story Editor 的 Choice 绑定卡自动维护这组标准字段：把 Choice 后的节点拖到某个选项左侧卡片，会在该 option result 中追加 `localFlag set true`，并给目标节点设置同名 `requiresFlag`。每次目标节点使用独立的 `Story-choiceId-num` 名称；再次到达该 Choice 时，`sharedActions` 先清理本 Choice 的已绑定标记。编辑器可级联重命名标记，统一更新写入、移除和节点条件；Runtime 不需要专用绑定数据。
+
+## 输入后的作者回应
+
+Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事件自动造一条老师消息。若需要老师回应，作者在输入节点后追加右侧 Talklet；它遵循普通 Story 节点顺序、投递与确认节奏。若不同选项需要不同回应，各 option 的结果写入独立 Entry 局部标记，后续 Talklet 用 `requiresFlag` 选择；条件仅判断标记是否存在，不比较值。存在跳转时，需把 Transfer 放在希望显示的回应 Talklet 之后，否则被跳转的节点不会执行。
 
 验证入口：`tests/engine/story-run-flags.test.ts`、`story-run-flags.integration.test.ts`。编辑器配置与草稿边界见 [[runtime-editor-and-project-checks]]。
 
 ## 效果协作
 
-剧情节点或奖励可以请求执行 Effects。`EffectEngine` 处理通用效果；Runtime wiring 将需要领域处理的效果转成事件，订阅的领域服务再执行主题、表现或剧情等响应。状态变更仍由相应状态写入服务提交。
+剧情节点或奖励可以请求执行 Effects。状态变更仍由相应状态写入服务提交；`EffectEngine.applyEffectsWithReceipts()` 保留整批先解析表达式、再按序写入的规则。每项 `EffectReceipt` 在对应目标写入后、同步通知前固化，携带 effectIndex、op、target、changed/noop 及实际前后值、差值或结果明细。玩家通知据实际回执生成，不把请求量当作实得量；noop、内部 flag 与 Extra 不播报为奖励。通知抛错也保留已提交前缀，不通过重试重复发放。
 
-分支提交前会校验转移目标和动作能否解析，再消费输入 token 并执行动作；无效跳转或非法动作不会留下半执行结果。EffectEngine 中可直接写状态的效果走状态写入接口；主题、实体表现和聊天演出等会被 Runtime 接线为事件，再由专属服务处理。
+分支提交前校验转移目标和动作能否解析，再消费输入 token 并执行。静态非法内容在执行前拒绝；动态执行和外部同步通知仍可能在部分状态已提交后失败，回执负责保留真实结果。Story 旅行也返回实际旅行回执，不另发一条由 UI 抢先插入的剧情移动通知。
+
+正式 Story 会话将覆盖层、开幕标题、ephemeral theme 和 story lifetime 实体表现编译成延后执行的表现意图，轮到对应步骤时由 `StoryNodePresentationHost` 按 run 生命周期执行。标题的来源默认值在接纳动作时物化，等待期间改名不会改掉本次标题。area/student 主题及 manual/area/init 实体覆盖仍在逻辑批次执行一次；可能清除非 Story 覆盖的 `clearEntityPresentation` 也直接逻辑执行，禁止放入可恢复的表现步骤重复写入。
 
 ## 剧情目录与运行会话
 
@@ -39,7 +58,7 @@ StoryEntry / StoryDef → StoryService 会话 → Controller 命令推进
 剧情动作 → EffectEngine → 状态写入或 Runtime 事件 → 领域响应 → 新视图
 ```
 
-源码入口：`src/arona-clicker/services/story/story-service.ts`、`story-node-player.ts`、`story-node-action-host.ts`、`src/engine/effect/effect-engine.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。
+源码入口：`src/arona-clicker/services/story/story-service.ts`、`story-node-player.ts`、`story-playback-coordinator.ts`、`story-playback-snapshot.ts`、`story-node-action-host.ts`、`src/engine/contracts/effect-receipt.ts`、`src/engine/effect/effect-engine.ts`。
 
 相关测试见 `tests/engine/story-service-node.integration.test.ts`。
 

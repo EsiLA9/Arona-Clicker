@@ -1,77 +1,78 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatStream } from '../../src/ui/presentation/chat-stream';
-import type { PanelState } from '../../src/ui/components/shared/app-shell';
-import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
-import type { GameReadModel } from '../../src/arona-clicker/contracts';
+import { output, playbackPanel, playbackReader, presentation } from './story-playback-fixtures';
 
-function panel(): PanelState { return { chatEntries: [], chatTexts: [], studentChats: {}, studentChatTexts: {},
-  conversationVariantId: null, selectedVariantId: null, storyNavPath: [], leftTab: 'area', centerTab: 'chat', rightTab: 'spot' }; }
-function view(id = 'line', kind: 'talk' | 'narration' = 'talk'): StoryView {
-  return { storyId: 'entry:test', storyDefId: 'story:test', type: 'active', pageIndex: 0, totalPages: 3,
-    phase: 'delivery', nodeId: id, token: `token-${id}`, runId: 'run-test', historyId: 'history-test', availableChoiceIndexes: [],
-    page: { text: id, kind, typing: 0, thinking: 0 } };
-}
-function game(current: StoryView | null): Pick<GameReadModel, 'getView' | 'getStoryView'> {
-  return { getView: () => ({ currentStory: current }), getStoryView: () => current } as unknown as Pick<GameReadModel, 'getView' | 'getStoryView'>;
-}
-describe('new node delivery acknowledges the actual delivered wait', () => {
+describe('Runtime Story output projection', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
-  it('shares delivery and auto-advance for two displays without routing a global receipt to the selected student', () => {
-    const chat = new ChatStream(), state = panel();
-    chat.onAutoAdvance = vi.fn();
-    chat.syncCurrentStory(state, game(view()));
-    chat.syncCurrentStory({ ...state }, game(view()));
-    vi.runAllTimers();
-    expect(chat.onAutoAdvance).toHaveBeenCalledTimes(1);
+
+  it('projects two displays from one Runtime record without scheduling delivery or changing Runtime state', () => {
+    const chat = new ChatStream(), state = playbackPanel();
+    const current = presentation({ entries: [output(1)] });
+    const snapshot = structuredClone(current);
+    const reader = playbackReader(() => current);
+    chat.syncCurrentStory(state, reader);
+    const id = state.chatEntries[0]!.id;
+    chat.syncCurrentStory({ ...state }, reader);
+    vi.advanceTimersByTime(100_000);
     expect(state.chatEntries).toHaveLength(1);
-    state.conversationVariantId = 'student';
-    chat.pushAbsorbedTo('#global', state, [{ ...view('receipt'), page: { text: 'global receipt', kind: 'narration' } }]);
-    expect(state.chatEntries[state.chatEntries.length - 1]?.text).toBe('global receipt');
-    expect(state.studentChats.student).toBeUndefined();
-    chat.reset();
+    expect(state.chatEntries[0]).toMatchObject({ id, storyOutputId: 'history:1' });
+    expect(typeof id).toBe('number');
+    expect(vi.getTimerCount()).toBe(0);
+    expect(current).toEqual(snapshot);
   });
-  it.each(['talk', 'narration'] as const)('acknowledges %s after delivery and does not infer a button', kind => {
-    const chat = new ChatStream(), state = panel();
-    chat.onAutoAdvance = vi.fn();
-    chat.syncCurrentStory(state, game(view('line', kind)));
-    expect(state.chatEntries.map(entry => entry.text)).toEqual(['line']);
-    vi.advanceTimersByTime(1);
-    expect(chat.onAutoAdvance).toHaveBeenCalledWith('#global', 'token-line');
-    chat.syncCurrentStory(state, game(view('line', kind)));
+
+  it('projects background and global records to their source owner when another student is selected', () => {
+    const chat = new ChatStream(), state = playbackPanel();
+    state.conversationVariantId = 'watching';
+    const reader = playbackReader(owner => presentation({ owner, entries: [output(1, owner ?? 'global')] }));
+    chat.syncCurrentStory({ ...state, conversationVariantId: null }, reader);
+    chat.syncCurrentStory({ ...state, conversationVariantId: 'background' }, reader);
+    expect(state.chatEntries.map(entry => entry.text)).toEqual(['global']);
+    expect(state.studentChats.background!.map(entry => entry.text)).toEqual(['background']);
+    expect(state.studentChats.watching).toBeUndefined();
+    expect(state.conversationVariantId).toBe('watching');
+  });
+
+  it('uses the Runtime epoch and retained records after clear and pruning, without counting effect history', () => {
+    const chat = new ChatStream(), state = playbackPanel();
+    let current = presentation({ entries: [output(1), output(2)] });
+    const reader = playbackReader(() => current);
+    chat.syncCurrentStory(state, reader);
+    chat.push(state, { kind: 'system', text: 'local' });
+    current = presentation({ entries: [output(2), output(3)] });
+    chat.syncCurrentStory(state, reader);
+    expect(state.chatEntries.filter(entry => entry.storyOutputId).map(entry => entry.text)).toEqual(['line-2', 'line-3']);
+    current = presentation({ epoch: 1, entries: [output(4)] });
+    chat.syncCurrentStory(state, reader);
+    chat.syncCurrentStory(state, reader);
+    expect(state.chatEntries.map(entry => entry.text)).toEqual(['line-4']);
+  });
+
+  it('restores authoritative output with fresh input identity without appending it twice', () => {
+    const chat = new ChatStream(), state = playbackPanel();
+    let current = presentation({ entries: [output(1)] });
+    const reader = playbackReader(() => current);
+    chat.syncCurrentStory(state, reader);
+    const id = state.chatEntries[0]!.id;
+    current = presentation({ entries: [output(1)], runId: 'restored-run', token: 'fresh-intent' });
+    chat.restoreHistoryState(state, reader);
+    chat.syncCurrentStory(state, reader);
     expect(state.chatEntries).toHaveLength(1);
+    expect(state.chatEntries[0]!.id).toBe(id);
+    expect(vi.getTimerCount()).toBe(0);
   });
-  it('waits for typing delivery, then acknowledges its captured token', () => {
-    const chat = new ChatStream(), state = panel();
-    const line = view(); line.page = { text: 'hello', typing: 0.1, thinking: 0 };
-    chat.onAutoAdvance = vi.fn();
-    chat.syncCurrentStory(state, game(line));
-    expect(state.chatEntries[0].kind).toBe('typing');
-    vi.advanceTimersByTime(99);
-    expect(chat.onAutoAdvance).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(2);
-    expect(state.chatEntries[0]).toMatchObject({ kind: 'talk', text: 'hello' });
-    expect(chat.onAutoAdvance).toHaveBeenCalledWith('#global', 'token-line');
-  });
-  it('input does not append a body or leave a pending body timer able to submit it', () => {
-    const chat = new ChatStream(), state = panel();
-    chat.onAutoAdvance = vi.fn();
-    chat.syncCurrentStory(state, game(view()));
-    chat.syncCurrentStory(state, game({ ...view('choice'), phase: 'input', page: { kind: 'click', text: '', choices: [{ id: 'yes', text: 'Yes' }] } }));
-    vi.runAllTimers();
-    expect(chat.onAutoAdvance).not.toHaveBeenCalled();
-    expect(state.chatEntries).toHaveLength(1);
-  });
-  it('restored delivered history acknowledges using a fresh token without duplicate text', () => {
-    const chat = new ChatStream(), state = panel();
-    chat.syncCurrentStory(state, game(view()));
-    chat.reset();
-    const restored = { ...view(), token: 'fresh-token', runId: 'fresh-run' };
-    chat.onAutoAdvance = vi.fn();
-    chat.restoreHistoryState(state, game(restored));
-    chat.syncCurrentStory(state, game(restored));
-    vi.advanceTimersByTime(1);
-    expect(state.chatEntries).toHaveLength(1);
-    expect(chat.onAutoAdvance).toHaveBeenCalledWith('#global', 'fresh-token');
+
+  it('keeps Runtime output order and numeric identities stable at the display limit', () => {
+    const chat = new ChatStream(), state = playbackPanel();
+    const current = presentation({ entries: Array.from({ length: 200 }, (_, index) => output(index + 1)) });
+    const reader = playbackReader(() => current);
+    chat.syncCurrentStory(state, reader);
+    chat.push(state, { kind: 'system', text: 'local notice' });
+    chat.syncCurrentStory(state, reader);
+    const ids = state.chatEntries.map(entry => entry.id);
+    chat.syncCurrentStory(state, reader);
+    expect(state.chatEntries.map(entry => entry.id)).toEqual(ids);
+    expect(state.chatEntries.filter(entry => entry.storyOutputId).map(entry => entry.text)).toEqual(current.entries.slice(1).map(entry => entry.text));
   });
 });

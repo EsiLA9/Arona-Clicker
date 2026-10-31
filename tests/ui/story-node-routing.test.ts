@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChatStream } from '../../src/ui/presentation/chat-stream';
 import type { PanelState } from '../../src/ui/components/shared/app-shell';
+import { playbackReader, presentation } from './story-playback-fixtures';
 const panel = (): PanelState => ({ chatEntries: [], chatTexts: [], studentChats: {}, studentChatTexts: {},
   conversationVariantId: 'watching', selectedVariantId: null, storyNavPath: [], leftTab: 'area', centerTab: 'chat', rightTab: 'spot' });
 describe('new story UI owner routing', () => {
@@ -23,13 +24,17 @@ describe('new story UI owner routing', () => {
     chat.pushToOwner(state, 'background', { kind: 'talk', text: 'history' });
     for (const runId of ['old', 'new']) chat.pushChatText(state,
       { id: runId, text: runId, x: 0, y: 1, align: 'left', timestamp: 1, runId }, 'background');
-    chat.showBanner('background', 'New title', 'new');
+    let current = presentation({ owner: 'background', runId: 'new', phase: 'banner', banner: { title: 'New title', remainingMs: 2000 } });
+    const reader = playbackReader(() => current);
+    chat.syncCurrentStory({ ...state, conversationVariantId: 'background' }, reader);
     chat.endRun(state, 'background', 'old');
     expect(state.studentChatTexts.background.map(entry => entry.runId)).toEqual(['new']);
     expect(state.studentChats.background[0].text).toBe('history');
     state.conversationVariantId = 'background';
     expect(chat.activeBanner(state)?.title).toBe('New title');
     chat.endRun(state, 'background', 'new');
+    current = presentation({ owner: 'background', phase: 'idle' });
+    chat.syncCurrentStory(state, reader);
     expect(chat.activeBanner(state)).toBeNull();
     chat.reset();
   });

@@ -44,7 +44,7 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
     stages: { work: { advance: 'input' }, confirm: { advance: 'input' } },
     nodes: [
       { id: 'work', type: 'click', stageId: 'work', interaction: { kind: 'button', text: '检查设备', press: { base: 3, rand: 2 } } },
-      { id: 'confirm', type: 'click', stageId: 'confirm', interaction: { kind: 'button', text: '确认完成', reply: { kind: 'talk', text: '检查好了。' } } },
+      { id: 'confirm', type: 'click', stageId: 'confirm', interaction: { kind: 'button', text: '确认完成' } },
       { id: 'reward', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 1 }] } },
     ],
   },

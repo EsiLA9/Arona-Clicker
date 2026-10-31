@@ -1,9 +1,9 @@
 import type { StoryAction, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
-import type { StoryClickNode, StoryContent, StoryNodeDocument, StoryNodeResult, StoryTalkletNode } from '../../../data-services/contracts/story-node';
+import type { StoryClickNode, StoryNodeDocument, StoryNodeResult, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import { validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
-import { isStoryLocalFlagAction, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
+import { isStoryFlagValue, isStoryLocalFlagAction, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { StoryFlagValue, StoryRunFlags } from '../../../engine/contracts/story-run-flags';
-import type { StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
+import type { StoryNodePresentationData, StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
 import type {
   StoryNodeCommandResult, StoryNodeDocuments, StoryNodePlaybackEvent, StoryNodePlaybackHost,
   StoryNodePlaybackView, StoryNodeSource,
@@ -11,6 +11,8 @@ import type {
 
 type Pending = { token: string } & (
   | { kind: 'delivery'; node: StoryTalkletNode }
+  | { kind: 'operation'; node: StoryOperationNode; data: StoryNodePresentationData }
+  | { kind: 'result'; node: StoryClickNode; data: StoryNodePresentationData; continuation: { transfer?: StoryTransfer } }
   | { kind: 'input'; node: StoryClickNode; press?: { total: number; done: number } }
 );
 interface Run {
@@ -26,6 +28,38 @@ interface Run {
   pending?: Pending;
 }
 let nextPlayerId = 0;
+const emptyData = (): StoryNodePresentationData => ({ receipts: [], presentation: [], order: [] });
+const hasData = (data: StoryNodePresentationData): boolean => data.receipts.length > 0 || data.presentation.length > 0;
+const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function isPresentationData(value: unknown): value is StoryNodePresentationData {
+  if (!record(value) || !Array.isArray(value.receipts) || !Array.isArray(value.presentation) || !Array.isArray(value.order) || !isStoryFlagValue(value)) return false;
+  if (Object.keys(value).some(key => !['receipts', 'presentation', 'order'].includes(key))) return false;
+  const receipts = value.receipts;
+  const presentation = value.presentation;
+  const seen = new Set<string>();
+  if (value.order.length !== receipts.length + presentation.length || !value.order.every(item => {
+    if (!record(item) || !['receipt', 'presentation'].includes(String(item.kind)) || !Number.isSafeInteger(item.index) || Number(item.index) < 0) return false;
+    const length = item.kind === 'receipt' ? receipts.length : presentation.length;
+    const key = `${item.kind}:${item.index}`;
+    if (Number(item.index) >= length || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  })) return false;
+  return value.receipts.every(receipt => record(receipt) && Number.isSafeInteger(receipt.effectIndex) && Number(receipt.effectIndex) >= 0
+    && typeof receipt.op === 'string' && typeof receipt.target === 'string' && ['changed', 'noop'].includes(String(receipt.status))
+    && (receipt.delta === undefined || typeof receipt.delta === 'number'))
+    && value.presentation.every(effect => record(effect) && typeof effect.op === 'string' && typeof effect.target === 'string' && 'value' in effect);
+}
+
+function errorData(error: unknown): StoryNodePresentationData {
+  if (!record(error)) return emptyData();
+  const candidate = record(error.data) ? error.data : error;
+  const receipts = Array.isArray(candidate.receipts) ? structuredClone(candidate.receipts) : [];
+  const presentation = Array.isArray(candidate.presentation) ? structuredClone(candidate.presentation) : [];
+  return { receipts, presentation, order: Array.isArray(candidate.order) ? structuredClone(candidate.order)
+    : [...receipts.map((_, index) => ({ kind: 'receipt' as const, index })), ...presentation.map((_, index) => ({ kind: 'presentation' as const, index }))] };
+}
 
 /** 新节点同步内存播放器；不解释旧Talklet，不持久化，也不结算旧Entry。 */
 export class StoryNodePlayer {
@@ -41,7 +75,7 @@ export class StoryNodePlayer {
     this.documents = new Map([...documents].map(([id, document]) => [id, structuredClone(document)]));
   }
 
-  start(storyId: string, source: { entryId: string; owner: string | null; runId?: string; historyId?: string }, initialFlags: StoryRunFlags = {}): StoryNodeCommandResult {
+  start(storyId: string, source: Omit<StoryNodeSource, 'rootStoryId'>, initialFlags: StoryRunFlags = {}): StoryNodeCommandResult {
     return this.command(events => {
       if (this.run) return 'AlreadyActive';
       if (!isStoryRunFlags(initialFlags)) return 'InvalidLocalFlags';
@@ -69,15 +103,16 @@ export class StoryNodePlayer {
   save(): StoryNodeSnapshot {
     if (this.busy) throw new Error('Busy');
     const run = this.run;
-    if (!run) return { format: 'story-nodes', run: null };
+    if (!run) return { format: 'story-nodes-v2', run: null };
     if (!run.pending) throw new Error('NotAtCheckpoint');
-    return structuredClone({ format: 'story-nodes', run: {
+    const { token: _token, node: _node, ...pending } = run.pending;
+    return structuredClone({ format: 'story-nodes-v2', run: {
       source: run.source, storyId: run.storyId, nodeId: run.pending.node.id,
       localFlags: Object.fromEntries(run.localFlags),
       terminalStoryId: run.terminalStoryId, transfers: run.transfers, waitSequence: run.waitSequence, visited: [...run.visited],
       stack: run.stack.map(frame => ({ storyId: frame.storyId,
         nextNodeId: this.document(frame.storyId).nodes[frame.index]?.id ?? null })),
-      pending: { kind: run.pending.kind, ...(run.pending.kind === 'input' && run.pending.press ? { press: run.pending.press } : {}) },
+      pending,
     } });
   }
 
@@ -85,12 +120,14 @@ export class StoryNodePlayer {
   restore(snapshot: StoryNodeSnapshot): void {
     if (this.busy) throw new Error('Busy');
     const bad = (): never => { throw new Error('InvalidSnapshot'); };
-    if (snapshot?.format !== 'story-nodes') bad();
+    if (snapshot?.format !== 'story-nodes-v2') bad();
     if (snapshot.run !== null && (!snapshot.run || !isStoryRunFlags(snapshot.run.localFlags))) bad();
     const saved = structuredClone(snapshot.run);
     if (saved === null) { this.cancel(); return; }
     if (!saved || !saved.source || typeof saved.source.entryId !== 'string' || !saved.source.entryId.trim()
       || !(saved.source.owner === null || typeof saved.source.owner === 'string' && saved.source.owner.trim())
+      || (saved.source.causalChainId !== undefined && (typeof saved.source.causalChainId !== 'string' || !saved.source.causalChainId.trim()))
+      || (saved.source.handoffCount !== undefined && (!Number.isSafeInteger(saved.source.handoffCount) || saved.source.handoffCount < 0))
       || !Number.isSafeInteger(saved.transfers) || saved.transfers < 0 || saved.transfers > 32
       || !Number.isSafeInteger(saved.waitSequence) || saved.waitSequence < 1
       || !Array.isArray(saved.visited) || saved.visited.length > 33 || !Array.isArray(saved.stack)
@@ -102,11 +139,34 @@ export class StoryNodePlayer {
     const document = this.document(saved.storyId);
     const index = document.nodes.findIndex(node => node.id === saved.nodeId);
     const node = document.nodes[index];
-    if (!node || node.type !== 'talklet' && node.type !== 'click') return bad();
-    const expectedKind = node.type === 'talklet' ? 'delivery' : 'input';
-    if (saved.pending.kind !== expectedKind) bad();
-    const definition = node.type === 'click' && node.interaction.kind === 'button' ? node.interaction.press : undefined;
-    const press = saved.pending.press;
+    if (!node || node.type !== 'talklet' && node.type !== 'click' && node.type !== 'operation') return bad();
+    const savedPending = saved.pending;
+    const pendingKeys = savedPending.kind === 'input' ? ['kind', 'press'] : savedPending.kind === 'result'
+      ? ['kind', 'data', 'continuation'] : savedPending.kind === 'operation' ? ['kind', 'data'] : ['kind'];
+    if (Object.keys(savedPending).some(key => !pendingKeys.includes(key))) bad();
+    if (node.type === 'talklet' ? savedPending.kind !== 'delivery'
+      : node.type === 'operation' ? savedPending.kind !== 'operation'
+        : savedPending.kind !== 'input' && savedPending.kind !== 'result') bad();
+    if (savedPending.kind === 'operation' || savedPending.kind === 'result') {
+      if (!isPresentationData(savedPending.data)) bad();
+    }
+    if (savedPending.kind === 'result') {
+      if (!hasData(savedPending.data) || !record(savedPending.continuation)) bad();
+      if (Object.keys(savedPending.continuation).some(key => key !== 'transfer')) bad();
+      const transfer = savedPending.continuation.transfer;
+      if (transfer !== undefined) {
+        if (!record(transfer) || !['goto', 'insert'].includes(transfer.mode) || typeof transfer.storyId !== 'string' || saved.transfers >= 32) bad();
+        this.document(transfer.storyId);
+      }
+      const click = node.type === 'click' ? node : bad();
+      const interaction = click.interaction;
+      const transfers = interaction.kind === 'button' ? [interaction.result?.transfer]
+        : interaction.kind === 'choice' ? interaction.options.map(option => option.result?.transfer) : [undefined];
+      if (!transfers.some(candidate => candidate === undefined ? transfer === undefined
+        : candidate.storyId === transfer?.storyId && candidate.mode === transfer.mode)) bad();
+    }
+    const definition = savedPending.kind === 'input' && node.type === 'click' && node.interaction.kind === 'button' ? node.interaction.press : undefined;
+    const press = savedPending.kind === 'input' ? savedPending.press : undefined;
     if (Boolean(definition) !== Boolean(press)) bad();
     if (press && definition && (!Number.isSafeInteger(press.total) || !Number.isSafeInteger(press.done)
       || press.total < definition.base || press.total > definition.base + Math.max(0, (definition.rand ?? 0) - 1)
@@ -118,9 +178,7 @@ export class StoryNodePlayer {
       if (next < 0) return bad();
       return { storyId: frame.storyId, index: next };
     });
-    const pending: Pending = node.type === 'talklet'
-      ? { kind: 'delivery', token: this.token(), node }
-      : { kind: 'input', token: this.token(), node, ...(press ? { press } : {}) };
+    const pending = { ...savedPending, token: this.token(), node } as Pending;
     this.run = { source: saved.source, storyId: saved.storyId, index, terminalStoryId: saved.terminalStoryId,
       transfers: saved.transfers, waitSequence: saved.waitSequence, visited, stack, pending,
       localFlags: new Map(Object.entries(saved.localFlags)) };
@@ -134,19 +192,22 @@ export class StoryNodePlayer {
     this.ticket += 1;
   }
 
-  ackDelivery(token: string): StoryNodeCommandResult {
+  ackDelivery(token: string, causalChainId?: string): StoryNodeCommandResult {
     return this.command(events => {
       const run = this.run;
       if (!run || run.pending?.token !== token) return 'StaleToken';
-      if (run.pending.kind !== 'delivery') return 'DeliveryNotPending';
+      const pending = run.pending;
+      if (pending.kind === 'input') return 'DeliveryNotPending';
+      if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
       run.pending = undefined;
-      run.index += 1;
+      if (pending.kind === 'result' && pending.continuation.transfer) this.transfer(run, pending.continuation.transfer, true);
+      else run.index += 1;
       this.drain(run, events);
       if (this.terminal.status === 'idle') return 'Cancelled';
     });
   }
 
-  submit(token: string, optionId?: string): StoryNodeCommandResult {
+  submit(token: string, optionId?: string, causalChainId?: string): StoryNodeCommandResult {
     return this.command(events => {
       const run = this.run;
       if (!run || run.pending?.token !== token) return 'StaleToken';
@@ -155,19 +216,16 @@ export class StoryNodePlayer {
       const interaction = pending.node.interaction;
       let actions: readonly StoryAction[] = [];
       let result: StoryNodeResult | undefined;
-      let reply: StoryContent | undefined;
       if (interaction.kind === 'choice') {
         const option = interaction.options.find(candidate => candidate.id === optionId);
         if (!option) return 'InvalidOption';
         if (option.condition && !this.host.evaluate(option.condition, [...run.visited])) return 'OptionUnavailable';
         result = option.result;
-        reply = option.reply;
         actions = [...(interaction.sharedActions ?? []), ...(result?.actions ?? [])];
       } else {
         if (optionId !== undefined) return 'InvalidOption';
         if (interaction.kind === 'button') {
           result = interaction.result;
-          reply = interaction.reply;
           actions = result?.actions ?? [];
           if (pending.press && pending.press.done + 1 < pending.press.total) {
             pending.press.done += 1;
@@ -188,15 +246,22 @@ export class StoryNodePlayer {
         if (error) return error;
         if (this.run !== run) return 'Cancelled';
       }
+      if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
       run.pending = undefined; // 在调用同步领域服务之前消费旧输入。
-      const disposition = this.apply(run, actions);
-      if (disposition === 'cancelled') return 'Cancelled';
-      if (reply) events.push({ type: 'reply', source: run.source, storyId: run.storyId, clickId: pending.node.id, content: reply });
-      if (disposition === 'replaced') {
+      const applied = this.apply(run, actions);
+      if (applied.status === 'cancelled') return 'Cancelled';
+      if (applied.status === 'replaced') {
         events.push({ type: 'replaced', source: run.source });
         return;
       }
-      if (result?.transfer) this.transfer(run, result.transfer);
+      if (hasData(applied.data)) {
+        run.waitSequence += 1;
+        run.pending = { kind: 'result', token: this.token(), node: pending.node, data: applied.data,
+          continuation: result?.transfer ? { transfer: structuredClone(result.transfer) } : {} };
+        events.push({ type: 'view', view: this.view() });
+        return;
+      }
+      if (result?.transfer) this.transfer(run, result.transfer, true);
       else run.index += 1;
       this.drain(run, events);
       if (this.terminal.status === 'idle') return 'Cancelled';
@@ -220,7 +285,7 @@ export class StoryNodePlayer {
     } catch (error) {
       const text = this.errorText(error);
       // 取消已经作废来源时，不允许旧回调把idle再覆盖成失败的新链。
-      if (this.run) { this.run = undefined; this.terminal = { status: 'failed', error: text }; }
+      if (this.run) { this.run = undefined; this.terminal = { status: 'failed', error: text, data: errorData(error) }; }
       return structuredClone({ ok: false, error: text, view: this.view(), events });
     } finally { this.busy = false; }
   }
@@ -230,6 +295,8 @@ export class StoryNodePlayer {
     const pending = run?.pending;
     if (!run || !pending) return this.terminal;
     if (pending.kind === 'delivery') return { status: 'delivery', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node };
+    if (pending.kind === 'operation') return { status: 'operation', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node, data: pending.data };
+    if (pending.kind === 'result') return { status: 'result', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node, data: pending.data };
     const interaction = pending.node.interaction;
     return {
       status: 'input', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node,
@@ -259,8 +326,8 @@ export class StoryNodePlayer {
     if (error) throw new Error(error);
   }
 
-  private transfer(run: Run, transfer: StoryTransfer): void {
-    this.prepareTransfer(run, transfer);
+  private transfer(run: Run, transfer: StoryTransfer, accepted = false): void {
+    if (!accepted) this.prepareTransfer(run, transfer);
     if (transfer.mode === 'insert') run.stack.push({ storyId: run.storyId, index: run.index + 1 });
     run.storyId = transfer.storyId;
     run.index = 0;
@@ -269,25 +336,40 @@ export class StoryNodePlayer {
     run.terminalStoryId = transfer.storyId;
   }
 
-  private apply(run: Run, actions: readonly StoryAction[]): 'applied' | 'replaced' | 'cancelled' {
-    for (const action of actions) {
-      if (this.run !== run) return 'cancelled';
-      if (action.kind === 'localFlag') {
-        if (!isStoryLocalFlagAction(action)) throw new Error('InvalidLocalFlagAction');
-        if (action.op === 'set') run.localFlags.set(action.name, structuredClone(action.value));
-        else run.localFlags.delete(action.name);
-        continue;
+  private apply(run: Run, actions: readonly StoryAction[]): { status: 'applied' | 'replaced' | 'cancelled'; data: StoryNodePresentationData } {
+    const receipts: StoryNodePresentationData['receipts'][number][] = [];
+    const presentation: StoryNodePresentationData['presentation'][number][] = [];
+    const order: StoryNodePresentationData['order'][number][] = [];
+    const data = { receipts, presentation, order };
+    const append = (next: StoryNodePresentationData) => {
+      for (const item of next.order) order.push({ ...item, index: item.index + (item.kind === 'receipt' ? receipts.length : presentation.length) });
+      receipts.push(...structuredClone(next.receipts));
+      presentation.push(...structuredClone(next.presentation));
+    };
+    try {
+      for (const action of actions) {
+        if (this.run !== run) return { status: 'cancelled', data };
+        if (action.kind === 'localFlag') {
+          if (!isStoryLocalFlagAction(action)) throw new Error('InvalidLocalFlagAction');
+          if (action.op === 'set') run.localFlags.set(action.name, structuredClone(action.value));
+          else run.localFlags.delete(action.name);
+          continue;
+        }
+        const result = this.host.execute(action, run.source);
+        if (this.run !== run) return { status: 'cancelled', data };
+        append(errorData(result));
+        if (result.status === 'rejected') throw new Error(result.error);
+        if (result.status === 'replaced') {
+          this.run = undefined;
+          this.terminal = { status: 'replaced' };
+          return { status: 'replaced', data };
+        }
       }
-      const result = this.host.execute(action, run.source);
-      if (this.run !== run) return 'cancelled';
-      if (result.status === 'rejected') throw new Error(result.error);
-      if (result.status === 'replaced') {
-        this.run = undefined;
-        this.terminal = { status: 'replaced' };
-        return 'replaced';
-      }
+      return { status: this.run === run ? 'applied' : 'cancelled', data };
+    } catch (error) {
+      append(errorData(error));
+      throw Object.assign(new Error(this.errorText(error)), { data });
     }
-    return this.run === run ? 'applied' : 'cancelled';
   }
 
   private drain(run: Run, events: StoryNodePlaybackEvent[]): void {
@@ -328,9 +410,15 @@ export class StoryNodePlayer {
         const error = this.preflight(node.action, run.source);
         if (error) throw new Error(error);
         if (this.run !== run) return;
-        const disposition = this.apply(run, [node.action]);
-        if (disposition === 'replaced') events.push({ type: 'replaced', source: run.source });
-        if (disposition !== 'applied') return;
+        const applied = this.apply(run, [node.action]);
+        if (applied.status === 'replaced') events.push({ type: 'replaced', source: run.source });
+        if (applied.status !== 'applied') return;
+        if (node.action.kind !== 'localFlag') {
+          run.waitSequence += 1;
+          run.pending = { kind: 'operation', token: this.token(), node, data: applied.data };
+          events.push({ type: 'view', view: this.view() });
+          return;
+        }
         run.index += 1;
       }
     }

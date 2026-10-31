@@ -13,7 +13,7 @@ const child: StoryNodeDocument = { id: 'story:child', name: 'Child', stages: { b
   { id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: '插播。' } },
 ] };
 const token = (view: StoryNodePlaybackView): string => {
-  if (view.status !== 'input' && view.status !== 'delivery') throw new Error('Missing wait');
+  if (!('token' in view)) throw new Error('Missing wait');
   return view.token;
 };
 function fixture() {
@@ -26,7 +26,9 @@ function fixture() {
 describe('StoryNodePlayer persistent checkpoints', () => {
   it('resumes multi-click with the same roll and fresh tickets, without repeating previous effects', () => {
     const f = fixture();
-    const started = f.player.start(root.id, { entryId: 'entry:root', owner: 'guest' });
+    const operation = f.player.start(root.id, { entryId: 'entry:root', owner: 'guest' });
+    expect(operation.view.status).toBe('operation');
+    const started = f.player.ackDelivery(token(operation.view));
     const partial = f.player.submit(token(started.view));
     expect(partial.view).toMatchObject({ press: { total: 3, done: 1 } });
     const saved = f.player.save();
@@ -49,7 +51,8 @@ describe('StoryNodePlayer persistent checkpoints', () => {
 
   it('validates checkpoints before replacing a live wait and never executes on rejection', () => {
     const f = fixture();
-    f.player.start(root.id, { entryId: 'entry:root', owner: null });
+    const operation = f.player.start(root.id, { entryId: 'entry:root', owner: null });
+    f.player.ackDelivery(token(operation.view));
     const before = f.player.getView();
     for (const change of [
       { nodeId: 'missing' }, { transfers: 33 }, { visited: [] },
@@ -62,7 +65,7 @@ describe('StoryNodePlayer persistent checkpoints', () => {
       expect(f.player.getView()).toEqual(before);
     }
     expect(f.execute).toHaveBeenCalledTimes(1);
-    f.player.restore({ format: 'story-nodes', run: null });
+    f.player.restore({ format: 'story-nodes-v2', run: null });
     expect(f.player.getView().status).toBe('idle');
   });
 

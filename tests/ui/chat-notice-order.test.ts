@@ -9,7 +9,9 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindStoryActions } from '../../src/ui/controller/controller-actions-story';
-import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
+import { finishStory, finishWelcome, settleStoryPresentation } from '../engine/story-test-fixtures';
+import { ChatStream } from '../../src/ui/presentation/chat-stream';
+import { output, playbackPanel, playbackReader, presentation } from './story-playback-fixtures';
 
 const OFFICE = 'base:init:schale_office';
 
@@ -33,7 +35,10 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
   });
 
   afterEach(() => {
-    game.stop();
+    controller.destroy();
+    game.dispose();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     localStorage.clear();
   });
 
@@ -43,6 +48,8 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
     panel.conversationVariantId = 'Hoshino';
     controller.pendingTravelChats.push('移动到了 测试区域');
     game.story.startCardStory('base:activestory:bond_hoshino_1', 'Hoshino');
+    controller.render();
+    settleStoryPresentation(game, 'Hoshino');
     controller.render();
     const stream = controller.activeStream();
     const travelIdx = stream.findIndex(e => e.kind === 'reward' && e.text.includes('移动到了'));
@@ -112,5 +119,25 @@ describe('聊天流通知次序（travel 先行 / 奖励延迟）', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('travel notice order across local and Runtime output', () => {
+  it('keeps an already committed body before travel and same-millisecond arrival after travel', () => {
+    const panel = playbackPanel();
+    const stream = new ChatStream();
+    const entries = [{ ...output(1, '移动前'), timestamp: 1000 }];
+    const game = playbackReader(() => presentation({ entries }));
+    stream.syncCurrentStory(panel, game);
+    // Captured before the command; the notice itself is delivered after the arrival output exists.
+    const afterStoryOutput = { epoch: 0, sequence: 1 };
+    entries.push({ ...output(2, '到达正文'), timestamp: 1000 });
+    stream.pushToOwner(panel, null, { kind: 'reward', text: '移动到了 测试区域', timestamp: 1020, afterStoryOutput });
+    stream.syncCurrentStory(panel, game);
+    expect(panel.chatEntries.map(entry => entry.text)).toEqual(['移动前', '移动到了 测试区域', '到达正文']);
+    const before = structuredClone(panel.chatEntries);
+    stream.syncCurrentStory(panel, game);
+    expect(panel.chatEntries).toEqual(before);
+    expect(entries.map(entry => entry.sequence)).toEqual([1, 2]);
   });
 });

@@ -10,6 +10,7 @@ import '../../src/ui/runtime/service-definitions';
 const ENTRY = 'test:activestory:history';
 const STORY = 'test:story:history';
 const TEXT = '重复文本仍应按页显示';
+const RESET = 'test:activestory:history-reset';
 
 describe('Story 历史恢复', () => {
   let game: GameInstance;
@@ -22,7 +23,11 @@ describe('Story 历史恢复', () => {
     game = new GameInstance();
     game.init([baseDatapack, makePack([
       { id: ENTRY, storyId: STORY, type: 'active', availableInits: [], triggerCondition: and(), replayable: true },
+      { id: RESET, storyId: 'test:story:history-reset', type: 'active', availableInits: [], triggerCondition: and() },
     ], [
+      { id: 'test:story:history-reset', name: '清空测试历史', stages: {}, nodes: [
+        { id: 'clear', type: 'operation', action: { kind: 'overlay', command: { command: 'clearFlow' } } },
+      ] },
       { id: STORY, name: '历史恢复', stages: { body: { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
   { id: 'p2-body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: TEXT, speaker: '阿罗娜' }, pacing: { typing: 0 } },
@@ -30,6 +35,8 @@ describe('Story 历史恢复', () => {
     ]), supplyPack]);
     game.inits.startNewGame('base:init:schale_office');
     finishWelcome(game);
+    game.story.clearAllCurrentStories();
+    expect(game.story.startActiveStory(RESET).success).toBe(true);
     controller = new UIController(game, document.querySelector('#app')!);
     controller.started = true;
   });
@@ -98,7 +105,20 @@ describe('Story 历史恢复', () => {
     expect(new Set(controller.activeStream().map(entry => entry.id)).size).toBe(2);
   });
 
-  it('相邻页台词相同时，存档中未送达的打字页仍正常投递', () => {
+  it('Runtime 单独存档保留未显示正文，Controller 不再另存 Story 缓存', () => {
+    expect(game.story.startActiveStory(ENTRY).success).toBe(true);
+    // No Controller render has delivered this body; it already belongs to Runtime output.
+    const saved = JSON.parse(JSON.stringify(game.save()));
+    game.load(saved);
+    controller.resetSessionPanel();
+    controller.restoreHistories(saved);
+    controller.render();
+    expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT]);
+    expect(controller.withHistories(game.save()).chatHistories?.global).toEqual([]);
+    expect(game.state.storyReadLogs?.[STORY]?.readTalkletIndexes).toEqual([0]);
+  });
+
+  it('相邻页台词相同时，存档中未送达的打字页仍正常投递', async () => {
     const story = game.registry.stories.get(STORY)!;
     game.registry.load(makePack([], [{ ...story, nodes: story.nodes.map((node, i) => i === 1 && node.type === 'talklet' ? { ...node, pacing: { typing: 1 } } : node) }]));
     expect(game.story.startActiveStory(ENTRY).success).toBe(true);
@@ -112,11 +132,12 @@ describe('Story 历史恢复', () => {
     controller.restoreHistories(saved);
     controller.render();
     expect(controller.activeStream().map(entry => entry.kind)).toEqual(['talk', 'typing']);
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    controller.refreshChatPanel();
     expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT, TEXT]);
   });
 
-  it('已送达的连发页读档后继续推进，不重复投递本页', async () => {
+  it('已送达的普通页读档后保持自由继续，不重复投递或代替玩家推进', async () => {
     expect(game.story.startActiveStory(ENTRY).success).toBe(true);
     controller.render();
     const saved = JSON.parse(JSON.stringify(controller.withHistories(game.save())));
@@ -126,22 +147,31 @@ describe('Story 历史恢复', () => {
     controller.render();
     expect(controller.activeStream()).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(450);
-    expect(game.getView().currentStory?.pageIndex).toBe(1);
+    expect(game.getView().currentStory?.pageIndex).toBe(0);
+    expect(game.story.getPlaybackView().phase).toBe('continue');
+    expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT]);
+    const playback = game.story.getPlaybackView();
+    expect(game.story.continueStory(null, playback.token!).success).toBe(true);
+    controller.refreshChatPanel();
     expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT, TEXT]);
   });
 
   it('insert 返回相同 Entry 页码时仍显示不同 StoryDef 的页面', () => {
     expect(game.story.startStory('test:story:supply_mission', 'passive').success).toBe(true);
-    game.story.advanceStory();
-    controller.render(); // 主剧情的第 1 页
     vi.advanceTimersByTime(900);
-    expect(controller.activeStream()).toHaveLength(1);
-    game.story.advanceStory(); // 插入子剧情第 0 页，不渲染
-    game.story.advanceStory(); // 子剧情第 1 页，与刚显示的主剧情页码相同
+    expect(game.story.advanceStory().success).toBe(true);
+    vi.advanceTimersByTime(900);
+    controller.render(); // 主剧情的两页即使第一条没有显示也已由 Runtime 送达。
+    expect(controller.activeStream()).toHaveLength(2);
+    expect(game.story.advanceStory().success).toBe(true); // 插入子剧情第 0 页，不渲染
+    vi.advanceTimersByTime(900);
+    expect(game.story.advanceStory().success).toBe(true); // 子剧情第 1 页，与主剧情第 1 页相同页码
+    vi.advanceTimersByTime(900);
     controller.refreshChatPanel();
-    vi.advanceTimersByTime(900);
     expect(controller.activeStream().map(entry => entry.text)).toEqual([
+      '老师，补给清单已经列好了。',
       '对了，便利店那边有件事要顺路处理一下。',
+      '啊，芹香同学，正好你来了——找零多出来一张优惠券。',
       '谢谢！帮大忙了。',
     ]);
   });

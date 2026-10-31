@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/story-test-fixtures.ts — story 系列测试共享数据与工具
@@ -15,31 +16,53 @@ export function finishWelcome(g: GameInstance, owner: string | null = null): voi
 }
 
 /** 连续推进直到剧情结束；遇到选项时优先选第 choiceIndex 个可用候选。 */
+/** Complete only pure presentation; never consume player input. */
+export function settleStoryPresentation(g: GameInstance, owner: string | null = null): void {
+  const alreadyFake = vi.isFakeTimers();
+  if (!alreadyFake) { g.story.suspendPlayback(); vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); g.story.resumePlayback(); }
+  try {
+    for (let guard = 0; guard < 1000; guard++) {
+      if (!['typing', 'thinking', 'operation', 'banner', 'finishing'].includes(g.story.getPlaybackView(owner).phase)) return;
+      if (vi.getTimerCount() === 0) return;
+      vi.advanceTimersToNextTimer();
+    }
+    throw new Error('Story presentation exceeded fixture budget');
+  } finally { if (!alreadyFake) { g.story.suspendPlayback(); vi.useRealTimers(); g.story.resumePlayback(); } }
+}
+
 export function finishStory(g: GameInstance, choiceIndex = 0, owner: string | null = null): void {
-  for (let guard = 0; guard < 200; guard++) {
-    const view = g.story.getCurrentStoryView(owner);
-    if (!view) return;
-    if (view.phase === 'delivery') {
-      const result = g.story.advanceStory(undefined, owner, view.token);
-      if (!result.success) return;
-      continue;
+  const alreadyFake = vi.isFakeTimers();
+  if (!alreadyFake) {
+    g.story.suspendPlayback();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    g.story.resumePlayback();
+  }
+  try {
+    for (let guard = 0; guard < 1000; guard++) {
+      const playback = g.story.getPlaybackView(owner);
+      if (playback.phase === 'idle' || playback.phase === 'failed') return;
+      if (['typing', 'thinking', 'operation', 'banner', 'finishing'].includes(playback.phase)) {
+        if (vi.getTimerCount() === 0) return;
+        vi.advanceTimersToNextTimer();
+        continue;
+      }
+      const view = g.story.getCurrentStoryView(owner);
+      if (!view || !playback.token) return;
+      if (playback.phase === 'continue') {
+        if (!g.story.continueStory(owner, playback.token).success) return;
+      } else {
+        const selected = view.availableChoiceIndexes.includes(choiceIndex) ? choiceIndex : view.availableChoiceIndexes[0];
+        const optionId = view.page.choices && selected !== undefined ? view.page.choices[selected]?.id : undefined;
+        if (!g.story.submitStoryInput(owner, playback.token, optionId).success) return;
+      }
     }
-
-    const choices = view.page.choices;
-    if (choices?.length) {
-      const selectedIndex = view.availableChoiceIndexes.includes(choiceIndex)
-        ? choiceIndex
-        : view.availableChoiceIndexes[0];
-      if (selectedIndex === undefined) return;
-      const result = g.story.advanceStory(choices[selectedIndex]!.id, owner, view.token);
-      if (!result.success) return;
-      if (result.finished) return;
-      continue;
+    throw new Error('Story fixture did not reach a bounded terminal state');
+  } finally {
+    if (!alreadyFake) {
+      g.story.suspendPlayback();
+      vi.useRealTimers();
+      g.story.resumePlayback();
     }
-
-    const sent = g.story.clickSend(owner, view.token);
-    if (sent.type === 'idle' || sent.type === 'choice') return;
-    if (sent.type === 'completed' && !sent.advance.success) return;
   }
 }
 
@@ -200,7 +223,7 @@ export const clickGateMain: StoryDef = { id: 'test:story:click_gate_main', name:
 
 export const clickGateTarget: StoryDef = { id: 'test:story:click_gate_target', name: '点击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '机器启动了，很好。', speaker: '优香' } },
-  { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '好的', reply: { kind: 'talk', text: '好的' } } },
+  { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '好的' } },
 ] };
 
 export const clickGateEntry: StoryEntryDef = {
@@ -221,7 +244,7 @@ export const clickWorkGateMain: StoryDef = { id: 'test:story:clickwork_gate_main
 
 export const clickWorkGateTarget: StoryDef = { id: 'test:story:clickwork_gate_target', name: '多击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '保险库开启了。', speaker: '优香' } },
-  { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '收下钥匙', reply: { kind: 'talk', text: '收下钥匙' } } },
+  { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '收下钥匙' } },
 ] };
 
 export const clickWorkGateEntry: StoryEntryDef = {
@@ -249,7 +272,7 @@ export const whisperClickMain: StoryDef = { id: 'test:story:whisper_click_main',
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，借一步说话。', speaker: '美依' } },
   { id: 'p1-transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'test:story:whisper_click_sub' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '原来如此。', speaker: '老师' } },
-  { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '明白了', reply: { kind: 'talk', text: '明白了' } } },
+  { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '明白了' } },
 ] };
 
 export const whisperClickEntry: StoryEntryDef = {

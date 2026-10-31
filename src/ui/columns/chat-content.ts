@@ -31,8 +31,7 @@ export function renderChatContent(
   const launcher = story ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
   const send = renderSendButton(sendState, sendGate);
 
-  // 聊天流与回复按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧，
-  // 这样回复气泡能贴底出现在聊天框最底部，不被按钮挤占。
+  // 聊天流与推进按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧。
   // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
   // 开幕横幅 / 入口确认浮层同层叠加（横幅在下、浮层在上）。
   return `
@@ -53,19 +52,19 @@ function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeComplet
   // InitStory 会在进入世界线时自动展开，无需手动启动。
   const hint = activeStoryId
     ? activeCompleted
-      ? '世界线主线已完成，点击下方回复可继续闲聊。'
+      ? '世界线主线已完成，点击下方按钮可继续闲聊。'
       : '主线剧情正在展开……'
-    : '世界线还没有主线剧情，点击下方回复开始闲聊。';
+    : '世界线还没有主线剧情，点击下方按钮开始闲聊。';
   return `
     <div class="chat-launcher">
       <strong>${hint}</strong>
-      <p>台词会自动继续；出现回复按钮或选项时，请按提示操作。</p>
+      <p>台词会自动继续；出现操作按钮或选项时，请按提示操作。</p>
     </div>`;
 }
 
 /**
- * 底部“回复按钮”——本质是承载推进的 Talklet 的演出形态。
- * - gate（§4）：对方打字 / 自己“想回复”阶段——只渲染节奏点，不透露回复文案；
+ * 底部推进按钮——承载 Talklet / Click 的剧情推进输入。
+ * - gate（§4）：对方打字 / 等待按钮操作阶段——只渲染节奏点；
  *   按钮仍可点击（由点击处理器转为节奏加速），但点击不推进。
  * - advance：单次点击推进剧情（无 sendText 时按钮显示“点击”）
  * - idle：无进行中剧情，点击触发被动闲聊
@@ -75,7 +74,19 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
   const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const token = 'token' in sendState && sendState.token
     ? ` data-story-token="${escape(String(sendState.token))}"` : '';
+  // Operation 的结果由 Runtime 依次呈现并自动续接，不提供玩家确认入口。
+  if (sendState.mode === 'advance' && sendState.checkpoint === 'operation') {
+    return `
+        <button class="send-button operation-checkpoint operation-checkpoint--playing" disabled aria-label="正在逐项呈现效果">
+          <span class="send-bubble">
+            <span class="send-operation-mark" aria-hidden="true">Ⅱ</span>
+            <span class="send-text">正在逐项呈现效果</span>
+            <span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          </span>
+        </button>`;
+  }
   if (gate) {
+    if (gate === 'pause') return `<button class="send-button thinking" disabled aria-label="正在播放演出"><span class="send-bubble"><span class="send-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="send-ghost" aria-hidden="true">↗</span></span></button>`;
     // send-ghost：隐藏箭头行框占位，节奏点态与一般点击态等高（§4）
     return `
       <button class="send-button thinking" data-send${token} aria-label="正在输入">
@@ -125,7 +136,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
       </button>`;
   }
 
-  // mode === 'advance'：无预设回复文案（旁白/普通对话）时按钮仅作推进 → “点击”
+  // mode === 'advance'：无预设按钮文案（旁白/普通对话）时按钮仅作推进 → “点击”
   const label = sendState.text && sendState.text.trim() ? escape(sendState.text) : '点击';
 
   // 多击任务（clickWork）：进度条从左往右填充，填满（done === total）后按钮切换为“完成”态，

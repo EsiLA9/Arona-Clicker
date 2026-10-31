@@ -4,14 +4,64 @@ import type { UIContext } from '../runtime/context';
 import { createUIContext } from '../runtime/context';
 import { renderWorkspaceFrame, workspaceColumns, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import type { WorkspaceLocation, WorkspaceNavigationState } from '../workspace/workspace-router';
-import { appendNode, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, moveNode, newStory, renameStory, selectStory, storyDefinitionFromDraft } from './model';
+import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId } from './model';
 import { StoryDraftPersistence } from './persistence';
 import { createStoryEditorFrame, storySenders } from './view';
 import { patchEditorDOM } from './dom';
-import { addRow, editProperty, editStage, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, setNodeStage, toggleOptional, rowIdAt } from './property-model';
+import { addRow, editProperty, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
 import type { Discriminator, LiteralKind, PropertyPath } from './property-model';
 
 const DISCRIMINATORS: readonly string[] = ['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type'];
+const STORY_EDITOR_DRAG_TYPE = 'application/x-acprogram-story-editor';
+interface StoryEditorDragItem { version: 1; kind: 'story-node'; draftId: string; nodeId: string }
+function readStoryDragItem(event: DragEvent): StoryEditorDragItem | undefined {
+  const raw = event.dataTransfer?.getData(STORY_EDITOR_DRAG_TYPE);
+  if (!raw) return;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== 'object') return;
+    const item = value as Partial<StoryEditorDragItem>;
+    return item.version === 1 && item.kind === 'story-node' && typeof item.draftId === 'string' && typeof item.nodeId === 'string'
+      ? item as StoryEditorDragItem : undefined;
+  } catch { return; }
+}
+function storyDropAnchor(target: Element | null, clientY: number, draft: NonNullable<ReturnType<typeof currentDraft>>): string | null | undefined {
+  const dropTarget = target?.closest<HTMLElement>('[data-story-drop-target]');
+  if (dropTarget?.dataset.storyDropTarget === 'insertion-point') {
+    if (dropTarget.hasAttribute('data-story-insertion-end')) return null;
+    return dropTarget.dataset.storyInsertionBefore;
+  }
+  if (dropTarget?.dataset.storyDropTarget === 'story-node') {
+    const nodeId = dropTarget.dataset.editorNode;
+    const index = draft.document.nodes.findIndex(node => node.id === nodeId);
+    if (index < 0) return undefined;
+    const rect = dropTarget.getBoundingClientRect();
+    return clientY < rect.top + rect.height / 2 ? nodeId! : draft.document.nodes[index + 1]?.id ?? null;
+  }
+  return undefined;
+}
+interface ChoiceFlagDropTarget { choiceNodeId: string; optionIndex: number; optionId: string }
+function choiceFlagDropTarget(target: Element | null): ChoiceFlagDropTarget | undefined {
+  const card = target?.closest<HTMLElement>('[data-story-drop-target="choice-flag"]');
+  if (!card) return;
+  const optionIndex = Number(card.dataset.storyOptionIndex);
+  const choiceNodeId = card.dataset.storyChoiceNode;
+  const optionId = card.dataset.storyOptionId;
+  return choiceNodeId && optionId && Number.isInteger(optionIndex) && optionIndex >= 0 ? { choiceNodeId, optionIndex, optionId } : undefined;
+}
+function storyFlagReaderDropTarget(target: Element | null): string | undefined {
+  return target?.closest<HTMLElement>('[data-story-drop-target="story-flag-reader"]')?.dataset.storyFlagName;
+}
+function clearStoryFlagDropStates(flow: HTMLElement): void {
+  for (const card of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="choice-flag"]')) card.classList.remove('is-drop-target', 'is-drop-invalid');
+  for (const record of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="story-flag-reader"]')) record.classList.remove('is-drop-target', 'is-drop-invalid');
+}
+function highlightStoryDropAnchor(flow: HTMLElement, beforeNodeId: string | null): void {
+  for (const slot of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="insertion-point"]')) {
+    const active = beforeNodeId === null ? slot.hasAttribute('data-story-insertion-end') : slot.dataset.storyInsertionBefore === beforeNodeId;
+    slot.classList.toggle('is-drop-target', active);
+  }
+}
 /** Split `nodes[3].action.effects[1].op` into the node index and the node-relative property path. */
 function splitIssuePath(raw: string): { index: number; path: (string | number)[] } | null {
   const head = /^nodes\[(\d+)\]/.exec(raw);
@@ -30,8 +80,9 @@ export class StoryEditorController {
   readonly state = createStoryEditorState();
   private loaded = false;
   private disposed = false;
+  private draggingNodeId: string | null = null;
   private returnState?: { location: WorkspaceLocation; navigation?: WorkspaceNavigationState; workspace: PanelState['workspace']; mapEntrySource: PanelState['mapEntrySource']; init: string | null };
-  private revealEnd = false;
+  private revealNodeId: string | null = null;
   private focusName = false;
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
@@ -167,10 +218,12 @@ export class StoryEditorController {
       }
       if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
     }
-    if (this.revealEnd) {
+    if (this.revealNodeId) {
+      const nodeId = this.revealNodeId;
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
-      if (body) body.scrollTop = body.scrollHeight;
-      this.revealEnd = false;
+      const node = [...(body?.querySelectorAll<HTMLElement>('[data-editor-node]') ?? [])].find(item => item.dataset.editorNode === nodeId);
+      if (node?.scrollIntoView) node.scrollIntoView({ block: 'nearest' });
+      this.revealNodeId = null;
     }
     if (this.focusName) {
       this.ctrl.root.querySelector<HTMLInputElement>('[data-editor-field="name"]')?.focus();
@@ -198,31 +251,56 @@ export class StoryEditorController {
       this.requestRefresh();
     };
     const click = (event: Event): void => {
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-action], [data-editor-story], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-create-stage], [data-story-remove-readonly]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
+      if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
+        const beforeNodeId = element.hasAttribute('data-story-insertion-end') ? null : element.dataset.storyInsertionBefore ?? null;
+        if (setInsertionPoint(this.state, beforeNodeId)) this.requestRefresh();
+        return;
+      }
       const source = element.dataset.editorStory;
-      if (source) {
+      const sender = element.dataset.editorSender;
+      const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
+      const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
+      if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer'].includes(nodeTypeTab)) {
+        const draft = currentDraft(this.state);
+        const node = currentNode(this.state);
+        if (draft && node) selectNodeType(draft, node.id, nodeTypeTab as 'talklet' | 'click' | 'operation' | 'transfer');
+      } else if (sidebarTab === 'stories' || sidebarTab === 'senders') this.state.sidebarMode = sidebarTab;
+      else if (sender) {
+        const draft = currentDraft(this.state);
+        if (draft && storySenders(createUIContext(this.ctrl.game)).some(item => item.id === sender)) composer(this.state).sender = sender;
+      } else if (source) {
         if (this.save(false, false)) { selectStory(this.state, source, this.ctrl.game.registry.stories); this.state.notice = null; }
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
-      else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue || element.dataset.storyCreateStage !== undefined) this.propertyAction(element);
+      else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
       else this.action(element.dataset.editorAction ?? '');
       this.requestRefresh();
     };
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
-      if (this.state.storageBlocked && !target.hasAttribute('data-editor-search')) return;
+      if (this.state.storageBlocked && !target.hasAttribute('data-editor-search') && !target.hasAttribute('data-editor-sender-search')) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
       const senders = storySenders(createUIContext(this.ctrl.game));
       if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
+      else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
       else if (target.hasAttribute('data-editor-composer-text')) composer(this.state).text = target.value;
-      else if (target.hasAttribute('data-editor-composer-sender')) composer(this.state).sender = target.value;
       else if (target.dataset.editorField === 'name') renameStory(this.state, target.value);
       else if (target.dataset.editorField === 'text' || target.dataset.editorField === 'sender') editNode(this.state, target.dataset.editorField, target.value, senders);
-      else if (target.dataset.editorField && ['requires-flag', 'local-flag-op', 'local-flag-name', 'local-flag-type', 'local-flag-value'].includes(target.dataset.editorField)) editNodeFlag(this.state, target.dataset.editorField, target.value);
-      else if (target instanceof HTMLSelectElement && target.hasAttribute('data-story-node-type')) {
-        if (draft && node) selectNodeType(draft, node.id, target.value as 'talklet' | 'click' | 'operation' | 'transfer');
-      } else if (target instanceof HTMLSelectElement && target.hasAttribute('data-story-theme-scope-path')) {
+      else if (target.dataset.editorField === 'local-flag-name') {
+        if (event.type !== 'change') return;
+        const action = node?.type === 'operation' && node.action?.kind === 'localFlag' ? node.action : undefined;
+        if (!draft || !node || !action) return;
+        if (action.name) {
+          const result = renameStoryLocalFlag(draft, action.name, target.value.trim());
+          this.state.error = result.ok ? null : result.reason;
+        } else {
+          this.state.error = editNodeFlag(this.state, 'local-flag-name', target.value.trim()) ? null : '标记名称不能为空。';
+        }
+      }
+      else if (target.dataset.editorField && ['requires-flag', 'local-flag-op', 'local-flag-type', 'local-flag-value'].includes(target.dataset.editorField)) editNodeFlag(this.state, target.dataset.editorField, target.value);
+      else if (target instanceof HTMLSelectElement && target.hasAttribute('data-story-theme-scope-path')) {
         const path = this.parsePropertyPath(target.dataset.storyThemeScopePath);
         if (draft && node && path && (target.value === 'ephemeral' || target.value === 'area' || target.value === 'student')) selectThemeScope(draft, node.id, path, target.value);
       } else if (target instanceof HTMLSelectElement && target.hasAttribute('data-story-branch-path')) {
@@ -243,13 +321,128 @@ export class StoryEditorController {
       if (target.dataset.editorField) this.state.notice = null;
       this.requestRefresh();
     };
+    const dragStart = (event: DragEvent): void => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
+      const draft = currentDraft(this.state);
+      if (!target || !draft || this.state.storageBlocked || !root.contains(target) || !event.dataTransfer) { event.preventDefault(); return; }
+      const nodeId = target.dataset.editorNode ?? '';
+      if (!nodeId || !draft.document.nodes.some(node => node.id === nodeId)) { event.preventDefault(); return; }
+      const item: StoryEditorDragItem = { version: 1, kind: 'story-node', draftId: draft.draftId, nodeId };
+      this.draggingNodeId = nodeId;
+      event.dataTransfer.setData(STORY_EDITOR_DRAG_TYPE, JSON.stringify(item));
+      event.dataTransfer.effectAllowed = 'move';
+      target.classList.add('is-dragging');
+    };
+    const dragOver = (event: DragEvent): void => {
+      const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
+      const draft = currentDraft(this.state);
+      const nodeId = this.draggingNodeId;
+      if (!flow || !draft || this.state.storageBlocked || !nodeId || !draft.document.nodes.some(node => node.id === nodeId)
+        || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
+      clearStoryFlagDropStates(flow);
+      const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
+      if (readerFlag) {
+        const plan = canBindStoryNodeToFlagReader(draft, readerFlag, nodeId);
+        const record = (event.target as Element).closest<HTMLElement>('[data-story-drop-target="story-flag-reader"]');
+        highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+        record?.classList.toggle('is-drop-target', plan.ok && plan.changed);
+        record?.classList.toggle('is-drop-invalid', !plan.ok);
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = plan.ok && plan.changed ? 'move' : plan.ok ? 'copy' : 'none';
+        return;
+      }
+      const choiceTarget = choiceFlagDropTarget(event.target instanceof Element ? event.target : null);
+      if (choiceTarget) {
+        const plan = canBindStoryNodeToChoiceOption(draft, choiceTarget.choiceNodeId, choiceTarget.optionIndex, choiceTarget.optionId, nodeId);
+        const card = (event.target as Element).closest<HTMLElement>('[data-story-drop-target="choice-flag"]');
+        highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+        card?.classList.toggle('is-drop-target', plan.ok);
+        card?.classList.toggle('is-drop-invalid', !plan.ok);
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none';
+        return;
+      }
+      const anchor = storyDropAnchor(event.target instanceof Element ? event.target : null, event.clientY, draft);
+      if (anchor === undefined || anchor === nodeId) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+      highlightStoryDropAnchor(flow, anchor);
+    };
+    const dragLeave = (event: DragEvent): void => {
+      const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
+      if (!flow || event.relatedTarget instanceof Node && flow.contains(event.relatedTarget)) return;
+      clearStoryFlagDropStates(flow);
+      highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+    };
+    const drop = (event: DragEvent): void => {
+      const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
+      const draft = currentDraft(this.state);
+      const item = readStoryDragItem(event);
+      if (!flow || !draft || this.state.storageBlocked || !item || item.draftId !== draft.draftId || !draft.document.nodes.some(node => node.id === item.nodeId)) return;
+      const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
+      if (readerFlag) {
+        event.preventDefault();
+        const result = bindStoryNodeToFlagReader(this.state, readerFlag, item.nodeId);
+        if (!result.ok) this.state.error = result.reason;
+        else this.state.error = null;
+        this.requestRefresh();
+        clearStoryFlagDropStates(flow);
+        highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+        return;
+      }
+      const choiceTarget = choiceFlagDropTarget(event.target instanceof Element ? event.target : null);
+      if (choiceTarget) {
+        event.preventDefault();
+        const result = bindStoryNodeToChoiceOption(this.state, choiceTarget.choiceNodeId, choiceTarget.optionIndex, choiceTarget.optionId, item.nodeId);
+        if (!result.ok) {
+          this.state.error = result.reason;
+          this.requestRefresh();
+        } else {
+          this.state.error = null;
+          this.requestRefresh();
+          if (result.created && isGeneratedStoryNodeId(item.nodeId)) this.openGeneratedNodeIdPrompt(draft.draftId, item.nodeId, choiceTarget.optionId);
+        }
+        clearStoryFlagDropStates(flow);
+        highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+        return;
+      }
+      const anchor = storyDropAnchor(event.target instanceof Element ? event.target : null, event.clientY, draft);
+      if (anchor === undefined || anchor === item.nodeId) return;
+      event.preventDefault();
+      if (moveNodeToInsertionPoint(this.state, item.nodeId, anchor)) this.requestRefresh();
+      highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
+    };
+    const dragEnd = (event: DragEvent): void => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
+      target?.classList.remove('is-dragging');
+      this.draggingNodeId = null;
+      const flow = target?.closest<HTMLElement>('.story-editor-flow');
+      if (flow) { clearStoryFlagDropStates(flow); highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId); }
+    };
+    const nodeKeydown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
+      if (!target || !root.contains(target)) return;
+      event.preventDefault();
+      this.state.selectedNodeId = target.dataset.editorNode ?? null;
+      this.requestRefresh();
+    };
     root.addEventListener('click', click);
     root.addEventListener('contextmenu', select);
     root.addEventListener('input', input);
     root.addEventListener('change', input);
+    root.addEventListener('dragstart', dragStart);
+    root.addEventListener('dragover', dragOver);
+    root.addEventListener('dragleave', dragLeave);
+    root.addEventListener('drop', drop);
+    root.addEventListener('dragend', dragEnd);
+    root.addEventListener('keydown', nodeKeydown);
     return () => {
       root.removeEventListener('click', click); root.removeEventListener('contextmenu', select);
       root.removeEventListener('input', input); root.removeEventListener('change', input);
+      root.removeEventListener('dragstart', dragStart); root.removeEventListener('dragover', dragOver);
+      root.removeEventListener('dragleave', dragLeave); root.removeEventListener('drop', drop); root.removeEventListener('dragend', dragEnd);
+      root.removeEventListener('keydown', nodeKeydown);
     };
   }
   private parsePropertyPath(raw?: string): PropertyPath | null {
@@ -257,11 +450,34 @@ export class StoryEditorController {
     try { const value: unknown = JSON.parse(raw); return Array.isArray(value) && value.every(part => typeof part === 'string' || typeof part === 'number') ? value as PropertyPath : null; }
     catch { return null; }
   }
+  private openGeneratedNodeIdPrompt(draftId: string, nodeId: string, optionId: string): void {
+    const draft = currentDraft(this.state);
+    if (!draft || draft.draftId !== draftId || !isGeneratedStoryNodeId(nodeId)) return;
+    const suggestion = suggestStoryNodeId(draft, nodeId, optionId);
+    if (!suggestion) return;
+    const ctx = createUIContext(this.ctrl.game);
+    this.ctrl.modal.open({ title: '让节点 ID 更易读？', width: 440,
+      body: `<p>这个节点使用系统生成的随机 ID。你可以为后续编辑和排查改成更容易识别的名称；取消只会保留局部标记绑定。</p><label class="story-editor-property">节点 ID<input data-story-generated-node-id value="${ctx.escapeHtml(suggestion)}" autocomplete="off"></label><p class="story-editor-error" data-story-generated-node-id-error hidden></p>`,
+      footer: '<button type="button" class="modal-close">保留当前 ID</button><button type="button" class="primary-button" data-modal-action="rename-story-node-id">更改 ID</button>',
+      onAction: action => {
+        if (action !== 'rename-story-node-id' || currentDraft(this.state)?.draftId !== draftId) return;
+        const input = document.querySelector<HTMLInputElement>('.app-modal [data-story-generated-node-id]');
+        const requested = input?.value.trim() ?? '';
+        if (!renameStoryNodeId(this.state, nodeId, requested)) {
+          const error = document.querySelector<HTMLElement>('.app-modal [data-story-generated-node-id-error]');
+          if (error) { error.textContent = '请输入合法且未被使用的节点 ID（字母开头，最多 64 个字母、数字、下划线或连字符）。'; error.hidden = false; }
+          input?.focus();
+          return;
+        }
+        this.state.error = null;
+        this.ctrl.modal.close();
+        this.requestRefresh();
+      } });
+    document.querySelector<HTMLInputElement>('.app-modal [data-story-generated-node-id]')?.focus();
+  }
   private editStoryProperty(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); const path=this.parsePropertyPath(target.dataset.storyPropertyPath);
     if(!draft||!node||!path)return;
-    if(path.length===1&&path[0]==='stageId') { if(target instanceof HTMLSelectElement&&target.value) setNodeStage(draft,node.id,target.value); return; }
-    if(path.length===3&&path[0]==='stages'&&path[2]==='advance') { editStage(draft,node.id,String(path[1]),target.value as 'auto'|'input'); return; }
     if(target instanceof HTMLSelectElement) {
       // An empty enumeration choice means "keep the runtime default": delete the field instead of writing ''.
       if(!target.value) { removeProperty(draft,node.id,path); return; }
@@ -278,16 +494,6 @@ export class StoryEditorController {
   private propertyAction(element: HTMLElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); if(!draft||!node)return;
     const path=this.parsePropertyPath(element.dataset.storyRowPath ?? element.dataset.storyConditionPath ?? element.dataset.storyPath);
-    if(element.dataset.storyCreateStage!==undefined) {
-      const input=element.closest<HTMLElement>('[data-story-node-properties]')?.querySelector<HTMLInputElement>('[data-story-stage-name]');
-      const stageId=input?.value.trim();
-      if(stageId) {
-        const owner=node.type==='talklet'||node.type==='click'?node.stageId:undefined;
-        const current=typeof owner==='string'?draft.document.stages[owner]?.advance:'auto';
-        editStage(draft,node.id,stageId,current==='input'?'input':'auto');
-      }
-      return;
-    }
     if(element.dataset.storyInitBranch&&path) { toggleOptional(draft,node.id,path,true); selectBranch(draft,node.id,path,element.dataset.storyInitBranch); return; }
     if(element.dataset.storyInitCondition&&path) { toggleOptional(draft,node.id,path,true); editProperty(draft,node.id,path,{type:'AND',conditions:[]}); return; }
     if(element.dataset.storyInitObject!==undefined&&path) { toggleOptional(draft,node.id,path,true); editProperty(draft,node.id,path,{}); return; }
@@ -322,16 +528,18 @@ export class StoryEditorController {
   private action(action: string): void {
     if (this.state.storageBlocked && action !== 'info') return;
     if (action === 'save-to-runtime') { this.saveToRuntime(); return; }
+    if (action === 'restore-source') { this.confirmRestoreSource(); return; }
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer'].includes(action)) this.state.notice = null;
     if (action === 'new') {
       if (this.save(false, false)) newStory(this.state);
     } else if (action === 'save') this.save(true, false);
+    else if (action === 'choose-sender') this.state.sidebarMode = 'senders';
     else if (action === 'info' || action === 'rename') { this.state.selectedNodeId = null; this.focusName = action === 'rename'; }
     else if (action === 'delete-node') deleteNode(this.state);
     else if (action === 'up' || action === 'down') moveNode(this.state, action === 'up' ? -1 : 1);
     else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer') {
       const added = appendNode(this.state, action === 'send' ? 'text' : action, storySenders(createUIContext(this.ctrl.game)));
-      if (added) this.revealEnd = true;
+      if (added) this.revealNodeId = added.id;
     } else if (action === 'delete-draft') this.confirmDelete();
   }
   private confirmDelete(): void {
@@ -347,7 +555,60 @@ export class StoryEditorController {
         delete this.state.composers[draft.draftId];
         this.state.currentId = null;
         this.state.selectedNodeId = null;
+        this.state.insertionBeforeNodeId = null;
         if (draft.sourceId) selectStory(this.state, `source:${draft.sourceId}`, this.ctrl.game.registry.stories);
+        this.ctrl.modal.close();
+        this.requestRefresh();
+      } });
+  }
+
+  private confirmRestoreSource(): void {
+    const draft = currentDraft(this.state);
+    if (!draft || this.state.storageBlocked) return;
+    const storyId = draft.document.id;
+    const escapedName = storyId.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    this.ctrl.modal.open({ title: '读取本地/系统数据', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
+      footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="restore-story-source">读取本地/系统数据</button>',
+      onAction: action => {
+        if (action !== 'restore-story-source' || currentDraft(this.state) !== draft) return;
+        const previousDrafts = this.state.drafts;
+        const previousCurrentId = this.state.currentId;
+        const previousSelectedNodeId = this.state.selectedNodeId;
+        const previousInsertionBeforeNodeId = this.state.insertionBeforeNodeId;
+        const previousComposer = this.state.composers[draft.draftId];
+        this.state.drafts = previousDrafts.filter(item => item !== draft);
+        this.state.currentId = null;
+        this.state.selectedNodeId = null;
+        this.state.insertionBeforeNodeId = null;
+        delete this.state.composers[draft.draftId];
+        if (!this.persistence.save(this.state, true)) {
+          this.state.drafts = previousDrafts;
+          this.state.currentId = previousCurrentId;
+          this.state.selectedNodeId = previousSelectedNodeId;
+          this.state.insertionBeforeNodeId = previousInsertionBeforeNodeId;
+          if (previousComposer) this.state.composers[draft.draftId] = previousComposer;
+          this.ctrl.modal.close();
+          this.requestRefresh();
+          return;
+        }
+        const result = this.ctrl.commands.restoreStoryDefinition(storyId);
+        if (!result.ok) {
+          this.state.drafts = previousDrafts;
+          this.state.currentId = previousCurrentId;
+          this.state.selectedNodeId = previousSelectedNodeId;
+          this.state.insertionBeforeNodeId = previousInsertionBeforeNodeId;
+          if (previousComposer) this.state.composers[draft.draftId] = previousComposer;
+          this.persistence.save(this.state, true);
+          this.state.error = result.message;
+          this.ctrl.modal.close();
+          this.requestRefresh();
+          return;
+        }
+        if (result.operation === 'restore') selectStory(this.state, `source:${storyId}`, this.ctrl.game.registry.stories);
+        this.state.error = null;
+        this.state.notice = result.operation === 'restore'
+          ? '已读取当前加载的数据包版本；本地草稿已丢弃。'
+          : '本地草稿已丢弃；该 Story 已从当前运行 Registry 移除。';
         this.ctrl.modal.close();
         this.requestRefresh();
       } });

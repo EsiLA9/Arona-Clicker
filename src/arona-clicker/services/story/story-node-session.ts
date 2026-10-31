@@ -1,5 +1,4 @@
 import type { StoryEntryDef } from '../../../data-services/contracts/story-entry';
-import type { StoryStartResult } from '../../contracts/runtime/results';
 import type { StoryNodeDocument, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import type { StoryAction } from '../../../data-services/contracts/story-node-actions';
 import { ConditionSystem } from '../../../engine/expression/condition-system';
@@ -26,9 +25,9 @@ export interface StoryNodeSession {
   readonly visitedStoryIds: Set<string>;
   lastChoiceIndex: number;
   lastChoiceStoryId: string | null;
-  replacementResult?: StoryStartResult;
   denialMessage?: string;
   closed: boolean;
+  finishing?: { terminalStoryId: string; settled: boolean; error?: string; receipts?: readonly import('../../../engine/contracts/effect-receipt').EffectReceipt[]; completionRecorded?: boolean };
 }
 
 export interface CreateStoryNodeSessionOptions {
@@ -85,7 +84,7 @@ export function createStoryNodeSession(options: CreateStoryNodeSessionOptions): 
 
 /** Projects a wait point to a display-only legacy-shaped DTO. */
 export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
-  if (view.status !== 'delivery' && view.status !== 'input') return null;
+  if (view.status !== 'delivery' && view.status !== 'operation' && view.status !== 'result' && view.status !== 'input') return null;
   const document = session.documents.get(view.storyId);
   const runId = session.source.runId;
   if (!runId) throw new Error('StoryRunIdRequired');
@@ -93,10 +92,13 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
   if (!historyId) throw new Error('StoryHistoryIdRequired');
   if (!document) return null;
   const displayNodes = document.nodes.filter(candidate => candidate.type === 'talklet' || candidate.type === 'click');
-  const pageIndex = displayNodes.findIndex(candidate => candidate.id === view.node.id);
-  if (pageIndex < 0) return null;
-  const page = view.status === 'delivery' ? talkletPage(view.node) : clickPage(view.node);
   const nodeIndex = document.nodes.findIndex(candidate => candidate.id === view.node.id);
+  if (nodeIndex < 0) return null;
+  const displayIndex = displayNodes.findIndex(candidate => candidate.id === view.node.id);
+  const pageIndex = displayIndex >= 0 ? displayIndex
+    : displayNodes.filter(candidate => document.nodes.findIndex(item => item.id === candidate.id) < nodeIndex).length;
+  const page = view.status === 'delivery' ? talkletPage(view.node)
+    : view.status === 'operation' || view.status === 'result' ? operationCheckpointPage() : clickPage(view.node);
   const next = document.nodes[nodeIndex + 1];
   const nextIsInput = view.status === 'delivery'
     && nodeIndex >= 0
@@ -114,12 +116,16 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
       : [],
     nodeId: view.node.id,
     token: view.token,
-    phase: view.status,
+    phase: view.status === 'operation' || view.status === 'result' ? 'delivery' : view.status,
     runId,
     historyId,
     waitSequence: view.sequence,
     ...(nextIsInput ? { nextIsInput: true } : {}),
   };
+}
+
+function operationCheckpointPage(): Talklet {
+  return { kind: 'click', text: '操作已执行，点击继续' };
 }
 
 function talkletPage(node: StoryTalkletNode): Talklet {
@@ -162,7 +168,7 @@ function clickPage(node: Extract<StoryNodePlaybackView, { status: 'input' }>['no
 
 /** Records a Talklet ordinal once after a delivery acknowledgement is accepted. */
 export function markTalkletDelivered(session: StoryNodeSession, view: StoryNodePlaybackView): { storyId: string; ordinal: number } | null {
-  if (view.status !== 'delivery') return null;
+  if (view.status !== 'delivery' || view.node.type !== 'talklet') return null;
   const key = `${view.storyId}\u0000${view.node.id}\u0000${view.sequence}`;
   if (session.deliveredTalklets.has(key)) return null;
   const document = session.documents.get(view.storyId);

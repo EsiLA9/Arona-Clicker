@@ -3,8 +3,7 @@
 // 当前文档边界：
 //   - docs/docs-830/ 是当前项目 Wiki；ai/guide、ai/plan、ai/archive 分别保存
 //     Agent 指引、计划记录和退役材料。
-//   - docs/docs-828/ 已退役删除；只读历史快照保存在 ai/archive/docs-history/docs-828-snapshot/，
-//     旧路径链接按确定性前缀改写解析到快照（仍参与 R1 存在性校验）。
+//   - 旧归档和历史快照已删除；新归档正文进入 ai/archive/history.zip，包内条目不作 WikiLink 解析。
 //
 // 保留并扩展为机械检查：链接目标存在、ai/plan 内文件名唯一（裸名链接可解析）、
 // 引用的源码路径存在、已使用的 YAML 路由元信息结构完整、旧计划目录不再承载 WikiLink。
@@ -65,25 +64,16 @@ for (const [base, hits] of byBase) {
 
 const SRC_RE = /`((?:src|tests|tools|scripts)\/[A-Za-z0-9_\-./]+\.(?:ts|mts|mjs|css|json|html))`/g;
 const DELETION_HINT = /删除|已移除|已失联|已失效|移除|废弃|不再存在/;
-const RETIRED_DOCS_828_PREFIX = 'docs/docs-828/';
-const DOCS_828_SNAPSHOT_PREFIX = 'ai/archive/docs-history/docs-828-snapshot/';
 const MOVED_DOC_PREFIXES = [
-  ['docs/plan-work/archive/', 'ai/archive/'],
   ['docs/plan-work/', 'ai/plan/'],
-  ['docs/archive/', 'ai/archive/docs-history/'],
-  ['docs/docs-829/', 'ai/archive/docs-829/'],
   ['docs/ai/', 'ai/guide/'],
   ['docs/examples/', 'ai/guide/examples/'],
 ];
 
 function resolveMovedDocPath(term) {
-  if (term.startsWith(RETIRED_DOCS_828_PREFIX)) {
-    return DOCS_828_SNAPSHOT_PREFIX + term.slice(RETIRED_DOCS_828_PREFIX.length);
-  }
   const movedIndexes = new Map([
     ['docs/plan-work', 'ai/plan/00-index'],
     ['docs/ai', 'ai/guide/00-index'],
-    ['docs/docs-829', 'ai/archive/docs-829/00-INDEX'],
     ['docs/examples', 'ai/guide/examples/00-index'],
   ]);
   if (movedIndexes.has(term)) return movedIndexes.get(term);

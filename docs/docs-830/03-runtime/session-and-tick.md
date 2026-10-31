@@ -40,6 +40,8 @@ SessionService → GameInstance.tick() → TickSystem
 
 事件的普通派发是同步的；只有在 EventBus 正在 flush 时再次发出的事件才排入队列，具体语义见 [[event-effects-triggers]]。因此不要把“发布事件”和“每次都等待 Tick 结束才处理”视作等价。
 
+Story 的 typing、thinking、通知间隔和横幅由 `StoryPlaybackCoordinator` 的独立时钟唤醒，与一秒生产 Tick 分开。`GameInstance.stop()/start()` 暂停和恢复剩余表现时间；读档和 Init 恢复也沿此路径继续，不使用离线收益补算跳过表现或替玩家确认。正文送达与 Operation 自动交接不要求 UI 存在，查询或重建 DOM 不推进 Story。执行/表现的状态边界见 [[story-and-effects]]。
+
 关键源码：`src/engine/runtime/session-service.ts`、`src/engine/system/tick-system.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。相关测试见 `tests/engine/tick-system.test.ts`。
 
 继续阅读：[[state-and-events]]、[[read-model-and-ui]]。

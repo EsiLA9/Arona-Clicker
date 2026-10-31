@@ -26,7 +26,7 @@ describe('offline Story content migrator', () => {
     expect(result.text).not.toContain('reply:');
   });
 
-  it('keeps button reply on the button and preserves confirmation for statically multi-click work', () => {
+  it('writes legacy send text as a separate Talklet and preserves multi-click confirmation', () => {
     const result = convert(`
       import { story } from '../def-factory/story';
       import { line } from '../def-factory/talklet';
@@ -38,7 +38,9 @@ describe('offline Story content migrator', () => {
 
     expect(result).toMatchObject({ converted: 1, skipped: 0, issues: [] });
     expect(result.text).toContain("'p1': { advance: 'input' }");
-    expect(result.text).toContain("text: 'Yes, please', reply: { kind: 'talk', text: 'Yes, please' }");
+    expect(result.text).toContain("interaction: { kind: 'button', text: 'Yes, please' }");
+    expect(result.text).toContain("{ id: 'p1-response', type: 'talklet', stageId: 'p1-response', content: { kind: 'talk', text: 'Yes, please', speaker: '老师' }, presentation: { side: 'right' } }");
+    expect(result.text).not.toContain('reply:');
     expect(result.text).toContain("'p2': { advance: 'input' }");
     expect(result.text).toContain("'p2-confirm': { advance: 'input' }");
     expect(result.text).toContain("text: 'Working', press: { base: 3, rand: 2 }");

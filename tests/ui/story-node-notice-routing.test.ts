@@ -2,11 +2,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
-import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 import type { PanelState } from '../../src/ui/components/shared/app-shell';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindEvents } from '../../src/ui/controller/controller-events';
 import { ChatStream } from '../../src/ui/presentation/chat-stream';
+import { output, playbackReader, presentation } from './story-playback-fixtures';
 
 const OFFICE = 'base:init:schale_office';
 
@@ -35,8 +35,8 @@ describe('Story completion and travel notices follow their source owner', () => 
     controller.panelState.conversationVariantId = 'Hoshino';
     const areaId = game.getView().currentAreaId!;
 
-    game.eventBus.emit({ type: 'storyAreaTraveled', areaId, owner: 'background', runId: 'run-a' });
-    game.eventBus.emit({ type: 'storyAreaTraveled', areaId, owner: null, runId: 'run-b' });
+    game.eventBus.emit({ type: 'storyAreaTraveled', areaId, owner: 'background' });
+    game.eventBus.emit({ type: 'storyAreaTraveled', areaId, owner: null });
     game.eventBus.emit({ type: 'storyAreaTraveled', areaId });
     controller.render();
 
@@ -55,7 +55,7 @@ describe('Story completion and travel notices follow their source owner', () => 
 
     game.eventBus.emit({
       type: 'storyRewarded', storyId: 'test:story', source: 'first', effects: [], flags: [],
-      owner: 'background', runId: 'background-run',
+      owner: 'background',
     });
     controller.render();
     expect(controller.pendingRewardChats).toHaveLength(1);
@@ -75,7 +75,7 @@ describe('Story completion and travel notices follow their source owner', () => 
     controller.panelState.conversationVariantId = 'Hoshino';
     game.eventBus.emit({
       type: 'storyRewarded', storyId: 'test:story', source: 'repeat', effects: [], flags: [],
-      owner: null, runId: 'global-run',
+      owner: null,
     });
     controller.render();
 
@@ -86,6 +86,16 @@ describe('Story completion and travel notices follow their source owner', () => 
     expect(controller.panelState.studentChats.Hoshino?.some(entry => entry.text.includes('再次完成')) ?? false).toBe(false);
     expect((saved.chatHistories?.global as { text: string }[]).some(entry => entry.text.includes('再次完成'))).toBe(true);
   });
+
+  it('does not duplicate formal run notices or banners through legacy UI event handlers', () => {
+    const areaId = game.getView().currentAreaId!;
+    game.eventBus.emit({ type: 'storyAreaTraveled', areaId, owner: 'background', runId: 'runtime-run' });
+    game.eventBus.emit({ type: 'storyRewarded', storyId: 'test:story', source: 'first', effects: [], flags: [], owner: 'background', runId: 'runtime-run' });
+    game.eventBus.emit({ type: 'openingTitleShown', title: 'Runtime title', owner: 'background', runId: 'runtime-run' });
+    expect(controller.pendingRewardChats).toEqual([]);
+    expect(controller.pendingTravelChats).toEqual([]);
+    expect(controller.chat.activeBanner({ ...controller.panelState, conversationVariantId: 'background' })).toBeNull();
+  });
 });
 
 describe('ChatStream restored run cleanup', () => {
@@ -94,38 +104,27 @@ describe('ChatStream restored run cleanup', () => {
     vi.useRealTimers();
   });
 
-  it('endRun cancels a gate rebuilt from restored history for that run', () => {
+  it('restoring history schedules no UI gate and ending an old run cannot submit it', () => {
     vi.useFakeTimers();
-    const story: StoryView = {
-      storyId: 'test:entry', type: 'active', storyDefId: 'test:def', pageIndex: 0, totalPages: 1,
-      page: { kind: 'talk', speaker: 'A', text: 'Restored line', thinking: 1 },
-      availableChoiceIndexes: [], nodeId: 'node-a', token: 'token-a', phase: 'delivery',
-      runId: 'run-a', historyId: 'history-a', waitSequence: 1, nextIsInput: true,
-    };
-    const fingerprint = JSON.stringify([
-      story.historyId ?? story.runId, story.storyId, story.storyDefId,
-      story.nodeId ?? story.pageIndex, story.waitSequence,
-    ]);
     const panel: PanelState = {
       service: 'game', leftTab: 'area', centerTab: 'chat', rightTab: 'spot',
-      chatEntries: [{ id: 1, kind: 'talk', text: 'Restored line', storyPageKey: fingerprint, timestamp: 1 }],
+      chatEntries: [],
       chatTexts: [], selectedVariantId: null, conversationVariantId: null,
       studentChats: {}, studentChatTexts: {}, storyNavPath: [],
     };
-    const gameReadModel = {
-      getView: () => ({ currentStory: story }),
-      getStoryView: () => null,
-    } as unknown as Parameters<ChatStream['restoreHistoryState']>[1];
+    const gameReadModel = playbackReader(() => presentation({ phase: 'thinking', runId: 'run-new', entries: [output(1, 'Restored line')] }));
     const chat = new ChatStream();
     chat.onChange = vi.fn();
 
     chat.restoreHistoryState(panel, gameReadModel);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(0);
 
     chat.endRun(panel, null, 'run-a');
     vi.advanceTimersByTime(2_000);
 
     expect(vi.getTimerCount()).toBe(0);
     expect(chat.onChange).not.toHaveBeenCalled();
+    expect(chat.activeGate(panel)).toBe('thinking');
+    expect(panel.chatEntries.map(entry => entry.text)).toEqual(['Restored line']);
   });
 });

@@ -56,8 +56,6 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const storyId = button.dataset.replayStory!;
       const entry = ctrl.game.registry.activeStories.get(storyId);
       const owner = entry?.owner ?? null;
-      ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
-      ctrl.scroll.forceToBottom();
       ctrl.panelState.storyGate = { storyId, owner, mode: 'replay' };
       ctrl.render();
     });
@@ -77,14 +75,16 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const owner = gate.owner ?? undefined;
       let result: StoryStartResult;
       if (gate.sourceToken) {
-        const submitted = ctrl.commands.clickSend(gate.sourceOwner, gate.sourceToken);
+        const submitted = ctrl.commands.submitStoryInput(gate.sourceOwner ?? null, gate.sourceToken);
         logStoryFailure(ctrl, submitted);
         ctrl.refreshChatPanel();
         return;
       }
+      if (gate.mode === 'replay') ctrl.pendingStoryReplayReturn = { entryId: gate.storyId, owner: gate.owner ?? null };
       if (gate.mode === 'card') result = ctrl.commands.startCardStory(gate.storyId, owner);
       else if (gate.mode === 'replay') result = ctrl.commands.replayStory(gate.storyId, owner);
       else result = ctrl.commands.startActiveStory(gate.storyId, owner);
+      if (!result.success && ctrl.pendingStoryReplayReturn?.entryId === gate.storyId) ctrl.pendingStoryReplayReturn = null;
       logStoryFailure(ctrl, result);
       if (result.success && ctrl.panelState.workspace?.type === 'story') {
         ctrl.panelState.workspace.mode = result.finished ? 'overview' : 'playing';
@@ -160,34 +160,24 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   // 底部发送按钮：本质是带发送交互的 Talklet 的演出形态
   scope.querySelectorAll<HTMLButtonElement>('[data-send]').forEach(sendButton => sendButton.addEventListener('click', () => {
     const state = stateForStoryElement(ctrl, sendButton);
-    // 误触发的文本选区（拖拽选中气泡文字）不算点击，避免吞掉真实点击
-    const sel = document.getSelection();
-    if (sel && sel.type === 'Range' && !sel.isCollapsed) return;
+    const owner = state.conversationVariantId ?? null;
+    const playback = ctrl.game.story.getPlaybackView(owner);
     // 开幕横幅展示/淡出期间阻断剧情推进类点击（节奏加速一并阻断）
     if (ctrl.chat.bannerBlocking(state)) return;
-    // §4 按钮门控：对方打字 / 自己"想回复"阶段点击不推进，仅加速节奏计时
-    //（阶段完成时由 ChatStream.onChange 触发重渲染；未完成无视觉变化，无需 render）
-    if (ctrl.chat.activeGate(state) !== null) {
-      ctrl.chat.accelerateActiveGate(state);
+    const token = sendButton.dataset.storyToken;
+    if (playback.phase === 'typing' || playback.phase === 'thinking') {
+      if (token) ctrl.commands.accelerateStoryPresentation(owner, token);
+      ctrl.refreshChatPanel();
       return;
     }
-    // 壁垒：聊天空间里点发送走"该学生专属闲聊"抽取；一般聊天抽全局
-    const owner = state.conversationVariantId ?? undefined;
+    if (playback.phase !== 'continue' && playback.phase !== 'input' && playback.phase !== 'idle') return;
     ctrl.deliverPendingRewardsBeforeStory();
-    const result = ctrl.commands.clickSend(owner, sendButton.dataset.storyToken);
-    if (result.type === 'completed') {
-      // 回显决策由引擎给出（非 click 页 + 有 sendText + 未 muteReply）：
-      // 满足时才以"老师"身份发出右侧气泡；click / 静默发送不产生玩家回复气泡
-      if (result.echoReply) {
-        ctrl.chat.pushPlayerReply(state, result.sentText);
-      }
-      // 向后吸收的过渡页（推进后自动跳过的纯展示页）同步进聊天流
-      ctrl.chat.pushAbsorbed(state, result.absorbed ?? []);
-    } else if (result.type === 'working') {
-      // 多击任务：尚未完成，仅进度条 +1（本次点击不发送、不推进），render() 自动刷新
-    } else if (result.type === 'idle' && result.started) {
-      // 无剧情时点击触发了被动闲聊
-    }
+    const result = playback.phase === 'idle'
+      ? ctrl.commands.clickSend(owner ?? undefined)
+      : !token ? null : playback.phase === 'continue'
+        ? ctrl.commands.continueStory(owner, token)
+        : ctrl.commands.submitStoryInput(owner, token);
+    if (result) logStoryFailure(ctrl, result);
     ctrl.refreshChatPanel();
   }));
   scope.querySelectorAll<HTMLButtonElement>('[data-story-choice]').forEach(button => {
@@ -196,9 +186,10 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       // 开幕横幅展示/淡出期间阻断剧情推进类点击
       if (ctrl.chat.bannerBlocking(state)) return;
       // 聊天沙盒：对话空间的选项推进作用于该角色自己的游标；一般聊天推进全局游标
-      const owner = state.conversationVariantId ?? undefined;
-      const result = ctrl.commands.advanceStory(button.dataset.storyChoiceId ?? Number(button.dataset.storyChoice), owner, button.dataset.storyToken);
-      if (result.success && result.reply?.text) ctrl.chat.pushPlayerReply(state, result.reply.text);
+      const owner = state.conversationVariantId ?? null;
+      const token = button.dataset.storyToken;
+      if (!token || ctrl.game.story.getPlaybackView(owner).phase !== 'input') return;
+      const result = ctrl.commands.submitStoryInput(owner, token, button.dataset.storyChoiceId ?? button.dataset.storyChoice);
       logStoryFailure(ctrl, result);
       ctrl.refreshChatPanel();
     });

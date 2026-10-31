@@ -39,7 +39,7 @@ describe('formal Node save/load cutover', () => {
     g.story.clickSend('guest', g.story.getCurrentStoryView('guest')!.token);
     const save = JSON.parse(JSON.stringify(g.save())) as SaveData;
     const rolls = random.mock.calls.length;
-    expect(save.version).toBe('2.0.0');
+    expect(save.version).toBe('3.0.0');
     expect(save).not.toHaveProperty('pendingTalkletClicks');
     expect(g.state.resources['base:resource:credit']).toBe(before + 14);
 
@@ -68,7 +68,7 @@ describe('formal Node save/load cutover', () => {
     g.story.startActiveStory(entryId);
     const before = JSON.stringify(g.state);
     const view = g.story.getCurrentStoryView();
-    const incompatible = { ...g.save(), version: '1.0.0' };
+    const incompatible = { ...g.save(), version: '2.0.0' };
     expect(() => g.load(incompatible)).toThrow('UnsupportedSaveFormat');
     expect(JSON.stringify(g.state)).toBe(before);
     expect(g.story.getCurrentStoryView()).toEqual(view);

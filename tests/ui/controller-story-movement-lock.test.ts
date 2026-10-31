@@ -12,7 +12,7 @@ const TARGET_AREA = 'base:area:schale_library';
 
 const oneBodyWelcome: StoryDef = {
   id: WELCOME_STORY,
-  name: '自动结束的欢迎剧情',
+  name: '单页欢迎剧情',
   stages: { body: { advance: 'auto' } },
   nodes: [{ id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '欢迎来到夏莱。' } }],
 };
@@ -45,7 +45,7 @@ describe('UIController Story movement lock rail refresh', () => {
     vi.useRealTimers();
   });
 
-  it('auto-completing the opening body unlocks the rail note and area button with only local refreshes', async () => {
+  it('keeps the movement lock until free continue and finishing complete, using only local refreshes', async () => {
     await Promise.resolve();
     expect(game.getView().currentStory?.storyId).toBe(WELCOME_ENTRY);
     expect(root.querySelector('.rail-note p')?.textContent).toContain('剧情演出中，暂不可移动区域。');
@@ -54,6 +54,11 @@ describe('UIController Story movement lock rail refresh', () => {
 
     const centerPanel = root.querySelector('.center-panel');
     const render = vi.spyOn(controller, 'render');
+    await vi.advanceTimersByTimeAsync(2_000);
+    await Promise.resolve();
+    expect(game.getView().currentStory?.storyId).toBe(WELCOME_ENTRY);
+    expect(game.story.getPlaybackView().phase).toBe('continue');
+    root.querySelector<HTMLButtonElement>('[data-chat-owner=""] [data-send]')!.click();
     await vi.advanceTimersByTimeAsync(2_000);
     await Promise.resolve();
 

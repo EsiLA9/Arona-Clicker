@@ -108,6 +108,7 @@ export interface FlowContent {
   readonly kind: FlowEntryKind;
   readonly speaker?: string;
   readonly text: string;
+  readonly choice?: ChatEntry['choice'];
   /** 正文标题等级：`text` 作为标题呈现（Map 的地点／遭遇／结果标题）。 */
   readonly heading?: 1 | 2;
   /** 正文附加行：纯文本，按行渲染为段落。 */
@@ -123,7 +124,7 @@ export interface FlowContent {
   readonly marks?: FlowMarks;
   /** 标题元素的受控语义标记（焦点锚点等）。 */
   readonly headingMarks?: FlowMarks;
-  /** 是否为玩家（老师）发出的回复。 */
+  /** 是否为玩家（老师）主动发出的消息。 */
   readonly isPlayer?: boolean;
   /** 旁白对齐，仅 kind === 'narration' 生效。 */
   readonly align?: FlowAlign;
@@ -309,6 +310,7 @@ export function chatEntryToFlowContent(entry: ChatEntry): FlowContent {
     kind: entry.kind,
     ...(entry.speaker === undefined ? {} : { speaker: entry.speaker }),
     text: entry.text,
+    ...(entry.choice === undefined ? {} : { choice: entry.choice }),
     ...(entry.isPlayer === undefined ? {} : { isPlayer: entry.isPlayer }),
     ...(entry.align === undefined ? {} : { align: entry.align }),
     ...(entry.avatar === undefined ? {} : { avatar: entry.avatar }),

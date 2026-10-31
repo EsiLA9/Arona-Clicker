@@ -12,7 +12,7 @@ describe('production StoryBuilder uses explicit node authoring', () => {
       { id: 'second', type: 'talklet', stageId: 'choose', content: { kind: 'talk', text: '第二句' } },
       { id: 'choose', type: 'click', stageId: 'choose', interaction: { kind: 'choice', options: [{ id: 'yes', text: '继续' }] } },
       { id: 'work', type: 'click', stageId: 'work', interaction: { kind: 'button', text: '工作', press: { base: 3 } } },
-      { id: 'confirm', type: 'click', stageId: 'confirm', interaction: { kind: 'button', text: '确认', reply: { kind: 'talk', text: '完成了。' } } },
+      { id: 'confirm', type: 'click', stageId: 'confirm', interaction: { kind: 'button', text: '确认' } },
     ]).build();
     expect(validateStoryNodeStructure(document).ok).toBe(true);
     expect(document).not.toHaveProperty('talklets');

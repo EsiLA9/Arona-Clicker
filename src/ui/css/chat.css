@@ -1,5 +1,5 @@
 /* ============================================================
-   ui/css/chat.css — Switch tabs / 中栏 / 对话气泡 / 旁白 / 回复卡片
+   ui/css/chat.css — Switch tabs / 中栏 / 对话气泡 / 旁白 / Choice 选项卡片
    （自 styles.css 拆出，区块顺序与原文件一致）
    ============================================================ */
 
@@ -280,8 +280,8 @@
    line-height: 1.7;
 }
 
-/* 回复选择卡片（header 竖条 + 白底居中选项） */
-.reply-card {
+/* Choice 选项卡（header 竖条 + 白底居中选项） */
+.choice-card {
    width: 100%;
    max-width: 300px;
    background: var(--panel-light, #f3f7f8);
@@ -290,10 +290,10 @@
    padding: 14px;
 }
 
-.reply-card--left { align-self: flex-start; }
-.reply-card--right { align-self: flex-end; }
+.choice-card--left { align-self: flex-start; }
+.choice-card--right { align-self: flex-end; }
 
-.reply-card-header {
+.choice-card-header {
    display: flex;
    align-items: center;
    gap: 8px;
@@ -302,26 +302,26 @@
    margin-bottom: 10px;
 }
 
-.reply-card-bar {
+.choice-card-bar {
    width: 2px;
    height: 16px;
    background: var(--cyan);
    border-radius: 2px;
 }
 
-.reply-card-title {
+.choice-card-title {
    color: var(--npc-bubble, #4c5b70);
    font-size: 13px;
    font-weight: 700;
 }
 
-.reply-card-choices {
+.choice-card-options {
    display: flex;
    flex-direction: column;
    gap: 8px;
 }
 
-.reply-choice {
+.choice-option {
    display: flex;
    align-items: center;
    justify-content: center;
@@ -340,31 +340,31 @@
    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
-.reply-choice:hover {
+.choice-option:hover {
    border-color: var(--cyan);
    color: var(--cyan);
    box-shadow: 0 4px 12px rgba(var(--primary-rgb), .14);
    transform: translateY(-1px);
 }
 
-.reply-choice:disabled {
+.choice-option:disabled {
    color: var(--muted-on-panel);
    opacity: .55;
    cursor: not-allowed;
 }
 
-.reply-choice:disabled:hover {
+.choice-option:disabled:hover {
    border-color: var(--line, #e7ebec);
    box-shadow: none;
    transform: none;
 }
 
-.reply-choice-arrow {
+.choice-option-arrow {
    color: var(--cyan);
    font-size: 12px;
 }
 
-.reply-choice-locked {
+.choice-option-locked {
    color: var(--muted-on-panel);
    font: 9px 'DM Mono', monospace;
    letter-spacing: .06em;
@@ -379,7 +379,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-   .reply-choice {
+   .choice-option {
       transition: none;
    }
 }

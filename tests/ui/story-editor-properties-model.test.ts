@@ -40,7 +40,7 @@ describe('Story Editor property draft model', () => {
     const draft = currentDraft(state)!;
     expect(selectNodeType(draft, 'talk', 'operation')).toBe(true);
     expect(readProperty(draft, 'talk', [])).toEqual({ id: 'talk', type: 'operation' });
-    expect(storyDefinitionFromDraft(draft).ok).toBe(false);
+    expect(storyDefinitionFromDraft(draft)).toMatchObject({ ok: true, story: { nodes: story.nodes.slice(1), stages: story.stages } });
     expect(selectNodeType(draft, 'talk', 'talklet')).toBe(true);
     expect(readProperty(draft, 'talk', ['content', 'text'])).toBe('Hi');
   });
@@ -149,10 +149,10 @@ describe('Story Editor property draft model', () => {
     expect(readProperty(draft, 'op', ['action', 'command', 'value', 'entityKey'])).toBeUndefined();
   });
 
-  it('keeps imported unreferenced stages as source diagnostics instead of silently projecting them away', () => {
+  it('preserves unused compatibility stages without blocking ordered nodes', () => {
     const invalid: StoryDef = { ...story, stages: { ...story.stages, unused: { advance: 'auto' } } };
     const state = createStoryEditorState(); selectStory(state, `source:${invalid.id}`, new Map([[invalid.id, invalid]]));
-    expect(storyDefinitionFromDraft(currentDraft(state)!)).toMatchObject({ ok: false, issues: [{ path: 'stages.unused' }] });
+    expect(storyDefinitionFromDraft(currentDraft(state)!)).toMatchObject({ ok: true, story: { stages: invalid.stages } });
   });
 
   it('caches declarations made unused by an explicit stage reassignment', () => {

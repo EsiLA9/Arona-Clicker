@@ -140,6 +140,7 @@ export function destroy(ctrl: UIController): void {
  * 都回到一致的默认页面（左=区域、中=聊天、右=Spot），聊天流清空。
  */
 export function resetSessionPanel(ctrl: UIController): void {
+  ctrl.pendingStoryReplayReturn = null;
   ctrl.areaMaps.release();
   ctrl.panelState.workspaceNavigation = createWorkspaceNavigation();
   ctrl.panelState.leftTab = 'area';
@@ -178,7 +179,7 @@ export function withHistories(ctrl: UIController, data: SaveData): SaveData {
 
 /** 页级打字提示（§4）是瞬态条目：不持久化，读档后由剧情同步重新压入。 */
 function persistableEntries(entries: ChatEntry[]): ChatEntry[] {
-  return entries.filter(e => e.kind !== 'typing');
+  return entries.filter(e => e.kind !== 'typing' && !e.storyOutputId);
 }
 
 /** 读档后：把持久化的聊天历史恢复到各沙盒（需在 resetSessionPanel 清空之后调用）。 */

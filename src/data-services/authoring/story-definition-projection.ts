@@ -36,6 +36,28 @@ const plain = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !
   && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 const enums = (v: unknown, values: readonly string[]): v is string => typeof v === 'string' && values.includes(v);
 
+/** Remove retired Click-attached reply content from cloned legacy definitions and drafts. */
+export function stripLegacyStoryReplies(value: unknown): boolean {
+  if (!plain(value) || !Array.isArray(value.nodes)) return false;
+  let changed = false;
+  for (const node of value.nodes) {
+    if (!plain(node) || node.type !== 'click' || !plain(node.interaction)) continue;
+    const interaction = node.interaction;
+    if (interaction.kind === 'button' && hasOwn(interaction, 'reply')) {
+      delete interaction.reply;
+      changed = true;
+    } else if (interaction.kind === 'choice' && Array.isArray(interaction.options)) {
+      for (const option of interaction.options) {
+        if (plain(option) && hasOwn(option, 'reply')) {
+          delete option.reply;
+          changed = true;
+        }
+      }
+    }
+  }
+  return changed;
+}
+
 /** Strictly rebuild the current StoryDef contract. No source object is modified or spread into output. */
 export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionReferences): StoryDefinitionProjectionResult {
   const issues: { path: string; message: string }[] = [];
@@ -261,7 +283,8 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (hasOwn(x, 'align')) { if (!enums(x.align, ['left', 'right'])) fail(`${path}.align`, '对齐方式无效'); else out.align = x.align; }
     return out;
   };
-  const transfer = (v: unknown, path: string): Obj => {
+  const transfer = (v: unknown, path: string): Obj | undefined => {
+    if (plain(v) && Reflect.ownKeys(v).length === 0) return undefined;
     const x = object(v, path, ['mode', 'storyId']) ?? {};
     if (!enums(x.mode, ['goto', 'insert'])) fail(`${path}.mode`, 'Transfer 模式无效');
     const id = string(x.storyId, `${path}.storyId`, true); ref('stories', id, `${path}.storyId`, true);
@@ -313,8 +336,9 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     return out;
   };
-  const action = (v: unknown, path: string): Obj => {
+  const action = (v: unknown, path: string): Obj | undefined => {
     if (!plain(v)) { fail(path, 'StoryAction 必须是对象'); return {}; }
+    if (Reflect.ownKeys(v).length === 0) return undefined;
     if (v.kind === 'localFlag') {
       if (!isStoryLocalFlagAction(v)) fail(path, '本次播放局部标记配置无效');
       object(v, path, v.op === 'remove' ? ['kind', 'op', 'name'] : ['kind', 'op', 'name', 'value']);
@@ -324,7 +348,11 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     if (v.kind === 'state') {
       const x = object(v, path, ['kind', 'effects']) ?? {};
-      const effects = arr(x.effects, `${path}.effects`).map((item, i) => stateAction(item, `${path}.effects[${i}]`));
+      const effects = x.effects === undefined ? [] : arr(x.effects, `${path}.effects`).flatMap((item, i) => {
+        const projected = stateAction(item, `${path}.effects[${i}]`);
+        return projected === undefined ? [] : [projected];
+      });
+      if (effects.length === 0) return undefined;
       return { kind: 'state', effects };
     }
     if (v.kind === 'travel') {
@@ -348,8 +376,9 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     fail(`${path}.kind`, '未知 StoryAction 类型'); return {};
   };
-  const stateAction = (v: unknown, path: string): Obj => {
+  const stateAction = (v: unknown, path: string): Obj | undefined => {
     if (!plain(v)) { fail(path, '状态动作必须是对象'); return {}; }
+    if (Reflect.ownKeys(v).length === 0) return undefined;
     const op = v.op;
     const fields: Record<string, string[]> = {
       setResource: ['op', 'resourceId', 'amount'], addResource: ['op', 'resourceId', 'amount'],
@@ -358,7 +387,8 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       unlockInit: ['op', 'initId'], setFlag: ['op', 'flagId', 'value'], setExtra: ['op', 'path', 'value'],
       addExtra: ['op', 'path', 'amount'], removeExtra: ['op', 'path'], grantCharacter: ['op', 'variantId'], addAffectionExp: ['op', 'variantId', 'amount'],
     };
-    if (typeof op !== 'string' || !fields[op]) { fail(`${path}.op`, '未知 Story 状态动作'); return {}; }
+    if (typeof op !== 'string' || !op.trim()) { fail(`${path}.op`, '请选择状态动作'); return {}; }
+    if (!fields[op]) { fail(`${path}.op`, `未知 Story 状态动作：${op}`); return {}; }
     const x = object(v, path, fields[op]) ?? {};
     const out: Obj = { op };
     const stringField = (key: string, table?: keyof StoryDefinitionReferences) => {
@@ -383,6 +413,10 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     return out;
   };
+  const actionArray = (value: unknown, path: string): Obj[] => arr(value, path).flatMap((item, i) => {
+    const projected = action(item, `${path}[${i}]`);
+    return projected === undefined ? [] : [projected];
+  });
   const flagValue = (v: unknown, path: string): unknown => {
     if (plain(v) && typeof v.type === 'string') return expression(v, path);
     if (typeof v === 'string' || typeof v === 'boolean') return v;
@@ -464,11 +498,18 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
   };
   const result = (v: unknown, path: string): Obj | undefined => {
     if (v === undefined) return undefined;
+    if (plain(v) && Reflect.ownKeys(v).length === 0) return undefined;
     const x = object(v, path, ['actions', 'transfer']) ?? {};
     const out: Obj = {};
-    if (hasOwn(x, 'actions')) out.actions = arr(x.actions, `${path}.actions`).map((a, i) => action(a, `${path}.actions[${i}]`));
-    if (hasOwn(x, 'transfer')) out.transfer = transfer(x.transfer, `${path}.transfer`);
-    return out;
+    if (hasOwn(x, 'actions')) {
+      const actions = actionArray(x.actions, `${path}.actions`);
+      if (actions.length) out.actions = actions;
+    }
+    if (hasOwn(x, 'transfer')) {
+      const projected = transfer(x.transfer, `${path}.transfer`);
+      if (projected) out.transfer = projected;
+    }
+    return Object.keys(out).length ? out : undefined;
   };
   const root = object(value, '$', ['id', 'name', 'nodes', 'stages', 'extra']) ?? {};
   const id = string(root.id, 'id', true);
@@ -481,9 +522,29 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (!enums(stage.advance, ['auto', 'input'])) fail(`stages.${stageId}.advance`, '阶段推进方式无效');
     setOwn(stages, stageId, { advance: stage.advance === 'input' ? 'input' : 'auto' });
   }
-  const nodes = arr(root.nodes, 'nodes').map((nodeValue, index) => {
+  const emptyPayloadNode = (node: Obj, type: 'operation' | 'transfer', payloadKey: 'action' | 'transfer'): boolean => {
+    if (node.type !== type || typeof node.id !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(node.id) || hasOwn(node, 'requiresFlag')) return false;
+    const keys = Reflect.ownKeys(node);
+    if (keys.some(key => typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(node, key)
+      || !['id', 'type', payloadKey].includes(key))) return false;
+    if (!hasOwn(node, payloadKey) || node[payloadKey] === undefined) return true;
+    const payload = node[payloadKey];
+    return plain(payload) && Reflect.ownKeys(payload).length === 0;
+  };
+  const emptyStateOperation = (node: Obj): boolean => {
+    if (node.type !== 'operation' || typeof node.id !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(node.id) || hasOwn(node, 'requiresFlag')) return false;
+    const nodeKeys = Reflect.ownKeys(node);
+    if (nodeKeys.some(key => typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(node, key)
+      || !['id', 'type', 'action'].includes(key))) return false;
+    const value = node.action;
+    if (!plain(value) || value.kind !== 'state') return false;
+    const actionKeys = Reflect.ownKeys(value);
+    return !actionKeys.some(key => typeof key !== 'string' || !Object.prototype.propertyIsEnumerable.call(value, key)
+      || !['kind', 'effects'].includes(key));
+  };
+  const nodes = arr(root.nodes, 'nodes').flatMap((nodeValue, index) => {
     const p = `nodes[${index}]`;
-    if (!plain(nodeValue)) { fail(p, 'StoryNode 必须是对象'); return {} as Obj; }
+    if (!plain(nodeValue)) { fail(p, 'StoryNode 必须是对象'); return [{} as Obj]; }
     const type = nodeValue.type;
     const common = ['id', 'type', 'requiresFlag'];
     const base = { id: string(nodeValue.id, `${p}.id`, true), type } as Obj;
@@ -508,27 +569,41 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       base.stageId = string(x.stageId, `${p}.stageId`, true); base.interaction = interaction(x.interaction, `${p}.interaction`); return base;
     }
     if (type === 'operation') {
-      const x = object(nodeValue, p, [...common, 'action']) ?? {}; base.action = action(x.action, `${p}.action`); return base;
+      if (emptyPayloadNode(nodeValue, 'operation', 'action')) return [];
+      const x = object(nodeValue, p, [...common, 'action']) ?? {};
+      const projected = action(x.action, `${p}.action`);
+      if (projected === undefined) {
+        if (emptyStateOperation(nodeValue)) return [];
+        fail(`${p}.action`, 'Operation 必须配置非空动作'); return [base];
+      }
+      base.action = projected; return [base];
     }
     if (type === 'transfer') {
-      const x = object(nodeValue, p, [...common, 'transfer']) ?? {}; base.transfer = transfer(x.transfer, `${p}.transfer`); return base;
+      if (emptyPayloadNode(nodeValue, 'transfer', 'transfer')) return [];
+      const x = object(nodeValue, p, [...common, 'transfer']) ?? {};
+      const projected = transfer(x.transfer, `${p}.transfer`);
+      if (projected === undefined) { fail(`${p}.transfer`, 'Transfer 必须配置目标'); return [base]; }
+      base.transfer = projected; return [base];
     }
-    fail(`${p}.type`, '未知 StoryNode 类型'); return base;
+    fail(`${p}.type`, '未知 StoryNode 类型'); return [base];
   });
   function interaction(v: unknown, path: string): Obj {
     if (!plain(v)) { fail(path, 'Click interaction 必须是对象'); return {}; }
     if (v.kind === 'button') {
+      // `reply` is a retired author field. Accept old documents at the boundary, but never project it.
       const x = object(v, path, ['kind', 'text', 'press', 'reply', 'result']) ?? {};
       const out: Obj = { kind: 'button', text: string(x.text, `${path}.text`, true) };
-      if (hasOwn(x, 'press')) {
+      if (hasOwn(x, 'press') && !(plain(x.press) && Reflect.ownKeys(x.press).length === 0)) {
         const press = object(x.press, `${path}.press`, ['base', 'rand']) ?? {};
         const base = number(press.base, `${path}.press.base`); if (!Number.isSafeInteger(base) || base < 1) fail(`${path}.press.base`, '必须是正安全整数');
         const pressOut: Obj = { base };
         if (hasOwn(press, 'rand')) { const rand = number(press.rand, `${path}.press.rand`); if (!Number.isSafeInteger(rand) || rand < 0) fail(`${path}.press.rand`, '必须是非负安全整数'); else if (Number.isSafeInteger(base) && !Number.isSafeInteger(base + Math.max(rand - 1, 0))) fail(`${path}.press`, '总按击数超出安全整数范围'); pressOut.rand = rand; }
         out.press = pressOut;
       }
-      if (hasOwn(x, 'reply')) out.reply = content(x.reply, `${path}.reply`);
-      if (hasOwn(x, 'result')) out.result = result(x.result, `${path}.result`);
+      if (hasOwn(x, 'result')) {
+        const projected = result(x.result, `${path}.result`);
+        if (projected) out.result = projected;
+      }
       return out;
     }
     if (v.kind === 'choice') {
@@ -537,11 +612,16 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
         const p = `${path}.options[${i}]`; const option = object(optionValue, p, ['id', 'text', 'condition', 'reply', 'result']) ?? {};
         const o: Obj = { id: string(option.id, `${p}.id`, true), text: string(option.text, `${p}.text`) };
         if (hasOwn(option, 'condition')) o.condition = conditionGroup(option.condition, `${p}.condition`);
-        if (hasOwn(option, 'reply')) o.reply = content(option.reply, `${p}.reply`);
-        if (hasOwn(option, 'result')) o.result = result(option.result, `${p}.result`);
+        if (hasOwn(option, 'result')) {
+          const projected = result(option.result, `${p}.result`);
+          if (projected) o.result = projected;
+        }
         return o;
       }) };
-      if (hasOwn(x, 'sharedActions')) out.sharedActions = arr(x.sharedActions, `${path}.sharedActions`).map((a, i) => action(a, `${path}.sharedActions[${i}]`));
+      if (hasOwn(x, 'sharedActions')) {
+        const actions = actionArray(x.sharedActions, `${path}.sharedActions`);
+        if (actions.length) out.sharedActions = actions;
+      }
       return out;
     }
     if (v.kind === 'entryCard') {
@@ -555,7 +635,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (plain(e) && e.t !== 'dict') fail('extra', 'Story extra 必须是 dict');
     out.extra = e;
   }
-  // Stage, node identity and click-specific cross-field rules are checked against the reconstructed document.
+  // Compatibility stage references, node identity and click-specific rules are checked against the reconstructed document.
   if (issues.length === 0) {
     const structure = validateStoryNodeStructure(out as unknown as StoryDef);
     for (const issue of structure.issues) fail(issue.path, issue.message);

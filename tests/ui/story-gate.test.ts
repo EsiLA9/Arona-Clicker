@@ -137,7 +137,7 @@ describe('UIController 剧情入口确认浮层', () => {
     }
   });
 
-  it('开幕横幅展示/淡出期间阻断剧情推进点击，结束后恢复', () => {
+  it('开幕横幅展示/淡出期间阻断剧情推进点击，结束后恢复', async () => {
     vi.useFakeTimers();
     try {
       panel.conversationVariantId = HOSHINO;
@@ -146,13 +146,15 @@ describe('UIController 剧情入口确认浮层', () => {
       game.story.startCardStory(BOND, HOSHINO);
       controller.render();
       expect(root.querySelector('[data-story-banner]')).not.toBeNull();
-      expect(panel.sendGate).toBe('typing');
+      expect(panel.sendGate).toBe('pause');
       const pageBefore = game.getStoryView(HOSHINO)!.pageIndex;
       // 展示期间：推进 / 选项 / 卡片点击一律被阻断
-      root.querySelector<HTMLButtonElement>('[data-send]')!.click();
+      const blocked = root.querySelector<HTMLButtonElement>('.send-button')!;
+      expect(blocked.disabled).toBe(true);
+      blocked.click();
       expect(game.getStoryView(HOSHINO)!.pageIndex).toBe(pageBefore);
       // 展示期结束：横幅移除、阻断解除，推进恢复
-      vi.advanceTimersByTime(30001);
+      await vi.advanceTimersByTimeAsync(30001);
       expect(root.querySelector('[data-story-banner]')).toBeNull();
       expect(panel.sendGate).toBeNull();
       const pageBeforeSend = game.getStoryView(HOSHINO)!.pageIndex;

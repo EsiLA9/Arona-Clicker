@@ -43,6 +43,42 @@
    transform: translateY(-1px);
 }
 
+.send-button.operation-checkpoint .send-bubble {
+   background: var(--orange);
+   border-color: var(--orange);
+   color: var(--ink, #1e2a38);
+   box-shadow: 0 4px 14px color-mix(in srgb, var(--orange) 34%, transparent);
+}
+
+.send-button.operation-checkpoint:hover .send-bubble {
+   box-shadow: 0 6px 18px color-mix(in srgb, var(--orange) 48%, transparent);
+}
+
+.send-button.operation-checkpoint--playing {
+   cursor: wait;
+}
+
+.send-button.operation-checkpoint--playing .send-bubble,
+.send-button.operation-checkpoint--playing:hover .send-bubble {
+   box-shadow: none;
+   transform: none;
+   opacity: .78;
+}
+
+.send-operation-mark {
+   display: inline-flex;
+   flex: 0 0 1.55rem;
+   width: 1.55rem;
+   height: 1.55rem;
+   align-items: center;
+   justify-content: center;
+   border: 1px solid currentColor;
+   border-radius: 50%;
+   font-size: .62em;
+   font-weight: 800;
+   line-height: 1;
+}
+
 .send-button.disabled {
    cursor: default;
    pointer-events: none;

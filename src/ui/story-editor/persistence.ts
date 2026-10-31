@@ -1,5 +1,6 @@
 import { LocalStorageAdapter, type StorageAdapter } from '../../data-services/persistence/storage-adapter';
 import { cloneStory, type StoryDraft, type StoryEditorState } from './model';
+import { stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
 import type { LocalFlagInputs } from './flag-fields';
 import { isStoryFlagValue } from '../../data-services/validation/story-run-flags';
 import type { StoryEditorDraftState } from './model';
@@ -79,6 +80,7 @@ export class StoryDraftPersistence {
       const documentIds = new Set<string>();
       const sources = new Set<string>();
       const drafts: StoryDraft[] = [];
+      let removedLegacyReplies = false;
       for (const draft of value.drafts) {
         if (!record(draft) || typeof draft.draftId !== 'string' || !draft.draftId || ids.has(draft.draftId)
           || !(draft.sourceId === null || typeof draft.sourceId === 'string') || !validDocument(draft.document)
@@ -91,6 +93,7 @@ export class StoryDraftPersistence {
         if (draft.sourceId) sources.add(draft.sourceId);
         // The envelope has been checked here; incomplete payloads remain draft nodes, never StoryDef.
         const document = cloneStory(draft.document) as StoryDraft['document'];
+        removedLegacyReplies = stripLegacyStoryReplies(document) || removedLegacyReplies;
         if (!validFlagInputs(draft.localFlagInputs, document) || !validEditorState(draft.editorState, document)) throw new Error('编辑器分支输入草稿无效');
         drafts.push({ draftId: draft.draftId, sourceId: draft.sourceId, document, savedAt: draft.savedAt, dirty: false, persisted: true,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: cloneStory(draft.localFlagInputs) }),
@@ -98,6 +101,7 @@ export class StoryDraftPersistence {
       }
       state.drafts = drafts;
       state.currentId = typeof value.currentId === 'string' && ids.has(value.currentId) ? value.currentId : null;
+      if (removedLegacyReplies) this.save(state, true);
     } catch (error) {
       state.storageBlocked = true;
       state.error = `无法读取本地 Story 草稿，原数据已保留，请先备份并检查存储：${error instanceof Error ? error.message : String(error)}`;
@@ -105,6 +109,7 @@ export class StoryDraftPersistence {
   }
 
   save(state: StoryEditorState, force = false): boolean {
+    for (const draft of state.drafts) if (stripLegacyStoryReplies(draft.document)) draft.dirty = true;
     if (!force && !state.drafts.some(draft => draft.dirty)) return true;
     if (state.storageBlocked) return false;
     const savedAt = Date.now();

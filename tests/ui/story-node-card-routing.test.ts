@@ -8,7 +8,7 @@ function fixture() {
   let view: StoryView = { storyId: 'entry:source', storyDefId: 'story:source', type: 'active', pageIndex: 1, totalPages: 2,
     phase: 'input', nodeId: 'card', runId: 'source-run', token: 'ticket', availableChoiceIndexes: [],
     page: { kind: 'click', text: '', kizuna: { storyId: 'entry:next' } } };
-  const commands = { clickSend: vi.fn(() => ({ type: 'choice' as const })), startCardStory: vi.fn() };
+  const commands = { submitStoryInput: vi.fn(() => ({ success: true })), startCardStory: vi.fn() };
   const controller = { root: document.querySelector('#root'), panelState: { conversationVariantId: 'guest', storyGate: null },
     chat: { bannerBlocking: () => false, activeGate: () => null }, commands,
     game: { getView: () => ({ currentStory: view }), getStoryView: () => view },
@@ -24,15 +24,15 @@ describe('new node card confirmation stays attached to its source', () => {
     const f = fixture();
     f.clickCard();
     expect(f.controller.panelState.storyGate).toMatchObject({ sourceOwner: 'guest', sourceRunId: 'source-run', sourceToken: 'ticket' });
-    expect(f.commands.clickSend).not.toHaveBeenCalled();
+    expect(f.commands.submitStoryInput).not.toHaveBeenCalled();
     f.confirm();
-    expect(f.commands.clickSend).toHaveBeenCalledWith('guest', 'ticket');
+    expect(f.commands.submitStoryInput).toHaveBeenCalledWith('guest', 'ticket');
     expect(f.commands.startCardStory).not.toHaveBeenCalled();
   });
   it('rejects a confirmation left open after its source run was replaced', () => {
     const f = fixture();
     f.clickCard(); f.replaceRun(); f.confirm();
-    expect(f.commands.clickSend).not.toHaveBeenCalled();
+    expect(f.commands.submitStoryInput).not.toHaveBeenCalled();
     expect(f.commands.startCardStory).not.toHaveBeenCalled();
   });
 });

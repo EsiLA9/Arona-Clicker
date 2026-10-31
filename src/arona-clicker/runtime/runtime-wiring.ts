@@ -253,7 +253,7 @@ export function wireGameInstance(
     passivePools: g.passivePoolSystem,
     presentation: g.storyPresentation,
     getState: hooks.getState,
-    travelToArea: (areaId, allowDuringStory, checkAdjacency) => g.travelToArea(areaId, allowDuringStory, checkAdjacency),
+    travelToArea: (areaId, allowDuringStory, checkAdjacency, onCommitted) => g.travelToArea(areaId, allowDuringStory, checkAdjacency, onCommitted),
   });
   const storyEntryReactions = new StoryEntryReactionMount(
     g.registry,

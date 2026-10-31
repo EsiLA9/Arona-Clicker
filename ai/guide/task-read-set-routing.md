@@ -15,13 +15,13 @@ related_modules:
 # task-read-set-routing — 任务 Read Set 路由
 
 > 本文回答：**如何按具体任务选择必要的文档、源码和验证入口。**
-> 已知领域直接从 [[AGENTS]] 进入对应上下文包；本文只为未知、跨领域或需要正式 Read Set 的任务决定下一站。领域细目只在对应包维护。docs-828 已退役删除（历史原文在 ai/archive/docs-history/docs-828-snapshot/），不作为当前 Read Set。
+> 已知领域直接从 [[AGENTS]] 进入对应上下文包；本文只为未知、跨领域或需要正式 Read Set 的任务决定下一站。领域细目只在对应包维护。旧版文档及其历史快照已删除，不作为当前 Read Set。
 
 ## 使用规则
 
 1. 先写明本次要回答的问题。陌生领域、新内容或关系未知时，按 [[ai/guide/galhcg-project-map]] 查候选 Module / Concept / 路径，再进入下表命中的领域包。需要整体概览时才读 [[1-项目/ACProgram/docs/docs-830/00-INDEX|00-INDEX]]；需要跨模块运行关系时读 [[system-composition]]；需要启动与装配顺序时读 [[startup-and-runtime]]。
 2. 领域包只选命中的子题行；同时涉及多个子题时再合并，重复文档只读一次。读取目标源码、直接调用方和相关测试，不把整个目录视为必读正文。
-3. 事实不足时才扩展 Optional Read Set。`ai/archive/**` 默认不读；追溯历史理由时按需引入 1–2 篇，再回到源码确认当前实现。
+3. 事实不足时才扩展 Optional Read Set。压缩归档默认不读；追溯历史理由时按 [[ai/archive/README]] 列目录并直接读取所需的 1–2 篇，再回到源码确认当前实现，不把正文解压到 Vault。
 4. 文档与源码事实冲突时先核对并记录；在用户授权范围内可自行解决的问题直接处理。涉及尚未裁定的产品或架构选择时，明确待决问题并继续不受影响的工作。
 5. 文件改动时累计直接影响范围，工作节点完成后按地图查询页统一只读复核，也可委派 Luna 子 Agent；不逐次编辑重复检查。维护授权与步骤由该页和 `.galhcg/agent-maintenance.md` 规定，不把维护指南加入普通 Read Set。
 

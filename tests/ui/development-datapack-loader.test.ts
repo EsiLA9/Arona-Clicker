@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import JSZip from 'jszip';
-import { discoverDevelopmentDatapacks, parseDevelopmentPackFolderName } from '../../src/ui/development/development-datapack-loader';
+import { discoverDevelopmentDatapacks, parseDevelopmentPackFolderName, type DevelopmentPackDiscoveryProgress } from '../../src/ui/development/development-datapack-loader';
 
 const manifest = (modName: string, version: string) => JSON.stringify({ modName, name: 'Example', version, dependencies: [] });
 const fragment = (version: string) => JSON.stringify({ name: 'Example', version, spots: [] });
@@ -76,10 +76,56 @@ describe('开发数据包固定目录发现', () => {
     expect(discovered.issues[2].message).toContain('目录名必须为');
   });
 
+  it('报告真实的数据包发现进度并在失败项后继续计数', async () => {
+    const progress: DevelopmentPackDiscoveryProgress[] = [];
+    const discovered = await discoverDevelopmentDatapacks({
+      '../../datapack-dev/first@1.0@finished/datapack.json': 'first-manifest',
+      '../../datapack-dev/first@1.0@finished/00-content.json': 'first-content',
+      '../../datapack-dev/broken@1.0@finished/datapack.json': 'broken-manifest',
+      '../../datapack-dev/broken@1.0@finished/00-content.json': 'broken-content',
+    }, async url => new TextEncoder().encode(url === 'broken-manifest'
+      ? '{'
+      : url.endsWith('manifest')
+        ? manifest(url.startsWith('first') ? 'first' : 'broken', '1.0')
+        : fragment('1.0')),
+    value => progress.push(value));
+
+    expect(discovered.packs).toHaveLength(1);
+    expect(discovered.issues).toHaveLength(1);
+    expect(progress.filter(value => value.currentFile === undefined)).toEqual([
+      { completed: 0, total: 2, currentPackage: 'broken@1.0@finished/' },
+      { completed: 1, total: 2, currentPackage: 'first@1.0@finished/' },
+      { completed: 2, total: 2, currentPackage: null },
+    ]);
+    expect(progress).toContainEqual({
+      completed: 1, total: 2, currentPackage: 'first@1.0@finished/',
+      stage: 'reading', currentFile: 'first@1.0@finished/datapack.json', filesRead: 0, fileCount: 2,
+    });
+    expect(progress).toContainEqual({
+      completed: 1, total: 2, currentPackage: 'first@1.0@finished/',
+      stage: 'parsing', currentFile: 'first@1.0@finished/00-content.json', filesRead: 2, fileCount: 2,
+    });
+  });
+
   it('只接受小写状态后缀及合法 ModName', () => {
     expect(parseDevelopmentPackFolderName('example-mod@2.0.0@editing')).toEqual({ modName: 'example-mod', version: '2.0.0', editingMode: 'editing' });
     expect(parseDevelopmentPackFolderName('example@2@finished')).toEqual({ modName: 'example', version: '2', editingMode: 'normal' });
     expect(parseDevelopmentPackFolderName('Example@2@finished')).toBeNull();
     expect(parseDevelopmentPackFolderName('example@2@draft')).toBeNull();
+  });
+
+  it('ZIP 先报告归档读取，再报告解析，不伪造内部文件计数', async () => {
+    const zip = new JSZip();
+    zip.file('datapack.json', manifest('example', '1.0'));
+    zip.file('content.json', fragment('1.0'));
+    const bytes = await zip.generateAsync({ type: 'uint8array' });
+    const progress: DevelopmentPackDiscoveryProgress[] = [];
+    await discoverDevelopmentDatapacks({ '../../datapack-dev/example.zip': 'archive' },
+      async () => bytes, value => progress.push(value));
+    expect(progress.filter(value => value.stage)).toEqual([
+      { completed: 0, total: 1, currentPackage: 'example.zip', stage: 'reading', currentFile: 'example.zip' },
+      { completed: 0, total: 1, currentPackage: 'example.zip', stage: 'parsing', currentFile: 'example.zip' },
+    ]);
+    expect(progress.at(-1)).toEqual({ completed: 1, total: 1, currentPackage: null });
   });
 });

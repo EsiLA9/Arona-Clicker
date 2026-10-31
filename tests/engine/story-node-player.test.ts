@@ -123,9 +123,9 @@ describe('StoryNodePlayer', () => {
     expect(state.applied).toHaveLength(0);
   });
 
-  it('preflights all branch actions and the transfer target before reply or effects', () => {
+  it('preflights all branch actions and the transfer target before effects', () => {
     const root = documentOf(ROOT, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice',
-      sharedActions: [addResource('credit', 1)], options: [{ id: 'go', text: '走', reply: { kind: 'talk', text: '出发' }, result: {
+      sharedActions: [addResource('credit', 1)], options: [{ id: 'go', text: '走', result: {
         actions: [addResource('credit', 2)], transfer: { mode: 'goto', storyId: 'test:story:missing' },
       } }],
     } }], { pick: { advance: 'input' } });
@@ -137,7 +137,6 @@ describe('StoryNodePlayer', () => {
     expect(result.view.status).toBe('input');
     expect(state.resources).toEqual({});
     expect(state.applied).toHaveLength(0);
-    expect(result.events.some(event => event.type === 'reply')).toBe(false);
   });
 
   it('makes an unexpected execute rejection terminal and never retries prior actions', () => {
@@ -161,7 +160,7 @@ describe('StoryNodePlayer', () => {
     const subId = 'test:story:inserted';
     const targetId = 'test:story:target';
     const root = documentOf(ROOT, [
-      { id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', reply: { kind: 'talk', text: '收到' }, result: { transfer: { mode: 'insert', storyId: subId } } }] } },
+      { id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', result: { transfer: { mode: 'insert', storyId: subId } } }] } },
       talk('root-tail', 'tail'),
     ], { pick: { advance: 'input' }, tail: { advance: 'auto' } });
     const sub = documentOf(subId, [{ id: 'jump', type: 'transfer', transfer: { mode: 'goto', storyId: targetId } }], {});
@@ -172,10 +171,8 @@ describe('StoryNodePlayer', () => {
     const entered = player.submit(prompt.token, 'yes');
     const targetLine = delivery(entered.view);
     expect(targetLine.storyId).toBe(targetId);
-    const replyIndex = entered.events.findIndex(event => event.type === 'reply');
     const targetViewIndex = entered.events.findIndex(event => event.type === 'view' && event.view.status === 'delivery' && event.view.storyId === targetId);
-    expect(replyIndex).toBeGreaterThanOrEqual(0);
-    expect(replyIndex).toBeLessThan(targetViewIndex);
+    expect(targetViewIndex).toBeGreaterThanOrEqual(0);
     const returned = delivery(player.ackDelivery(targetLine.token).view);
     expect(returned.storyId).toBe(ROOT);
     expect(returned.node.id).toBe('root-tail');

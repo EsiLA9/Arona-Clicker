@@ -115,4 +115,4 @@ statuses: [
 
 Status 实例按持有单位、Status ID、Effect Program 来源身份和声明它的 Action ID 区分。同一来源重施会将层数累加到 `maxStacks`，并把持续轮数刷新为本次申请值；同一持有者由不同 Action、Character、Enemy、Ability 或 Item 来源施加时，会保留独立实例。进入新 Encounter 或离开当前 Encounter 后，实例清除。
 
-完整定义见 [GameplayMapDef 与 Effect Program 契约](../docs-829/03-data-structures/datapack-contracts.md)。当前示例 Map 已接入 AG-1 MapRun Owner：可施加燃烧与再生、部分消费燃烧、按精确 ID 清除，并按 `harmful` 类别清除而保留 `beneficial` 再生。由于 Map 声明 `statusRemoveCategory`，每次 AG-1 Commit 使用 Status Receipt v4，并包含显式的 `statusCategoryRemoveTrace`；未使用类别净化的提交该 Trace 为空数组。Receipt 版本独立于保持 v5 的 scheduler 格式。内容入口仍是普通 Registry Map，不会在 UI 侧模拟状态规则。
+定义与效果机制见 [[gameplay-maprun-effects-and-facts]]。当前示例 Map 已接入 AG-1 MapRun Owner：可施加燃烧与再生、部分消费燃烧、按精确 ID 清除，并按 `harmful` 类别清除而保留 `beneficial` 再生。由于 Map 声明 `statusRemoveCategory`，每次 AG-1 Commit 使用 Status Receipt v4，并包含显式的 `statusCategoryRemoveTrace`；未使用类别净化的提交该 Trace 为空数组。Receipt 版本独立于保持 v5 的 scheduler 格式。内容入口仍是普通 Registry Map，不会在 UI 侧模拟状态规则。

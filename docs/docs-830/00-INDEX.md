@@ -62,4 +62,4 @@
 
 GALHCG 查询与 AI Read Set 约定见 [[ai/guide/galhcg-project-map]]、[[ai/guide/task-read-set-routing]]；任务工作流见 [[ai/guide/task-workflow]]。这些页面描述项目协作，不重复收入产品运行机制页。
 
-页面按职责和协作链组织；字段合同与运行规则以源码和相关测试核实。GALHCG Concept 覆盖调查见 [[ai/archive/plan/report-0330-docs-830-galhcg-coverage]]。
+页面按职责和协作链组织；字段合同与运行规则以源码和相关测试核实。

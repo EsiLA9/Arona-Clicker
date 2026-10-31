@@ -31,11 +31,30 @@ describe('StoryDef current Registry save command', () => {
     expect(game.state).toEqual(state);
   });
 
+  it('saves state actions while dropping completely empty effect placeholders', () => {
+    const story = {
+      ...document('local:story:empty_effect_placeholder'),
+      stages: {},
+      nodes: [
+        { id: 'blank-operation', type: 'operation' },
+        { id: 'empty-state-operation', type: 'operation', action: { kind: 'state', effects: [{}] } },
+        { id: 'blank-transfer', type: 'transfer', transfer: {} },
+        { id: 'op', type: 'operation', action: { kind: 'state', effects: [
+          { op: 'addResource', resourceId: 'base:resource:credit', amount: 10 }, {},
+        ] } },
+      ],
+    } as unknown as StoryDef;
+
+    expect(game.saveStoryDefinition(story)).toEqual({ ok: true, storyId: story.id, operation: 'create' });
+    expect(game.registry.stories.get(story.id)?.nodes).toEqual([{ id: 'op', type: 'operation', action: { kind: 'state', effects: [
+      { op: 'addResource', resourceId: 'base:resource:credit', amount: 10 },
+    ] } }]);
+    expect(story.nodes).toHaveLength(4);
+  });
+
   it.each([
     { ...document(), id: 'not-a-story' },
     { ...document(), stages: {} },
-    { ...document(), nodes: [{ id: 'op', type: 'operation' }] },
-    { ...document(), nodes: [{ id: 'transfer', type: 'transfer' }] },
     { ...document(), nodes: [{ id: 'transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'missing:story:target' } }], stages: {} },
     { ...document(), nodes: [{ id: 'click', type: 'click', stageId: 'click', interaction: { kind: 'button', text: '' } }], stages: { click: { advance: 'input' } } },
   ])('rejects invalid author content before changing Registry: %#', candidate => {

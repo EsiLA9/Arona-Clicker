@@ -187,12 +187,12 @@ function parseTalklet(expression, sourceFile, declarations) {
   if (!chain?.base) return undefined;
 
   const issues = [];
-  const page = { content: undefined, presentation: {}, pacing: {}, effects: [], choices: [], transfer: undefined, clickWork: undefined, reply: undefined, muteReply: false, kizuna: undefined, kind: 'talk' };
+  const page = { content: undefined, presentation: {}, pacing: {}, effects: [], choices: [], transfer: undefined, clickWork: undefined, sendText: undefined, muteReply: false, kizuna: undefined, kind: 'talk' };
   const args = chain.base.arguments;
   if (chain.base.name === 'line' && args.length >= 2) {
     page.content = { kind: 'talk', text: args[1] };
     page.content.speaker = args[0];
-    if (args[2] && !isUndefined(args[2]) && !isEmptyString(args[2], sourceFile)) page.reply = args[2];
+    if (args[2] && !isUndefined(args[2]) && !isEmptyString(args[2], sourceFile)) page.sendText = args[2];
     const opts = args[3] && objectProperties(args[3]);
     if (opts) applyTalkOptions(page, opts);
     else if (args[3]) issues.push({ node: args[3], code: 'dynamic-options', message: 'line options must be a literal object' });
@@ -219,7 +219,7 @@ function parseTalklet(expression, sourceFile, declarations) {
       case 'narrate': page.kind = 'narration'; page.content.kind = 'narration'; page.presentation.align = values[0] ?? "'center'"; break;
       case 'click': page.kind = 'click'; page.clickWork = { base: values[0], rand: values[1] }; break;
       case 'effects': page.effects.push(...values); break;
-      case 'reply': case 'sendText': page.reply = values[0]; break;
+      case 'reply': case 'sendText': page.sendText = values[0]; break;
       case 'mute': case 'muteReply': page.muteReply = true; break;
       case 'side': page.presentation.side = values[0]; break;
       case 'noAvatar': page.presentation.avatarMode = "'hide'"; break;
@@ -240,8 +240,8 @@ function parseTalklet(expression, sourceFile, declarations) {
 function parseTalkletObject(object, sourceFile, declarations) {
   const fields = objectProperties(object);
   if (!fields || !fields.has('text')) return undefined;
-  const legacyReply = fields.get('sendText');
-  const page = { content: undefined, presentation: {}, pacing: {}, effects: [], choices: [], transfer: undefined, clickWork: undefined, reply: legacyReply && !isEmptyString(legacyReply, sourceFile) ? legacyReply : undefined, muteReply: literalBoolean(fields.get('muteReply')) === true, kizuna: undefined, kind: literalString(fields.get('kind')) ?? 'talk', issues: [] };
+  const legacySendText = fields.get('sendText');
+  const page = { content: undefined, presentation: {}, pacing: {}, effects: [], choices: [], transfer: undefined, clickWork: undefined, sendText: legacySendText && !isEmptyString(legacySendText, sourceFile) ? legacySendText : undefined, muteReply: literalBoolean(fields.get('muteReply')) === true, kizuna: undefined, kind: literalString(fields.get('kind')) ?? 'talk', issues: [] };
   page.content = { kind: page.kind === 'narration' ? 'narration' : 'talk', text: fields.get('text') };
   for (const key of ['speaker', 'image']) if (fields.has(key)) page.content[key] = fields.get(key);
   for (const key of ['avatar', 'side', 'align']) if (fields.has(key)) page.presentation[key] = fields.get(key);
@@ -325,9 +325,9 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     return;
   }
 
-  const needsInput = page.kind === 'click' || !!work || !!page.reply;
+  const needsInput = page.kind === 'click' || !!work || !!page.sendText;
   if (page.kind === 'click') {
-    const clickText = page.reply ?? page.content.text;
+    const clickText = page.sendText ?? page.content.text;
     const total = work ?? { base: "1" };
     const clickMode = clickWorkMode(work, declarations);
     if (clickMode.kind === 'issue') {
@@ -339,11 +339,11 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
     const result = resultCode(actions, transfer);
     if (clickMode.kind === 'single') {
-      nodes.push(buttonNode(`${key}-button`, stage, textOf(clickText, sourceFile), undefined, undefined, result));
+      nodes.push(buttonNode(`${key}-button`, stage, textOf(clickText, sourceFile), undefined, result));
     } else {
       stages.push(`'${key}-confirm': { advance: 'input' }`);
-      nodes.push(buttonNode(`${key}-work`, stage, textOf(clickText, sourceFile), clickMode.work ?? total, undefined, undefined));
-      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, textOf(clickText, sourceFile), undefined, undefined, result));
+      nodes.push(buttonNode(`${key}-work`, stage, textOf(clickText, sourceFile), clickMode.work ?? total, undefined));
+      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, textOf(clickText, sourceFile), undefined, result));
     }
     return;
   }
@@ -356,30 +356,37 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     }
     stages.push(`'${stage}': { advance: 'input' }`);
     if (body) nodes.push(body);
-    const text = page.reply ? textOf(page.reply, sourceFile) : "''";
+    const text = page.sendText ? textOf(page.sendText, sourceFile) : "''";
     const actions = convertEffects(remainingEffects, sourceFile, options, storyId, issues, addIssue);
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
-    const reply = page.reply && !page.muteReply ? replyContentCode(page.reply, sourceFile) : undefined;
-    const result = resultCode(actions, transfer);
+    const response = page.sendText && !page.muteReply ? responseTalkletNode(`${key}-response`, `${stage}-response`, text) : undefined;
+    if (response && transfer) addIssue(page.transfer.target, storyId, 'response-transfer-order', 'An explicit Talklet response is emitted before a separate Transfer; verify this preserves the intended order and failure behavior');
+    const result = resultCode(actions, response ? undefined : transfer);
     if (clickMode.kind === 'single') {
-      nodes.push(buttonNode(`${key}-button`, stage, text, undefined, reply, result));
+      nodes.push(buttonNode(`${key}-button`, stage, text, undefined, result));
+      if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
     } else {
       stages.push(`'${key}-confirm': { advance: 'input' }`);
-      nodes.push(buttonNode(`${key}-work`, stage, text, clickMode.work ?? work, undefined, undefined));
-      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, text, undefined, reply, result));
+      nodes.push(buttonNode(`${key}-work`, stage, text, clickMode.work ?? work, undefined));
+      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, text, undefined, result));
+      if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
     }
+    if (response && transfer) nodes.push(transferNode(`${key}-transfer`, transfer));
     return;
   }
 
   if (needsInput) {
     stages.push(`'${stage}': { advance: 'input' }`);
     if (body) nodes.push(body);
-    const text = textOf(page.reply, sourceFile);
+    const text = textOf(page.sendText, sourceFile);
     const actions = convertEffects(remainingEffects, sourceFile, options, storyId, issues, addIssue);
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
-    const reply = page.reply && !page.muteReply ? replyContentCode(page.reply, sourceFile) : undefined;
-    const result = resultCode(actions, transfer);
-    nodes.push(buttonNode(`${key}-button`, stage, text, undefined, reply, result));
+    const response = page.sendText && !page.muteReply ? responseTalkletNode(`${key}-response`, `${stage}-response`, text) : undefined;
+    if (response && transfer) addIssue(page.transfer.target, storyId, 'response-transfer-order', 'An explicit Talklet response is emitted before a separate Transfer; verify this preserves the intended order and failure behavior');
+    const result = resultCode(actions, response ? undefined : transfer);
+    nodes.push(buttonNode(`${key}-button`, stage, text, undefined, result));
+    if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
+    if (response && transfer) nodes.push(transferNode(`${key}-transfer`, transfer));
     return;
   }
 
@@ -407,8 +414,8 @@ function contentCode(content, presentation, sourceFile) {
   return `{ ${fields.join(', ')} }`;
 }
 
-function replyContentCode(reply, sourceFile) {
-  return `{ kind: 'talk', text: ${textOf(reply, sourceFile)} }`;
+function responseTalkletNode(id, stageId, text) {
+  return `{ id: '${id}', type: 'talklet', stageId: '${stageId}', content: { kind: 'talk', text: ${text}, speaker: '老师' }, presentation: { side: 'right' } }`;
 }
 
 function presentationCode(presentation, sourceFile) {
@@ -421,11 +428,10 @@ function objectCode(values, sourceFile) {
   return fields.length ? `{ ${fields.join(', ')} }` : undefined;
 }
 
-function buttonNode(id, stageId, text, press, reply, result) {
+function buttonNode(id, stageId, text, press, result) {
   const pressCode = press ? `, press: { base: ${textOf(press.base)},${press.rand ? ` rand: ${textOf(press.rand)}` : ''} }` : '';
-  const replyCode = reply ? `, reply: ${reply}` : '';
   const resultCodeValue = result ? `, result: ${result}` : '';
-  return `{ id: '${id}', type: 'click', stageId: '${stageId}', interaction: { kind: 'button', text: ${text}${pressCode}${replyCode}${resultCodeValue} } }`;
+  return `{ id: '${id}', type: 'click', stageId: '${stageId}', interaction: { kind: 'button', text: ${text}${pressCode}${resultCodeValue} } }`;
 }
 
 /**

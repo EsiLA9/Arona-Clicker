@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createStoryNodeActionHost, type StoryNodeActionHostOptions, type StoryNodeActionRegistry } from '../../src/arona-clicker/services/story/story-node-action-host';
+import { createStoryNodeActionHost, executeStoryPresentationEffect, type StoryNodeActionHostOptions, type StoryNodeActionRegistry } from '../../src/arona-clicker/services/story/story-node-action-host';
 import type { StoryNodeSource } from '../../src/arona-clicker/contracts/runtime/story-node-playback';
 import type { StoryAction, StoryEntryRequest } from '../../src/data-services/contracts/story-node-actions';
 import type { ActiveStoryEntry, PassiveStoryEntry } from '../../src/data-services/contracts/story-entry';
@@ -15,6 +15,9 @@ import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { StoryStartResult } from '../../src/arona-clicker/contracts/runtime/results';
 import { createDefaultState } from '../../src/arona-clicker/state/state-factory';
 import { extra } from '../../src/engine/extra';
+import { EventBus } from '../../src/engine/core/event-bus';
+import { EffectEngine } from '../../src/engine/effect/effect-engine';
+import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
 
 const source: StoryNodeSource = { entryId: 'entry:source', rootStoryId: 'story:source', owner: 'variant:owner', runId: 'run:source' };
 const globalSource: StoryNodeSource = { ...source, owner: null };
@@ -131,15 +134,15 @@ describe('StoryNodeActionHost', () => {
     ]);
   });
 
-  test('旅行仅在成功且请求notice时发布带owner/run的事件；overlay与presentation经EffectEngine', () => {
+  test('旅行返回实际回执而不插入UI事件；独立overlay与presentation仍经EffectEngine', () => {
     const h = harness();
     vi.mocked(h.options.travelToArea).mockReturnValueOnce({ success: true, areaId: 'area:test', fromAreaId: null });
-    expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: true }, source)).toEqual({ status: 'applied' });
-    expect(h.options.travelToArea).toHaveBeenLastCalledWith('area:test', true, false);
-    expect(h.events).toEqual([{ type: 'storyAreaTraveled', areaId: 'area:test', owner: source.owner, runId: source.runId }]);
+    expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: true }, source)).toMatchObject({ status: 'applied', receipts: [{ op: 'travel', status: 'changed', before: null, after: 'area:test', details: { notice: true } }] });
+    expect(h.options.travelToArea).toHaveBeenLastCalledWith('area:test', true, false, expect.any(Function));
+    expect(h.events).toEqual([]);
     vi.mocked(h.options.travelToArea).mockReturnValueOnce({ success: true, areaId: 'area:test', fromAreaId: null });
-    expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: false }, source)).toEqual({ status: 'applied' });
-    expect(h.events).toHaveLength(1);
+    expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: false }, source)).toMatchObject({ status: 'applied' });
+    expect(h.events).toHaveLength(0);
     const globalSource = { ...source, owner: null };
     h.host.execute({ kind: 'overlay', command: {
       command: 'show', id: 'overlay:talk', x: 0.2, y: 0.7, align: 'right',
@@ -158,7 +161,7 @@ describe('StoryNodeActionHost', () => {
     '领域旅行返回%s仍算已处理，后续Story动作可以继续且不发notice', error => {
       const h = harness();
       vi.mocked(h.options.travelToArea).mockReturnValueOnce({ success: false, areaId: 'area:test', error });
-      expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: true }, source)).toEqual({ status: 'applied' });
+      expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: true }, source)).toMatchObject({ status: 'applied', receipts: [{ status: 'noop', details: { error } }] });
       expect(h.events).toEqual([]);
       expect(h.host.execute({ kind: 'state', effects: [{ op: 'setFlag', flagId: 'continues', value: true }] }, source))
         .toEqual({ status: 'applied' });
@@ -172,6 +175,76 @@ describe('StoryNodeActionHost', () => {
     expect(h.host.execute({ kind: 'travel', areaId: 'area:test', notice: true }, source))
       .toEqual({ status: 'rejected', error: 'ActionExecutionFailed:travel-observer-fault' });
     expect(h.events).toEqual([]);
+  });
+
+  test('deferred presentation fixes the default title and waits for its lifecycle execution step', () => {
+    const h = harness();
+    let title = 'Original chapter';
+    const execute = vi.fn(() => ({ status: 'applied' as const }));
+    const options = { ...h.options, deferPresentation: true, getTitle: () => title,
+      presentation: { preflight: () => undefined, execute } };
+    const host = createStoryNodeActionHost(options);
+    const result = host.execute({ kind: 'presentation', command: { command: 'openingTitle' } }, globalSource);
+    expect(result).toEqual({ status: 'applied', presentation: [{ op: 'showOpeningTitle', target: '', value: 'Original chapter' }] });
+    expect(execute).not.toHaveBeenCalled();
+    title = 'Changed chapter';
+    const effect = result.presentation![0]!;
+    expect(executeStoryPresentationEffect(options, effect, globalSource)).toEqual({ status: 'applied' });
+    expect(execute).toHaveBeenCalledWith({ kind: 'presentation', command: { command: 'openingTitle', title: 'Original chapter' } }, globalSource);
+    expect(h.batches).toEqual([]);
+  });
+
+  test('returns actual state commits on a rejected action after an observer throws', () => {
+    const h = harness();
+    const bus = new EventBus();
+    const effectEngine = new EffectEngine(new StateMutationService(bus));
+    effectEngine.setState(h.state);
+    bus.on('resourceChanged', () => { throw new Error('receipt observer failed'); });
+    const host = createStoryNodeActionHost({ ...h.options, effectEngine });
+    expect(host.execute({ kind: 'state', effects: [
+      { op: 'addResource', resourceId: 'credit', amount: 7 },
+      { op: 'addItem', itemId: 'item:test', amount: 3 },
+    ] }, source)).toEqual({ status: 'rejected', error: 'ActionExecutionFailed:receipt observer failed', receipts: [
+      { effectIndex: 0, op: 'addResource', target: 'credit', status: 'changed', before: 0, after: 7, delta: 7 },
+    ] });
+    expect(h.state.resources.credit).toBe(7);
+    expect(h.state.inventory['item:test']).toBeUndefined();
+  });
+
+  test('persistent themes and unscoped entity changes commit logically and never enter the presentation queue', () => {
+    const h = harness();
+    const execute = vi.fn(() => ({ status: 'applied' as const }));
+    const options = { ...h.options, deferPresentation: true, presentation: { preflight: () => undefined, execute } };
+    const host = createStoryNodeActionHost(options);
+    const theme: StoryAction = { kind: 'presentation', command: { command: 'theme', value: { scope: 'area', entityKey: 'area:area:test' } } };
+    const manual: StoryAction = { kind: 'presentation', command: { command: 'setEntityPresentation', target: 'area:area:test', owner: 'manual-owner', optionId: 'option:test' } };
+    const clear: StoryAction = { kind: 'presentation', command: { command: 'clearEntityPresentation', target: 'area:area:test', owner: 'manual-owner' } };
+    for (const action of [theme, manual, clear]) expect(host.execute(action, globalSource)).toEqual({ status: 'applied' });
+    expect(execute).toHaveBeenCalledTimes(3);
+    expect(executeStoryPresentationEffect(options, { op: 'setTheme', target: '', value: { scope: 'area', entityKey: 'area:area:test' } }, globalSource))
+      .toEqual({ status: 'rejected', error: 'PresentationEffectMustExecuteLogically' });
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
+  test('retains travel committed before a failing notification without emitting a notice', () => {
+    const h = harness();
+    const options = { ...h.options, travelToArea: (_id: string, _allow: boolean, _adjacent: boolean, committed?: (result: Extract<import('../../src/arona-clicker/contracts/runtime/results').TravelResult, { success: true }>) => void): never => {
+      committed?.({ success: true, areaId: 'area:test', fromAreaId: 'area:old' });
+      throw new Error('area observer failed');
+    } };
+    expect(createStoryNodeActionHost(options).execute({ kind: 'travel', areaId: 'area:test', notice: true }, source)).toMatchObject({
+      status: 'rejected', error: 'ActionExecutionFailed:area observer failed', receipts: [{ op: 'travel', before: 'area:old', after: 'area:test' }],
+    });
+    expect(h.events).toEqual([]);
+  });
+
+  test('an admitted Entry request can reserve its slot without starting a new player inline', () => {
+    const h = harness();
+    const request = { entryId: 'entry:target', entryType: 'active' as const, owner: 'variant:other', intent: 'ordinary' as const };
+    const requestEntry = vi.fn(() => ({ status: 'applied' as const }));
+    expect(createStoryNodeActionHost({ ...h.options, requestEntry }).execute({ kind: 'entryRequest', request }, source)).toEqual({ status: 'applied' });
+    expect(requestEntry).toHaveBeenCalledWith(request, source);
+    expect(h.storyService.startStory).not.toHaveBeenCalled();
   });
 
   test('ordinary与system保留旧准入差异；card走startCardStory并按owner回报替换', () => {

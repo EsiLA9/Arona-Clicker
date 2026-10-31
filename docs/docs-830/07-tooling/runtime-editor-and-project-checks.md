@@ -14,17 +14,19 @@
 
 作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
-右栏属性面板固定为“节点类型 → 当前分支基本项 → 可选能力 → 高级项/阶段 → 字段诊断与节点操作”。节点 ID 只读，类型可显式切换并保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。
+右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
 
-字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（含可选 press 与 reply/result）、choice（有序选项、条件、回复、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）；Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
+字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）；Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
+
+Choice 的每个选项预览左侧有局部标记绑定卡。将该 Choice 后的 StoryNode 拖入卡片，会成对写入 option 结果的 `localFlag set true` 与目标节点的 `requiresFlag`；标记名使用 Story、option ID 和递增序号组成的 `Story-choiceId-num` 风格。卡片能列出绑定节点、逐项解除并级联改名；自动生成 `node_<32位hex>` 的目标 ID 会收到可取消的易读 ID 更名提示。标记反查与创建受标记节点目前只提供模型接口，不增加 UI。该便利功能只维护标准 Story 字段，不增加运行时合同或 Schema。
 
 引用目录来自当前 Registry 的完整内容表（含 `characterVariants` 与 `pics`），不按玩家解锁/拥有状态筛选；当前 Story 自身允许引用，其他未提交草稿不能成为有效引用。图片字段同时提供目录候选与自由输入，自由 speaker 是显示名而不是角色外键。缺失引用显示原值并报错，不跳回首项。
 
 本轮编辑能力的明确边界：条件复用现有条件树渲染，复杂只读值（palette/tokens/nodes/background、数值表达式、嵌套 ExtraValue、过深条件树）只读保留并完整参与提交；可显式清理或改选已支持分支，不提供完整可视化设计器，也不生成 `{}` 冒充已配置值。
 
-作者内容仍只有 `nodes` 一份有序列表，保留 `stages`、extra 和所有未开放字段；移动保持 node.id。新正文各有独立 auto 阶段，显式 Click 各有独立 input 阶段；已有阶段不因移动而自动拆并，暂时不连续的分组也允许保存。类型切到 Talklet/Click 时必须有一个阶段声明，节点沿用缓存阶段或获得独立新阶段；推进方式不被改写，也不会自动补 Click。未配置 Operation/Transfer 仅在专用草稿类型中允许缺省载荷，正式 StoryDef 合同不变。
+作者内容仍只有 `nodes` 一份有序列表；`stages`、extra 和所有未开放字段按兼容规则保留。中央流在每个节点前与列表末尾呈现可点击的插入空位，编辑器只在内存中以稳定节点 ID 锚定当前位置；composer 的正文、Click、Operation 和 Transfer 都插入当前位置，连续添加时空位留在新内容之后。空位不是 StoryNode，不进入草稿、StoryDef 或 Registry。每个节点可拖动到空位或节点上下半区换序；拖放只改变 `nodes` 顺序，保留节点 ID、兼容 stageId 和节点内容，过期或跨草稿的拖拽载荷会被忽略。Talklet 后紧邻可用 Click 时，文本送达后自动衔接到该输入；没有紧邻可用 Click 时，文本送达后等待用户自由点击。连续 Click 逐个呈现。阶段推进方式、阶段分组连续性与每阶段 Click 数量不再限制保存或播放。类型切到 Talklet/Click 时仍自动填充合同要求的兼容 stage 字段，不会自动补 Click。未配置 Operation/Transfer 仅在专用草稿类型中允许缺省载荷，正式 StoryDef 合同不变。
 
-草稿通过 `StorageAdapter` 保存到独立 `acprogram_story_editor_drafts` key，版本信封与来源 ID 独立于 PlayerState、游戏存档和 Runtime Editor 的包草稿。`editorState` 只存草稿侧元数据：分支缓存、可选开关、稳定行身份、原始数值文本与字面量类型；它不进入 StoryDef、extra、PlayerState 或 Registry。打开注册来源时深拷贝，单纯浏览不保存；修改后保存、切换 Story 或离开时统一写入本地。重命名只改副本，删草稿仍保留注册来源。未发送文字在会话内按文档保留，不自动变成节点或进入持久化文档。
+草稿通过 `StorageAdapter` 保存到独立 `acprogram_story_editor_drafts` key，版本信封与来源 ID 独立于 PlayerState、游戏存档和 Runtime Editor 的包草稿。`editorState` 只存草稿侧元数据：分支缓存、可选开关、稳定行身份、原始数值文本与字面量类型；它不进入 StoryDef、extra、PlayerState 或 Registry。插入空位是 `StoryEditorState` 的临时节点锚点，不属于草稿，也不会持久化。打开注册来源时深拷贝，单纯浏览不保存；修改后保存、切换 Story 或离开时统一写入本地。重命名只改副本，删草稿仍保留注册来源。旧草稿、Registry 来源或显式 Runtime 投影遗留的 Button / ChoiceOption `reply` 字段会在对应导入/提交边界丢弃。未发送文字在会话内按文档保留，不自动变成节点或进入持久化文档。
 
 不完整草稿允许保存：草稿信封只校验已填字段的基本形状，缺省 text/options/card 等载荷仍是合法草稿。保存失败保留内存内容并阻止切换/离开，重试成功才标记已保存。加载发现损坏/不支持的版本时保留原存储，暂时只读浏览，避免覆盖作者资料。
 
@@ -34,7 +36,7 @@
 
 ### StoryDef 保存到运行内容（原型接线）
 
-右栏为所有节点提供单个可选“需要局部标记”名称；留空关闭，编辑态始终显示节点。空 Operation 可以选择局部标记写入/移除，写入开放文字、数字、布尔和 null；已有复合 JSON 值保留，暂不提供复合值设计器。命名提示推荐 StoryName-flagid，不强制。局部标记专用表单与属性面板共用同一份草稿：面板只说明其字段沿用专用表单，不另存第二份作者状态。
+右栏为所有节点提供单个可选“需要局部标记”名称；留空关闭，编辑态始终显示节点。Operation 的行为类型为“局部标记”时，写入/移除、名称和值都显示在同一行为属性组内；写入开放文字、数字、布尔和 null，已有复合 JSON 值保留，暂不提供复合值设计器。命名提示推荐 StoryName-flagid，不强制。原始数字输入与值类型仍保存在同一份草稿侧状态，不另存第二份作者状态。
 
 普通 scalar 字段的其他行为由属性面板按分支呈现，不再降级为 E0 摘要；不在当前分支的字段休眠在草稿缓存中，切换回来可恢复。
 
@@ -44,7 +46,9 @@
 
 这条接线按用户要求暂不检查编辑态 Mod，也不写回包文件、包记录或玩家存档。Registry 是当前运行的有效表，重新装载内容后以数据包为准；界面成功提示明确标明“仅当前运行有效”。保存不会创建 StoryEntry 或启动剧情。已有播放 Session 和 Player 均持有文档副本，继续播放旧内容；下一次启动读取新的定义。
 
-`storyDefinitionFromDraft()` 先做草稿侧检查（已启用但缺必填配置的可选项、局部标记未完成输入），再把草稿复制成候选并交给 `src/data-services/authoring/story-definition-projection.ts` 的 `projectStoryDefinition()`。该投影逐层重建 talklet/click/operation/transfer、content、interaction、action、command、result、value 与 stage，只输出当前分支和已启用的可选字段；缓存、UI 标志与未解析输入不进入候选，合法的 extra/tokens 等字典按合同保留。数值文本按字段类型转换（pacing、坐标、按击、amount、条件比较值，以及作者显式选择的字面量类型），无效文本原样进入校验并报错，不转成 0。
+数据来源与编辑缓存分层：`GameInstance.init(datapacks)` 将本次合并后的 Story 定义保留为运行期来源快照；首次打开编辑器时，来源项从当前 Registry 深拷贝到编辑草稿。草稿及编辑器元数据独立写入 `acprogram_story_editor_drafts`，显式“保存到运行内容”才将投影写入当前 Registry。中栏“读取本地/系统数据”确认后删除当前 Story 的本地草稿，并将 Registry 中该 Story 恢复为本次 init 加载的版本；若本次加载中没有该 Story，则移除它的运行期新增定义。它不改玩家存档和其他草稿，也不重新读磁盘；加载快照之后已经启动的 Story Session 继续使用自己的文档副本，新启动的 Entry 才读取还原后的 Registry。
+
+`storyDefinitionFromDraft()` 先做草稿侧检查（已启用但缺必填配置的可选项、局部标记未完成输入），再把草稿复制成候选并交给 `src/data-services/authoring/story-definition-projection.ts` 的 `projectStoryDefinition()`。该投影逐层重建 talklet/click/operation/transfer、content、interaction、action、command、result、value 与兼容 stage，只输出当前分支和已启用的可选字段；缓存、UI 标志与未解析输入不进入候选，合法的 extra/tokens 等字典按合同保留。状态效果与 Click 结果动作里的完全空白占位行会被省略；无动作的空 Operation / Transfer、空状态 Operation、空结果与空按击配置也不会写入运行时 Story。仅当节点有合法 id/type 且除空载荷外不含其他字段时才会丢弃；requiresFlag、未知字段或其他部分作者输入存在时仍按合同报错。空白 Click 不省略，因为它本身是输入节点。数值文本按字段类型转换（pacing、坐标、按击、amount、条件比较值，以及作者显式选择的字面量类型），无效文本原样进入校验并报错，不转成 0。
 
 `Registry.saveStoryDefinition()` 在写入前用同一投影对深拷贝做递归合同与引用校验：未知结构键、混合分支、编辑器元数据、畸形值与缺失引用均被拒绝，失败不修改原定义，也不做部分替换。投影是纯函数，重复执行结果一致且不改输入。
 

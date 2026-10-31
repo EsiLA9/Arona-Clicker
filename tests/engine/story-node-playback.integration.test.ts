@@ -3,6 +3,8 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { createStoryNodePlayback } from '../../src/arona-clicker/runtime/story-node-playback';
 import { mergeFragments } from '../../src/data-services/datapack/fragment-parser';
 import type { StoryNodeDocument } from '../../src/data-services/contracts/story-node';
+import type { StoryNodePlayer } from '../../src/arona-clicker/services/story/story-node-player';
+import type { StoryNodeCommandResult } from '../../src/arona-clicker/contracts/runtime/story-node-playback';
 import type { StoryNodePlaybackView } from '../../src/arona-clicker/contracts/runtime/story-node-playback';
 
 let game: GameInstance;
@@ -25,8 +27,15 @@ function setup(): GameInstance {
 }
 const docs = (...documents: StoryNodeDocument[]) => new Map(documents.map(document => [document.id, document]));
 function token(view: StoryNodePlaybackView): string {
-  if (view.status !== 'delivery' && view.status !== 'input') throw new Error(`No token in ${view.status}`);
+  if (!('token' in view)) throw new Error(`No token in ${view.status}`);
   return view.token;
+}
+function settleResults(player: StoryNodePlayer, result: StoryNodeCommandResult): StoryNodeCommandResult {
+  for (let budget = 0; budget < 512; budget++) {
+    if (result.view.status !== 'operation' && result.view.status !== 'result') return result;
+    result = player.ackDelivery(result.view.token);
+  }
+  throw new Error('Unbounded presentation results');
 }
 const source = { entryId: 'demo:activestory:source', owner: null };
 
@@ -43,7 +52,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
       { id: 'title', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '第一章' } } },
     ] };
     const player = createStoryNodePlayback(g, docs(document));
-    expect(player.start(document.id, source)).toMatchObject({ ok: true, view: { status: 'completed' } });
+    expect(settleResults(player, player.start(document.id, source))).toMatchObject({ ok: true, view: { status: 'completed' } });
     expect(events).toEqual([
       { type: 'chatTextShown', id: 'hint', x: 0.2, y: 0.7, text: '提示', owner: null, runId: undefined },
       { type: 'chatTextCleared', id: 'hint', owner: null, runId: undefined },
@@ -60,7 +69,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
       { id: 'prompt', type: 'talklet', stageId: 'choose', content: { kind: 'talk', text: '去哪里？' } },
       { id: 'route', type: 'click', stageId: 'choose', interaction: { kind: 'choice',
         sharedActions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'demo:resource:credit', amount: 2 }] }],
-        options: [{ id: 'insert', text: '插播', reply: { kind: 'talk', text: '先听说明。' }, result: { actions: [{ kind: 'state', effects: [
+        options: [{ id: 'insert', text: '插播', result: { actions: [{ kind: 'state', effects: [
           { op: 'addResource', resourceId: 'demo:resource:credit', amount: 1 },
           { op: 'setFlag', flagId: 'batch-read', value: readCredit },
         ] }], transfer: { mode: 'insert', storyId: 'demo:story:child' } } }],
@@ -77,15 +86,19 @@ describe('new Story node vertical playback with actual GameInstance services', (
     expect(started.view.status).toBe('delivery');
     expect(g.state.resources['demo:resource:credit']).toBe(10);
     const input = player.ackDelivery(token(started.view));
-    const selected = player.submit(token(input.view), 'insert');
+    const submitted = player.submit(token(input.view), 'insert');
+    expect(submitted.view.status).toBe('result');
+    const selected = settleResults(player, submitted);
     expect(g.state.resources['demo:resource:credit']).toBe(13);
     expect(g.state.flags['batch-read']).toBe('12'); // 分支批次统一在自身写入前求值。
-    expect(selected.events.map(event => event.type)).toEqual(['reply', 'view']);
+    expect(selected.events.map(event => event.type)).toEqual(['view']);
     expect(selected.view).toMatchObject({ status: 'delivery', storyId: child.id });
     const returned = player.ackDelivery(token(selected.view));
     expect(g.state.currentAreaId).toBe('demo:area:c'); // c不与a相邻，剧情旅行明确跳拓扑。
-    expect(events).toContain('storyAreaTraveled');
-    const ended = player.ackDelivery(token(returned.view));
+    expect(returned.view).toMatchObject({ status: 'operation', data: { receipts: [expect.objectContaining({ op: 'travel', status: 'changed' })] } });
+    expect(events).not.toContain('storyAreaTraveled');
+    const body = settleResults(player, returned);
+    const ended = player.ackDelivery(token(body.view));
     expect(ended.view).toMatchObject({ status: 'completed', completion: { ...source, rootStoryId: root.id, terminalStoryId: root.id } });
     expect(g.state.storyLog).toEqual([]);
     expect(events).not.toContain('storyCompleted');
@@ -123,7 +136,7 @@ describe('new Story node vertical playback with actual GameInstance services', (
     ] });
     const other = document('guest');
     const player = createStoryNodePlayback(g, docs(other));
-    expect(player.start(other.id, source).view.status).toBe('delivery');
+    expect(settleResults(player, player.start(other.id, source)).view.status).toBe('delivery');
     expect(g.story.getCurrentStoryId('guest')).toBe('demo:activestory:target');
     expect(g.story.getCurrentStoryId()).toBe(null);
     const same = document(null);
@@ -148,7 +161,8 @@ describe('new Story node vertical playback with actual GameInstance services', (
     expect(g.story.getCurrentStoryId('guest')).toBe('demo:activestory:target');
     g.storyService.clearCurrentStory('guest');
     const unlocked = document(true);
-    expect(createStoryNodePlayback(g, docs(unlocked)).start(unlocked.id, source).view.status).toBe('completed');
+    const unlockedPlayer = createStoryNodePlayback(g, docs(unlocked));
+    expect(settleResults(unlockedPlayer, unlockedPlayer.start(unlocked.id, source)).view.status).toBe('completed');
     expect(g.story.getCurrentStoryId('guest')).toBe('demo:passivestory:blocked');
     expect(g.state.flags.locked).toBe('1');
   });

@@ -62,7 +62,7 @@ describe('Story node structure', () => {
     expect(result).toEqual({ ok: true, issues: [] });
   });
 
-  it('requires own stage declarations and reports unused declarations', () => {
+  it('requires own declarations but allows unused compatibility metadata', () => {
     const stages = Object.assign(
       Object.create({ inherited: { advance: 'auto' } }),
       { orphan: { advance: 'auto' } },
@@ -70,30 +70,25 @@ describe('Story node structure', () => {
     const document = documentOf([talk('line', 'inherited')], stages);
     const result = validateStoryNodeStructure(document);
     expect(result.issues).toContainEqual(expect.objectContaining({ path: 'nodes[0].stageId', code: 'missing-stage' }));
-    expect(result.issues).toContainEqual(expect.objectContaining({ path: 'stages.orphan', code: 'unused-stage' }));
+    expect(result.issues.some(issue => issue.path === 'stages.orphan')).toBe(false);
   });
 
   it.each([
     ['Operation', operation('op')],
     ['Transfer', transfer('jump')],
-  ] as const)('treats %s as a stage boundary', (_label, boundary) => {
+  ] as const)('allows %s between nodes using the same compatibility stage', (_label, boundary) => {
     const result = validateStoryNodeStructure(documentOf([
       talk('before', 'same'), boundary, talk('after', 'same'),
     ], { same: { advance: 'auto' } }));
-    expect(result.issues).toContainEqual(expect.objectContaining({ path: 'nodes[2].stageId', code: 'non-contiguous-stage' }));
+    expect(result.ok).toBe(true);
   });
 
-  it('checks auto and input stage membership and order', () => {
-    const autoWithClick = expectIssue(documentOf([button('click', 'auto')], { auto: { advance: 'auto' } }),
-      'nodes[0].stageId', 'stage-shape');
-    expect(autoWithClick.issues).toContainEqual(expect.objectContaining({ path: 'stages.auto.advance', code: 'stage-shape' }));
-
-    expectIssue(documentOf([talk('only-line', 'input')], { input: { advance: 'input' } }),
-      'stages.input.advance', 'stage-shape');
-    expectIssue(documentOf([talk('line', 'input'), button('confirm', 'input'), talk('too-late', 'input')],
-      { input: { advance: 'input' } }), 'nodes[1].stageId', 'stage-shape');
-    expectIssue(documentOf([button('first', 'input'), button('second', 'input')],
-      { input: { advance: 'input' } }), 'nodes[1].stageId', 'stage-shape');
+  it('keeps node order independent of compatibility advance metadata', () => {
+    for (const nodes of [[button('click', 'stage')], [talk('only-line', 'stage')],
+      [talk('line', 'stage'), button('confirm', 'stage'), talk('after', 'stage')],
+      [button('first', 'stage'), button('second', 'stage')]]) {
+      for (const advance of ['auto', 'input'] as const) expect(validateStoryNodeStructure(documentOf(nodes, { stage: { advance } })).ok).toBe(true);
+    }
   });
 
   it('rejects invalid and duplicate node IDs, and only duplicate option IDs within one choice', () => {

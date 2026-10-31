@@ -21,4 +21,4 @@ Map 必须已加载，且当前没有进行中的 MapRun。关卡可从 Gameplay
 
 ## 规则边界
 
-`damageProtection` 只拦截 AG-1 Program `damage` 对存活目标造成的正请求。保护发生在 outgoing CardRef Modifier 之后、`damageReduction` 与 Shield 之前；它不处理 `burn`、`hpChange`、heal、revive 或 E1/legacy 路径。历史合同见 [[ai/archive/plan/task-0320-gameplay-b-ag1-e2-e5-unified-closure-units/U27-e4-one-time-damage-protection-contract]]；当前行为应以源码和测试核实。
+`damageProtection` 只拦截 AG-1 Program `damage` 对存活目标造成的正请求。保护发生在 outgoing CardRef Modifier 之后、`damageReduction` 与 Shield 之前；它不处理 `burn`、`hpChange`、heal、revive 或 E1/legacy 路径。历史合同见 Task 0320（原归档已删除）；当前行为应以源码和测试核实。

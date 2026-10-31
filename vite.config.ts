@@ -30,6 +30,18 @@ function mpaRoutes(): Plugin {
     configurePreviewServer(server) {
       server.middlewares.use(redirect);
     },
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, context) {
+        if (!context.server || context.path !== '/src/ui/index.html') return;
+        // Discover the tiny boot dependencies before other tabs' module requests fill the queue.
+        return ['startup-phase', 'startup-content'].map(name => ({
+          tag: 'link',
+          attrs: { rel: 'modulepreload', href: `/src/ui/startup/${name}.ts`, fetchpriority: 'high' },
+          injectTo: 'head-prepend' as const,
+        }));
+      },
+    },
   };
 }
 

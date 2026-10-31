@@ -53,7 +53,8 @@ describe('content column composition', () => {
     expect(sendA).toHaveBeenCalledTimes(1);
   });
 
-  it('routes native Story commands to the clicked owner even when the controller selects a different stream', () => {
+  it('routes native idle starts to the clicked owner even when the controller selects a different stream', () => {
+    game.story.clearAllCurrentStories();
     const ctx = createUIContext(game);
     const command = vi.spyOn(ctrl.commands, 'clickSend').mockReturnValue({ type: 'idle', started: false });
     vi.spyOn(ctrl, 'refreshChatPanel').mockImplementation(() => {});
@@ -64,9 +65,9 @@ describe('content column composition', () => {
     bindStoryActions(ctrl, root);
     ctrl.panelState.conversationVariantId = 'unrelated';
     root.querySelector<HTMLButtonElement>('[data-column-key="b"] [data-send]')!.click();
-    expect(command).toHaveBeenLastCalledWith('Hoshino', undefined);
+    expect(command).toHaveBeenLastCalledWith('Hoshino');
     root.querySelector<HTMLButtonElement>('[data-column-key="a"] [data-send]')!.click();
-    expect(command).toHaveBeenLastCalledWith(undefined, undefined);
+    expect(command).toHaveBeenLastCalledWith(undefined);
     expect(ctrl.panelState.conversationVariantId).toBe('unrelated');
   });
 

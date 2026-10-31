@@ -44,7 +44,7 @@ export function resetRuntime(ctx: ResetContext): void {
   ctx.eventBus.clearQueue();
   ctx.initService.unmountInitTriggers();
   ctx.affectorEngine.disposeRuntime();
-  ctx.storyService.clearAllCurrentStories();
+  ctx.storyService.resetPlayback();
   const state = ctx.createDefaultState();
   ctx.setState(state);
   ctx.sessionService.touchLastTick();
@@ -57,7 +57,7 @@ export function resetRuntime(ctx: ResetContext): void {
   // 重置后默认状态无物品/强化/Spot：运行时已在换状态前显式清理
   ctx.affectorEngine.reconcileMounts();
   ctx.visibilityEngine.reset();
-  ctx.storyService.clearAllCurrentStories();
+  ctx.storyService.resetPlayback();
   ctx.devLog.clear();
   ctx.devLog.record('运行时状态已重置', { source: 'runtime', level: 'warning' });
 }

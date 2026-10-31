@@ -10,12 +10,10 @@
         position: fixed;
         z-index: 2147483647;
         inset: 0;
-        display: grid;
-        align-content: center;
-        justify-items: start;
-        gap: 0.9rem;
+        display: flex;
+        align-items: center;
         padding: 2rem clamp(1.5rem, 8vw, 8rem);
-        overflow: hidden;
+        overflow: auto;
         color: #eef6ff;
         background: radial-gradient(ellipse at 78% 42%, #18314a 0, #0d1b2a 34%, #0b1420 72%);
         font-family: "Segoe UI", system-ui, sans-serif;
@@ -40,6 +38,22 @@
         font-weight: 600;
         letter-spacing: -0.045em;
       }
+      .startup-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(20rem, 1fr); align-items: center; gap: clamp(2rem, 6vw, 6rem); width: min(76rem, 100%); margin: auto 0; }
+      .startup-current { min-width: 0; display: grid; gap: 0.9rem; }
+      .startup-detail-label { margin: 0.8rem 0 0; color: #77bce9; font-size: 0.78rem; }
+      #startup-detail { min-height: 5rem; max-height: 15rem; overflow: auto; margin: 0; color: #c4d7e7; white-space: pre-line; overflow-wrap: anywhere; font-size: 0.84rem; line-height: 1.8; }
+      .startup-flow { min-width: 0; border-left: 1px solid #30465a; padding-left: 1.6rem; }
+      .startup-flow h2 { margin: 0 0 1rem; font-size: 0.95rem; font-weight: 500; }
+      #startup-steps { margin: 0; padding-left: 1.4rem; }
+      #startup-steps li { padding: 0.55rem 0 0.55rem 0.5rem; color: #91a8bd; font-size: 0.85rem; }
+      #startup-steps li::marker { color: #7891a6; font: 0.72rem ui-monospace, Consolas, monospace; }
+      .startup-step-status { display: block; margin-top: 0.22rem; font-size: 0.73rem; color: #7891a6; font-variant-numeric: tabular-nums; }
+      #startup-steps [data-state="loading"] { color: #eef6ff; }
+      #startup-steps [data-state="loading"]::marker, #startup-steps [data-state="loading"] .startup-step-status { color: #77bce9; }
+      #startup-steps [data-state="complete"] .startup-step-status { color: #8acbb4; }
+      #startup-steps [data-state="warning"] .startup-step-status { color: #e8c982; }
+      #startup-steps [data-state="error"] .startup-step-status { color: #ffc0b8; }
+      #startup-stage-count { margin: 0.9rem 0 0; font-size: 0.75rem; color: #a9bed1; }
       #startup-status {
         display: flex;
         align-items: center;
@@ -48,6 +62,17 @@
         color: #a9bed1;
         font-size: 0.9rem;
       }
+      #startup-elapsed, #startup-slow { margin: 0; color: #7891a6; font-size: 0.78rem; }
+      #startup-slow { color: #d5b879; }
+      #startup-warning { max-width: min(38rem, 78vw); margin: 0.4rem 0 0; color: #e8c982; font-size: 0.82rem; }
+      #startup-progress { width: 100%; height: 3px; margin-top: 0.35rem; accent-color: #48b8ff; }
+      #startup-diagnostics-panel { max-width: min(38rem, 78vw); margin-top: 1rem; color: #ffc0b8; }
+      #startup-diagnostics-panel summary { cursor: pointer; }
+      #startup-diagnostics { max-height: 12rem; overflow: auto; padding: 0.8rem; color: #d9e6f0; background: #101e2b; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.72rem/1.5 ui-monospace, Consolas, monospace; }
+      .startup-actions { display: flex; gap: 0.65rem; margin-top: 0.75rem; }
+      .startup-actions button { border: 1px solid #55718a; border-radius: 0.35rem; padding: 0.45rem 0.75rem; color: #eef6ff; background: #142638; cursor: pointer; }
+      .startup-actions button:hover { background: #1d3850; }
+      .startup-actions button:focus-visible, #startup-diagnostics-panel summary:focus-visible { outline: 2px solid #77bce9; outline-offset: 3px; }
       #startup-status::before {
         width: 0.45rem;
         height: 0.45rem;
@@ -62,27 +87,261 @@
       @keyframes startup-pulse { 50% { opacity: 0.35; } }
       @media (prefers-reduced-motion: reduce) { #startup-status::before { animation: none; } }
     </style>
-    <script>
-      window.addEventListener('error', event => {
-        if (!(event.target instanceof HTMLScriptElement) || event.target.type !== 'module') return;
-        const shell = document.querySelector('#startup-shell');
-        const status = document.querySelector('#startup-status');
-        if (shell) shell.dataset.state = 'error';
-        if (status) {
-          status.setAttribute('aria-busy', 'false');
-          status.textContent = '游戏入口无法启动，请刷新页面重试。';
-        }
-      }, true);
-    </script>
   </head>
   <body>
     <section id="startup-shell" data-state="loading" aria-label="AronaClicker 启动">
+      <div class="startup-layout">
+      <div class="startup-current">
       <p class="startup-mark">Arona Clicker / Local System</p>
       <h1>Schale Console</h1>
       <p id="startup-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">正在启动游戏…</p>
+      <p id="startup-elapsed" aria-live="off">已等待 0 秒</p>
+      <p class="startup-detail-label" id="startup-detail-label">当前载入内容</p>
+      <p id="startup-detail" aria-labelledby="startup-detail-label">等待游戏入口，随后装载游戏内容、数据服务与界面样式。</p>
+      <p id="startup-slow" role="status" aria-live="polite" hidden>仍在处理当前步骤，请稍候。</p>
+      <p id="startup-warning" role="status" aria-live="polite" hidden></p>
+      <section id="startup-diagnostics-panel" aria-label="启动诊断信息" hidden>
+        <details>
+          <summary>查看诊断信息</summary>
+          <pre id="startup-diagnostics"></pre>
+        </details>
+        <div class="startup-actions">
+          <button id="startup-retry" type="button">刷新重试</button>
+          <button id="startup-copy" type="button">复制诊断信息</button>
+        </div>
+      </section>
+      </div>
+      <aside class="startup-flow" aria-labelledby="startup-flow-title">
+        <h2 id="startup-flow-title">载入流程</h2>
+        <ol id="startup-steps">
+          <li data-startup-phase="modules" data-state="pending">装载游戏模块与样式<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="runtime" data-state="pending">创建游戏运行环境<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="pack-library" data-state="pending">恢复本机数据包与启用选择<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="development-packs" data-state="pending">读取与解析开发数据包<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="development-reconcile" data-state="pending">登记开发数据包<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="content-apply" data-state="pending">校验并应用启用内容<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="ui-module" data-state="pending">装载界面模块<span class="startup-step-status">等待处理</span></li>
+          <li data-startup-phase="ui-mount" data-state="pending">挂载大厅与操作界面<span class="startup-step-status">等待处理</span></li>
+        </ol>
+        <p id="startup-stage-count">已处理 0 / 8 步</p>
+        <progress id="startup-progress" max="8" value="0" aria-label="已处理的启动步骤数"></progress>
+      </aside>
+      </div>
     </section>
     <div id="ui-background-layer" class="console-background" aria-hidden="true"></div>
     <div id="app"></div>
+    <script>
+      const shell = document.querySelector('#startup-shell');
+      const status = document.querySelector('#startup-status');
+      const elapsed = document.querySelector('#startup-elapsed');
+      const detail = document.querySelector('#startup-detail');
+      const slow = document.querySelector('#startup-slow');
+      const steps = [...document.querySelectorAll('[data-startup-phase]')];
+      const progress = document.querySelector('#startup-progress');
+      const stageCount = document.querySelector('#startup-stage-count');
+      const startedAt = performance.now();
+      // Inline so entry-module loading is measurable even before main.ts can execute.
+      const logKey = 'acprogram_startup_logs';
+      const logStartedAt = new Date(performance.timeOrigin ?? (Date.now() - startedAt)).toISOString();
+      const phases = [
+        { id: 'document', label: '导航至启动壳建立', startMs: 0, endMs: startedAt, state: 'complete' },
+        { id: 'entry', label: '入口模块前序加载', startMs: startedAt, state: 'running' },
+      ];
+      const tasks = [];
+      const warnings = [];
+      let activeTiming = phases[1];
+      let logEndedAt;
+      let logState = 'running';
+      let storageError;
+      let previousLogs = [];
+      const errorText = error => error instanceof Error ? error.stack || error.message : String(error);
+      const round = value => Math.round(value * 10) / 10;
+      performance.setResourceTimingBufferSize?.(1500);
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(logKey) || '[]');
+        if (Array.isArray(saved)) previousLogs = saved.filter(log => log && Array.isArray(log.phases) && typeof log.totalMs === 'number').slice(0, 2);
+      } catch (error) { storageError = errorText(error); }
+      function snapshot(includeResources = true) {
+        const now = logEndedAt ?? performance.now();
+        const percent = duration => now > 0 ? round(duration / now * 100) : 0;
+        const timing = record => {
+          const duration = (record.endMs ?? now) - record.startMs;
+          return { ...record, durationMs: round(duration), percent: percent(duration) };
+        };
+        const other = Math.max(0, now - phases.reduce((sum, record) => sum + (record.endMs ?? now) - record.startMs, 0));
+        const navigation = performance.getEntriesByType?.('navigation')[0];
+        const resources = includeResources ? (performance.getEntriesByType?.('resource') ?? [])
+          .filter(entry => entry.startTime <= now && new URL(entry.name).origin === window.location.origin)
+          .map(entry => ({
+            path: new URL(entry.name).pathname, startMs: round(entry.startTime), totalMs: round(entry.duration),
+            preRequestMs: round(Math.max(0, entry.requestStart - entry.startTime)),
+            dnsMs: round(entry.domainLookupEnd - entry.domainLookupStart),
+            connectMs: round(entry.connectEnd - entry.connectStart),
+            responseWaitMs: round(Math.max(0, entry.responseStart - entry.requestStart)),
+            downloadMs: round(Math.max(0, entry.responseEnd - entry.responseStart)),
+            workerStartMs: round(entry.workerStart), protocol: entry.nextHopProtocol, transferBytes: entry.transferSize,
+          })).sort((left, right) => right.totalMs - left.totalMs).slice(0, 12) : undefined;
+        return {
+          startedAt: logStartedAt, path: window.location.pathname, state: logState,
+          totalMs: round(now), otherMs: round(other), otherPercent: percent(other),
+          visibility: document.visibilityState, storageError,
+          navigation: navigation && { type: navigation.type, responseStartMs: round(navigation.responseStart), responseEndMs: round(navigation.responseEnd) },
+          phases: phases.map(record => ({ ...timing(record),
+            ...(record.paintExpected ? {
+              beforeWorkMs: round((record.workStartedMs ?? record.endMs ?? now) - record.startMs),
+              workMs: record.workStartedMs === undefined ? 0 : round((record.endMs ?? now) - record.workStartedMs),
+            } : {}),
+            ...(record.state === 'running' ? { waitingFor: record.id === 'entry' ? '入口模块' : record.workStartedMs === undefined ? '绘制机会' : '阶段工作' } : {}),
+          })),
+          tasks: tasks.map(timing), warnings: [...warnings],
+          ...(resources ? { resources } : {}),
+        };
+      }
+      function persistLog(includeResources = false) {
+        try { window.localStorage.setItem(logKey, JSON.stringify([snapshot(includeResources), ...previousLogs])); }
+        catch (error) { storageError = errorText(error); }
+      }
+      function endTiming(state) {
+        if (activeTiming.endMs !== undefined) return;
+        activeTiming.endMs = performance.now();
+        activeTiming.state = state;
+      }
+      function finishLog(state) {
+        if (logEndedAt !== undefined) return;
+        endTiming(state);
+        logEndedAt = performance.now();
+        logState = state;
+        persistLog(true);
+      }
+      window.__startupLog = {
+        report(previous = 0) { return previous === 0 ? snapshot() : previousLogs[previous - 1]; },
+        print(previous = 0) {
+          const report = this.report(previous);
+          if (!report) { console.info('[StartupLog] 没有对应的启动记录。'); return; }
+          console.info(`[StartupLog] ${report.state} · ${report.totalMs} ms`, report);
+          console.table(report.phases.map(record => ({ 阶段: record.label, 状态: record.state, 毫秒: record.durationMs, 占比: `${record.percent}%`, 绘制等待毫秒: record.beforeWorkMs, 工作毫秒: record.workMs, 正在等待: record.waitingFor })));
+          console.info(`其他间隙：${report.otherMs} ms（${report.otherPercent}%）。并行模块耗时互相重叠，不能与阶段占比相加。`);
+          if (report.tasks.length) console.table(report.tasks);
+          if (report.resources?.length) console.table(report.resources);
+          return report;
+        },
+        taskBegin(label) {
+          if (logEndedAt === undefined) tasks.push({ id: label, label, state: 'running', startMs: performance.now() });
+        },
+        taskEnd(label, error) {
+          if (logEndedAt !== undefined) return;
+          const task = tasks.find(record => record.id === label && record.endMs === undefined);
+          if (task) Object.assign(task, { endMs: performance.now(), state: error === undefined ? 'complete' : 'error', ...(error === undefined ? {} : { error: errorText(error) }) });
+        },
+      };
+      persistLog();
+      window.addEventListener('pagehide', () => finishLog('interrupted'));
+      let stageStartedAt = startedAt;
+      let stageLabel = '正在启动游戏';
+      let activeId = 'modules';
+      const diagnosticLines = [];
+      const stepFor = id => steps.find(step => step.dataset.startupPhase === id);
+      function updateStep(id, state, text) {
+        const step = stepFor(id);
+        if (!step) return;
+        step.dataset.state = state;
+        step.querySelector('.startup-step-status').textContent = text;
+        if (state === 'loading') step.setAttribute('aria-current', 'step');
+        else step.removeAttribute('aria-current');
+        const done = steps.filter(item => ['complete', 'warning'].includes(item.dataset.state)).length;
+        progress.value = done;
+        stageCount.textContent = `已处理 ${done} / ${steps.length} 步`;
+      }
+      function showDiagnostics() {
+        document.querySelector('#startup-diagnostics-panel').hidden = false;
+        document.querySelector('#startup-diagnostics').textContent = diagnosticLines.join('\n\n');
+      }
+      function updateElapsed() {
+        elapsed.textContent = `已等待 ${Math.floor((performance.now() - startedAt) / 1000)} 秒`;
+        const stageSeconds = Math.floor((performance.now() - stageStartedAt) / 1000);
+        slow.hidden = shell.dataset.state !== 'loading' || stageSeconds < 3;
+        if (!slow.hidden) slow.textContent = `当前步骤已处理 ${stageSeconds} 秒，仍在处理以上内容。`;
+      }
+      const timer = window.setInterval(updateElapsed, 250);
+      window.__startupShell = {
+        begin(id, label, content = '') {
+          if (logEndedAt === undefined) {
+            endTiming('complete');
+            activeTiming = { id, label, startMs: performance.now(), state: 'running', paintExpected: true, visibility: document.visibilityState, detail: content.slice(0, 2000) };
+            phases.push(activeTiming);
+            persistLog();
+          }
+          activeId = id;
+          stageStartedAt = performance.now();
+          stageLabel = label;
+          shell.dataset.state = 'loading';
+          status.textContent = label;
+          status.setAttribute('aria-busy', 'true');
+          detail.textContent = content;
+          slow.hidden = true;
+          updateStep(id, 'loading', '正在处理');
+          performance.mark(`startup:${id}:start`);
+        },
+        update(label, content) {
+          if (shell.dataset.state !== 'loading') return;
+          status.textContent = label;
+          if (content !== undefined) detail.textContent = content;
+          if (logEndedAt === undefined && content !== undefined) activeTiming.detail = content.slice(0, 2000);
+        },
+        work(id) {
+          if (logEndedAt === undefined && activeTiming.id === id) { activeTiming.workStartedMs = performance.now(); persistLog(); }
+        },
+        complete(id) {
+          if (shell.dataset.state !== 'loading') return;
+          if (logEndedAt === undefined && activeTiming.id === id) { endTiming('complete'); persistLog(); }
+          performance.mark(`startup:${id}:end`);
+          performance.measure(`startup:${id}`, `startup:${id}:start`, `startup:${id}:end`);
+          const warned = stepFor(id)?.dataset.state === 'warning';
+          updateStep(id, warned ? 'warning' : 'complete', `${warned ? '有提醒' : '已完成'} · ${((performance.now() - stageStartedAt) / 1000).toFixed(1)} 秒`);
+        },
+        warn(message, content) {
+          if (logEndedAt === undefined) { warnings.push(`${message}${content ? `\n${content}` : ''}`.slice(0, 2000)); endTiming('warning'); persistLog(); }
+          diagnosticLines.push(`警告：${message}${content ? `\n${content}` : ''}`);
+          const warning = document.querySelector('#startup-warning');
+          warning.hidden = false;
+          warning.textContent = message;
+          updateStep(activeId, 'warning', '有提醒，继续启动');
+          showDiagnostics();
+        },
+        fail(phase, error) {
+          if (!shell.isConnected) return;
+          window.clearInterval(timer);
+          shell.dataset.state = 'error';
+          status.textContent = `${phase.replace(/^正在/, '').replace(/[.…]+$/, '')}失败，请查看诊断信息。`;
+          status.setAttribute('aria-busy', 'false');
+          updateElapsed();
+          updateStep(activeId, 'error', '失败');
+          const errorDetail = error instanceof Error ? error.stack || error.message : String(error);
+          if (logEndedAt === undefined) { activeTiming.error = errorDetail; finishLog('error'); }
+          diagnosticLines.push(`阶段：${phase}\n当前内容：${detail.textContent}\n错误：${errorDetail}`);
+          showDiagnostics();
+        },
+        finish() { window.clearInterval(timer); finishLog('complete'); },
+      };
+      window.addEventListener('error', event => {
+        if (event.target instanceof HTMLScriptElement && event.target.type === 'module') {
+          window.__startupShell.fail('加载游戏入口', `${event.message || '主模块或其依赖加载失败'}\n${event.target.src}`);
+        } else if (event instanceof ErrorEvent && shell.dataset.state === 'loading') {
+          window.__startupShell.fail(stageLabel, event.error || `${event.message}\n${event.filename}:${event.lineno}`);
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', event => {
+        if (shell.isConnected && shell.dataset.state === 'loading') window.__startupShell.fail(stageLabel, event.reason);
+      });
+      document.querySelector('#startup-retry').addEventListener('click', () => window.location.reload());
+      document.querySelector('#startup-copy').addEventListener('click', async () => {
+        const button = document.querySelector('#startup-copy');
+        try {
+          await navigator.clipboard.writeText(`${diagnosticLines.join('\n\n')}\n\n${JSON.stringify(window.__startupLog.report(), null, 2)}`);
+          button.textContent = '已复制';
+        } catch { button.textContent = '复制失败'; }
+      });
+    </script>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

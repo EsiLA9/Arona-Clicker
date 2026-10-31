@@ -4,7 +4,6 @@
 
 import type { StoryId, ItemId, SpotId, AreaId, EnhancementId } from '../../../engine/types/ids';
 import type { Talklet } from '../../../data-services/contracts/story';
-import type { StoryContent } from '../../../data-services/contracts/story-node';
 import type { CompletedStory } from '../../types/story-state';
 
 export type UseItemResult =
@@ -65,8 +64,12 @@ export interface StoryView {
   historyId?: string;
   /** One checkpoint counter per run; the same node may be legitimately delivered more than once. */
   waitSequence?: number;
-  /** The next authored node is a Click input; read-only cue for the default short typing pause. */
+  /** The next authored node is an enabled Click; the delivered Talklet auto-acknowledges into it. */
   nextIsInput?: boolean;
+  /** Human-readable, player-facing effects of the current Operation, in authored order. */
+  operationEffects?: readonly string[];
+  /** The action has committed; Runtime automatically releases its presentation barrier. */
+  operationCheckpoint?: true;
 }
 
 /** Read-only AreaHero offer derived from the current Init's pending delivery records. */
@@ -78,6 +81,9 @@ export interface AreaStoryDeliveryView {
 }
 
 export type StoryError =
+  | 'Busy'
+  | 'StartDeferred'
+  | 'PresentationPending'
   | 'NotFound'
   | 'AreaDeliveryUnavailable'
   | 'AlreadyActive'
@@ -108,8 +114,8 @@ export type StoryStartResult =
   | { success: false; storyId?: StoryId; error: StoryError; detail?: string };
 
 export type StoryAdvanceResult =
-  | { success: true; finished: false; story: StoryView; reply?: StoryContent }
-  | { success: true; finished: true; storyId: StoryId; completed: CompletedStory; reply?: StoryContent }
+  | { success: true; finished: false; story: StoryView }
+  | { success: true; finished: true; storyId: StoryId; completed: CompletedStory }
   | {
       success: false;
       storyId?: StoryId;
@@ -133,6 +139,8 @@ export type SendState =
       text: string;
       /** Current delivery/input ticket; every formal StoryService projection supplies it. */
       token?: string;
+      /** Automatic operation presentation; the UI displays a disabled progress affordance. */
+      checkpoint?: 'operation';
       /**
        * 当前 button Click 的按击工作量。done 为已完成次数，total 为所需次数；
        * 第 total 次有效输入会立即提交并推进，不需要额外确认。
@@ -165,7 +173,7 @@ export type SendState =
     };
 
 /**
- * 玩家点击一次回复按钮的结果。
+ * 玩家点击一次 Story 输入按钮的结果。
  * - completed：已提交一次 delivery ack 或 Click input；是否成功推进查看 advance.success。
  * - working：button Click 的按击次数尚未满足；最后一次所需输入会立即提交并推进。
  * - choice：当前等待点是 Choice input，按钮发送入口让位给候选项。
@@ -176,12 +184,6 @@ export type SendResult =
       type: 'completed';
       storyId: StoryId | null;
       finished: boolean;
-      /** 本次交互的 UI 发送文案；button 有 reply 时取 reply.text，否则取按钮文案；卡片取配置的按钮文案。 */
-      sentText: string;
-      /**
-       * 是否应把显式 button reply 以「老师」身份回显到聊天流；仅成功提交且声明 reply 时为 true。
-       */
-      echoReply: boolean;
       advance: StoryAdvanceResult;
       /**
        * 保留的显示结果字段。StoryNode 流程不隐式吸收后续节点，正式结果恒为空数组。

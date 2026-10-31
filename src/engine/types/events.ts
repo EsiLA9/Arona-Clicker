@@ -32,6 +32,7 @@ export type GameEvent =
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
   | { type: 'storyAreaTraveled'; areaId: string; owner?: string | null; runId?: string }
   | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string }
+  | { type: 'storyPlaybackChanged'; owner: string | null }
   | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason }
   | { type: 'storyCompleted'; storyId: string }
   | { type: 'storyRewarded'; storyId: string; source: 'first' | 'repeat' | 'conditional'; effects: Effect[]; flags: string[]; owner?: string | null; runId?: string }

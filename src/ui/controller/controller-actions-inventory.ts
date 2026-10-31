@@ -280,20 +280,26 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       if (ctrl.returnFromAreaWorkspace()) ctrl.render();
     });
   });
-  scope.querySelectorAll<HTMLButtonElement>('[data-area-story-accept]').forEach(button => {
+  scope.querySelectorAll<HTMLButtonElement>('[data-area-story-accept], [data-area-story-quick-enter]').forEach(button => {
     button.addEventListener('click', () => {
-      const storyEntryId = button.dataset.areaStoryAccept;
+      const quickEnter = button.hasAttribute('data-area-story-quick-enter');
+      const storyEntryId = quickEnter ? button.dataset.areaStoryQuickEnter : button.dataset.areaStoryAccept;
       const route = ctrl.panelState.workspaceNavigation?.current;
       const currentAreaId = ctrl.game.getView().currentAreaId;
-      if (!storyEntryId || route?.kind !== 'area' || route.areaId !== currentAreaId) return;
-      const delivery = ctrl.game.story.getAreaStoryDeliveries(route.areaId)
+      if (!storyEntryId || !currentAreaId) return;
+      if (quickEnter) {
+        if (ctrl.panelState.service !== 'game' || ctrl.panelState.workspace
+          || (route?.kind ?? 'game') !== 'game'
+          || !getForegroundInteractionStatus(ctrl.game, ctrl.panelState, 'openAreaOverview', { confirmation: ctrl.modal.isOpen() }).allowed) return;
+      } else if (route?.kind !== 'area' || route.areaId !== currentAreaId) return;
+      const delivery = ctrl.game.story.getAreaStoryDeliveries(currentAreaId)
         .find(candidate => candidate.entryId === storyEntryId);
       if (!delivery) {
         ctrl.toast.show('这条区域故事已无法接取，请返回区域列表后重试', 'error');
         return;
       }
 
-      const result = ctrl.commands.acceptAreaStoryDelivery(storyEntryId, route.areaId);
+      const result = ctrl.commands.acceptAreaStoryDelivery(storyEntryId, currentAreaId);
       if (!result.success) {
         ctrl.game.devLog.record(`区域故事接取失败：${storyErrorText[result.error] ?? result.error}`, {
           source: 'story',
@@ -306,8 +312,14 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
 
       ctrl.panelState.conversationVariantId = delivery.owner;
       ctrl.deliverPendingRewardsBeforeStory();
-      if (!ctrl.returnFromAreaWorkspaceForStory(delivery.owner)) return;
-      ctrl.render();
+      if (quickEnter) {
+        ctrl.panelState.centerTab = 'chat';
+        ctrl.panelState.storyGate = null;
+        ctrl.refreshPanels(['left', 'center']);
+      } else {
+        if (!ctrl.returnFromAreaWorkspaceForStory(delivery.owner)) return;
+        ctrl.render();
+      }
       ctrl.scroll.forceToBottom();
     });
   });
@@ -330,13 +342,17 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
       // aria-disabled 行（当前 Area / 锁定 Area）不可移动
       if (button.getAttribute('aria-disabled') === 'true') return;
       const areaId = button.dataset.area!;
+      const owner = ctrl.panelState.conversationVariantId;
+      const before = ctrl.game.story.getPlaybackView(owner);
+      const timestamp = Date.now();
+      const afterStoryOutput = { epoch: before.epoch, sequence: before.entries.at(-1)?.sequence ?? 0 };
       const result = ctrl.commands.travelToArea(areaId);
       if (result.success) {
         const area = ctrl.game.world.areas.get(areaId);
         ctrl.toast.show(`已前往 ${area?.name ?? areaId}`, 'success');
         // 与 Talklet 的 travelToArea（notice=true）一致：在聊天流显示「移动到了 XX」迷你条目。
         // 进 travel 队列：移动触发的剧情与通知在同一次 render，通知必须先于剧情内容入流
-        ctrl.pendingTravelChats.push(`移动到了 ${area?.name ?? areaId}`);
+        ctrl.pendingTravelChats.push({ text: `移动到了 ${area?.name ?? areaId}`, owner, timestamp, afterStoryOutput });
       } else {
         ctrl.toast.show(`无法移动：${travelErrorText[result.error] ?? result.error}`, 'error');
       }

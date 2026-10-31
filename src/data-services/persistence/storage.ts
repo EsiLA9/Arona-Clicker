@@ -1,7 +1,7 @@
 import { LocalStorageAdapter, type StorageAdapter } from './storage-adapter';
+import { GAME_SAVE_VERSION } from '../../engine/contracts/save-version';
 
 const SAVE_KEY = 'acprogram_save';
-const SAVE_VERSION = '2.0.0';
 
 /** LocalStorage 持久化适配器；不参与 Runtime 生命周期和状态编排。 */
 export class SaveSystem {
@@ -23,7 +23,7 @@ export class SaveSystem {
       const json = SaveSystem.storage.get(SAVE_KEY);
       if (!json) return null;
       const data = JSON.parse(json) as { version?: string };
-      if (data.version !== SAVE_VERSION) {
+      if (data.version !== GAME_SAVE_VERSION) {
         console.warn('[SaveSystem] Save version mismatch, ignoring');
         return null;
       }
@@ -50,7 +50,7 @@ export class SaveSystem {
   static import(json: string): boolean {
     try {
       const data = JSON.parse(json) as { version?: string };
-      if (data.version !== SAVE_VERSION) return false;
+      if (data.version !== GAME_SAVE_VERSION) return false;
       SaveSystem.storage.set(SAVE_KEY, json);
       return true;
     } catch { return false; }

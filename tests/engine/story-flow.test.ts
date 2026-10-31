@@ -15,7 +15,7 @@ import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { and } from '../../src/engine/types';
-import { finishWelcome, clickGatePack, clickWorkGatePack, whisperClickPack, gotoClickPack, makePack } from './story-test-fixtures';
+import { finishWelcome, settleStoryPresentation, clickGatePack, clickWorkGatePack, whisperClickPack, gotoClickPack, makePack } from './story-test-fixtures';
 
 function currentStory(game: GameInstance) {
   const view = game.story.getCurrentStoryView();
@@ -24,6 +24,8 @@ function currentStory(game: GameInstance) {
 }
 
 function deliver(game: GameInstance) {
+  settleStoryPresentation(game);
+  if (game.story.getPlaybackView().phase === 'input') return { success: true, finished: false, story: currentStory(game) };
   const view = currentStory(game);
   if (view.phase !== 'delivery') throw new Error(`expected delivery, got ${view.phase}`);
   return game.story.advanceStory(undefined, null, view.token);
@@ -177,13 +179,15 @@ describe('Story 主流程（click 门控推进）', () => {
     // 启动千禧年危机（active entry，availableInits 限 millennium init → 用 replayStory 绕过）
     expect(game.story.replayStory('base:activestory:millennium_game_crisis').success).toBe(true);
 
-    // 依次送达 intro 旁白、桃依正文与按钮；按钮后送达美依正文。
+    // 依次送达 intro 旁白、桃依正文与按钮；按钮后老师的显式 Talklet 和美依正文分别送达。
     expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p1-body', phase: 'delivery' });
     expect(deliver(game)).toMatchObject({ success: true, finished: false });
     expect(currentStory(game)).toMatchObject({ nodeId: 'p2-body', phase: 'delivery', page: { speaker: '桃依' } });
     expect(deliver(game)).toMatchObject({ success: true, finished: false });
     expect(currentStory(game)).toMatchObject({ nodeId: 'p2-button', phase: 'input' });
     expect(click(game).type).toBe('completed');
+    expect(currentStory(game)).toMatchObject({ nodeId: 'p2-button-response', page: { speaker: '老师' }, phase: 'delivery' });
+    expect(deliver(game)).toMatchObject({ success: true, finished: false });
     expect(currentStory(game)).toMatchObject({ nodeId: 'p3-body', page: { speaker: '美依' }, phase: 'delivery' });
     expect(deliver(game)).toMatchObject({ success: true, finished: false });
     expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_whisper', nodeId: 'p1-body', phase: 'delivery', page: { speaker: '美依' } });

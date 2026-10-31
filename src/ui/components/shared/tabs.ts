@@ -22,6 +22,7 @@ export function renderTabs(
   panel: string,
   tabs: TabDef[],
   active: string,
+  ariaLabel?: string,
 ): string {
   const buttons = tabs.map(tab => `
     <button
@@ -35,7 +36,7 @@ export function renderTabs(
       aria-selected="${tab.id === active}"
       aria-pressed="${tab.id === active}"
     >${renderPresentationHostBackground(ctx, `${panel}Panel.tab`, 'presentation-host-background', tab.id === active ? 'active' : 'inactive')}<span class="presentation-host-content">${ctx.escapeHtml(tab.label)}</span></button>`).join('');
-  return `<div class="ui-cluster ui-cluster--${panel}-tabs switch-tabs"><div class="switch-tabs-content" role="tablist">${buttons}</div></div>`;
+  return `<div class="ui-cluster ui-cluster--${panel}-tabs switch-tabs"><div class="switch-tabs-content" role="tablist"${ariaLabel ? ` aria-label="${ctx.escapeHtml(ariaLabel)}"` : ''}>${buttons}</div></div>`;
 }
 
 /**

@@ -8,7 +8,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 //   §2B 就绪队列：达标入队、需求值升序、推送时机、闲聊回落、聊天空间壁垒、readyStepCount
 //   §3  尾巴挂靠：完结即入队、强制优先、triggerTailPush 定向推送、owner 隔离、退出随机抽取
 // ============================================================
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import type { GameEvent } from '../../src/engine/types';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
@@ -16,6 +16,7 @@ import type { CharacterVariantDef } from '../../src/arona-clicker/types/characte
 import { activeStory, passiveStory, story } from '../../src/arona-clicker/content/def-factory';
 import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-clicker/types/ids';
 import { DEFAULT_AFFECTION_EXP_CURVE, affectionLevelCapOf, resolveAffectionConfig } from '../../src/arona-clicker/services/character/affection-system';
+import { finishStory as completeStory } from './story-test-fixtures';
 
 // --- 测试数据 ---
 
@@ -107,14 +108,43 @@ function collectEvents(game: GameInstance): GameEvent[] {
 
 /** 连续推进当前 owner 沙盒的剧情直到结束。 */
 function finishStory(game: GameInstance, owner?: string | null): void {
-  for (let guard = 0; guard < 50; guard++) {
-    const r = game.story.advanceStory(undefined, owner);
-    if (r.success && 'finished' in r && r.finished) return;
-    if (!r.success && r.error === 'ChoiceRequired') {
-      game.story.advanceStory(0, owner);
-      continue;
+  completeStory(game, 0, owner ?? null);
+  expect(game.story.getPlaybackView(owner).phase).toBe('idle');
+}
+
+/** Finish this run's presentation and input, stopping before an automatic successor is read. */
+function finishCurrentRun(game: GameInstance, owner: string | null = null): void {
+  const runId = game.story.getPlaybackView(owner).runId;
+  expect(runId).toBeTruthy();
+  const alreadyFake = vi.isFakeTimers();
+  if (!alreadyFake) {
+    game.story.suspendPlayback();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    game.story.resumePlayback();
+  }
+  try {
+    for (let guard = 0; guard < 1000; guard++) {
+      const playback = game.story.getPlaybackView(owner);
+      if (playback.runId !== runId) return;
+      expect(playback.phase).not.toBe('failed');
+      if (['typing', 'thinking', 'operation', 'banner', 'finishing'].includes(playback.phase)) {
+        expect(vi.getTimerCount()).toBeGreaterThan(0);
+        vi.advanceTimersToNextTimer();
+        continue;
+      }
+      expect(playback.token).toBeTruthy();
+      const result = playback.phase === 'continue'
+        ? game.story.continueStory(owner, playback.token!)
+        : game.story.submitStoryInput(owner, playback.token!, game.story.getCurrentStoryView(owner)?.page.choices?.[0]?.id);
+      expect(result.success).toBe(true);
     }
-    if (!r.success) return;
+    throw new Error('Current Story run exceeded fixture budget');
+  } finally {
+    if (!alreadyFake) {
+      game.story.suspendPlayback();
+      vi.useRealTimers();
+      game.story.resumePlayback();
+    }
   }
 }
 
@@ -346,7 +376,7 @@ describe('§2 轴 B：好感台阶剧情', () => {
 // ============================================================
 
 describe('§3 羁绊尾巴（pushAfterStory）', () => {
-  test('关联剧情完结后尾巴即入队；triggerTailPush 定向推送；播过即出队', () => {
+  test('关联剧情收尾后自动启动尾巴；正在播放与完成后的重复推送均被拒绝', () => {
     const game = new GameInstance();
     game.init([makePack()]);
     game.mutations.acquireCharacter('Hoshino', 'gacha');
@@ -356,15 +386,16 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
 
     // 完结羁绊剧情（startCardStory 语义，skipConditions）
     expect(game.story.startCardStory('test:activestory:kizuna', 'Hoshino').success).toBe(true);
-    finishStory(game, 'Hoshino');
-    expect(game.story.readyStepCount('Hoshino')).toBe(1); // 尾巴入队（台阶未达标）
-
-    // 定向推送尾巴；播过后出队，再推被拒
-    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story').success).toBe(true);
+    finishCurrentRun(game, 'Hoshino');
     expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail');
-    finishStory(game, 'Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(0); // 自动启动的尾巴不计未播放队列。
+
+    expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'AlreadyActive' });
+    finishCurrentRun(game, 'Hoshino');
+    expect(game.story.getPlaybackView('Hoshino').phase).toBe('idle');
     expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
     expect(game.story.readyStepCount('Hoshino')).toBe(0);
+    expect(game.state.storyLog.filter(item => item.storyId === 'test:story:tail')).toHaveLength(1);
   });
 
   test('尾巴强制优先于好感台阶（队列顶先尾巴，其后按需求值）', () => {
@@ -374,12 +405,13 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
     game.mutations.addAffectionExp('Hoshino', 100_000); // 台阶全部达标
     // 完结羁绊剧情 → 尾巴入队，且排在台阶之前
     game.story.startCardStory('test:activestory:kizuna', 'Hoshino');
-    finishStory(game, 'Hoshino');
-    expect(game.story.readyStepCount('Hoshino')).toBe(3); // 尾巴 + 台阶一 + 台阶二
+    finishCurrentRun(game, 'Hoshino');
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail'); // 自动尾巴先于台阶启动。
+    expect(game.story.readyStepCount('Hoshino')).toBe(2); // 两个台阶仍等待；尾巴已在播放。
 
-    expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
-    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail'); // 强制优先
-    finishStory(game, 'Hoshino');
+    expect(game.story.triggerAffectionPush('Hoshino')).toMatchObject({ success: false, error: 'AlreadyActive' });
+    finishCurrentRun(game, 'Hoshino');
+    expect(game.story.readyStepCount('Hoshino')).toBe(2);
     expect(game.story.triggerAffectionPush('Hoshino').success).toBe(true);
     expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:s1'); // 其后按需求值
   });
@@ -390,18 +422,18 @@ describe('§3 羁绊尾巴（pushAfterStory）', () => {
     game.mutations.acquireCharacter('Hoshino', 'gacha');
     game.mutations.acquireCharacter('Serika', 'gacha');
     game.story.startCardStory('test:activestory:kizuna', 'Hoshino');
-    finishStory(game, 'Hoshino'); // 尾巴就绪（Hoshino）
+    finishCurrentRun(game, 'Hoshino'); // 尾巴自动交接到 Hoshino 空间。
 
-    // 点击发送在队列有尾巴时必中尾巴（不走随机）
-    const r = game.story.clickSend('Hoshino');
-    expect(r).toMatchObject({ type: 'idle', started: true });
     expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:tail');
-    finishStory(game, 'Hoshino');
+    expect(game.getStoryView('Serika')).toBeNull();
+    finishCurrentRun(game, 'Hoshino');
 
     // owner 不匹配：Serika 的空间推不到 Hoshino 的尾巴
     expect(game.story.triggerTailPush('Serika', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'NoAvailableStory' });
-    // 游标占用：进行中剧情拒绝推送
-    game.story.clickSend('Hoshino'); // 台阶一（队列优先）
+    // 尾巴已经消费，不参与随机；下一次发送回落该角色普通闲聊。
+    expect(game.story.clickSend('Hoshino')).toMatchObject({ type: 'idle', started: true });
+    expect(game.getStoryView('Hoshino')!.storyDefId).toBe('test:story:chatter');
+    // 游标占用：进行中的闲聊拒绝再次推送尾巴。
     expect(game.story.triggerTailPush('Hoshino', 'test:story:kizuna_story')).toMatchObject({ success: false, error: 'AlreadyActive' });
   });
 });

@@ -671,10 +671,13 @@ export interface MapRunQuery {
 
 /** UI 控制器最终应依赖的运行时命令集合；迁移期由 Runtime 直接实现。 */
 export type StoryDefinitionSaveResult = { ok: true; storyId: string; operation: 'create' | 'replace' } | { ok: false; message: string };
+export type StoryDefinitionRestoreResult = { ok: true; storyId: string; operation: 'restore' | 'remove' } | { ok: false; message: string };
 
 export interface GameCommands {
   /** Prototype authoring: affects the current Registry, without a Pack editing gate. */
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
+  /** Restore the loaded source definition, or remove a Story created only in the current Registry. */
+  restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
   /** Validate the Spot and enter/resume the fixed three-battle translated scenario. */
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
@@ -715,6 +718,9 @@ export interface GameCommands {
   commitMapEncounterRound(command: MapRunEncounterCommitCommand): MapRun;
   advanceStory(choiceIndex?: number | string, owner?: string | null, token?: string): StoryAdvanceResult;
   clickSend(owner?: string | null, token?: string): SendResult;
+  continueStory(owner: string | null, token: string): StoryAdvanceResult;
+  submitStoryInput(owner: string | null, token: string, optionId?: string): StoryAdvanceResult;
+  accelerateStoryPresentation(owner: string | null, token: string): boolean;
   useItem(itemId: string): UseItemResult;
   purchaseEnhancement(enhancementId: string): EnhancementPurchaseResult;
   removeEnhancement(enhancementId: string): boolean;

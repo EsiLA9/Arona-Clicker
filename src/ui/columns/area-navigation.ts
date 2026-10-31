@@ -16,6 +16,16 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
   const areaName = currentPresentation?.name ?? currentArea?.name ?? '—';
   const areaDescription = currentPresentation?.description ?? currentArea?.description ?? init?.description ?? '';
   const interactionBlocked = !getForegroundInteractionStatus(game, panelState, 'openAreaOverview').allowed;
+  const quickStoryRouteAllowed = !panelState.workspace
+    && (!panelState.workspaceNavigation || panelState.workspaceNavigation.current.kind === 'game');
+  const quickStories = currentArea && quickStoryRouteAllowed
+    ? game.story.getAreaStoryDeliveries(currentArea.id).slice(0, 5)
+    : [];
+  const quickStoryButtons = quickStories.length
+    ? `<div class="area-hero-story-list" role="group" aria-label="区域故事快捷入口">${quickStories.map(delivery => `
+        <button type="button" class="area-hero-story-entry" data-area-story-quick-enter="${ctx.escapeHtml(delivery.entryId)}"${interactionBlocked || game.story.isBlockingInteraction(delivery.owner) ? ' disabled' : ''}><span>${ctx.escapeHtml(delivery.title)}</span></button>`).join('')}
+      </div>`
+    : '';
   const mapEntry = currentArea ? game.areaMap?.getEntryView(currentArea.id) : undefined;
   const mapRouteAllowed = allowAreaMapEntry
     ?? (!panelState.workspace && (!panelState.workspaceNavigation || panelState.workspaceNavigation.current.kind === 'game'));
@@ -46,6 +56,7 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
   return `
     ${hero}
     ${mapButton}
+    ${quickStoryButtons}
     <div class="nav-sub">可前往区域</div>
     ${reachableRows || '<div class="nav-item"><span class="nav-marker"></span><span>暂无可达区域</span><small>—</small></div>'}
     <div class="rail-note"><span class="eyebrow">SYSTEM NOTE</span><p>${storyLocked ? '剧情演出中，暂不可移动区域。' : '点击区域即可前往；已探索地点会沿当前有效通路尽量连通。'}</p></div>`;

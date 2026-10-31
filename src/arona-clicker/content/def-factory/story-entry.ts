@@ -47,7 +47,7 @@ export class ActiveStoryBuilder extends StoryEntryBaseBuilder {
 }
 export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   private _repeatable = true; private _weight = 1; private _completionReward?: { first?: Effect[]; repeat?: Effect[] }; private _owner?: string;
-  private _cooldownFrames?: number; private _block?: ConditionGroup; private _interruptible?: boolean; private _leaveArea?: boolean; private _blocksInteraction?: boolean; private _affectionRequired?: number; private _pushAfterStory?: string;
+  private _cooldownFrames?: number; private _block?: ConditionGroup; private _interruptible = true; private _leaveArea?: boolean; private _blocksInteraction?: boolean; private _affectionRequired?: number; private _pushAfterStory?: string;
   repeatable(value = true): this { this._repeatable = value; return this; }
   weight(value: number): this { this._weight = value; return this; }
   rewardFirst(...effects: Effect[]): this { this._completionReward = { ...(this._completionReward ?? {}), first: effects }; return this; }

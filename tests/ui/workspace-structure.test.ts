@@ -24,7 +24,7 @@ const mountedRoots: HTMLElement[] = [];
 
 beforeAll(() => {
   const main = readFileSync(resolve(process.cwd(), 'src/ui/main.ts'), 'utf8');
-  const imports = [...main.matchAll(/import '\.\/css\/([^']+\.css)';/g)].map(match => match[1]);
+  const imports = [...main.matchAll(/import\('\.\/css\/([^']+\.css)'\)/g)].map(match => match[1]);
   const relevant = ['layout.css', 'cards.css', 'workspace-controls.css'];
   const order = relevant.map(file => imports.indexOf(file));
   expect(order.every(index => index >= 0)).toBe(true);

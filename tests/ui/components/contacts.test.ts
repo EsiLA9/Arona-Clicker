@@ -118,7 +118,7 @@ describe('通讯录 UI（U 组）', () => {
     expect(conv).toContain('panel-tabs-region'); // 顶部栏复用统一结构区块（对齐 + 渲染色）
     expect(conv).toContain('data-theme-host-id="centerPanel.tabs"'); // 与聊天/日志顶栏同一宿主
     expect(conv).toContain('data-conversation-back'); // App 式返回键
-    expect(conv).toContain('data-send'); // 底部回复按钮（idle 态）
+    expect(conv).toContain('data-send'); // 底部聊天推进按钮（idle 态）
     const embeddedConv = renderConversationBody(ctx, 'Hoshino', [], [], sendState);
     expect(embeddedConv).toContain('ui-cluster ui-cluster--center-chat panel-body character-workspace__conversation');
     expect(embeddedConv).not.toContain('panel-tabs-region'); // Workspace 外层已提供唯一顶栏
@@ -181,7 +181,7 @@ describe('通讯录 UI（U 组）', () => {
     expect(html).toContain('<svg');
     expect(html).toContain('align-right');
 
-    // 底部回复按钮：kizuna 模式下变灰不可点，提示点击卡片
+    // 底部推进按钮：kizuna 模式下变灰不可点，提示点击卡片
     const kizunaState = {
       mode: 'kizuna' as const,
       storyId: 'test:story',

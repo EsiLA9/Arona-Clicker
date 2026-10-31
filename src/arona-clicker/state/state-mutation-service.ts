@@ -32,6 +32,7 @@ import { EventBus } from '../../engine/core/event-bus';
 import { StatsService } from '../../engine/stats/stats';
 import type { CharacterProgressionPort } from '../contracts/character/character-progression';
 import type { StateMutationPort } from '../../engine/contracts/mutation';
+import type { EffectReceipt, EffectReceiptValue } from '../../engine/contracts/effect-receipt';
 import type { SpotTransactionCommit } from '../contracts/runtime/mutation';
 import type { EffectMutationPort } from '../contracts/runtime/effect-mutation';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
@@ -90,6 +91,7 @@ function clearLegacyGlobalThemeAttachment(state: AronaClickerState): void {
  *   ④ 订阅者按兴趣判断并执行
  */
 export class StateMutationService implements StateMutationPort, EffectMutationPort {
+  private effectReceipt?: { effect: Effect; index: number; before: EffectReceiptValue | undefined; committed: boolean; accept: (receipt: EffectReceipt) => void };
   private state: AronaClickerState | null = null;
   private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
   private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
@@ -257,6 +259,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const newValue = oldValue + delta;
     bucket[resource] = newValue;
     this.statsService?.recordResourceChange(resource, delta);
+    this.commitEffectReceipt('setResource', 'addResource');
     this.emit({
       type: 'resourceChanged',
       resource,
@@ -276,6 +279,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const oldLevel = this.current.spotLevels[spotId] ?? 0;
     this.current.spotLevels[spotId] = level;
     this.statsService?.recordSpotLevel(oldLevel, level);
+    this.commitEffectReceipt('setSpotLevel', 'addSpotLevel');
     this.emit({ type: 'spotLevelChanged', spotId, oldLevel, newLevel: level });
   }
 
@@ -300,6 +304,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   setManager(spotId: string, character: Character): void {
     if (!this.canMutateSpot(spotId)) return;
     this.current.spotManagers[spotId] = character;
+    this.commitEffectReceipt('setManager');
     this.emit({ type: 'managerChanged', spotId, newManager: character });
   }
 
@@ -359,6 +364,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const ps = (stats[variant.proto] ??= { acquiredTotal: 0, cultTotal: 0 });
     ps.acquiredTotal += 1;
 
+    this.commitEffectReceipt('grantCharacter');
     this.emit({ type: 'characterAcquired', variantId, via, duplicate, shards, bonusResources });
     return { duplicate, shards, bonusResources };
   }
@@ -392,6 +398,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     recordVariantProgress(mem, result.entry);
     addLifetime(mem, { affectionGained: delta });
     this.refreshAffectionTotalEver(this.current, variant.proto);
+    this.commitEffectReceipt('addAffectionExp');
     this.emit({
       type: 'characterProgressChanged',
       variantId,
@@ -836,6 +843,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     if (state.unlockedEnhancements.includes(enhancementId)) return false;
     state.unlockedEnhancements.push(enhancementId);
     this.statsService?.recordEnhancementUnlocked();
+    this.commitEffectReceipt('addEnhancement');
     this.emit({ type: 'enhancementAdded', enhancementId });
     return true;
   }
@@ -857,6 +865,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const actualCount = next - previous;
     state.inventory[itemId] = next;
     this.statsService?.recordItemChange(itemId, actualCount);
+    this.commitEffectReceipt('addItem');
     this.emit({
       type: 'itemCollected',
       itemId,
@@ -1009,12 +1018,14 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     if (state.unlockedInits.includes(initId)) return false;
     state.unlockedInits.push(initId);
     this.statsService?.recordInitUnlocked();
+    this.commitEffectReceipt('unlockInit');
     this.emit({ type: 'initUnlocked', initId });
     return true;
   }
 
   setFlag(flag: string, value: string): void {
     this.current.flags[flag] = value;
+    this.commitEffectReceipt('setFlag');
     this.emit({ type: 'flagChanged', flag, value });
   }
 
@@ -1025,12 +1036,13 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     return true;
   }
 
-  completeStory(story: CompletedStory, sourceEntryId?: string): void {
+  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void): void {
     this.current.storyLog.push(story);
     if (sourceEntryId) {
       const delivery = this.current.areaStoryDeliveries?.find(candidate => candidate.entryId === sourceEntryId);
       if (delivery?.status === 'pending') delivery.status = 'completed';
     }
+    onCommitted?.();
     this.statsService?.recordStoryCompleted(story.storyId);
     this.emit({ type: 'storyCompleted', storyId: story.storyId });
   }
@@ -1126,6 +1138,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const state = this.current;
     state.extras ??= extra.dict({});
     setAtPath(state.extras, path, value);
+    this.commitEffectReceipt('setExtra');
     this.emit({ type: 'extraChanged', path, value });
   }
 
@@ -1140,6 +1153,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       ? extra.float(current + delta)
       : extra.int(current + delta);
     setAtPath(state.extras, path, next);
+    this.commitEffectReceipt('addExtra');
     this.emit({ type: 'extraChanged', path, value: next });
   }
 
@@ -1148,6 +1162,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const state = this.current;
     if (!state.extras) return;
     const removed = deleteAtPath(state.extras, path);
+    this.commitEffectReceipt('removeExtra');
     if (removed !== undefined) this.emit({ type: 'extraChanged', path });
   }
 
@@ -1159,5 +1174,78 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   /** @see effect-ops.applyEffect */
   applyEffect(effect: Effect): void {
     applyEffectImpl.call(this, effect);
+  }
+
+  /** Target-local reads only: receipts never infer changes from a global diff or EventBus. */
+  private effectTargetValue(effect: Effect): EffectReceiptValue | undefined {
+    const state = this.current;
+    switch (effect.op) {
+      case 'setResource': case 'addResource': return (isGlobalResource(effect.target) ? state.globalResources : state.resources)?.[effect.target] ?? 0;
+      case 'setSpotLevel': case 'addSpotLevel': return state.spotLevels[effect.target] ?? 0;
+      case 'setManager': return state.spotManagers[effect.target];
+      case 'addEnhancement': return state.unlockedEnhancements.includes(String(effect.value));
+      case 'addItem': return state.inventory[effect.target] ?? 0;
+      case 'unlockInit': return state.unlockedInits.includes(String(effect.value));
+      case 'setFlag': return state.flags[effect.target];
+      case 'setExtra': case 'addExtra': case 'removeExtra': {
+        const value = getAtPath(state.extras, effect.target);
+        return value === undefined ? undefined : JSON.parse(JSON.stringify(value)) as EffectReceiptValue;
+      }
+      case 'grantCharacter': {
+        const entry = state.roster?.[effect.target];
+        return { owned: Boolean(entry), acquiredCount: entry?.acquiredCount ?? 0, fragments: state.fragments?.[effect.target] ?? 0 };
+      }
+      case 'addAffectionExp': {
+        const entry = state.roster?.[effect.target];
+        return entry ? { level: entry.affectionLevel ?? 1, exp: entry.affectionExp ?? 0 } : undefined;
+      }
+      default: return undefined;
+    }
+  }
+
+  private commitEffectReceipt(...ops: string[]): void {
+    const pending = this.effectReceipt;
+    if (!pending || pending.committed || !ops.includes(pending.effect.op)) return;
+    const after = this.effectTargetValue(pending.effect);
+    const before = pending.before;
+    const changed = JSON.stringify(before) !== JSON.stringify(after);
+    const receipt: EffectReceipt = {
+      effectIndex: pending.index, op: pending.effect.op,
+      target: pending.effect.op === 'addEnhancement' || pending.effect.op === 'unlockInit' ? String(pending.effect.value) : pending.effect.target,
+      status: changed ? 'changed' : 'noop',
+      ...(before === undefined ? {} : { before }), ...(after === undefined ? {} : { after }),
+      ...(typeof before === 'number' && typeof after === 'number' ? { delta: after - before } : {}),
+      ...(pending.effect.op === 'grantCharacter' && before && after && typeof before === 'object' && typeof after === 'object'
+        && !Array.isArray(before) && !Array.isArray(after) ? { details: {
+          duplicate: (before as { owned: boolean }).owned,
+          shards: Number((after as { fragments: number }).fragments) - Number((before as { fragments: number }).fragments),
+        } } : {}),
+    };
+    pending.committed = true;
+    pending.accept(receipt);
+  }
+
+  /** Collect each actual commit before its synchronous event; observers cannot rewrite the receipt. */
+  applyEffectsWithReceipts(effects: Effect[], onReceipt?: (receipt: EffectReceipt) => void): EffectReceipt[] {
+    const receipts: EffectReceipt[] = [];
+    for (const [index, effect] of effects.entries()) {
+      const previous = this.effectReceipt;
+      const before = this.effectTargetValue(effect);
+      this.effectReceipt = { effect, index, before, committed: false, accept: receipt => { receipts.push(receipt); onReceipt?.(receipt); } };
+      try {
+        applyEffectImpl.call(this, effect);
+        // Duplicate unlocks and rejected/no-op mutations do not publish events.
+        this.commitEffectReceipt(effect.op);
+      } catch (error) {
+        // A domain callback may throw after installing its target, before normal notification.
+        if (JSON.stringify(before) !== JSON.stringify(this.effectTargetValue(effect))) this.commitEffectReceipt(effect.op);
+        const failure = new Error(error instanceof Error ? error.message : String(error)) as Error & { receipts: EffectReceipt[] };
+        failure.receipts = receipts;
+        throw failure;
+      } finally {
+        this.effectReceipt = previous;
+      }
+    }
+    return receipts;
   }
 }

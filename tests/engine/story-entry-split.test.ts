@@ -1,3 +1,4 @@
+import { finishWelcome, makePack } from './story-test-fixtures';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 // engine/story-entry-split.test.ts
@@ -135,30 +136,29 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     }
   });
 
-  test('storyReadLogs：启动记录首条 Talklet，推进记录已读索引与所选选项', () => {
+  test('正文送达即记录已读；自由继续与Choice只记录各自职责', () => {
     game.init([baseDatapack]);
-    // 新节点中只有有效 delivery ack 才记 Talklet ordinal。
-    const logs = () => game.state.storyReadLogs ?? {};
-    expect(logs()['base:story:schale_welcome']?.readTalkletIndexes ?? []).toEqual([]);
-    const first = game.story.getCurrentStoryView()!;
-    expect(first).toMatchObject({ nodeId: 'p1-body', phase: 'delivery' });
-    expect(game.story.advanceStory(undefined, null, first.token).success).toBe(true);
-    expect(logs()['base:story:schale_welcome']?.readTalkletIndexes).toEqual([0]);
-
-    const choice = advanceToChoice(game);
-    let log = logs()['base:story:schale_welcome']!;
-    expect(log.readTalkletIndexes).toEqual([0, 1, 2, 3, 4]);
-    expect(log.chosenChoiceIndexes).toEqual({});
-
-    const optionId = choice.page.choices![0]!.id;
-    game.story.advanceStory(optionId, null, choice.token);
-    log = logs()['base:story:schale_welcome']!;
-    expect(log.chosenChoiceIndexes[4]).toEqual([0]);
-    expect(log.readTalkletIndexes).toEqual([0, 1, 2, 3, 4]);
-    const ending = game.story.getCurrentStoryView()!;
-    expect(ending).toMatchObject({ nodeId: 'p7-body', phase: 'delivery' });
-    game.story.advanceStory(undefined, null, ending.token);
-    expect(log.readTalkletIndexes).toEqual([0, 1, 2, 3, 4, 5]);
+    finishWelcome(game);
+    const id = 'test:story:read-progress';
+    game.registry.load(makePack([{ id: 'test:activestory:read-progress', storyId: id, type: 'active', availableInits: [], triggerCondition: and() }], [{
+      id, name: 'Read progress', stages: { body: { advance: 'auto' } }, nodes: [
+        { id: 'first', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'first' } },
+        { id: 'prompt', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'choose' } },
+        { id: 'choice', type: 'click', stageId: 'body', interaction: { kind: 'choice', options: [{ id: 'yes', text: 'yes' }] } },
+        { id: 'last', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'last' } },
+      ],
+    }]));
+    game.story.startActiveStory('test:activestory:read-progress');
+    const log = () => game.state.storyReadLogs![id]!;
+    expect(log().readTalkletIndexes).toEqual([0]);
+    game.story.continueStory(null, game.story.getPlaybackView().token!);
+    expect(log().readTalkletIndexes).toEqual([0, 1]);
+    expect(game.story.getPlaybackView().phase).toBe('input');
+    game.story.submitStoryInput(null, game.story.getPlaybackView().token!, 'yes');
+    expect(log().chosenChoiceIndexes[1]).toEqual([0]);
+    expect(log().readTalkletIndexes).toEqual([0, 1, 2]);
+    game.story.continueStory(null, game.story.getPlaybackView().token!);
+    expect(log().readTalkletIndexes).toEqual([0, 1, 2]);
   });
 
   test('无选项页推进不记录 chosenChoiceIndexes', () => {
@@ -169,10 +169,12 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     expect(log.chosenChoiceIndexes).toEqual({});
   });
 
-  test('旧档兼容：缺失 storyReadLogs 的状态可正常推进', () => {
+  test('正文送达能初始化缺失的可选阅读记录', () => {
     game.init([baseDatapack]);
     // 模拟旧档：删除可选字段
     delete (game.state as { storyReadLogs?: unknown }).storyReadLogs;
+    game.story.clearCurrentStory();
+    game.story.startCardStory('base:activestory:schale_welcome');
     const view = game.story.getCurrentStoryView()!;
     const r = game.story.advanceStory(undefined, null, view.token);
     expect(r.success).toBe(true);

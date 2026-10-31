@@ -44,6 +44,52 @@ describe('Story definition projection', () => {
     if (!result.ok) expect(result.issues.some(issue => issue.path === path)).toBe(true);
   });
 
+  it('drops completely empty state-action placeholders but still rejects incomplete or unknown actions', () => {
+    const validEffect = { op: 'addResource', resourceId: 'credits', amount: 10 };
+    const source = baseStory({ stages: {}, nodes: [{ id: 'op', type: 'operation', action: { kind: 'state', effects: [{}, validEffect, {}] } }] });
+    const empty = projectStoryDefinition(source);
+    expect(empty).toEqual({ ok: true, story: baseStory({ stages: {}, nodes: [{ id: 'op', type: 'operation', action: { kind: 'state', effects: [validEffect] } }] }) });
+    expect((source as unknown as { nodes: Array<{ action: { effects: unknown[] } }> }).nodes[0].action.effects).toHaveLength(3);
+
+    const incomplete = projectStoryDefinition(baseStory({ nodes: [{ id: 'op', type: 'operation', action: { kind: 'state', effects: [{ amount: 10 }] } }] }));
+    expect(incomplete.ok).toBe(false);
+    if (!incomplete.ok) expect(incomplete.issues).toContainEqual({ path: 'nodes[0].action.effects[0].op', message: '请选择状态动作' });
+
+    const unknown = projectStoryDefinition(baseStory({ nodes: [{ id: 'op', type: 'operation', action: { kind: 'state', effects: [{ op: 'notAStoryAction' }] } }] }));
+    expect(unknown.ok).toBe(false);
+    if (!unknown.ok) expect(unknown.issues).toContainEqual({ path: 'nodes[0].action.effects[0].op', message: '未知 Story 状态动作：notAStoryAction' });
+  });
+
+  it('drops empty Operation and Transfer nodes plus empty optional action defaults', () => {
+    const effect = { op: 'addResource', resourceId: 'credits', amount: 10 };
+    const source = baseStory({ stages: { input: { advance: 'input' } }, nodes: [
+      { id: 'blank-operation', type: 'operation' },
+      { id: 'empty-state-operation', type: 'operation', action: { kind: 'state', effects: [{}] } },
+      { id: 'blank-transfer', type: 'transfer', transfer: {} },
+      { id: 'op', type: 'operation', action: { kind: 'state', effects: [effect] } },
+      { id: 'click', type: 'click', stageId: 'input', interaction: {
+        kind: 'button', text: '继续', press: {}, result: { actions: [{}], transfer: {} },
+      } },
+    ] });
+
+    const projected = projectStoryDefinition(source);
+    expect(projected).toEqual({ ok: true, story: baseStory({ stages: { input: { advance: 'input' } }, nodes: [
+      { id: 'op', type: 'operation', action: { kind: 'state', effects: [effect] } },
+      { id: 'click', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续' } },
+    ] }) });
+    expect((source as unknown as { nodes: unknown[] }).nodes).toHaveLength(5);
+  });
+
+  it('keeps blank execution nodes with authored guards invalid instead of discarding their data', () => {
+    const operation = projectStoryDefinition(baseStory({ stages: {}, nodes: [{ id: 'guarded', type: 'operation', requiresFlag: 'ready' }] }));
+    expect(operation.ok).toBe(false);
+    if (!operation.ok) expect(operation.issues.some(issue => issue.path === 'nodes[0].action')).toBe(true);
+
+    const transfer = projectStoryDefinition(baseStory({ stages: {}, nodes: [{ id: 'partial', type: 'transfer', transfer: { mode: 'goto' } }] }));
+    expect(transfer.ok).toBe(false);
+    if (!transfer.ok) expect(transfer.issues.some(issue => issue.path === 'nodes[0].transfer.storyId')).toBe(true);
+  });
+
   it('validates directory references only when a catalog is supplied', () => {
     const source = baseStory({ stages: {}, nodes: [{ id: 'jump', type: 'transfer', transfer: { mode: 'goto', storyId: 'base:story:missing' } }] });
     expect(projectStoryDefinition(source).ok).toBe(true);

@@ -1,6 +1,6 @@
 import type { GameCommands } from '../contracts/index';
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
 import type { VariantTrainingPort } from '../contracts/character/variant-training';
 import type { MapRunCardRef } from '../contracts/map/map-cards';
 import type { StoryService } from '../services/story/story-service';
@@ -32,6 +32,7 @@ import type {
 
 export interface GameCommandSource {
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
+  restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   readonly state: Readonly<PlayerState>;
@@ -66,7 +67,7 @@ export interface GameCommandSource {
   clearDevLogs(): void;
   save(): SaveData;
   load(saveData: SaveData): void;
-  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend'>;
+  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend' | 'continueStory' | 'submitStoryInput' | 'accelerateStoryPresentation'>;
   items: Pick<ItemService, 'useItem'>;
   enhancements: Pick<EnhancementService, 'purchaseEnhancement' | 'removeEnhancement'>;
   spot: Pick<SpotService, 'unlockSpot' | 'upgradeSpot'>;
@@ -94,6 +95,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
 
   return {
     saveStoryDefinition: story => game.saveStoryDefinition(story),
+    restoreStoryDefinition: storyId => game.restoreStoryDefinition(storyId),
     variantTraining: game.variantTraining,
     enterVariantTraining: (spotId, functionalityId) => game.enterVariantTraining(spotId, functionalityId),
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),
@@ -140,6 +142,9 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     commitMapEncounterRound: command => game.commitMapEncounterRound(command),
     advanceStory: (choiceIndex, owner, token) => game.story.advanceStory(choiceIndex, owner, token),
     clickSend: (owner, token) => game.story.clickSend(owner, token),
+    continueStory: (owner, token) => game.story.continueStory(owner, token),
+    submitStoryInput: (owner, token, optionId) => game.story.submitStoryInput(owner, token, optionId),
+    accelerateStoryPresentation: (owner, token) => game.story.accelerateStoryPresentation(owner, token),
     useItem: itemId => game.items.useItem(itemId),
     purchaseEnhancement: enhancementId => game.enhancements.purchaseEnhancement(enhancementId),
     removeEnhancement: enhancementId => game.enhancements.removeEnhancement(enhancementId),

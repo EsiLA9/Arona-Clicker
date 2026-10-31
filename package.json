@@ -15,6 +15,7 @@
     "gen:schema": "node scripts/gen-engine-schema.mjs --write",
     "check:architecture": "node scripts/check-architecture-boundaries.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "archive:docs": "node scripts/archive-docs.mjs",
     "format:doc-links": "node scripts/format-doc-links.mjs --write",
     "report:doc-context": "node scripts/report-doc-context.mjs",
     "ui:callgraph": "node scripts/ui-callgraph.mjs"

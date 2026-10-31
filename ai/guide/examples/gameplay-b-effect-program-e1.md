@@ -94,4 +94,4 @@ effectProgram: {
 
 Actorless Ability / Item 不伪造 `sourceActor` 或 `self`；其目标与费用资格仍由各自合同限制。资源账本使用 `sourceActor`、`primaryActor` 或 `sourceTeam` 等程序账户，不与 `PlayerCost` 或 AC 全局资源混用。
 
-逐 Action 的旧内容迁移和有意语义变化记录在 [[ai/archive/plan/task-0315-units/receipts/task-0315-u04-receipt]]；当前作者与 Registry 入口见 [[datapack-and-registry]]。
+逐 Action 的旧内容迁移和有意语义变化记录在 Task 0315（原归档已删除）；当前作者与 Registry 入口见 [[datapack-and-registry]]。

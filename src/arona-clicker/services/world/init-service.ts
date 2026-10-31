@@ -84,7 +84,7 @@ export class InitService {
     this.savepoint = new InitSavepoint(opts.registry, opts.getState, {
       storyCursors: {
         capture: () => opts.storyService.saveCursors(),
-        clear: () => opts.storyService.clearAllCurrentStories(),
+        clear: () => opts.storyService.resetPlayback(),
         restore: collection => opts.storyService.restoreCursors(collection),
       },
     });
@@ -260,6 +260,7 @@ export class InitService {
       }
     }
 
+    this.opts.storyService.resumePlayback();
     // 自动展开起始剧情（InitStory）：进入 Init 时直接开始，无需玩家手动启动。
     // startStoryId 指向 active entry（投放位）；完结守卫按 entry.storyId（演出本体）判定。
     if (init.startStoryId) {
@@ -309,7 +310,7 @@ export class InitService {
    * 剧情声明阻塞移动时禁止玩家手动移动；Story 自身要求移动（travelToArea effect）视 allowDuringStory 放行。
    * checkAdjacency=false：Story 移动不判断拓扑（仍校验同 Init），用于 Talklet 触发跨区移动。
    */
-  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true): TravelResult {
+  travelToArea(areaId: AreaId, allowDuringStory = false, checkAdjacency = true, onCommitted?: (result: Extract<TravelResult, { success: true }>) => void): TravelResult {
     const admission = this.getAreaTravelStatus(areaId, allowDuringStory, checkAdjacency);
     if (!admission.success) {
       this.opts.devLog.record(`移动失败：${areaId}`, { source: 'area', level: 'warning', details: admission.error });
@@ -327,6 +328,9 @@ export class InitService {
     if (!visitedAreas.includes(areaId)) {
       state.visitedAreas = [...visitedAreas, areaId];
     }
+    const committed: Extract<TravelResult, { success: true }> = { success: true, areaId, fromAreaId,
+      ...(admission.method && admission.method !== 'adjacent' ? { method: admission.method } : {}) };
+    onCommitted?.(committed);
     for (const spotId of area.defaultSpots ?? []) {
       if ((state.spotLevels[spotId] ?? 0) > 0) continue;
       this.opts.mutations.setSpotLevel(spotId, 1);
@@ -338,7 +342,7 @@ export class InitService {
     this.opts.affectorEngine.recheckAll();
     this.opts.milestoneAdapter.reconcileCurrent();
     this.opts.devLog.record(`已移动到 ${area.name}`, { source: 'area', level: 'success' });
-    return { success: true, areaId, fromAreaId, ...(admission.method && admission.method !== 'adjacent' ? { method: admission.method } : {}) };
+    return committed;
   }
 
   /** Read-only admission snapshot. The command reruns this exact chain before effects. */

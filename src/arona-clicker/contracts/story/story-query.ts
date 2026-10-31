@@ -1,6 +1,8 @@
 import type { AreaStoryDeliveryView, SendState, StoryView } from '../runtime/results';
+import type { StoryPresentationView } from '../runtime/story-presentation';
 
 export interface StoryQueryPort {
+  getPlaybackView(owner?: string | null): StoryPresentationView;
   getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[];
   hasCompletedStory(storyId: string): boolean;
   readyStepCount(owner: string): number;

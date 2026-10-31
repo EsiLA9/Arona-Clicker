@@ -62,7 +62,7 @@ export interface CharacterProfileMutationPort extends StateMutationHostPort {
 }
 
 export interface StoryMutationPort extends StateMutationHostPort {
-  completeStory(story: CompletedStory, sourceEntryId?: string): void;
+  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void): void;
   createAreaStoryDelivery(delivery: Omit<AreaStoryDelivery, 'status'>): boolean;
   recordStoryRead(storyId: string, talkletIndex: number, choiceIndex?: number): void;
   setPassiveCooldowns(cooldowns: Record<string, number>): void;

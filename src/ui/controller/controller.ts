@@ -69,7 +69,7 @@ import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
 import { bindThemeActions } from './controller-actions-theme';
 import { bindEntityPresentationActions } from './controller-actions-presentation';
-import { bindStoryActions, logStoryFailure } from './controller-actions-story';
+import { bindStoryActions } from './controller-actions-story';
 import { bindInventoryActions } from './controller-actions-inventory';
 import { bindVariantTrainingActions } from './controller-actions-variant-training';
 import { AreaMapController, AREA_MAP_REGION } from '../workspace/area-map-controller';
@@ -327,8 +327,10 @@ export class UIController {
   readonly popovers: PopoverManager;
   /** @internal 待落账的奖励通知（storyRewarded 排队，延迟入流见 scheduleRewardChats）。 */
   pendingRewardChats: (string | { text: string; owner: string | null })[] = [];
+  /** 重读自然结束后再返回故事工作区；由 StoryRunId 精确关联。 */
+  pendingStoryReplayReturn: { entryId: string; owner: string | null; runId?: string } | null = null;
   /** @internal 待落账的进入 Area 通知（render 时先于剧情内容入流）。 */
-  pendingTravelChats: (string | { text: string; owner: string | null })[] = [];
+  pendingTravelChats: (string | { text: string; owner: string | null; timestamp?: number; afterStoryOutput?: ChatEntry['afterStoryOutput'] })[] = [];
   /** @internal 待落账通知存在时，避免连续 Tick 重复触发 full render。 */
   notificationFallbackRendered = false;
   /** @internal 奖励通知延迟入流计时器（Story 末尾留一拍）。 */
@@ -469,20 +471,6 @@ export class UIController {
         : 0;
     // 页级打字提示到期只更新聊天面板；其它面板无需随门控计时器重建
     this.chat.onChange = () => this.refreshChatPanel();
-    // 链式连发（§4）：无按钮要求的左侧页送达后自动推进一页（引擎 clickSend 每次恰好
-    // 推进一页；选项/按动/回复页不满足连发谓词，不会进入自动推进）
-    this.chat.onAutoAdvance = (streamKey, token) => {
-      const owner = streamKey === '#global' ? undefined : streamKey;
-      const view = owner ? this.game.getStoryView(owner) : this.game.getView().currentStory;
-      if (!view || view.phase !== 'delivery' || view.token !== token) return;
-      const result = this.commands.clickSend(owner, token);
-      logStoryFailure(this, result);
-      if (result.type === 'completed') {
-        this.chat.pushAbsorbedTo(streamKey, this.panelState, result.absorbed ?? []);
-      }
-      if ((this.panelState.conversationVariantId ?? '#global') === streamKey
-        || [...this.root.querySelectorAll<HTMLElement>('[data-chat-owner]')].some(pane => (pane.dataset.chatOwner || '#global') === streamKey)) this.refreshChatPanel();
-    };
     // 绑定到 document.body：弹窗（app-modal）挂在 body 级，图鉴条目的悬停详情也要生效
     this.popovers = new PopoverManager(document.body, this.game);
     this.selectorPage = new SelectorPage({
@@ -611,9 +599,11 @@ export class UIController {
     this.pendingRewardChats = [];
   }
 
-  private deliverOwnedNotice(notice: string | { text: string; owner: string | null }): void {
+  private deliverOwnedNotice(notice: string | { text: string; owner: string | null; timestamp?: number; afterStoryOutput?: ChatEntry['afterStoryOutput'] }): void {
     this.chat.pushToOwner(this.panelState, typeof notice === 'string' ? undefined : notice.owner,
-      { kind: 'reward', text: typeof notice === 'string' ? notice : notice.text });
+      { kind: 'reward', text: typeof notice === 'string' ? notice : notice.text,
+        ...(typeof notice !== 'string' && notice.timestamp !== undefined ? { timestamp: notice.timestamp } : {}),
+        ...(typeof notice !== 'string' && notice.afterStoryOutput ? { afterStoryOutput: notice.afterStoryOutput } : {}) });
   }
 
   /**
@@ -1042,7 +1032,7 @@ export class UIController {
       if (owner !== this.panelState.conversationVariantId) this.chat.syncCurrentStory({ ...this.panelState, conversationVariantId: owner }, this.game);
     }
     this.panelState.sendGate = this.chat.bannerBlocking(this.panelState)
-      ? 'typing'
+      ? 'pause'
       : this.chat.activeGate(this.panelState);
     this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
     this.scheduleRewardChats();
@@ -1063,7 +1053,7 @@ export class UIController {
       const entries = owner ? this.panelState.studentChats[owner] ?? [] : this.panelState.chatEntries;
       const texts = owner ? this.panelState.studentChatTexts[owner] ?? [] : this.panelState.chatTexts;
       const ownerState = { ...this.panelState, conversationVariantId: owner };
-      const ownerGate = this.chat.bannerBlocking(ownerState) ? 'typing' : this.chat.activeGate(ownerState);
+      const ownerGate = this.chat.bannerBlocking(ownerState) ? 'pause' : this.chat.activeGate(ownerState);
       const ownerStoryGate = this.panelState.storyGate?.owner === owner ? this.panelState.storyGate : null;
       const ownerBanner = this.chat.activeBanner(ownerState);
       const markup = owner
@@ -1304,7 +1294,7 @@ export class UIController {
       for (const notice of this.pendingTravelChats) this.deliverOwnedNotice(notice);
       this.pendingTravelChats = [];
       this.chat.syncCurrentStory(this.panelState, this.game);
-      this.panelState.sendGate = this.chat.bannerBlocking(this.panelState) ? 'typing' : this.chat.activeGate(this.panelState);
+      this.panelState.sendGate = this.chat.bannerBlocking(this.panelState) ? 'pause' : this.chat.activeGate(this.panelState);
       this.panelState.openingBanner = this.chat.activeBanner(this.panelState);
       this.scheduleRewardChats();
     }

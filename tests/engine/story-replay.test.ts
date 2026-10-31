@@ -17,6 +17,7 @@ import { Resource } from '../../src/arona-clicker/types/ids';
 import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 import {
   finishWelcome,
+  settleStoryPresentation,
   finishStory,
   desertEntry,
   desertPack,
@@ -30,6 +31,7 @@ import {
 
 function advanceToChoice(game: GameInstance): StoryView {
   for (let guard = 0; guard < 200; guard++) {
+    settleStoryPresentation(game);
     const view = game.story.getCurrentStoryView();
     if (!view) throw new Error('Story ended before its choice input');
     if (view.phase === 'delivery') {

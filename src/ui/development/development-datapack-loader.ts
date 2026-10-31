@@ -17,6 +17,18 @@ export interface DevelopmentPackDiscovery {
   readonly issues: readonly DevelopmentPackIssue[];
 }
 
+export interface DevelopmentPackDiscoveryProgress {
+  readonly completed: number;
+  readonly total: number;
+  readonly currentPackage: string | null;
+  readonly stage?: 'reading' | 'parsing';
+  readonly currentFile?: string;
+  readonly filesRead?: number;
+  readonly fileCount?: number;
+}
+
+export type DevelopmentPackProgressReporter = (progress: DevelopmentPackDiscoveryProgress) => void;
+
 export type DevelopmentAssetReader = (url: string) => Promise<Uint8Array>;
 
 export function parseDevelopmentPackFolderName(name: string): {
@@ -62,6 +74,7 @@ export async function discoverDevelopmentDatapacks(
     if (!response.ok) throw new Error(`读取开发数据包文件失败：HTTP ${response.status}`);
     return new Uint8Array(await response.arrayBuffer());
   },
+  onProgress?: DevelopmentPackProgressReporter,
 ): Promise<DevelopmentPackDiscovery> {
   const byPath = new Map<string, string>();
   for (const [assetPath, url] of Object.entries(assets)) {
@@ -87,39 +100,60 @@ export async function discoverDevelopmentDatapacks(
     }
   }
 
-  for (const archivePath of archivePaths) {
-    try {
-      const parsed = await parsePackFromZipBuffer(await readAsset(byPath.get(archivePath)!));
-      packs.push(toStoredPack(archivePath, parsed, 'zip', 'normal'));
-    } catch (error) {
-      issues.push({ sourcePath: archivePath, message: error instanceof Error ? error.message : String(error) });
-    }
-  }
+  const workItems = [
+    ...archivePaths.map(sourcePath => ({ sourcePath, kind: 'zip' as const })),
+    ...[...directories].sort((left, right) => left.localeCompare(right))
+      .map(sourcePath => ({ sourcePath: `${sourcePath}/`, kind: 'folder' as const })),
+  ];
+  let completed = 0;
+  if (workItems.length === 0) onProgress?.({ completed, total: 0, currentPackage: null });
 
-  for (const directory of [...directories].sort((left, right) => left.localeCompare(right))) {
-    const identity = parseDevelopmentPackFolderName(directory)!;
-    const sourcePath = `${directory}/`;
-    const entries: PackEntry[] = [...byPath.entries()]
-      .filter(([path]) => path.startsWith(sourcePath))
-      .map(([path, url]) => ({
-        path: path.slice(sourcePath.length),
-        read: () => readAsset(url),
-      }));
+  for (const item of workItems) {
+    const report = (detail: Partial<DevelopmentPackDiscoveryProgress> = {}): void =>
+      onProgress?.({ completed, total: workItems.length, currentPackage: item.sourcePath, ...detail });
+    report();
     try {
-      const parsed = await parsePack(new FolderPackSource(entries));
-      if (parsed.manifest.modName !== identity.modName || parsed.manifest.version !== identity.version) {
-        throw new Error(`目录身份 ${identity.modName}@${identity.version} 与 manifest ${parsed.manifest.modName}@${parsed.manifest.version} 不一致。`);
+      if (item.kind === 'zip') {
+        report({ stage: 'reading', currentFile: item.sourcePath });
+        const bytes = await readAsset(byPath.get(item.sourcePath)!);
+        report({ stage: 'parsing', currentFile: item.sourcePath });
+        const parsed = await parsePackFromZipBuffer(bytes);
+        packs.push(toStoredPack(item.sourcePath, parsed, 'zip', 'normal'));
+      } else {
+        const directory = item.sourcePath.slice(0, -1);
+        const identity = parseDevelopmentPackFolderName(directory)!;
+        const files = [...byPath.entries()].filter(([path]) => path.startsWith(item.sourcePath));
+        let filesRead = 0;
+        const entries: PackEntry[] = files
+          .map(([path, url]) => ({
+            path: path.slice(item.sourcePath.length),
+            read: async () => {
+              report({ stage: 'reading', currentFile: path, filesRead, fileCount: files.length });
+              const bytes = await readAsset(url);
+              filesRead += 1;
+              report({ stage: 'parsing', currentFile: path, filesRead, fileCount: files.length });
+              return bytes;
+            },
+          }));
+        const parsed = await parsePack(new FolderPackSource(entries));
+        if (parsed.manifest.modName !== identity.modName || parsed.manifest.version !== identity.version) {
+          throw new Error(`目录身份 ${identity.modName}@${identity.version} 与 manifest ${parsed.manifest.modName}@${parsed.manifest.version} 不一致。`);
+        }
+        packs.push(toStoredPack(item.sourcePath, parsed, 'folder', identity.editingMode));
       }
-      packs.push(toStoredPack(sourcePath, parsed, 'folder', identity.editingMode));
     } catch (error) {
-      issues.push({ sourcePath, message: error instanceof Error ? error.message : String(error) });
+      issues.push({ sourcePath: item.sourcePath, message: error instanceof Error ? error.message : String(error) });
     }
+    completed += 1;
   }
+  onProgress?.({ completed, total: workItems.length, currentPackage: null });
 
   issues.sort((left, right) => left.sourcePath.localeCompare(right.sourcePath));
   return { packs, issues };
 }
 
-export function discoverBundledDevelopmentDatapacks(): Promise<DevelopmentPackDiscovery> {
-  return discoverDevelopmentDatapacks(DEVELOPMENT_ASSETS);
+export function discoverBundledDevelopmentDatapacks(
+  onProgress?: DevelopmentPackProgressReporter,
+): Promise<DevelopmentPackDiscovery> {
+  return discoverDevelopmentDatapacks(DEVELOPMENT_ASSETS, undefined, onProgress);
 }

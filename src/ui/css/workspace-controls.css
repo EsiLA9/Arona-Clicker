@@ -157,5 +157,13 @@
    overflow-wrap: anywhere;
 }
 
+.workspace-titlebar-layout {
+   display: flex;
+   flex: 1 1 auto;
+   flex-direction: column;
+   gap: var(--panel-region-gap, 8px);
+   min-width: 0;
+}
+
 .workspace-title small,
 .conversation-title small { color: var(--muted); }

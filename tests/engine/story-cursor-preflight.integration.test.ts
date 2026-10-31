@@ -5,7 +5,7 @@ import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-e
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { and } from '../../src/engine/types';
-import { finishWelcome, makePack } from './story-test-fixtures';
+import { finishWelcome, settleStoryPresentation, makePack } from './story-test-fixtures';
 
 describe('Story cursor save preflight', () => {
   let game: GameInstance | undefined;
@@ -85,7 +85,8 @@ describe('Story cursor save preflight', () => {
     const started = game.story.startStory(entry.id, 'active');
     if (!started.success || started.finished) throw new Error('expected the root Story delivery');
     const prompt = started.story;
-    expect(game.story.advanceStory(undefined, null, prompt.token)).toMatchObject({ success: true, finished: false });
+    expect(game.story.advanceStory(undefined, null, prompt.token)).toMatchObject({ success: false, error: 'ChoiceRequired' });
+    settleStoryPresentation(game);
     const choice = game.story.getCurrentStoryView();
     if (!choice || choice.phase !== 'input') throw new Error('expected the root Choice input');
     expect(game.story.advanceStory('insert-child', null, choice.token)).toMatchObject({ success: true, finished: false });
@@ -96,9 +97,11 @@ describe('Story cursor save preflight', () => {
     game.load(save);
     expect(game.story.getCurrentStoryView()).toMatchObject({ storyDefId: childId, phase: 'delivery' });
 
+    settleStoryPresentation(game);
     const childDelivery = game.story.getCurrentStoryView()!;
     const childAck = game.story.advanceStory(undefined, null, childDelivery.token);
     expect(childAck).toMatchObject({ success: true, finished: false, story: { storyDefId: rootId, nodeId: 'root-return' } });
+    settleStoryPresentation(game);
     const rootDelivery = game.story.getCurrentStoryView()!;
     const completion = game.story.advanceStory(undefined, null, rootDelivery.token);
     expect(completion).toMatchObject({

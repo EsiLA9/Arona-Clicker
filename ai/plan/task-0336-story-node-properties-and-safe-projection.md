@@ -2,13 +2,13 @@
 
 状态：代码/自动化验收通过（2026-10-29 续接完成，未做浏览器验收）。数据边界、草稿模型、属性表单接线与回归已整合通过；交接记录 [[ai/plan/handoff-0336-2026-10-29]] 保留为过程证据。
 
-后续施工基线补充：[[ai/archive/plan/task-0337-story-run-flags-and-node-gates]] 已单独实现 Entry 局部 Map、共用 requiresFlag 和 localFlag 动作基础表单。本任务施工时须保留这些字段与草稿侧输入；下文完整分支缓存、安全投影及其他属性编辑仍待实施，不因 0337 完成而视作本任务已完成。
+后续施工基线补充：Task 0337（原归档已删除） 已单独实现 Entry 局部 Map、共用 requiresFlag 和 localFlag 动作基础表单。本任务施工时须保留这些字段与草稿侧输入；下文完整分支缓存、安全投影及其他属性编辑仍待实施，不因 0337 完成而视作本任务已完成。
 
 ## 目标与范围
 
 让作者在 Story 编辑器右栏先选择节点/行为种类，再填写该分支需要的属性；可选能力通过明确开关展开。切换前的输入保留在本地草稿，保存到运行内容时只提交当前启用且合法的 StoryDef。
 
-延续 [[ai/archive/plan/task-0335-story-editor-e0]] 的三栏、节点身份和局部刷新机制，以及其后已接通的 `saveStoryDefinition` 链路。Registry 保存仍只影响当前 Runtime，不写源 Pack；本任务不增加编辑态 Mod 门控、发布流程、播放预览、通用表单框架或新 Story 协议。
+延续 Task 0335（原归档已删除） 的三栏、节点身份和局部刷新机制，以及其后已接通的 `saveStoryDefinition` 链路。Registry 保存仍只影响当前 Runtime，不写源 Pack；本任务不增加编辑态 Mod 门控、发布流程、播放预览、通用表单框架或新 Story 协议。
 
 本任务覆盖四类 StoryNode、Click 三类交互、共享结果与 StoryAction 各分支的基本属性编辑；复杂树和主题设计器的边界见下文。安全投影和 Registry 防线必须完整实现，不能因某项编辑器暂缓而跳过校验。
 

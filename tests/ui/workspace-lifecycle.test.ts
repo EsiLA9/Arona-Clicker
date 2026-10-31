@@ -5,6 +5,7 @@ import { ShopSession } from '../../src/arona-clicker/services/economy/shop-servi
 import { baseDatapack } from '../../src/data/test-datapack';
 import { createUIContext } from '../../src/ui/runtime/context';
 import { UIController } from '../../src/ui/controller/controller';
+import { bindEvents } from '../../src/ui/controller/controller-events';
 import { renderShopWorkspace } from '../../src/ui/components/inventory/shop';
 import { createInventoryWorkspaceState } from '../../src/ui/utilities/inventory-view';
 import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
@@ -324,10 +325,6 @@ describe('Workspace 页面生命周期', () => {
     const acceptButton = document.querySelector<HTMLButtonElement>('[data-area-story-accept="base:activestory:hoshino_rooftop_meet"]')!;
     expect(game.story.startStory('base:passivestory:schale_sunset', 'passive', 'Hoshino').success).toBe(true);
     acceptButton.click();
-    expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'area', areaId });
-    expect(game.state.areaStoryDeliveries?.find(delivery => delivery.entryId === entryId)?.status).toBe('pending');
-    game.story.clearCurrentStory('Hoshino');
-    acceptButton.click();
 
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'game' });
     expect(controller.panelState.workspace).toBeUndefined();
@@ -337,6 +334,57 @@ describe('Workspace 页面生命周期', () => {
     expect(game.getStoryView('Hoshino')?.storyId).toBe(entryId);
     expect(document.querySelector('[data-conversation="Hoshino"]')).not.toBeNull();
     expect(document.querySelector<HTMLButtonElement>('[data-area-workspace-open]')?.disabled).toBe(true);
+  });
+
+  it('AreaHero 快捷故事最多显示五条，完整列表仍可从 Area Workspace 接取', async () => {
+    finishWelcome(game);
+    const invite = game.story.startStory('base:passivestory:hoshino_conv_2', 'passive', 'Hoshino');
+    expect(invite.success).toBe(true);
+    finishStory(game, 0, 'Hoshino');
+    game.mutations.acquireCharacter('Hoshino', 'story');
+
+    game.state.areaStoryDeliveries = [];
+    controller.panelState.leftTab = 'area';
+    controller.render();
+    const sourceId = 'base:activestory:hoshino_rooftop_meet';
+    const source = game.registry.activeStories.get(sourceId)!;
+    const areaId = game.getView().currentAreaId!;
+    const entryIds: string[] = [];
+    for (let index = 1; index <= 6; index++) {
+      const entryId = `base:activestory:area_hero_quick_${index}`;
+      const entry = { ...source, id: entryId, owner: 'Hoshino', openingTitle: `快速故事 ${index}` };
+      (game.registry.activeStories as unknown as Map<string, typeof entry>).set(entryId, entry);
+      (game.registry.storyEntries as unknown as Map<string, typeof entry>).set(entryId, entry);
+      game.mutations.createAreaStoryDelivery({ entryId, areaId, sourceId: `test:area-hero-quick-${index}` });
+      entryIds.push(entryId);
+    }
+    expect(game.story.getAreaStoryDeliveries(areaId).filter(delivery => entryIds.includes(delivery.entryId))).toHaveLength(6);
+
+    expect(document.querySelectorAll('[data-area-story-quick-enter]')).toHaveLength(0);
+    bindEvents(controller);
+    game.eventBus.emit({ type: 'areaEntered', areaId, fromAreaId: areaId });
+    await Promise.resolve();
+    const quickButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-area-story-quick-enter]')];
+    expect(quickButtons).toHaveLength(5);
+    const visibleIds = quickButtons.map(button => button.dataset.areaStoryQuickEnter);
+    expect(visibleIds).toEqual(expect.arrayContaining(entryIds.slice(0, 3)));
+    expect(visibleIds).not.toContain(entryIds[5]);
+
+    document.querySelector<HTMLButtonElement>('[data-area-workspace-open]')!.click();
+    for (const entryId of entryIds) expect(document.querySelector(`[data-area-story-entry="${entryId}"]`)).not.toBeNull();
+    expect(document.querySelectorAll('[data-area-story-entry]').length).toBeGreaterThanOrEqual(6);
+    document.querySelector<HTMLButtonElement>('[data-area-workspace-leave]')!.click();
+
+    expect(game.story.startStory('base:passivestory:schale_planner', 'passive', 'Hoshino').success).toBe(true);
+    controller.render();
+    const quickEnter = document.querySelector<HTMLButtonElement>(`[data-area-story-quick-enter="${entryIds[0]}"]`)!;
+    expect(quickEnter.disabled).toBe(false);
+    quickEnter.click();
+    expect(controller.panelState.workspaceNavigation?.current.kind).toBe('game');
+    expect(controller.panelState.centerTab).toBe('chat');
+    expect(controller.panelState.conversationVariantId).toBe('Hoshino');
+    expect(game.getStoryView('Hoshino')?.storyId).toBe(entryIds[0]);
+    expect(document.querySelector<HTMLButtonElement>('[data-area-story-quick-enter]')?.disabled).toBe(true);
   });
 
   it('强化卡片揭示状态可按元素刷新，不增加右侧 Panel 刷新计数', () => {

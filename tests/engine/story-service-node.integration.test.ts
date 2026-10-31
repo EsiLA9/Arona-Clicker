@@ -36,6 +36,87 @@ describe('StoryService StoryNode 会话集成', () => {
 
   afterEach(() => games.forEach(game => game.stop()));
 
+  test.each(['direct', 'reserved'] as const)('启动通知抛错时返回可存读的失败状态，不启动或重试目标Player（%s）', route => {
+    const sourceEntry = activeEntry(`test:story:init_source_${route}`, `test:story:init_source_doc_${route}`);
+    const targetEntry = activeEntry(`test:story:init_target_${route}`, `test:story:init_target_doc_${route}`);
+    const source = nodeDoc(sourceEntry.storyId, [{ id: 'start-target', type: 'operation', action: { kind: 'entryRequest', request: {
+      entryId: targetEntry.id, entryType: 'active', owner: null, intent: 'card',
+    } } }]);
+    const target = nodeDoc(targetEntry.storyId, [
+      { id: 'target-write', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 9 }] } },
+      { id: 'target-body', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '目标正文' } },
+    ], { body: { advance: 'auto' } });
+    const game = track(makePack([sourceEntry, targetEntry], [source, target]));
+    const before = game.state.resources[Resource.Credit] ?? 0;
+    let targetNotifications = 0;
+    const unsubscribe = game.eventBus.on('storyTriggered', event => {
+      if (event.storyId !== targetEntry.id) return;
+      targetNotifications += 1;
+      throw new Error('startup observer failed');
+    });
+    const result = game.story.startActiveStory(route === 'direct' ? targetEntry.id : sourceEntry.id);
+    expect(result).toMatchObject({ success: false, error: 'PlaybackFailed', detail: 'StoryInitializationFailed:startup observer failed' });
+    expect(targetNotifications).toBe(1);
+    expect(game.story.getPlaybackView()).toMatchObject({ phase: 'failed', error: 'StoryInitializationFailed:startup observer failed' });
+    expect(game.state.resources[Resource.Credit] ?? 0).toBe(before);
+
+    const saved = game.save();
+    expect(saved.storyPlayback.global).toMatchObject({ playback: { run: null }, finishing: {
+      terminalStoryId: target.id, settled: false, error: 'StoryInitializationFailed:startup observer failed',
+    } });
+    expect(saved.storyPlayback.global.queue).toBeUndefined();
+    expect(() => game.story.validateCursors(saved.storyPlayback)).not.toThrow();
+    game.load(saved);
+    expect(game.story.getPlaybackView().phase).toBe('failed');
+    expect(targetNotifications).toBe(1);
+    expect(game.state.resources[Resource.Credit] ?? 0).toBe(before);
+
+    unsubscribe();
+    expect(game.story.startCardStory(targetEntry.id).success).toBe(true);
+    expect(game.state.resources[Resource.Credit] ?? 0).toBe(before + 9);
+  });
+
+  test.each(['direct', 'entry-request'] as const)('替换清理通知抛错时保留可存读的失败槽，不执行新目标（%s）', route => {
+    const sourceEntry = activeEntry(`test:story:cleanup_source_${route}`, `test:story:cleanup_source_doc_${route}`);
+    const targetEntry = activeEntry(`test:story:cleanup_target_${route}`, `test:story:cleanup_target_doc_${route}`);
+    const source = nodeDoc(sourceEntry.storyId, [{ id: 'replace', type: 'click', stageId: 'input', interaction: {
+      kind: 'button', text: '进入下一段', result: { actions: [{ kind: 'entryRequest', request: {
+        entryId: targetEntry.id, entryType: 'active', owner: null, intent: 'card',
+      } }] },
+    } }], { input: { advance: 'input' } });
+    const target = nodeDoc(targetEntry.storyId, [
+      { id: 'target-write', type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'cleanup_target_started', value: true }] } },
+      { id: 'target-body', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '新目标正文' } },
+    ], { body: { advance: 'auto' } });
+    const game = track(makePack([sourceEntry, targetEntry], [source, target]));
+    expect(game.story.startActiveStory(sourceEntry.id).success).toBe(true);
+    expect(game.story.getPlaybackView().phase).toBe('input');
+    const unsubscribe = game.eventBus.on('storyRunEnded', event => {
+      if (event.reason === 'replaced') throw new Error('replacement observer failed');
+    });
+    const result = route === 'direct' ? game.story.startCardStory(targetEntry.id)
+      : game.story.submitStoryInput(null, game.story.getPlaybackView().token!);
+    expect(result).toMatchObject({ success: false, error: 'PlaybackFailed', detail: 'StoryReplacementCleanupFailed:replacement observer failed' });
+    expect(game.story.getPlaybackView()).toMatchObject({ phase: 'failed', error: 'StoryReplacementCleanupFailed:replacement observer failed' });
+    expect(game.state.flags.cleanup_target_started).toBeUndefined();
+    expect(game.state.storyLog.some(record => record.storyId === target.id)).toBe(false);
+
+    const saved = game.save();
+    expect(saved.storyPlayback.global).toMatchObject({ playback: { run: null }, finishing: {
+      terminalStoryId: target.id, settled: false, error: 'StoryReplacementCleanupFailed:replacement observer failed',
+    } });
+    expect(saved.storyPlayback.global.queue).toBeUndefined();
+    expect(() => game.story.validateCursors(saved.storyPlayback)).not.toThrow();
+    game.load(saved);
+    expect(game.story.getPlaybackView().phase).toBe('failed');
+    expect(game.state.flags.cleanup_target_started).toBeUndefined();
+
+    unsubscribe();
+    expect(game.story.startCardStory(targetEntry.id).success).toBe(true);
+    expect(game.state.flags.cleanup_target_started).toBe('true');
+    expect(game.story.getPlaybackView().phase).toBe('continue');
+  });
+
   test('同 owner Operation 启动并完成卡片目标时，原 start 返回目标 completed 且两个 run 各清理一次', () => {
     const targetEntry = activeEntry('test:story:node_reentrant_target', 'test:story:node_reentrant_target_doc', {
       completionReward: { first: [{ op: 'addResource', target: Resource.Pyroxene, value: 3 }] },
@@ -89,7 +170,10 @@ describe('StoryService StoryNode 会话集成', () => {
     const beforeB = game.story.getCurrentStoryView('B')!;
     expect(beforeA.token).not.toBe(beforeB.token);
 
-    expect(game.story.advanceStory(undefined, 'A', beforeA.token).success).toBe(true);
+    expect(game.story.advanceStory(undefined, 'A', beforeA.token)).toMatchObject({ success: false, error: 'PresentationPending' });
+    while (['typing', 'thinking'].includes(game.story.getPlaybackView('A').phase)) {
+      expect(game.story.accelerateStoryPresentation('A', game.story.getPlaybackView('A').token!)).toBe(true);
+    }
     const inputA = game.story.getCurrentStoryView('A')!;
     expect(inputA).toMatchObject({ nodeId: 'a-click', phase: 'input', storyDefId: storyA.id });
     expect(game.story.getCurrentStoryView('B')).toMatchObject({ nodeId: 'b-body', phase: 'delivery', token: beforeB.token });

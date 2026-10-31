@@ -6,9 +6,6 @@ export type StoryNodeStructureIssueCode =
   | 'invalid-id'
   | 'duplicate-id'
   | 'missing-stage'
-  | 'unused-stage'
-  | 'non-contiguous-stage'
-  | 'stage-shape'
   | 'interaction-shape'
   | 'pacing-scope'
   | 'flag-shape'
@@ -28,15 +25,9 @@ export interface StoryNodeStructureResult {
 const LOCAL_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const hasOwn = (value: object, key: PropertyKey): boolean => Object.prototype.hasOwnProperty.call(value, key);
 
-interface StageRun {
-  readonly id: string;
-  readonly talkletIndexes: number[];
-  readonly clickIndexes: number[];
-  lastNodeIndex: number;
-}
-
 /**
- * Check stage membership and basic author relationships for an already typed StoryNodeDocument.
+ * Check compatibility stage references and basic author relationships for an already typed StoryNodeDocument.
+ * Stages no longer group or constrain playback; the ordered nodes array is the only flow definition.
  * This deliberately does not parse arbitrary JSON, resolve Registry references, or inspect action payloads.
  */
 export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNodeStructureResult {
@@ -45,46 +36,11 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
     issues.push({ path, code, message });
   };
   const declaredStageIds = Object.keys(document.stages);
-  const declaredStages = new Set(declaredStageIds);
-  const usedStageIds = new Set<string>();
   const nodeIds = new Set<string>();
-  const closedStageIds = new Set<string>();
-  let stageRun: StageRun | undefined;
 
   for (const stageId of declaredStageIds) {
     if (!LOCAL_NAME.test(stageId)) issue(`stages.${stageId}`, 'invalid-id', 'Stage ID must be a local name of 1–64 letters, digits, underscores, or hyphens, beginning with a letter');
   }
-
-  const validateStageRun = (run: StageRun) => {
-    if (!hasOwn(document.stages, run.id)) return;
-    const advance = document.stages[run.id].advance;
-    if (advance === 'auto') {
-      if (run.talkletIndexes.length === 0) {
-        issue(`stages.${run.id}.advance`, 'stage-shape', 'An auto stage must contain at least one Talklet');
-      }
-      for (const index of run.clickIndexes) {
-        issue(`nodes[${index}].stageId`, 'stage-shape', 'An auto stage cannot contain a Click');
-      }
-      return;
-    }
-
-    if (run.clickIndexes.length === 0) {
-      issue(`stages.${run.id}.advance`, 'stage-shape', 'An input stage must contain exactly one Click');
-    } else if (run.clickIndexes.length > 1) {
-      issue(`nodes[${run.clickIndexes[1]}].stageId`, 'stage-shape', 'An input stage must contain exactly one Click');
-    }
-    const clickIndex = run.clickIndexes[0];
-    if (clickIndex !== undefined && clickIndex !== run.lastNodeIndex) {
-      issue(`nodes[${clickIndex}].stageId`, 'stage-shape', 'The Click must be the last member of its input stage');
-    }
-  };
-
-  const closeStageRun = () => {
-    if (!stageRun) return;
-    validateStageRun(stageRun);
-    closedStageIds.add(stageRun.id);
-    stageRun = undefined;
-  };
 
   for (let index = 0; index < document.nodes.length; index += 1) {
     const node = document.nodes[index];
@@ -111,37 +67,15 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
     }
 
     if (node.type === 'talklet' || node.type === 'click') {
-      usedStageIds.add(node.stageId);
       if (!LOCAL_NAME.test(node.stageId)) {
         issue(`${nodePath}.stageId`, 'invalid-id', 'Stage ID must be a local name of 1–64 letters, digits, underscores, or hyphens, beginning with a letter');
       }
       if (!hasOwn(document.stages, node.stageId)) {
         issue(`${nodePath}.stageId`, 'missing-stage', `Stage "${node.stageId}" is not declared by this document`);
       }
-      if (!stageRun || stageRun.id !== node.stageId) {
-        closeStageRun();
-        if (closedStageIds.has(node.stageId)) {
-          issue(`${nodePath}.stageId`, 'non-contiguous-stage', `Stage "${node.stageId}" must occupy one continuous node range`);
-        }
-        stageRun = { id: node.stageId, talkletIndexes: [], clickIndexes: [], lastNodeIndex: index };
-      }
-      stageRun.lastNodeIndex = index;
-      if (node.type === 'talklet') {
-        stageRun.talkletIndexes.push(index);
-        validatePacing(node, index, issue);
-      } else {
-        stageRun.clickIndexes.push(index);
-        validateClick(node, index, issue);
-      }
-    } else {
-      // Operation and Transfer nodes end a stage run; they never belong to a stage.
-      closeStageRun();
+      if (node.type === 'talklet') validatePacing(node, index, issue);
+      else validateClick(node, index, issue);
     }
-  }
-  closeStageRun();
-
-  for (const stageId of declaredStages) {
-    if (!usedStageIds.has(stageId)) issue(`stages.${stageId}`, 'unused-stage', `Stage "${stageId}" has no Talklet or Click members`);
   }
 
   return { ok: issues.length === 0, issues };
