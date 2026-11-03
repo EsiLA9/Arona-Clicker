@@ -511,10 +511,22 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     return Object.keys(out).length ? out : undefined;
   };
-  const root = object(value, '$', ['id', 'name', 'nodes', 'stages', 'extra']) ?? {};
+  const root = object(value, '$', ['id', 'name', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
   const id = string(root.id, 'id', true);
   if (parseEntityId(id)?.type !== 'story') fail('id', '需要有效的 Story ID');
   const name = string(root.name, 'name', true);
+  let startContext: Obj = {};
+  if (plain(root.startContext) && root.startContext.type === 'area') {
+    const context = object(root.startContext, 'startContext', ['type', 'areaId']) ?? {};
+    const areaId = string(context.areaId, 'startContext.areaId', true);
+    ref('areas', areaId, 'startContext.areaId');
+    startContext = { type: 'area', areaId };
+  } else if (plain(root.startContext) && root.startContext.type === 'chara') {
+    const context = object(root.startContext, 'startContext', ['type', 'characterId']) ?? {};
+    const characterId = string(context.characterId, 'startContext.characterId', true);
+    ref('characterVariants', characterId, 'startContext.characterId');
+    startContext = { type: 'chara', characterId };
+  } else fail('startContext', '需要明确的 Area 或 Chara 起始场景');
   const stagesInput = dictionary(root.stages, 'stages') ?? {};
   const stages: Record<string, { advance: 'auto' | 'input' }> = {};
   for (const [stageId, stageValue] of Object.entries(stagesInput)) {
@@ -552,6 +564,13 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       const flag = string(nodeValue.requiresFlag, `${p}.requiresFlag`, true);
       if (!validStoryFlagName(flag)) fail(`${p}.requiresFlag`, 'requiresFlag 必须是非空局部标记名');
       base.requiresFlag = flag;
+    }
+    if (type === 'moveToArea' || type === 'moveToCharaspace') {
+      const key = type === 'moveToArea' ? 'areaId' : 'characterId';
+      const x = object(nodeValue, p, [...common, key]) ?? {};
+      base[key] = string(x[key], `${p}.${key}`, true);
+      ref(type === 'moveToArea' ? 'areas' : 'characterVariants', base[key] as string, `${p}.${key}`);
+      return [base];
     }
     if (type === 'talklet') {
       const x = object(nodeValue, p, [...common, 'stageId', 'content', 'presentation', 'pacing']) ?? {};
@@ -627,9 +646,16 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (v.kind === 'entryCard') {
       const x = object(v, path, ['kind', 'card']) ?? {}; return { kind: 'entryCard', card: card(x.card, `${path}.card`) };
     }
+    if (v.kind === 'kizunaCard') { object(v, path, ['kind']); return { kind: 'kizunaCard' }; }
+    if (v.kind === 'areaContinue') {
+      const x = object(v, path, ['kind', 'areaId']) ?? {};
+      const areaId = string(x.areaId, `${path}.areaId`, true);
+      ref('areas', areaId, `${path}.areaId`);
+      return { kind: 'areaContinue', areaId };
+    }
     fail(`${path}.kind`, '未知 Click interaction 类型'); return {};
   }
-  const out: Obj = { id, name, nodes, stages };
+  const out: Obj = { id, name, startContext, nodes, stages };
   if (hasOwn(root, 'extra')) {
     const e = extraValue(root.extra, 'extra');
     if (plain(e) && e.t !== 'dict') fail('extra', 'Story extra 必须是 dict');

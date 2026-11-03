@@ -6,7 +6,6 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0350-story-continuation-and-cursor-design]] | 综合设计讨论，未施工 | 已加入 Area 赴约接取子故事：父游标保留，到场手动接取才占子槽；与同游标地点续播区分，统一返回 / 保存边界 |
 | [[ai/plan/task-0347-story-context-and-presentation-movement]] | 实施中 | 按裁定扩展 StoryDef、StoryNode、编辑器与重播运行语义 |
 | [[ai/plan/task-0348-story-talklet-click-authoring-coverage]] | 实施中 | ID 手写入口与游标 / 内容失配后从 Entry 重启已接入；其它字段覆盖待逐项完成 |
 | [[ai/plan/task-0344-story-operation-checkpoints]] | 代码与构建验收完成 | Operation 作者语义已承接到 0345 的 Runtime 队列；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |
@@ -23,6 +22,8 @@
 
 ## 最近完成
 
+- [[ai/plan/task-0351-story-continuation-implementation]]：0350 的地点续播、直接 / Area 赴约单层子调用、局部结果回传、存档和回放隔离已实施；定向 82 项通过，全量无新增失败（既有失败由 71 降至 44）；浏览器人工验收未运行。
+
 - Task 0345（原归档已删除）：Runtime 单游标表现队列、UI 显式意图、真实回执及存档 3.0 完成；全量 356 文件、3573 项通过，类型/架构/构建通过，未做浏览器视觉验收。
 
 - Task 0339（原归档已删除）：移除 Story Button / ChoiceOption 内嵌回复与自动回显；61 条基础包文本改为显式老师 Talklet，静态验收通过，自动化测试未运行。
@@ -30,6 +31,8 @@
 - Task 0335（原归档已删除）：Story Editor E0 原型已交付；独立三栏与本地草稿闭环，全 UI 103 文件、939 项通过；按用户要求不做浏览器验收。
 
 ## 调查资料
+
+- [[ai/plan/task-0350-story-continuation-and-cursor-design]]：故事续播、受限子调用及 Area 赴约的综合设计；已由 0351 实施。
 
 - [[ai/plan/task-0349-story-multi-cursor-discussion]]：游标、空间、羁绊回调和 FollowUp 替代的阶段讨论；后续已整合至 0350。
 - [[ai/plan/report-0349-story-cursor-topologies]]：100 个玩法 / 拓扑样本、禁嵌套准入与 FollowUp / 尾段替代调查，作为 0350 的边界依据。

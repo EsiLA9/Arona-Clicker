@@ -27,7 +27,11 @@ export interface StoryNodeSession {
   lastChoiceStoryId: string | null;
   denialMessage?: string;
   closed: boolean;
-  finishing?: { terminalStoryId: string; settled: boolean; error?: string; receipts?: readonly import('../../../engine/contracts/effect-receipt').EffectReceipt[]; completionRecorded?: boolean };
+  continuation?: { state: 'running' | 'returned'; childHistoryId: string };
+  called?: boolean;
+  continued?: boolean;
+  scene?: import('../../../data-services/contracts/story-node').StoryStartContext;
+  finishing?: { localFlags?: import('../../../engine/contracts/story-run-flags').StoryRunFlags; terminalStoryId: string; settled: boolean; error?: string; receipts?: readonly import('../../../engine/contracts/effect-receipt').EffectReceipt[]; completionRecorded?: boolean };
 }
 
 export interface CreateStoryNodeSessionOptions {
@@ -154,6 +158,8 @@ function clickPage(node: Extract<StoryNodePlaybackView, { status: 'input' }>['no
       choices: interaction.options.map(option => ({ id: option.id, text: option.text })),
     };
   }
+  if (interaction.kind === 'areaContinue') return { kind: 'click', text: '到指定地点继续故事' };
+  if (interaction.kind === 'kizunaCard') return { kind: 'click', text: '进入关联故事' };
   const card = interaction.card;
   return {
     kind: 'click', text: card.buttonText ?? '',

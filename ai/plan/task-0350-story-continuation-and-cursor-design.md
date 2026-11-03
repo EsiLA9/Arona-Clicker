@@ -1,6 +1,6 @@
 # Task 0350：故事续播、受限子调用与游标结构综合思考
 
-状态：综合设计讨论，未施工。创建于 2026-11-03。
+状态：设计已进入 [[ai/plan/task-0351-story-continuation-implementation]] 实施。创建于 2026-11-03。下文保留当时背景和提案措辞；当前合同、实现与验证以 0351、源码及 [[story-and-effects]] 为准。
 
 承接 [[ai/plan/task-0349-story-multi-cursor-discussion]] 与 [[ai/plan/report-0349-story-cursor-topologies]]。本页是后续统一讨论入口；0349 保留阶段推演，100 个玩法样本作为边界资料，不逐项重复。本文区分期望结果、当前事实和修改提案；拟议字段尚不能直接导入数据包。
 

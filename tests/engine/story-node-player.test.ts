@@ -73,6 +73,22 @@ const input = (view: StoryNodePlaybackView) => {
 };
 
 describe('StoryNodePlayer', () => {
+  it('replays local flags and temporary visuals without preflighting or executing world writes', () => {
+    const persistent: StoryAction = { kind: 'presentation', command: { command: 'theme', value: { scope: 'area', entityKey: 'area:test:area', tokens: { primary: '#ffffff' } } } };
+    const temporary: StoryAction = { kind: 'presentation', command: { command: 'theme', value: { tokens: { primary: '#111111' } } } };
+    const root = documentOf(ROOT, [
+      { id: 'world', type: 'operation', action: persistent },
+      button('choice', 'main', undefined, [addResource('credit', 10), persistent,
+        { kind: 'localFlag', op: 'set', name: 'chosen', value: false }, temporary]),
+    ], { main: { advance: 'input' } });
+    const { host, state } = makeHost({ rejectPreflight: action => action === persistent });
+    const player = new StoryNodePlayer(documents(root), host);
+    const started = player.start(ROOT, { ...source, replayId: 'private' });
+    const result = player.submit(input(started.view).token);
+    expect(result.ok).toBe(true);
+    expect(state.applied).toEqual([temporary]);
+    expect(result.view).toMatchObject({ status: 'completed', completion: { localFlags: { chosen: false } } });
+  });
   it('delivers Talklets one at a time and uses fresh tickets for press work', () => {
     const root = documentOf(ROOT, [talk('one', 'dialogue'), talk('two', 'dialogue'), button('work', 'press', { base: 2, rand: 2 }, [addResource('credit', 5)])], {
       dialogue: { advance: 'auto' }, press: { advance: 'input' },

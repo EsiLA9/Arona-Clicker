@@ -280,6 +280,7 @@ export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickI
     const card = renderChoiceCard(ctx, options, options.map((_, index) => index), 'right', undefined, true, optionAddon);
     return `<div class="chat-current story-editor-click-preview${optionAddon ? ' story-editor-click-preview--choice-bindings' : ''}">${card}</div>`;
   }
+  if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return renderStoryClickPreview(ctx, { kind: 'button', text: interaction.kind === 'kizunaCard' ? '进入关联故事' : '到指定地点继续' });
   const card = interaction.card;
   return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: card?.request?.entryId ?? '',

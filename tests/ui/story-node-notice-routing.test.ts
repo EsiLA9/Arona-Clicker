@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { legacyStoryDatapack as baseDatapack } from '../engine/legacy-story-datapack';
 import type { PanelState } from '../../src/ui/components/shared/app-shell';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindEvents } from '../../src/ui/controller/controller-events';

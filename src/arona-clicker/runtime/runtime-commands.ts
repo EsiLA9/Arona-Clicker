@@ -67,7 +67,7 @@ export interface GameCommandSource {
   clearDevLogs(): void;
   save(): SaveData;
   load(saveData: SaveData): void;
-  story: Pick<StoryService, 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'startReplayEntry' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend' | 'continueStory' | 'submitStoryInput' | 'accelerateStoryPresentation' | 'continueReplayStory' | 'submitReplayStoryInput' | 'accelerateReplayStoryPresentation' | 'cancelReplayStory'>;
+  story: Pick<StoryService, 'activateOwner' | 'startActiveStory' | 'acceptAreaStoryDelivery' | 'startCardStory' | 'replayStory' | 'startReplayEntry' | 'triggerPassiveStory' | 'triggerAffectionPush' | 'triggerTailPush' | 'advanceStory' | 'clickSend' | 'continueStory' | 'submitStoryInput' | 'accelerateStoryPresentation' | 'continueReplayStory' | 'submitReplayStoryInput' | 'accelerateReplayStoryPresentation' | 'cancelReplayStory'>;
   items: Pick<ItemService, 'useItem'>;
   enhancements: Pick<EnhancementService, 'purchaseEnhancement' | 'removeEnhancement'>;
   spot: Pick<SpotService, 'unlockSpot' | 'upgradeSpot'>;
@@ -144,6 +144,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     advanceStory: (choiceIndex, owner, token) => game.story.advanceStory(choiceIndex, owner, token),
     clickSend: (owner, token) => game.story.clickSend(owner, token),
     continueStory: (owner, token) => game.story.continueStory(owner, token),
+    activateStorySpace: (owner, replayId) => game.story.activateOwner(owner, replayId),
     submitStoryInput: (owner, token, optionId) => game.story.submitStoryInput(owner, token, optionId),
     accelerateStoryPresentation: (owner, token) => game.story.accelerateStoryPresentation(owner, token),
     continueReplayStory: (replayId, token) => game.story.continueReplayStory(replayId, token),

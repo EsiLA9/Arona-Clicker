@@ -139,7 +139,7 @@ export class EntityPresentationService implements EntityPresentationQueryPort {
     return true;
   }
 
-  clearRuntimeOverride(key: EntityPresentationKey, owner: string, runId?: string): boolean {
+  clearRuntimeOverride(key: EntityPresentationKey, owner: string, runId?: string, runOnly = false): boolean {
     const owners = this.runtimeOverrides.get(key);
     if (!owners) return false;
     let removed = false;
@@ -153,7 +153,7 @@ export class EntityPresentationService implements EntityPresentationQueryPort {
       }
       // A new StoryNode may still clear a matching manual/area/init owner, but
       // cannot erase a story override attached to another run.
-      if (!removed) {
+      if (!removed && !runOnly) {
         const unscoped = owners.get(owner);
         if (unscoped && unscoped.owner === owner && (unscoped.lifetime !== 'story' || unscoped.runId === undefined)) {
           owners.delete(owner);

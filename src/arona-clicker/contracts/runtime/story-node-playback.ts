@@ -13,8 +13,11 @@ export interface StoryNodeSource {
   readonly entryId: string;
   readonly rootStoryId: string;
   owner: string | null;
-  /** A replay uses a private one-off playback channel while retaining its semantic owner. */
+  /** An isolated playback channel, reused by replay, formal children and onsite continuations. */
   readonly replayId?: string;
+  /** false identifies formal playback in an isolated channel; other channels are private replay. */
+  readonly isReplay?: boolean;
+  readonly parentHistoryId?: string;
   /** 正式协调器分配的运行身份，用于定向演出与生命周期清理。 */
   readonly runId?: string;
   /** 跨保存恢复保持不变的逻辑播放身份；与新的演出运行身份分离。 */
@@ -46,6 +49,7 @@ export interface StoryNodePlaybackHost {
 /** 完整链结束的本地回执，不写旧StoryLog、不触发奖励/FollowUp。 */
 export interface StoryNodeCompletion extends StoryNodeSource {
   readonly terminalStoryId: string;
+  readonly localFlags: import('../../../engine/contracts/story-run-flags').StoryRunFlags;
 }
 
 export type StoryNodePlaybackView =

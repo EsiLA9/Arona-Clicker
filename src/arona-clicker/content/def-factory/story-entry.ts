@@ -13,6 +13,7 @@ abstract class StoryEntryBaseBuilder {
   protected _branchGuards: BranchGuard[] = []; protected _openingTitle?: string; protected _extra?: ExtraCompound;
   protected _reactions: StoryEntryReaction[] = [];
   protected _followUps: StoryFollowUp[] = [];
+  protected _kizuna?: StoryEntryBase['kizuna'];
   constructor(id: StoryId, storyId?: StoryId) { this._id = id; this._storyId = storyId ?? id; }
   story(storyId: StoryId): this { this._storyId = storyId; return this; }
   inits(...ids: InitId[]): this { this._availableInits = ids; return this; }
@@ -26,6 +27,7 @@ abstract class StoryEntryBaseBuilder {
   openingTitle(value: string): this { this._openingTitle = value; return this; }
   extra(value: ExtraCompound): this { this._extra = value; return this; }
   reactions(...values: StoryEntryReaction[]): this { this._reactions.push(...values); return this; }
+  kizuna(entryId: string, returnFlags: string[] = [], areaId?: string): this { this._kizuna = { entryId, returnFlags, ...(areaId ? { areaId } : {}) }; return this; }
   followUp(value: StoryFollowUp): this { this._followUps.push(value); return this; }
   protected toBase(): StoryEntryBase {
     const def: StoryEntryBase = { id: this._id, storyId: this._storyId, triggerCondition: this._triggerCondition, availableInits: this._availableInits };
@@ -35,6 +37,7 @@ abstract class StoryEntryBaseBuilder {
     if (this._openingTitle) def.openingTitle = this._openingTitle; if (this._extra) def.extra = this._extra;
     if (this._reactions.length) def.reactions = this._reactions;
     if (this._followUps.length) def.followUps = this._followUps;
+    if (this._kizuna) def.kizuna = this._kizuna;
     return def;
   }
 }

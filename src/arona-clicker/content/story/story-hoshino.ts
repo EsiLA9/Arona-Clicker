@@ -17,6 +17,8 @@ export const baseHoshinoStories: StoryDef[] = [
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '那、那我去天台等您。您也来吗？……不来我也不怪您哦。', speaker: '小鸟游星野' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '这就来。', result: { actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] }] } } },
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '这就来。', speaker: '老师' }, presentation: { side: 'right' } },
+  { id: 'rooftop-continue', type: 'click', stageId: 'p2', interaction: { kind: 'areaContinue', areaId: 'base:area:schale_rooftop' } },
+  { id: 'rooftop-scene', type: 'transfer', transfer: { mode: 'insert', storyId: 'base:story:hoshino_rooftop_meet' } },
 ]).build(),
   story('base:story:hoshino_rooftop_meet', '天台的相遇').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p3-response': { advance: 'auto' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，您真的来了……！晚霞把天空染成橘色，像我们第一次见面那天一样。', speaker: '小鸟游星野' } },
@@ -43,7 +45,8 @@ export const baseHoshinoStories: StoryDef[] = [
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '嗯？什么事？' } },
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '嗯？什么事？', speaker: '老师' }, presentation: { side: 'right' } },
   { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '星野酝酿了一下情绪……' } },
-  { id: 'p3-entry', type: 'click', stageId: 'p3', interaction: { kind: 'entryCard', card: { request: { entryId: 'base:activestory:bond_hoshino_evening', entryType: 'active', owner: "Hoshino", intent: 'card' }, title: '傍晚的河堤', buttonText: '进入羁绊剧情' } } },
+  { id: 'p3-entry', type: 'click', stageId: 'p3', interaction: { kind: 'kizunaCard' } },
+  { id: 'evening-return', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '今天很开心，老师。下次再一起去吧。', speaker: '星野' } },
 ]).build(),
 ];
 import { Resource } from '../../types/ids';

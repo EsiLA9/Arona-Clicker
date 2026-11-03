@@ -19,9 +19,9 @@ export function createAreaWorkspaceFrame(ctx: UIContext, areaId: string, state: 
     ? `<section class="area-workspace__stories" aria-label="待接取故事">
         <h3>待接取故事</h3>
         <div class="area-workspace__story-list">${deliveries.map(delivery => `
-          <article class="area-story-delivery" data-area-story-entry="${ctx.escapeHtml(delivery.entryId)}">
+          <article class="area-story-delivery" data-area-story-entry="${ctx.escapeHtml(delivery.id ?? delivery.entryId)}">
             <div class="area-story-delivery__body"><strong>${ctx.escapeHtml(delivery.title)}</strong></div>
-            <button type="button" class="story-trigger" data-area-story-accept="${ctx.escapeHtml(delivery.entryId)}">接取</button>
+            <button type="button" class="story-trigger" data-area-story-accept="${ctx.escapeHtml(delivery.id ?? delivery.entryId)}">接取</button>
           </article>`).join('')}
         </div>
       </section>`

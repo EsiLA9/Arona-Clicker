@@ -39,6 +39,7 @@ function gearReasonText(reason?: string): string {
  * （§2 轴 B 进入即推 / §3 尾巴强制优先）。"正在输入"节奏由页级打字提示承担（§4）。
  */
 function pushReadyTop(ctrl: UIController, variantId: string): void {
+  ctrl.commands.activateStorySpace(variantId);
   if (!ctrl.game.rosterSystem.isOwned(ctrl.game.state, variantId)) return;
   if (ctrl.game.getStoryView(variantId)) return; // 沙盒有进行中演出：直接恢复，不打断
   if (ctrl.game.story.readyStepCount(variantId) <= 0) return;
@@ -74,6 +75,7 @@ export function bindContactsActions(ctrl: UIController, scope: ParentNode = ctrl
   });
   // 对话空间返回键：回到一般聊天（并取消左侧该学生的 active 选中态）
   scope.querySelector('[data-conversation-back]')?.addEventListener('click', () => {
+    ctrl.commands.activateStorySpace(null);
     if (ctrl.panelState.workspace?.type === 'contacts') {
       ctrl.panelState.workspace.conversationVariantId = null;
       ctrl.panelState.conversationVariantId = null;

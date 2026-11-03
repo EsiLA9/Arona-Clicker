@@ -10,12 +10,12 @@ import type { UIController } from './controller';
 import { refreshCultivation } from './controller-actions-contacts';
 import type { StoryStartContext } from '../../data-services/contracts/story-node';
 
-function routeToStoryContext(ctrl: UIController, context: StoryStartContext): void {
+export function routeToStoryContext(ctrl: UIController, context: StoryStartContext, isolated = false): void {
   if (context.type === 'chara') {
-    ctrl.openContactsWorkspace(context.characterId);
+    ctrl.openContactsWorkspace(context.characterId, !isolated);
     return;
   }
-  ctrl.navigateToService('game');
+  ctrl.navigateToService('game', !isolated);
   ctrl.panelState.leftTab = 'area';
   ctrl.panelState.centerTab = 'chat';
   ctrl.panelState.rightTab = 'spot';
@@ -49,7 +49,7 @@ export function bindEvents(ctrl: UIController): void {
         || (route?.kind ?? 'game') !== 'game' || !areaId) return;
       const column = ctrl.root.querySelector<HTMLElement>('[data-column-definition="area-navigation"]');
       if (!column) return;
-      const expected = ctrl.game.story.getAreaStoryDeliveries(areaId).slice(0, 5).map(delivery => delivery.entryId);
+      const expected = ctrl.game.story.getAreaStoryDeliveries(areaId).slice(0, 5).map(delivery => delivery.id ?? delivery.entryId);
       const actual = [...column.querySelectorAll<HTMLButtonElement>('[data-area-story-quick-enter]')]
         .map(button => button.dataset.areaStoryQuickEnter ?? '');
       if (column.dataset.columnBinding !== areaId || expected.length !== actual.length
@@ -81,7 +81,10 @@ export function bindEvents(ctrl: UIController): void {
   ctrl.game.eventBus.on('storyTriggered', event => {
     if (event.type !== 'storyTriggered') return;
     const entry = ctrl.game.registry.storyEntries.get(event.storyId);
-    const context = entry ? ctrl.game.registry.stories.get(entry.storyId)?.startContext : undefined;
+    const context = event.context ?? (entry ? ctrl.game.registry.stories.get(entry.storyId)?.startContext : undefined);
+    if (event.isolated && event.replayId) {
+      ctrl.panelState.storyReplay = { entryId: event.storyId, owner: event.owner ?? null, context, replayId: event.replayId, runId: event.runId, entries: [], chatTexts: [] };
+    }
     const replay = ctrl.panelState.storyReplay;
     if (event.replayId && replay?.entryId === event.storyId && replay.owner === (event.owner ?? null)) {
       replay.replayId = event.replayId;
@@ -92,7 +95,8 @@ export function bindEvents(ctrl: UIController): void {
         replay.context = context;
         replay.owner = context.type === 'chara' ? context.characterId : null;
       }
-      routeToStoryContext(ctrl, context);
+      routeToStoryContext(ctrl, context, !!event.replayId);
+      if (event.replayId) ctrl.commands.activateStorySpace(event.owner ?? null, event.replayId);
       if (event.replayId && replay?.replayId === event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出场景：${storyContextLabel(ctrl, context)}` });
       ctrl.scheduleRender();
     }
@@ -105,7 +109,8 @@ export function bindEvents(ctrl: UIController): void {
       replay.context = event.context;
       replay.owner = event.owner;
     }
-    routeToStoryContext(ctrl, event.context);
+    routeToStoryContext(ctrl, event.context, !!event.replayId);
+    if (event.replayId) ctrl.commands.activateStorySpace(event.owner ?? null, event.replayId);
     if (event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出移动：${storyContextLabel(ctrl, event.context)}` });
     ctrl.scheduleRender();
   });

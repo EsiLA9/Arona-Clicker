@@ -264,7 +264,7 @@ export class StoryPlaybackCoordinator {
     if (!this.paused && !barrier.ready) this.schedule(barrier, saved.remainingMs);
   }
 
-  restoreOutputs(owner: string | null, saved: StoryOutputSnapshot): void { this.outputs.set(ownerKey(owner), structuredClone(saved)); }
+  restoreOutputs(owner: string | null, saved: StoryOutputSnapshot, replayId?: string): void { this.outputs.set(channelKey(owner, replayId), structuredClone(saved)); }
 
   discardReplay(replayId: string): void {
     const key = channelKey(null, replayId);

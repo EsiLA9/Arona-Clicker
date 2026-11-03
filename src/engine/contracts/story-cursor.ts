@@ -10,12 +10,18 @@ export interface StoryCursorSnapshot {
   /** Story document whose Choice supplied lastChoiceIndex, even after insert transfers. */
   readonly lastChoiceStoryId: string | null;
   readonly flags: readonly string[];
+  readonly continuation?: { readonly state: 'running' | 'returned'; readonly childHistoryId: string };
+  readonly called?: boolean;
+  readonly continued?: boolean;
+  readonly scene?: { readonly type: 'area'; readonly areaId: string } | { readonly type: 'chara'; readonly characterId: string };
   /** Run-scoped visual state, restored under the new runId; never replays gameplay actions. */
   readonly presentation?: StoryPresentationSnapshot;
   readonly output: StoryOutputSnapshot;
+  readonly channelOutput?: StoryOutputSnapshot;
   readonly queue?: StoryPlaybackQueueSnapshot;
   readonly documents?: Readonly<Record<string, string>>;
   readonly finishing?: {
+    readonly localFlags?: import('./story-run-flags').StoryRunFlags;
     readonly source: NonNullable<StoryNodeSnapshot['run']>['source'];
     readonly terminalStoryId: string;
     readonly settled: boolean;
@@ -31,4 +37,5 @@ export interface StoryCursorCollection {
   readonly global: StoryCursorSnapshot;
   readonly chats: Readonly<Record<string, StoryCursorSnapshot>>;
   readonly pendingStarts: readonly StoryDeferredStart[];
+  readonly child?: StoryCursorSnapshot;
 }

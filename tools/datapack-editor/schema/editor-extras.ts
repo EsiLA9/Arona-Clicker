@@ -663,6 +663,7 @@ const activeStoriesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     r('storyId', 'stories', '演出本体'),
+    o('kizuna', [r('entryId', 'activeStories', '关联子故事'), r('areaId', 'areas', '赴约地点（省略则直接进入）'), a('returnFlags', s('$'), '允许返回的局部标记')], '一层羁绊关联'),
     a('availableInits', r('$', 'inits'), '可用世界线'),
     divider('揭示与触发'),
     revealTriggersField(),
@@ -695,6 +696,7 @@ const passiveStoriesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     r('storyId', 'stories', '演出本体'),
+    o('kizuna', [r('entryId', 'activeStories', '关联子故事'), r('areaId', 'areas', '赴约地点（省略则直接进入）'), a('returnFlags', s('$'), '允许返回的局部标记')], '一层羁绊关联'),
     a('availableInits', r('$', 'inits'), '可用世界线'),
     divider('揭示与触发'),
     revealTriggersField(),

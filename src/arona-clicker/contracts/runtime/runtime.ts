@@ -720,6 +720,7 @@ export interface GameCommands {
   advanceStory(choiceIndex?: number | string, owner?: string | null, token?: string): StoryAdvanceResult;
   clickSend(owner?: string | null, token?: string): SendResult;
   continueStory(owner: string | null, token: string): StoryAdvanceResult;
+  activateStorySpace(owner: string | null, replayId?: string): void;
   submitStoryInput(owner: string | null, token: string, optionId?: string): StoryAdvanceResult;
   accelerateStoryPresentation(owner: string | null, token: string): boolean;
   continueReplayStory(replayId: string, token: string): StoryAdvanceResult;

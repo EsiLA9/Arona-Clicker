@@ -23,7 +23,7 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
     : [];
   const quickStoryButtons = quickStories.length
     ? `<div class="area-hero-story-list" role="group" aria-label="区域故事快捷入口">${quickStories.map(delivery => `
-        <button type="button" class="area-hero-story-entry" data-area-story-quick-enter="${ctx.escapeHtml(delivery.entryId)}"${interactionBlocked || game.story.isBlockingInteraction(delivery.owner) ? ' disabled' : ''}><span>${ctx.escapeHtml(delivery.title)}</span></button>`).join('')}
+        <button type="button" class="area-hero-story-entry" data-area-story-quick-enter="${ctx.escapeHtml(delivery.id ?? delivery.entryId)}"${interactionBlocked || game.story.isBlockingInteraction(delivery.owner) ? ' disabled' : ''}><span>${ctx.escapeHtml(delivery.title)}</span></button>`).join('')}
       </div>`
     : '';
   const mapEntry = currentArea ? game.areaMap?.getEntryView(currentArea.id) : undefined;

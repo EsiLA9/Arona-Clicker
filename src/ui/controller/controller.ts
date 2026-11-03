@@ -62,7 +62,7 @@ import {
   bindSelectorCommonActions as bindSelectorCommonActionsImpl,
   showBackToGame as showBackToGameImpl,
 } from './controller-panels';
-import { bindEvents } from './controller-events';
+import { bindEvents, routeToStoryContext } from './controller-events';
 import { applyTheme as applyThemeImpl, backgroundView as backgroundViewImpl, presentationView as presentationViewImpl, restoreThemeFloat as restoreThemeFloatImpl, selectorBaseBackgroundView, selectorBasePresentationView, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
 import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
@@ -1012,7 +1012,17 @@ export class UIController {
   }
 
   /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
+  private restoreStoryChannel(): void {
+    const channel = this.game.story.getActiveStoryChannel();
+    if (!channel || this.panelState.storyReplay?.replayId === channel.replayId && this.panelState.storyReplay.runId === channel.runId) return;
+    const owner = channel.context.type === 'chara' ? channel.context.characterId : null;
+    this.panelState.storyReplay = { ...channel, owner, entries: [], chatTexts: [] };
+    routeToStoryContext(this, channel.context, true);
+    this.commands.activateStorySpace(channel.owner, channel.replayId);
+  }
+
   refreshChatPanel(): void {
+    this.restoreStoryChannel();
     if (this.storyEditor.isOpen() && !this.columns.ids().some(id => {
       const root = this.columns.node(id);
       return root?.isConnected && root.querySelector('[data-chat-owner]');
@@ -1291,6 +1301,7 @@ export class UIController {
 
   /** 全量重建 #app DOM（供 controller-core / controller-modals 触发）。 */
   render(): void {
+    this.restoreStoryChannel();
     this.areaMaps.beforeRender();
     this.surfaceRuntime.sync(this.panelState);
     this.refreshStats.fullRenders += 1;
@@ -2123,7 +2134,7 @@ export class UIController {
   }
 
   /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
-  navigateToService(service: NonNullable<PanelState['service']>): void {
+  navigateToService(service: NonNullable<PanelState['service']>, activateStorySpace = true): void {
     if (!this.storyEditor.beforeLeave()) return;
     if (this.storyEditor.isOpen()) this.storyEditor.abandonReturn();
     this.areaMaps.release();
@@ -2133,6 +2144,7 @@ export class UIController {
     if (this.panelState.storyReplay?.completed) this.panelState.storyReplay = undefined;
     this.panelState.service = service;
     this.panelState.workspaceNavigation = createWorkspaceNavigation(route);
+    if (service === 'game' && activateStorySpace) this.commands.activateStorySpace(this.panelState.conversationVariantId);
   }
 
   /** 进入新的 Workspace，并记录一个可选的单层返回位置。 */
@@ -2333,6 +2345,7 @@ export class UIController {
       this.panelState.workspaceNavigation = createWorkspaceNavigation(targetRoute);
     }
     this.panelState.storyGate = null;
+    if (targetRoute.kind === 'game' || targetRoute.kind === 'contacts') this.commands.activateStorySpace(this.panelState.conversationVariantId);
     this.refreshTheme();
     this.render();
   }
@@ -2370,7 +2383,11 @@ export class UIController {
   }
 
   /** 进入正式 ContactsWorkspace；不选择学生也是合法状态。 */
-  openContactsWorkspace(selectedVariantId?: string | null): ContactsWorkspaceState {
+  openContactsWorkspace(selectedVariantId?: string | null, activateStorySpace = true): ContactsWorkspaceState {
+    if (this.panelState.storyReplay?.completed) {
+      if (this.panelState.storyReplay.replayId) this.commands.cancelReplayStory(this.panelState.storyReplay.replayId);
+      this.panelState.storyReplay = undefined;
+    }
     const current = this.panelState.workspace?.type === 'contacts' ? this.panelState.workspace : undefined;
     const selected = selectedVariantId === undefined ? current?.selectedVariantId ?? null : selectedVariantId;
     const conversation = selectedVariantId === undefined ? current?.conversationVariantId ?? null : selectedVariantId;
@@ -2389,6 +2406,7 @@ export class UIController {
     this.panelState.selectedVariantId = selected;
     this.panelState.conversationVariantId = conversation;
     this.panelState.storyGate = null;
+    if (activateStorySpace) this.commands.activateStorySpace(conversation);
     return workspace;
   }
 
@@ -2397,6 +2415,7 @@ export class UIController {
     const workspace = this.panelState.workspace?.type === 'contacts'
       ? this.panelState.workspace
       : this.openContactsWorkspace();
+    this.commands.activateStorySpace(variantId);
     workspace.selectedVariantId = variantId;
     workspace.conversationVariantId = variantId;
     this.panelState.selectedVariantId = variantId;

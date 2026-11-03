@@ -74,6 +74,8 @@ export interface StoryView {
 
 /** Read-only AreaHero offer derived from the current Init's pending delivery records. */
 export interface AreaStoryDeliveryView {
+  /** Opaque acceptance identity for a run-bound invitation. */
+  id?: string;
   entryId: StoryId;
   areaId: string;
   title: string;

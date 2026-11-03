@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { ShopSession } from '../../src/arona-clicker/services/economy/shop-service';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { legacyStoryDatapack as baseDatapack } from '../engine/legacy-story-datapack';
 import { createUIContext } from '../../src/ui/runtime/context';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindEvents } from '../../src/ui/controller/controller-events';
@@ -343,7 +343,7 @@ describe('Workspace 页面生命周期', () => {
     finishStory(game, 0, 'Hoshino');
     game.mutations.acquireCharacter('Hoshino', 'story');
 
-    game.state.areaStoryDeliveries = [];
+    game.state.areaStoryDeliveries?.splice(0);
     controller.panelState.leftTab = 'area';
     controller.render();
     const sourceId = 'base:activestory:hoshino_rooftop_meet';

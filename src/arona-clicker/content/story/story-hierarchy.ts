@@ -65,7 +65,7 @@ export const baseStoryHierarchy: StoryContentTable = {
           { id: 'base:activestory:run_chain_3', entryId: 'base:activestory:run_chain_3', replayable: true },
         ] },
         { id: 'part_3', name: '星野系列', items: [
-          { id: 'base:activestory:hoshino_rooftop_meet', entryId: 'base:activestory:hoshino_rooftop_meet', replayable: true },
+          { id: 'base:passivestory:hoshino_conv_2', entryId: 'base:passivestory:hoshino_conv_2', replayable: true },
         ] },
       ],
     },

@@ -425,7 +425,7 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
 
     const state = emptyRunPresentation();
     if (snapshot.ephemeralTheme !== undefined) {
-      if (!this.options.colorSystem.setStoryNodeTheme(runId, source.owner, cloneEphemeralTheme(snapshot.ephemeralTheme))) {
+      if (!this.options.colorSystem.setStoryNodeTheme(runId, source.replayId ?? source.owner, cloneEphemeralTheme(snapshot.ephemeralTheme))) {
         throw new Error('StoryPresentationSnapshotThemeRejected');
       }
       state.ephemeralTheme = cloneEphemeralTheme(snapshot.ephemeralTheme);
@@ -542,7 +542,7 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
     switch (command.command) {
       case 'theme': {
         const runId = source.runId!;
-        if (!this.options.colorSystem.setStoryNodeTheme(runId, source.owner, command.value)) return rejected('ThemeApplicationFailed');
+        if (!this.options.colorSystem.setStoryNodeTheme(runId, source.replayId ?? source.owner, command.value)) return rejected('ThemeApplicationFailed');
         if (command.value.scope !== 'area' && command.value.scope !== 'student') {
           const saved = { ...command.value, scope: 'ephemeral' } as StoryEphemeralThemeSnapshot;
           const state = this.runState(source, true)!;
@@ -568,7 +568,8 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
         return applied();
       }
       case 'clearEntityPresentation': {
-        if (!this.options.entityPresentation.clearRuntimeOverride(command.target, command.owner, source.runId)) {
+        const replay = !!source.replayId && source.isReplay !== false;
+        if (!this.options.entityPresentation.clearRuntimeOverride(command.target, command.owner, source.runId, replay) && !replay) {
           return rejected('PresentationOverrideNotFound');
         }
         if (source.runId) this.runPresentations.get(source.runId)?.entities.delete(entitySnapshotKey(command.target, command.owner));

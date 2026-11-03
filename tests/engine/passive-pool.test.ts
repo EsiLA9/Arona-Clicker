@@ -9,7 +9,7 @@ import { PassivePoolSystem } from '../../src/arona-clicker/services/economy/pass
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { legacyStoryDatapack as baseDatapack } from './legacy-story-datapack';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { ActiveStoryEntry, PassiveStoryEntry, StoryEntryDef } from '../../src/data-services/contracts/story-entry';
 import type { StoryDef } from '../../src/data-services/contracts/story';

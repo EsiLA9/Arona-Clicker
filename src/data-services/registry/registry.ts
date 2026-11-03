@@ -31,6 +31,7 @@ import type { GameplayMapDef } from '../contracts/gameplay-map';
 import type { AreaMapDef } from '../contracts/area-map';
 import { validateAreaMapReferences } from './area-map-validation';
 import { prepareStoryDefinition } from './registry-story-mutation';
+import { validateStoryContinuations } from '../validation/story-continuations';
 import { stripLegacyStoryReplies } from '../authoring/story-definition-projection';
 // ============================================================
 // data-services/registry.ts — 注册表 (Datapack 编译、校验、合并)
@@ -806,6 +807,7 @@ export class Registry {
       storyEntries: this.storyEntries, colorGroups: this.colorGroups, entityPresentationOptions,
       pics: this.pics, funclets: this.funcletDefs, resources: this.resourceDisplays,
     });
+    validateStoryContinuations([...this.storyEntries.values()], [...this._stories.values()].filter(value => value.id !== candidate.id).concat(candidate), new Set(this.areas.keys()));
     this._stories.set(candidate.id, candidate);
   }
   /** Restore one Story from the data currently loaded into this Runtime, or remove a runtime-only addition. */

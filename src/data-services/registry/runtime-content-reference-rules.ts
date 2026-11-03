@@ -40,6 +40,7 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.nodes\[\d+\]\.areaId$/, '移动目标 Area', ['areas']],
     [/^\$\.nodes\[\d+\]\.characterId$/, '移动目标角色', ['characterVariants']],
     [/^\$\.nodes\[\d+\]\.transfer\.storyId$/, '剧情转移', ['stories']],
+    [/^\$\.nodes\[\d+\]\.interaction\.areaId$/, '地点续播', ['areas']],
     [/^\$\.nodes\[\d+\]\.interaction\.result\.transfer\.storyId$/, '按钮结果剧情转移', ['stories']],
     [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.transfer\.storyId$/, '选项结果剧情转移', ['stories']],
   ],
@@ -51,6 +52,8 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.followUps\[\d+\]\.waitFor\.areaId$/, '后续等待 Area', ['areas']],
     [/^\$\.followUps\[\d+\]\.outcome\.storyEntryId$/, '后续 StoryEntry', ['activeStories', 'passiveStories']],
     [/^\$\.pushAfterStory$/, '前置剧情', ['stories']],
+    [/^\$\.kizuna\.entryId$/, '关联羁绊', ['activeStories']],
+    [/^\$\.kizuna\.areaId$/, '赴约地点', ['areas']],
   ],
   characterVariants: [
     [/^\$\.proto$/, '原型角色', ['characters']],

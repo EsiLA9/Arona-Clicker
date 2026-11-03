@@ -235,7 +235,7 @@ function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value
   return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${choices(ctx,targets,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state)}${choices(ctx,[['==','等于'],['!=','不等于'],['>=','大于等于'],['<=','小于等于'],['>','大于'],['<','小于']],val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
-  const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡']],state)];
+  const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['kizunaCard','关联羁绊'],['areaContinue','到地点继续']],state)];
   if(kind==='button') {
     out.push(scalar(ctx,'按钮文案',[...path,'text'],val(interaction,'text'),state,'textarea'));
     const press=record(val(interaction,'press')); const pressPath=[...path,'press'];
@@ -251,6 +251,7 @@ function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interacti
     out.push(listHeader(ctx,'选项（按顺序）',optionsPath,state),...options.map((item,index)=>choiceOption(ctx,state,[...optionsPath,index],record(item),optionsPath,index,options.length,draft,nodeId)));
   }
   if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...path,'card'],record(val(interaction,'card')),[...path,'card','request']));
+  if(kind==='areaContinue') out.push(scalar(ctx,'续播地点',[...path,'areaId'],val(interaction,'areaId'),state,'ref','area'));
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,listPath:Path,index:number,total:number,draft:StoryDraft,nodeId:string):string {

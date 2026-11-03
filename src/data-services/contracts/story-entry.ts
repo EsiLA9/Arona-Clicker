@@ -27,6 +27,8 @@ export interface StoryEntryBase {
   id: StoryId; storyId: StoryId; availableInits: InitId[]; tags?: TagPath[]; triggerCondition: ConditionGroup;
   revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';
   conditionalRewards?: ConditionalReward[]; branchGuards?: BranchGuard[]; openingTitle?: string; extra?: ExtraCompound;
+  /** One bounded child Entry; areaId requires accepting its invitation at that Area. */
+  kizuna?: { entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] };
   reactions?: StoryEntryReaction[];
   followUps?: StoryFollowUp[];
 }

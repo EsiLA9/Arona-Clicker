@@ -11,7 +11,7 @@ import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { legacyStoryDatapack as baseDatapack } from './legacy-story-datapack';
 import type { GameEvent } from '../../src/engine/types';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-entry';

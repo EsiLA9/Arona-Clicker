@@ -19,7 +19,7 @@ export type StoryNodePendingSnapshot =
 export interface StoryNodeSnapshot {
   readonly format: 'story-nodes-v2';
   readonly run: {
-    readonly source: { readonly entryId: string; readonly rootStoryId: string; readonly owner: string | null; readonly runId?: string; readonly historyId?: string; readonly causalChainId?: string; readonly handoffCount?: number };
+    readonly source: { readonly entryId: string; readonly rootStoryId: string; readonly owner: string | null; readonly runId?: string; readonly historyId?: string; readonly causalChainId?: string; readonly handoffCount?: number; readonly replayId?: string; readonly isReplay?: boolean; readonly parentHistoryId?: string };
     readonly storyId: string;
     readonly nodeId: string;
     readonly waitSequence: number;

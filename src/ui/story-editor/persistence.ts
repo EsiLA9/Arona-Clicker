@@ -39,6 +39,8 @@ function validDocument(value: unknown): boolean {
       && (node.pacing === undefined || record(node.pacing));
     if (node.type !== 'click' || !record(node.interaction)) return false;
     const interaction = node.interaction;
+    if (interaction.kind === 'kizunaCard') return true;
+    if (interaction.kind === 'areaContinue') return optionalString(interaction.areaId);
     return interaction.kind === 'button' ? optionalString(interaction.text)
       : interaction.kind === 'choice' ? (interaction.options === undefined || Array.isArray(interaction.options) && interaction.options.every(option => record(option) && optionalString(option.text)))
         : interaction.kind === 'entryCard' && (interaction.card === undefined || record(interaction.card) && optionalString(interaction.card.title));

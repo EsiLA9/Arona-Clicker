@@ -13568,34 +13568,11 @@
       "availableInits": [
         "base:init:schale_office"
       ],
-      "followUps": [
-        {
-          "id": "rooftop-meet",
-          "waitFor": {
-            "kind": "next-enter-area",
-            "areaId": "base:area:schale_rooftop"
-          },
-          "outcome": {
-            "kind": "start-story-entry",
-            "storyEntryId": "base:activestory:hoshino_rooftop_meet"
-          }
-        }
-      ],
+      "replayable": true,
       "type": "passive",
       "repeatable": false,
       "weight": 1,
       "owner": "Hoshino",
-      "block": {
-        "type": "AND",
-        "conditions": [
-          {
-            "target": "area",
-            "key": "base:area:schale_rooftop",
-            "comparator": "==",
-            "value": 1
-          }
-        ]
-      },
       "interruptible": false,
       "leaveArea": false
     },
@@ -13607,6 +13584,11 @@
         "conditions": []
       },
       "availableInits": [],
+      "replayable": true,
+      "kizuna": {
+        "entryId": "base:activestory:bond_hoshino_evening",
+        "returnFlags": []
+      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
@@ -13701,11 +13683,16 @@
         "conditions": []
       },
       "availableInits": [],
+      "replayable": true,
+      "kizuna": {
+        "entryId": "base:activestory:bond_hoshino_1",
+        "returnFlags": []
+      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
       "owner": "Hoshino",
-      "pushAfterStory": "base:story:bond_hoshino_1",
+      "affectionRequired": 3,
       "interruptible": true
     },
     {
@@ -17956,6 +17943,23 @@
           "presentation": {
             "side": "right"
           }
+        },
+        {
+          "id": "rooftop-continue",
+          "type": "click",
+          "stageId": "p2",
+          "interaction": {
+            "kind": "areaContinue",
+            "areaId": "base:area:schale_rooftop"
+          }
+        },
+        {
+          "id": "rooftop-scene",
+          "type": "transfer",
+          "transfer": {
+            "mode": "insert",
+            "storyId": "base:story:hoshino_rooftop_meet"
+          }
         }
       ],
       "stages": {
@@ -18332,17 +18336,17 @@
           "type": "click",
           "stageId": "p3",
           "interaction": {
-            "kind": "entryCard",
-            "card": {
-              "request": {
-                "entryId": "base:activestory:bond_hoshino_evening",
-                "entryType": "active",
-                "owner": "Hoshino",
-                "intent": "card"
-              },
-              "title": "傍晚的河堤",
-              "buttonText": "进入羁绊剧情"
-            }
+            "kind": "kizunaCard"
+          }
+        },
+        {
+          "id": "evening-return",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "今天很开心，老师。下次再一起去吧。",
+            "speaker": "星野"
           }
         }
       ],
@@ -18819,12 +18823,30 @@
     },
     {
       "id": "base:story:affinity_hoshino_bond_tail",
-      "name": "羁绊尾巴 · 星野：堤防之后",
+      "name": "好感邀约 · 星野：午后的堤防",
       "startContext": {
         "type": "chara",
         "characterId": "Hoshino"
       },
       "nodes": [
+        {
+          "id": "bond-invitation",
+          "type": "talklet",
+          "stageId": "p1",
+          "content": {
+            "kind": "talk",
+            "text": "队长，午后一起去堤防坐坐吧。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "bond-card",
+          "type": "click",
+          "stageId": "p1",
+          "interaction": {
+            "kind": "kizunaCard"
+          }
+        },
         {
           "id": "p1-body",
           "type": "talklet",

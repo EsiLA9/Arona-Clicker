@@ -63,6 +63,22 @@ const source = (runId: string, owner: string | null = 'test:variant:a'): StoryNo
 });
 
 describe('StoryNodePresentationHost', () => {
+  test('isolates channel themes from the same Chara and never lets replay clear a manual override', () => {
+    const { game, presentation } = setup();
+    const parent = source('parent');
+    const child = { ...source('child'), replayId: 'isolated-child', isReplay: false };
+    presentation.execute({ kind: 'presentation', command: { command: 'theme', value: { tokens: { primary: '#111111' } } } }, parent);
+    presentation.execute({ kind: 'presentation', command: { command: 'theme', value: { tokens: { primary: '#222222' } } } }, child);
+    presentation.activate(parent.owner);
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#111111');
+    presentation.activate(child.replayId);
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#222222');
+    presentation.activate(parent.owner);
+    expect(game.colorSystem.runtimeTheme().tokens.primary).toBe('#111111');
+    presentation.execute({ kind: 'presentation', command: { command: 'setEntityPresentation', target: areaKey, optionId: 'alternate', owner: 'shared', lifetime: 'manual' } }, source('manual'));
+    expect(presentation.execute({ kind: 'presentation', command: { command: 'clearEntityPresentation', target: areaKey, owner: 'shared' } }, { ...source('replay'), replayId: 'private' }).status).toBe('applied');
+    expect(game.entityPresentation.resolve(game.state, areaKey)?.optionId).toBe('alternate');
+  });
   test('routes overlay text, message, entry card and title with the complete source identity', () => {
     const { events, presentation } = setup();
     const current = source('run-a');

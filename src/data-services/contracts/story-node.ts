@@ -145,7 +145,9 @@ export interface StoryPacing {
 export type StoryClickInteraction =
   | StoryButtonInteraction
   | StoryChoiceInteraction
-  | StoryEntryCardInteraction;
+  | StoryEntryCardInteraction
+  | { readonly kind: 'kizunaCard' }
+  | { readonly kind: 'areaContinue'; readonly areaId: AreaId };
 
 /** 单按钮输入；可声明按击工作量和成功结果。 */
 export interface StoryButtonInteraction {

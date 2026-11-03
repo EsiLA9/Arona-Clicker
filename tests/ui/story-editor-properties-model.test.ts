@@ -22,6 +22,18 @@ class MemoryStorage implements StorageAdapter {
 }
 
 describe('Story Editor property draft model', () => {
+  it('restores incomplete Area gates and bounded child gates from draft storage', () => {
+    const source: StoryDef = { ...story, nodes: [
+      { id: 'child', type: 'click', stageId: 's1', interaction: { kind: 'kizunaCard' } },
+      { id: 'area', type: 'click', stageId: 's1', interaction: { kind: 'areaContinue', areaId: '' } },
+    ] };
+    const state = createStoryEditorState(); selectStory(state, `source:${source.id}`, new Map([[source.id, source]]));
+    currentDraft(state)!.dirty = true;
+    const storage = new MemoryStorage();
+    expect(new StoryDraftPersistence(storage).save(state)).toBe(true);
+    const restored = createStoryEditorState(); new StoryDraftPersistence(storage).load(restored);
+    expect(restored.drafts[0].document).toEqual(source);
+  });
   it('keeps branch and talk-only pacing values isolated while switching and restoring', () => {
     const state = createStoryEditorState(); selectStory(state, `source:${story.id}`, sources);
     const draft = currentDraft(state)!;

@@ -6,7 +6,7 @@
 
 `StoryService` 按故事拥有者维护普通活动会话。`StoryNodePlayer` 解释作者节点、动作与转移；`StoryPlaybackCoordinator` 管理当前等待点的有限表现步骤、计时和已投递输出。UI 读取 `getPlaybackView(owner)`，提交明确的继续、输入或节奏加速意图；读取和刷新本身不推进剧情。
 
-重读使用独立的一次性 `replayId` 通道，可与同 owner 的普通故事并行；owner 仍表示故事归属，但重读会话、输出、表现阶段和输入 token 都按 replayId 隔离。UI 将它投影到临时聊天空间，结束后返回故事页；重读输出不进入普通聊天历史、故事游标或存档，取消/重置时清理。重读跳过完成记录与完成奖励，但节点动作仍按现有 replay 语义执行，可能再次产生节点内世界效果。
+重读使用独立的一次性 `replayId` 通道，可与同 owner 的普通故事并行；owner 仍表示故事归属，但重读会话、输出、表现阶段和输入 token 都按 replayId 隔离。UI 将它投影到临时聊天空间，结束后返回故事页；重读输出不进入普通聊天历史、故事游标或存档，取消/重置时清理。重读仅计算本次 localFlags 和临时演出，跳过持久状态、真实旅行、入口请求及完成奖励；area/student 主题和非 story 生命周期的实体覆盖也不执行。
 
 启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话与独立文档副本。普通播放默认沿用触发时传入的对话 owner 与所在空间；Entry 的 `travelToStartContext` 开启时才按 StoryDef 起始上下文真实前往。Active/Passive Entry 类型不决定起始对话空间。重播始终按 `startContext` 虚拟切到 Area 或 Chara 演出空间；只有 Entry 开启 `travelToStartContext` 才真实前往起始 Area / Chara 空间。后续显式移动节点在重播中只呈现空间变化，不再执行实际移动。继续和输入命令携带当前表现阶段的 token；服务复核 owner、阶段和候选，拒绝过期输入，选择提交时再检查条件。正文写入 Runtime 输出记录时才标记已送达和已读，随后按当前等待点决定进入自由继续或 Click 输入。
 
@@ -20,7 +20,7 @@ StoryEntry / StoryDef → StoryService / StoryNodePlayer → 当前逻辑等待�
 
 `StoryNodePlayer` 为每次启动创建独立 `Map<name, value>`。`startActiveStory(entryId, owner, initialFlags)`、`startCardStory(...)` 与对应 GameCommands 可投入初始 JSON 字典；底层 Player 的 start 第三个参数同样接收字典。`StoryService.startStory` 的 options.initialFlags 可供其他类型的入口调用。启动先验证并复制，坏参数不会替换当前会话。name 需要非空，推荐 `StoryName-flagid`，不限制前缀；值为有限 JSON 数据，不提供值比较。
 
-StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 正常播放时先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接；重播会跳过整个一般 Operation 节点，不执行或模拟其动作。`moveToArea` 与 `moveToCharaspace` 是独立移动节点：正常播放分别强制旅行或切换通讯录 owner，重播只改变演出空间并保留一次性输出。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
+StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 正常播放时先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接；重播跳过持久 Operation，但保留 localFlag、覆盖层及本次运行的临时表现动作。`moveToArea` 与 `moveToCharaspace` 是独立移动节点：正常播放分别强制旅行或切换通讯录 owner，重播只改变演出空间并保留一次性输出。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
 
 ## 有限表现步骤与交接
 
@@ -34,9 +34,43 @@ Runtime 输出有稳定逻辑 ID、递增序号、时间戳与 historyId，正�
 
 局部写入使用 StoryAction `{ kind: 'localFlag', op: 'set', name, value }`，同名覆盖；移除使用 `{ kind: 'localFlag', op: 'remove', name }`，不存在时无操作。可用于 Operation、Click 共享动作或结果动作；保持作者顺序，由播放器直接处理，不调用 EffectEngine。需要选项触发不同后续 Talklet 时，可在各选项结果写入各自的局部标记，并在对应 Talklet 上声明 `requiresFlag`；该条件只检查键存在，不比较值。若 Choice 可能在同一 Entry 中重复到达，共享动作应先清除旧分支标记，再由所选结果写入当前标记。goto/insert 沿用同一张表；启动另一 Entry、另一个 owner 或重新开始时不自动继承。
 
-本次表随播放等待点的 `run.localFlags` 保存恢复，结束、取消、替换或失败后不供后续 Run 使用。它与 `PlayerState.flags` 的持久 setFlag，以及 `session.flags` 的“本次执行过哪些持久 setFlag”名称记录相互独立。局部标记不会写入这两处，条件系统的普通 flag 目标也不读取局部表。快照必须包含有效 localFlags；不为旧的活动会话快照补默认值或编写迁移。
+本次表随播放等待点的 `run.localFlags` 保存恢复，完成时捕获至 finishing；除明确的父子返回外，不供后续 Run 使用。它与 `PlayerState.flags` 的持久 setFlag，以及 `session.flags` 的“本次执行过哪些持久 setFlag”名称记录相互独立。局部标记不会写入这两处，条件系统的普通 flag 目标也不读取局部表。快照必须包含有效 localFlags；不为旧的活动会话快照补默认值或编写迁移。
 
 Story Editor 的 Choice 绑定卡自动维护这组标准字段：把 Choice 后的节点拖到某个选项左侧卡片，会在该 option result 中追加 `localFlag set true`，并给目标节点设置同名 `requiresFlag`。每次目标节点使用独立的 `Story-choiceId-num` 名称；再次到达该 Choice 时，`sharedActions` 先清理本 Choice 的已绑定标记。编辑器可级联重命名标记，统一更新写入、移除和节点条件；Runtime 不需要专用绑定数据。
+
+## 地点续播与一层羁绊调用
+
+会话空间保留普通聊天历史，游标保留一次 Entry 的运行状态，独立演出通道负责当前场景输出。Init / Chara 根运行可以各自等待，正式子故事同时最多一个；等待本身不创建额外游标，也不全程禁止旅行。子故事与到场后正文使用独立输出，保持根运行归属，不把跨场景内容塞进 Chara 普通历史。
+
+作者只使用以下两种 Click，不填写游标、返回地址、事件名或 afterStoryId：
+
+| 声明 | 行为 |
+| --- | --- |
+| `interaction: { kind: 'areaContinue', areaId }` | 当前游标停住；玩家到该 Area 手动接纳后，继续同一 Entry 的后继节点，不创建子故事 |
+| `interaction: { kind: 'kizunaCard' }` | 从当前 Entry 的 `kizuna` 关联取得目标，保留父节点并启动独立子故事 |
+| Entry `kizuna.areaId` | 将上述羁绊入口改为赴约提示；玩家到指定 Area 接取 ActiveStory 后才创建子运行 |
+
+Entry 关联的字段片段如下；其余必填字段沿用现有 StoryEntry：
+
+```json
+{
+  "kizuna": {
+    "entryId": "pack:activestory:bond",
+    "areaId": "pack:area:meeting",
+    "returnFlags": ["bond-choice"]
+  }
+}
+```
+
+省略 areaId 就从当前卡片直接进入。父正文仍是“前文 → kizunaCard → 后文”，没有另一份尾段 Entry。子故事正常完成、结算与尾通知结束后，只把 returnFlags 允许的键返回父表：先清父表这些键，再复制子表最终存在的项；false / 0 / null 仍按存在处理。省略 returnFlags 表示只返回完成关系。玩家显式回到原 Init / Chara 空间后才越过卡片；查询、刷新、到达地点或其他故事的历史完成都不能代替本次返回。
+
+父只允许一个关联目标、一次成功调用；目标必须是独占关联的 Active Entry，正式启动只能经过该父卡片或赴约邀请，单独阅读使用重读。Registry 与启动检查沿 goto / insert 和 Click 结果检查可达正文，子故事禁止 kizunaCard、areaContinue、entryCard、入口请求和入口覆盖卡；服务在实际启动及延后入口再次禁止子运行递归开播。子仍可切换场景、修改世界或投递未来故事。
+
+Area 邀请由当前父 historyId 与等待序号派生，保存的是父游标而非复制一份 Entry。到场不自动播放，未接取不占子槽；忙或资格不符保持原邀请。子取消后恢复原入口，父取消则连同子运行失效。取消不撤销已经发生的世界写入；已记录完成的子结果不能因清理临时画面而丢弃。
+
+父、子、待返回结果、局部表和通道输出随 `StoryCursorCollection` 一起保存。读档检查唯一 historyId / channel、父子对应与内容指纹，换发 runId / token；损坏关联在替换当前状态前拒绝。已结算后的通知异常保留 finishing 结果，可通过“继续故事”恢复返回而不再次结算。完整回放在私有父子关系中自动接回后文，使用虚拟地点，不唤醒正式游标。
+
+基础包将星野天台 FollowUp 接线改为 areaContinue，将羁绊邀约与原尾段接成完整父正文。FollowUp、pushAfterStory 仍保留给旧包和真正独立的后续投放，不用于这些样本的内部续播。运行边界测试见 `tests/engine/story-continuation.test.ts`；界面返回和 Area 接取见 `tests/ui/story-continuation.test.ts`。
 
 ## 输入后的作者回应
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31T15:48:01.542Z",
+  "generatedAt": "2026-11-03T11:07:40.693Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -17662,6 +17662,13 @@
           "tsType": "ExtraCompound"
         },
         {
+          "key": "kizuna",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area."
+        },
+        {
           "key": "reactions",
           "required": false,
           "kind": "array",
@@ -17932,6 +17939,13 @@
           "required": false,
           "kind": "extra",
           "tsType": "ExtraCompound"
+        },
+        {
+          "key": "kizuna",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area."
         },
         {
           "key": "reactions",

@@ -1,5 +1,4 @@
 import { passiveStory } from '../def-factory/index';
-import { and, cond } from '../../../engine/types/index';
 import { passivePool } from '../def-factory/index';
 import type { PassivePoolDef } from '../../../data-services/contracts/passive-pool';
 import type { PassiveStoryEntry } from '../../../data-services/contracts/story-entry';
@@ -24,17 +23,14 @@ export const hoshinoConversationStories: PassiveStoryEntry[] = [
     .inits('base:init:schale_office')
     .repeatable(false)
     .weight(1)
-    .block(and(cond('area', 'base:area:schale_rooftop', '==', 1)))
+    .replayable()
     .leaveArea(false)
     .interruptible(false)
-    .followUp({
-      id: 'rooftop-meet',
-      waitFor: { kind: 'next-enter-area', areaId: 'base:area:schale_rooftop' },
-      outcome: { kind: 'start-story-entry', storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
-    })
     .build(),
   passiveStory('base:passivestory:hoshino_bond_invite', 'base:story:hoshino_bond_invite')
     .owner('Hoshino')
+    .kizuna('base:activestory:bond_hoshino_evening')
+    .replayable()
     .inits()
     .repeatable(false)
     .weight(1)

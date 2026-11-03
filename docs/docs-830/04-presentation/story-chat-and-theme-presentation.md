@@ -6,6 +6,8 @@
 
 ## Story 到聊天条目
 
+正式子故事与 areaContinue 到场后正文也复用独立通道接口。`replayId` 在这里表示输出通道，`StoryNodeSource.isReplay === false` 才表示正式世界执行，不能仅凭存在 replayId 跳过效果。`getActiveStoryChannel()` 供读档后重建临时流；渲染重建不推进游标。选择原会话空间通过 `activateStorySpace()` 提交明确返回意图；通道临时主题以通道身份激活，与同 Chara 的普通聊天主题隔离。
+
 Controller 读取 `game.story.getPlaybackView(owner)` 的输出、phase、token、typing 和 banner；重读则通过 `getReplayPlaybackView(replayId)` 读取。`ChatStream` 以 owner 或 replayId 将结果映射到普通聊天流或独立临时流，使用 Runtime 稳定输出 ID 关联本地 DOM 条目身份；反复读取、多个显示和重新挂载不会重复投递或推进。打字、思考、效果间隔、开幕标题以及自动衔接由 `StoryPlaybackCoordinator` 持有。无 UI 挂载时 Runtime 仍可完成已开始的有限表现步骤。
 
 ```text

@@ -2,6 +2,7 @@ import type { AreaStoryDeliveryView, SendState, StoryView } from '../runtime/res
 import type { StoryPresentationView } from '../runtime/story-presentation';
 
 export interface StoryQueryPort {
+  getActiveStoryChannel(): { replayId: string; entryId: string; owner: string | null; runId?: string; context: import('../../../data-services/contracts/story-node').StoryStartContext } | null;
   getPlaybackView(owner?: string | null): StoryPresentationView;
   getReplayPlaybackView(replayId: string): StoryPresentationView | null;
   getReplayStoryView(replayId: string): StoryView | null;

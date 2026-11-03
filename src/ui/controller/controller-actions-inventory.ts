@@ -292,7 +292,7 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
         if (ctrl.panelState.service !== 'game' || ctrl.panelState.workspace || (route?.kind ?? 'game') !== 'game') return;
       } else if (route?.kind !== 'area' || route.areaId !== currentAreaId) return;
       const delivery = ctrl.game.story.getAreaStoryDeliveries(currentAreaId)
-        .find(candidate => candidate.entryId === storyEntryId);
+        .find(candidate => (candidate.id ?? candidate.entryId) === storyEntryId);
       if (!delivery) {
         ctrl.toast.show('这条区域故事已无法接取，请返回区域列表后重试', 'error');
         return;

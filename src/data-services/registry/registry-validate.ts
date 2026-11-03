@@ -1,3 +1,4 @@
+import { validateStoryContinuations } from '../validation/story-continuations';
 import type { AchievementDef, Datapack, MilestoneListenerDef } from '../contracts/datapack';
 import { validateOperationDatapackContent, type OperationContentValidationContext } from './operation-content-validation';
 // ============================================================
@@ -1465,6 +1466,8 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       }
     }
   }
+
+  validateStoryContinuations([...dp.activeStories, ...dp.passiveStories], dp.stories, areaIds);
 
   // 校验 Extra 数据：各 Def 的 extra 字段 + 数据包 extras 常量表（统一规则，见 docs/13 §8）
   const checkDefExtras = <T extends { id?: unknown; extra?: ExtraValue }>(

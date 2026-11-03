@@ -28,6 +28,14 @@ interface Run {
   pending?: Pending;
 }
 let nextPlayerId = 0;
+function replayActionAllowed(action: StoryAction): boolean {
+  if (action.kind === 'localFlag' || action.kind === 'overlay') return true;
+  if (action.kind !== 'presentation') return false;
+  const command = action.command;
+  if (command.command === 'theme') return command.value.scope === undefined || command.value.scope === 'ephemeral';
+  if (command.command === 'setEntityPresentation') return command.lifetime === 'story';
+  return true;
+}
 const emptyData = (): StoryNodePresentationData => ({ receipts: [], presentation: [], order: [] });
 const hasData = (data: StoryNodePresentationData): boolean => data.receipts.length > 0 || data.presentation.length > 0;
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -98,6 +106,19 @@ export class StoryNodePlayer {
 
   /** Read-only presence check for display hints; values stay inside the run. */
   hasLocalFlag(name: string): boolean { return this.run?.localFlags.has(name) ?? false; }
+
+  /** Resume a gate accepted by the continuation host. */
+  resumeInput(token: string): StoryNodeCommandResult {
+    return this.command(events => {
+      const run = this.run;
+      if (!run || run.pending?.token !== token || run.pending.kind !== 'input') return 'StaleToken';
+      run.pending = undefined;
+      run.index += 1;
+      this.drain(run, events);
+    });
+  }
+
+  setChannel(replayId: string, isReplay: boolean): void { if (this.run) Object.assign(this.run.source, { replayId, isReplay }); }
 
   setOwner(owner: string | null): void { if (this.run) this.run.source.owner = owner; }
 
@@ -216,6 +237,7 @@ export class StoryNodePlayer {
       const pending = run.pending;
       if (pending.kind !== 'input') return 'InputNotReady';
       const interaction = pending.node.interaction;
+      if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return 'ContinuationHostRequired';
       let actions: readonly StoryAction[] = [];
       let result: StoryNodeResult | undefined;
       if (interaction.kind === 'choice') {
@@ -234,7 +256,7 @@ export class StoryNodePlayer {
             pending.token = this.token();
             return;
           }
-        } else {
+        } else if (interaction.kind === 'entryCard') {
           actions = [{ kind: 'entryRequest', request: interaction.card.request }];
         }
       }
@@ -272,6 +294,7 @@ export class StoryNodePlayer {
 
   private token(): string { return `player-${this.playerId}:${++this.ticket}`; }
   private preflight(action: StoryAction, source: StoryNodeSource): string | undefined {
+    if (source.replayId && source.isReplay !== false && !replayActionAllowed(action)) return undefined;
     return action.kind === 'localFlag' ? isStoryLocalFlagAction(action) ? undefined : 'InvalidLocalFlagAction'
       : this.host.preflight(action, source);
   }
@@ -357,6 +380,7 @@ export class StoryNodePlayer {
           else run.localFlags.delete(action.name);
           continue;
         }
+        if (run.source.replayId && run.source.isReplay !== false && !replayActionAllowed(action)) continue;
         const result = this.host.execute(action, run.source);
         if (this.run !== run) return { status: 'cancelled', data };
         append(errorData(result));
@@ -381,7 +405,7 @@ export class StoryNodePlayer {
       if (run.index >= document.nodes.length) {
         const frame = run.stack.pop();
         if (frame) { run.storyId = frame.storyId; run.index = frame.index; continue; }
-        const completion = { ...run.source, terminalStoryId: run.terminalStoryId };
+        const completion = { ...run.source, terminalStoryId: run.terminalStoryId, localFlags: Object.fromEntries(run.localFlags) };
         this.run = undefined;
         this.terminal = { status: 'completed', completion };
         events.push({ type: 'completed', completion });
@@ -417,11 +441,11 @@ export class StoryNodePlayer {
           events.push({ type: 'replaced', source: run.source });
           return;
         }
-        run.source.owner = node.type === 'moveToCharaspace' ? node.characterId : null;
+        if (!run.source.replayId || run.source.isReplay !== false || run.source.parentHistoryId) run.source.owner = node.type === 'moveToCharaspace' ? node.characterId : null;
         run.index += 1;
       } else {
         // Replays reproduce dialogue and movement, never arbitrary Story Operation side effects.
-        if (run.source.replayId) { run.index += 1; continue; }
+        if (run.source.replayId && run.source.isReplay !== false && !replayActionAllowed(node.action)) { run.index += 1; continue; }
         const error = this.preflight(node.action, run.source);
         if (error) throw new Error(error);
         if (this.run !== run) return;

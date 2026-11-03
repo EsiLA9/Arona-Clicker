@@ -6,7 +6,7 @@
 // ============================================================
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
-import { baseDatapack } from '../../src/data/test-datapack';
+import { legacyStoryDatapack as baseDatapack } from '../engine/legacy-story-datapack';
 import { UIController } from '../../src/ui/controller/controller';
 import { bindStoryActions } from '../../src/ui/controller/controller-actions-story';
 import { finishStory, finishWelcome } from '../engine/story-test-fixtures';
