@@ -8,7 +8,7 @@
 import { UIContext } from '../../runtime/context';
 import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from '../story/story';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../../flow/flow-entry';
-import { renderSendButton, renderStoryReturn } from '../../columns/chat-content';
+import { renderSendButton } from '../../columns/chat-content';
 import { renderPanelHeaderRegion } from '../shared/tabs';
 import { renderBackground } from '../../presentation/background-service';
 import { renderPresentationRegion } from '../../presentation/presentation-service';
@@ -323,7 +323,7 @@ function renderConversationFlow(
         nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
         evaluate: condition => ctx.game.conditionSystem.evaluateExpr(condition, ctx.game.state),
       }), ctx.escapeHtml)}</div>`
-    : renderStoryReturn(ctx, replayId) + renderSendButton(sendState, sendGate);
+    : renderSendButton(sendState, sendGate);
 
   return `
     <div class="chat-pane" data-chat-owner="${ctx.escapeHtml(variantId)}"${replayId ? ` data-story-replay-id="${ctx.escapeHtml(replayId)}"` : ''}>

@@ -185,11 +185,6 @@ export class StoryService {
   private outputOwner(session: StoryNodeSession | undefined, fallback: string | null): string | null {
     return session?.scene ? session.scene.type === 'chara' ? session.scene.characterId : null : fallback;
   }
-  getPendingStoryReturn(): { owner: string | null; title: string } | null {
-    const parent = this.allSessions().find(x => !x.replay && x.continuation?.state === 'returned');
-    return parent ? { owner: parent.source.owner, title: parent.source.owner
-      ? this.opts.registry.characterVariants.get(parent.source.owner)?.displayName ?? parent.source.owner : '一般聊天' } : null;
-  }
   private isContinuationWait(session: StoryNodeSession): boolean {
     const view = session.player.getView();
     return view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue');
@@ -873,6 +868,9 @@ export class StoryService {
       };
     }
     if (view.status !== 'input') return { mode: 'idle', reason: 'noStory' };
+    if (session.continuation?.state === 'returned') return {
+      mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: '继续故事', token: storyView.token,
+    };
     const interaction = view.node.interaction;
     if (interaction.kind === 'choice') return { mode: 'choice', confirmed: true, token: storyView.token };
     if (interaction.kind === 'entryCard') {
@@ -1296,9 +1294,8 @@ export class StoryService {
     } else this.sessions.delete(ownerKey(session.source.owner));
     if (!session.source.parentHistoryId && !session.replay) this.sessions.delete(ownerKey(session.source.owner));
     const parent = session.source.parentHistoryId && this.allSessions().find(x => x.source.historyId === session.source.parentHistoryId);
-    const returnedToParent = session.scene && this.outputOwner(session, session.source.owner) === (parent ? parent.source.owner : undefined);
-    if (parent && parent.continuation?.state === 'returned' && (parent.replay || returnedToParent)) {
-      if (parent.replay) this.announceChannel(parent);
+    if (parent && parent.replay && parent.continuation?.state === 'returned') {
+      this.announceChannel(parent);
       this.resumeContinuation(parent);
     }
     const previous = this.activeSource;

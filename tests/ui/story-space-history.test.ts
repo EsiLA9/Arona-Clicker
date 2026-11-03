@@ -42,7 +42,7 @@ describe('formal story history and space', () => {
     expect(document.body.textContent).toContain('child-start');
     expect(game.story.getPlaybackView('Hoshino').entries.some(e => e.text === 'child-start')).toBe(true);
   });
-  it('appends to each space once, restores mid-run, and hands back after the explicit return', () => {
+  it('stays in the final contact scene and resumes its parent only on the normal Click', () => {
     setup(); game.story.clickSend('Hoshino'); ctrl.render(); step();
     expect(document.body.textContent).toContain('prior-init');
     expect(document.body.textContent).toContain('onsite');
@@ -53,21 +53,47 @@ describe('formal story history and space', () => {
     expect(document.body.textContent).toContain('child-return');
     expect(document.body.textContent).not.toContain('onsite');
     step();
-    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('parent-tail');
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('card');
     expect(ctrl.panelState.storyReplay).toBeUndefined();
+    expect(ctrl.panelState.conversationVariantId).toBe('Hoshino');
     expect(document.querySelector('[data-send]')).not.toBeNull();
     ctrl.render(); ctrl.refreshChatPanel();
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('card');
+    document.querySelector<HTMLButtonElement>('[data-send]')!.click();
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('parent-tail');
     expect(game.story.getPlaybackView('Hoshino').entries.filter(e => e.text === 'child-start')).toHaveLength(1);
     expect(game.story.getPlaybackView(null).entries.filter(e => e.text === 'onsite')).toHaveLength(1);
   });
-  it('offers a return action after completion away from its parent, including after loading', () => {
+  it('stays in the final Area with normal Click after completion and loading, without a recall button', () => {
     setup(false); game.story.clickSend('Hoshino'); ctrl.render(); step(); step();
     expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('card');
     game.load(game.save()); ctrl.render();
-    const back = document.querySelector<HTMLButtonElement>('[data-story-return-owner]');
-    expect(back).not.toBeNull(); back!.click(); ctrl.render();
-    expect(ctrl.panelState.conversationVariantId).toBe('Hoshino');
+    expect(document.querySelector('[data-story-return-owner]')).toBeNull();
+    expect(ctrl.panelState.conversationVariantId).toBeNull();
+    expect(game.state.currentAreaId).toBe(area);
+    expect(document.querySelector('[data-send]')).not.toBeNull();
+    document.querySelector<HTMLButtonElement>('[data-send]')!.click();
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('card');
+    expect(ctrl.panelState.conversationVariantId).toBeNull();
+    ctrl.openContactsWorkspace('Hoshino'); ctrl.render();
     expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('parent-tail');
+  });
+  it('restores an existing choice in the final Area instead of bypassing it with an idle Click', () => {
+    setup(false);
+    const existing = 'test:activestory:existing';
+    game.registry.load(makePack([
+      { id: existing, storyId: 'test:story:existing', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+    ], [{ id: 'test:story:existing', name: 'existing', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: [
+      { id: 'choice', type: 'click', stageId: 's', interaction: { kind: 'choice', options: [{ id: 'stay', text: '继续当前场景的故事' }] } },
+    ] }]));
+    expect(game.story.startActiveStory(existing).success).toBe(true);
+    game.story.clickSend('Hoshino'); ctrl.render(); step(); step();
+    expect(ctrl.panelState.conversationVariantId).toBeNull();
+    expect(game.story.getSendState(null).mode).toBe('choice');
+    expect(document.querySelector('[data-story-choice]')).not.toBeNull();
+    expect(document.querySelector('[data-send]')).toBeNull();
+    expect(document.querySelector('[data-story-return-owner]')).toBeNull();
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('card');
   });
   it('keeps its temporary theme active through rendering and removes it on completion', () => {
     setup();

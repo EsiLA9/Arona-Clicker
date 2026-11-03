@@ -117,7 +117,8 @@ describe('Story ending navigation', () => {
     expect(ctrl.panelState.storyReplay).toBeUndefined();
     ctrl.render(); ctrl.refreshChatPanel();
     expect(document.querySelector('[data-story-replay-id] [data-send]')).toBeNull();
-    expect(document.querySelector('[data-story-return-owner]')).not.toBeNull();
+    expect(document.querySelector('[data-story-return-owner]')).toBeNull();
+    expect(document.querySelector('[data-send]')).not.toBeNull();
     ctrl.selectContactsVariant('Hoshino'); ctrl.render();
     expect(ctrl.panelState.storyReplay).toBeUndefined();
     expect(game.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('body');

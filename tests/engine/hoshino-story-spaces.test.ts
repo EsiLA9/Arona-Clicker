@@ -62,8 +62,10 @@ describe('published Hoshino three-space child story', () => {
     expect([sawDeparture, sawOnsite, sawReturn]).toEqual([true, true, true]);
     const expectedFlag = choice === 'option1' ? 'hoshino-remembers' : 'hoshino-new-memories';
     expect(game.story.saveCursors().chats['variant:Hoshino'].playback.run?.localFlags).toEqual({ [expectedFlag]: true });
+    expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe('bond-card');
+    expect(game.story.getSendState('Hoshino')).toMatchObject({ mode: 'advance' });
+    game.story.clickSend('Hoshino');
     expect(game.story.getCurrentStoryView('Hoshino')?.nodeId).toBe(choice === 'option1' ? 'remembered' : 'new-memories');
-    expect(game.story.getPendingStoryReturn()).toBeNull();
     expect(game.story.getPlaybackView(null).entries.some(x => x.text.includes('海风很舒服哦'))).toBe(true);
     expect(game.story.getPlaybackView('Hoshino').entries.some(x => x.text.includes('海风很舒服哦'))).toBe(false);
     expect(game.state.flags.bond_hoshino_choice).toBe(choice === 'option1' ? 'committee' : 'forget');

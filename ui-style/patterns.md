@@ -4,7 +4,7 @@
 
 ## 复用模式
 
-正式羁绊调用与地点续播复用 `story.ts` 的 `.kizuna-card / .yuzu-kizuna-*` 爱心卡片，标题来自关联 Entry / Story，目的地来自 Area。赴约或等待态没有可提交 token，避免外观仍像入口却远程开播；待返回使用原聊天底部 `.send-button`，其目标来自 Runtime 父等待查询。沿用原聊天滚动宿主和区域刷新，不新增页面或卡片皮肤。行为验证见 `tests/ui/story-space-history.test.ts`、`story-continuation.test.ts`；尚未做浏览器视觉验收。
+正式羁绊调用与地点续播复用 `story.ts` 的 `.kizuna-card / .yuzu-kizuna-*` 爱心卡片，标题来自关联 Entry / Story，目的地来自 Area。赴约或等待态没有可提交 token，避免远程开播；正式子结束停在最终场景，恢复该场景原有合法 `.send-button` / Choice，不另设召回按钮。结果已回到当前父空间时使用普通“继续故事”Click。沿用原聊天滚动宿主和区域刷新，不新增页面或卡片皮肤。行为验证见 `tests/ui/story-space-history.test.ts`、`story-continuation.test.ts`；尚未做浏览器视觉验收。
 
 运行态已提交的 Choice 复用 `story.ts` 的 Choice 卡片和现有 disabled 样式，保留全部选项，所选项显示“已选择”。历史卡片的 `.chat-current` 根以 Runtime 输出 ID 对应的流实例 key 协调；下一组 Choice 保持独立的当前输入。更新沿用聊天区域刷新与滚动恢复，不新增滚动宿主、定时器或整页刷新。行为验证见 `tests/ui/story-consecutive-choice.test.ts`，保存归属见 [[story-chat-and-theme-presentation]]。
 
