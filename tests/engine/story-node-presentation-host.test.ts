@@ -63,6 +63,15 @@ const source = (runId: string, owner: string | null = 'test:variant:a'): StoryNo
 });
 
 describe('StoryNodePresentationHost', () => {
+  test('terminal events distinguish formal isolated playback from private replay', () => {
+    const { presentation, events } = setup();
+    presentation.close({ ...source('formal'), replayId: 'formal-channel', isReplay: false }, 'completed');
+    presentation.close({ ...source('replay'), replayId: 'replay-channel', isReplay: true }, 'completed');
+    expect(events.filter(event => event.type === 'storyRunEnded')).toEqual([
+      expect.objectContaining({ runId: 'formal', replayId: 'formal-channel', isReplay: false }),
+      expect.objectContaining({ runId: 'replay', replayId: 'replay-channel', isReplay: true }),
+    ]);
+  });
   test('isolates channel themes from the same Chara and never lets replay clear a manual override', () => {
     const { game, presentation } = setup();
     const parent = source('parent');

@@ -10,7 +10,7 @@ describe('Story definition Registry boundary', () => {
 
   it('round-trips every registered Story without dropping any current contract field', () => {
     const stories = [...game.registry.stories.values()].map(story => structuredClone(story));
-    expect(stories).toHaveLength(43);
+    expect(stories).toHaveLength(baseDatapack.stories.length);
     for (const story of stories) {
       expect(game.saveStoryDefinition(story), story.id).toMatchObject({ ok: true, operation: 'replace' });
       expect(game.registry.stories.get(story.id), story.id).toEqual(story);

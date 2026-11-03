@@ -80,6 +80,10 @@ export function bindEvents(ctrl: UIController): void {
   ctrl.game.eventBus.on('storyTriggered', event => { if (event.type === 'storyTriggered' && !event.replayId) scheduleStoryMovementRefresh(); });
   ctrl.game.eventBus.on('storyTriggered', event => {
     if (event.type !== 'storyTriggered') return;
+    if (!event.replayId && ctrl.panelState.storyReplay?.completed) {
+      if (ctrl.panelState.storyReplay.replayId) ctrl.commands.cancelReplayStory(ctrl.panelState.storyReplay.replayId);
+      ctrl.panelState.storyReplay = undefined;
+    }
     const entry = ctrl.game.registry.storyEntries.get(event.storyId);
     const context = event.context ?? (entry ? ctrl.game.registry.stories.get(entry.storyId)?.startContext : undefined);
     if (event.isolated && event.replayId) {
@@ -121,7 +125,7 @@ export function bindEvents(ctrl: UIController): void {
       if (event.reason === 'replaced' && ctrl.game.story.getReplayPlaybackView(event.replayId)?.runId) return;
       if (event.reason === 'completed') {
         replay.completed = true;
-        ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
+        if (event.isReplay === true) ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
       } else {
         ctrl.commands.cancelReplayStory(event.replayId);
         ctrl.panelState.storyReplay = undefined;
@@ -132,7 +136,7 @@ export function bindEvents(ctrl: UIController): void {
     if (!replay?.runId || replay.runId !== event.runId) return;
     if (event.reason === 'completed') {
       replay.completed = true;
-      ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
+      if (event.isReplay === true) ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });
     } else ctrl.panelState.storyReplay = undefined;
     ctrl.scheduleRender();
   });

@@ -396,7 +396,7 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
     this.runPresentations.delete(runId);
     this.options.colorSystem.clearStoryNodeTheme(runId);
     this.options.entityPresentation.clearRuntimeOverrides({ runId, lifetime: 'story' });
-    this.options.eventBus.emit({ type: 'storyRunEnded', owner: source.owner, runId, reason, ...(source.replayId ? { replayId: source.replayId } : {}) });
+    this.options.eventBus.emit({ type: 'storyRunEnded', owner: source.owner, runId, reason, ...(source.replayId ? { replayId: source.replayId, isReplay: source.isReplay !== false } : {}) });
   }
 
   activate(owner: string | null): void {

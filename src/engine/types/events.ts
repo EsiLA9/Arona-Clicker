@@ -34,7 +34,9 @@ export type GameEvent =
   | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string; replayId?: string; isolated?: boolean; context?: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string } }
   | { type: 'storyPlaybackChanged'; owner: string | null; replayId?: string }
   | { type: 'storyContextMoved'; context: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string }; owner: string | null; runId?: string; replayId?: string }
-  | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason; replayId?: string }
+  | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason; replayId?: string;
+      /** Only private rereading returns to the Story page; a channel ID alone does not imply replay. */
+      isReplay?: boolean }
   | { type: 'storyCompleted'; storyId: string }
   | { type: 'storyRewarded'; storyId: string; source: 'first' | 'repeat' | 'conditional'; effects: Effect[]; flags: string[]; owner?: string | null; runId?: string }
   | { type: 'poolGateChanged'; poolId: string; available: boolean }

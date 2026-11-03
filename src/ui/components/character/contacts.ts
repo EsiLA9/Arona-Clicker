@@ -296,6 +296,7 @@ function renderConversationFlow(
   replayId?: string,
 ): string {
   // 聊天沙盒：读取该角色对话空间自己游标上的当前剧情（与全局/其他角色并行互不干扰）
+  readOnly ||= !!replayId && ctx.game.story.getReplayPlaybackView(replayId)?.phase === 'idle';
   const story = replayId ? ctx.game.story.getReplayStoryView(replayId) : ctx.game.getStoryView(variantId);
   // 剧情演出中：choice 确认后渲染选项卡片；kizuna 页渲染羁绊卡片（均在流内）
   const current = !readOnly && story && (

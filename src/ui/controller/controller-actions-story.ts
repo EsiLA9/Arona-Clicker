@@ -291,7 +291,6 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
           : sourceOwner ? ctrl.game.getStoryView(sourceOwner) : ctrl.game.getView().currentStory;
         if (current?.runId !== source.dataset.storySourceRun) return;
       }
-      if (!sourceReplayId) ctrl.openStoryWorkspace({ selectedEntryId: storyId, conversationOwner: owner, mode: 'overview' });
       ctrl.panelState.storyGate = { storyId, owner, mode: 'card',
         ...(source ? { sourceRunId: source.dataset.storySourceRun, sourceOwner } : {}),
         ...(sourceReplayId ? { sourceReplayId } : {}) };

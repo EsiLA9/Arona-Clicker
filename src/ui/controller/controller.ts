@@ -2412,9 +2412,9 @@ export class UIController {
 
   /** Contacts 内部选择学生；不会把页面升级为 CharacterWorkspace。 */
   selectContactsVariant(variantId: string): void {
-    const workspace = this.panelState.workspace?.type === 'contacts'
+    const workspace = this.panelState.workspace?.type === 'contacts' && !this.panelState.storyReplay?.completed
       ? this.panelState.workspace
-      : this.openContactsWorkspace();
+      : this.openContactsWorkspace(variantId, false);
     this.commands.activateStorySpace(variantId);
     workspace.selectedVariantId = variantId;
     workspace.conversationVariantId = variantId;

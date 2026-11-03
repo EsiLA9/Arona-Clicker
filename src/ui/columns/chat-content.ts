@@ -18,6 +18,7 @@ export function renderChatContent(
   replayId?: string,
 ): string {
   const { game, view } = ctx;
+  readOnly ||= !!replayId && game.story.getReplayPlaybackView(replayId)?.phase === 'idle';
   const story = replayId ? game.story.getReplayStoryView(replayId) : view.currentStory;
   const activeStory = [...game.registry.activeStories.values()][0];
   const activeCompleted = activeStory ? view.storyLog.some(item => item.storyId === activeStory.storyId) : false;

@@ -53,14 +53,13 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(root.querySelector('[data-story-gate]')).not.toBeNull();
     expect(game.getStoryView(HOSHINO)).toBeNull();
     expect(panel.storyGate).toEqual({ storyId: BOND, owner: HOSHINO, mode: 'card' });
+    expect(panel.workspace).toBeUndefined();
     // 确认 → 剧情在该学生沙盒启动
     root.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
     expect(panel.storyGate).toBeNull();
     expect(root.querySelector('[data-story-gate]')).toBeNull();
     expect(game.getStoryView(HOSHINO)?.storyId).toBe(BOND);
-    expect(panel.workspace?.type).toBe('story');
-    expect(panel.workspace?.conversationOwner).toBe(HOSHINO);
-    expect(panel.workspace?.mode).toBe('playing');
+    expect(panel.workspace).toBeUndefined();
   });
 
   it('kizuna 浮层取消（取消按钮）→ 关闭且剧情未启动', () => {
@@ -109,7 +108,9 @@ describe('UIController 剧情入口确认浮层', () => {
     const card = root.querySelector('[data-story-gate]')!;
     expect(card.textContent).toContain('重新观看');
     root.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
-    expect(game.getView().currentStory?.storyId).toBe(welcome);
+    expect(panel.storyReplay?.replayId).toBeTruthy();
+    expect(game.story.getReplayStoryView(panel.storyReplay.replayId)?.storyId).toBe(welcome);
+    expect(game.getView().currentStory).toBeNull();
   });
 
   it('开幕横幅：呼出后连续播放（重渲染断点续播不闪动），展示期结束自动消失', () => {
