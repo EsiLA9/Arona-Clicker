@@ -4,7 +4,7 @@ import type { UIContext } from '../runtime/context';
 import { createUIContext } from '../runtime/context';
 import { renderWorkspaceFrame, workspaceColumns, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import type { WorkspaceLocation, WorkspaceNavigationState } from '../workspace/workspace-router';
-import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId } from './model';
+import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId } from './model';
 import { StoryDraftPersistence } from './persistence';
 import { createStoryEditorFrame, storySenders } from './view';
 import { patchEditorDOM } from './dom';
@@ -251,7 +251,7 @@ export class StoryEditorController {
       this.requestRefresh();
     };
     const click = (event: Event): void => {
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
         const beforeNodeId = element.hasAttribute('data-story-insertion-end') ? null : element.dataset.storyInsertionBefore ?? null;
@@ -262,7 +262,9 @@ export class StoryEditorController {
       const sender = element.dataset.editorSender;
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
       const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
-      if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(nodeTypeTab)) {
+      if (element.dataset.storyRenameNodeId) this.openNodeIdPrompt(element.dataset.storyRenameNodeId, element.dataset.storyRenameNodeId);
+      else if (element.hasAttribute('data-story-rename-option-id')) this.openChoiceOptionIdPrompt(element);
+      else if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(nodeTypeTab)) {
         const draft = currentDraft(this.state);
         const node = currentNode(this.state);
         if (draft && node) selectNodeType(draft, node.id, nodeTypeTab as import('./property-model').StoryNodeType);
@@ -468,9 +470,14 @@ export class StoryEditorController {
     if (!draft || draft.draftId !== draftId || !isGeneratedStoryNodeId(nodeId)) return;
     const suggestion = suggestStoryNodeId(draft, nodeId, optionId);
     if (!suggestion) return;
+    this.openNodeIdPrompt(nodeId, suggestion);
+  }
+  private openNodeIdPrompt(nodeId: string, initialValue: string): void {
+    const draftId = currentDraft(this.state)?.draftId;
+    if (!draftId) return;
     const ctx = createUIContext(this.ctrl.game);
-    this.ctrl.modal.open({ title: '让节点 ID 更易读？', width: 440,
-      body: `<p>这个节点使用系统生成的随机 ID。你可以为后续编辑和排查改成更容易识别的名称；取消只会保留局部标记绑定。</p><label class="story-editor-property">节点 ID<input data-story-generated-node-id value="${ctx.escapeHtml(suggestion)}" autocomplete="off"></label><p class="story-editor-error" data-story-generated-node-id-error hidden></p>`,
+    this.ctrl.modal.open({ title: '更改节点 ID', width: 440,
+      body: `<p>建议使用便于辨认的手写 ID。ID 会定位已保存的播放游标；改名后旧游标将从 StoryEntry 重新开始。发布内容后尽量不要再改。</p><label class="story-editor-property">节点 ID<input data-story-generated-node-id value="${ctx.escapeHtml(initialValue)}" autocomplete="off"></label><p class="story-editor-error" data-story-generated-node-id-error hidden></p>`,
       footer: '<button type="button" class="modal-close">保留当前 ID</button><button type="button" class="primary-button" data-modal-action="rename-story-node-id">更改 ID</button>',
       onAction: action => {
         if (action !== 'rename-story-node-id' || currentDraft(this.state)?.draftId !== draftId) return;
@@ -487,6 +494,32 @@ export class StoryEditorController {
         this.requestRefresh();
       } });
     document.querySelector<HTMLInputElement>('.app-modal [data-story-generated-node-id]')?.focus();
+  }
+  private openChoiceOptionIdPrompt(button: HTMLElement): void {
+    const draft = currentDraft(this.state);
+    const nodeId = button.dataset.storyNodeId;
+    const optionIndex = Number(button.dataset.storyOptionIndex);
+    const oldId = button.dataset.storyOptionId;
+    if (!draft || !nodeId || !Number.isInteger(optionIndex) || !oldId) return;
+    const ctx = createUIContext(this.ctrl.game);
+    this.ctrl.modal.open({ title: '更改选项 ID', width: 440,
+      body: `<p>建议使用便于辨认的手写 ID。保存内容后若旧游标无法匹配，会从 StoryEntry 重新开始；发布后尽量不要改。</p><label class="story-editor-property">选项 ID<input data-story-option-id-input value="${ctx.escapeHtml(oldId)}" autocomplete="off"></label><p class="story-editor-error" data-story-option-id-error hidden></p>`,
+      footer: '<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="rename-story-option-id">更改 ID</button>',
+      onAction: action => {
+        if (action !== 'rename-story-option-id' || currentDraft(this.state) !== draft) return;
+        const input = document.querySelector<HTMLInputElement>('.app-modal [data-story-option-id-input]');
+        const requested = input?.value.trim() ?? '';
+        if (!renameStoryChoiceOptionId(draft, nodeId, optionIndex, oldId, requested)) {
+          const error = document.querySelector<HTMLElement>('.app-modal [data-story-option-id-error]');
+          if (error) { error.textContent = '请输入合法且未被此 Choice 使用的选项 ID。'; error.hidden = false; }
+          input?.focus();
+          return;
+        }
+        this.state.error = null;
+        this.ctrl.modal.close();
+        this.requestRefresh();
+      } });
+    document.querySelector<HTMLInputElement>('.app-modal [data-story-option-id-input]')?.focus();
   }
   private editStoryProperty(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); const path=this.parsePropertyPath(target.dataset.storyPropertyPath);

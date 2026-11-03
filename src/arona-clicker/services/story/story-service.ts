@@ -46,6 +46,10 @@ function newRunId(): string {
 
 function ownerKey(owner: string | null): string { return owner === null ? '\u0000global' : `variant:${owner}`; }
 function normalizeOwner(owner?: string | null): string | null { return owner ?? null; }
+function sameDocumentFingerprints(left: Readonly<Record<string, string>>, right: Readonly<Record<string, string>>): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => left[key] === right[key]);
+}
 
 export interface StoryServiceOptions {
   registry: Registry;
@@ -401,18 +405,18 @@ export class StoryService {
     if (!collection || collection.format !== 'story-playback-v2' || !Array.isArray(collection.pendingStarts) || collection.pendingStarts.length > 64 || typeof collection !== 'object'
       || !collection.global || !collection.chats || typeof collection.chats !== 'object'
       || Array.isArray(collection.chats)) throw new Error('InvalidStoryCursorCollection');
-    this.validateCursorSnapshot(collection.global, null);
+    this.validateCursorSnapshotOrRestart(collection.global, null);
     for (const [key, snapshot] of Object.entries(collection.chats)) {
       const owner = this.ownerFromCursorKey(key);
-      this.validateCursorSnapshot(snapshot, owner);
+      this.validateCursorSnapshotOrRestart(snapshot, owner);
     }
     validateStoryDeferredStarts(collection, this.opts.registry);
   }
 
   restoreCursor(snapshot: StoryCursor): void {
-    this.validateCursorSnapshot(snapshot, null);
+    this.validateCursorSnapshotOrRestart(snapshot, null);
     this.clearOwner(null);
-    const session = this.restoreSession(snapshot, null);
+    const session = this.restoreOrRestartSession(snapshot, null);
     if (session) this.sessions.set(ownerKey(null), session);
   }
 
@@ -420,14 +424,14 @@ export class StoryService {
     if (snapshots !== undefined) {
       if (!snapshots || typeof snapshots !== 'object' || Array.isArray(snapshots)) throw new Error('InvalidStoryCursorChats');
       for (const [key, snapshot] of Object.entries(snapshots)) {
-        this.validateCursorSnapshot(snapshot, this.ownerFromCursorKey(key));
+        this.validateCursorSnapshotOrRestart(snapshot, this.ownerFromCursorKey(key));
       }
     }
     for (const session of [...this.sessions.values()]) if (session.source.owner !== null) this.endSession(session, 'cancelled');
     if (!snapshots) return;
     for (const [key, snapshot] of Object.entries(snapshots)) {
       const owner = this.ownerFromCursorKey(key);
-      const session = this.restoreSession(snapshot, owner);
+      const session = this.restoreOrRestartSession(snapshot, owner);
       if (session) this.sessions.set(key, session);
     }
   }
@@ -446,11 +450,11 @@ export class StoryService {
     this.pendingStarts.length = 0;
     if (!collection) return;
     this.pendingStarts.push(...structuredClone(collection.pendingStarts));
-    const global = this.restoreSession(collection.global, null);
+    const global = this.restoreOrRestartSession(collection.global, null);
     if (global) this.sessions.set(ownerKey(null), global);
     for (const [key, snapshot] of Object.entries(collection.chats)) {
       const owner = this.ownerFromCursorKey(key);
-      const session = this.restoreSession(snapshot, owner);
+      const session = this.restoreOrRestartSession(snapshot, owner);
       if (session) this.sessions.set(key, session);
     }
   }
@@ -1196,6 +1200,52 @@ export class StoryService {
       this.coordinator.restoreQueue(restoredSource, 'token' in view ? view.token : `${restoredSource.historyId}:finishing`, snapshot.queue, automatic);
     }
     return session;
+  }
+
+  private cursorRecoveryKind(snapshot: StoryCursorSnapshot, expectedOwner: string | null): 'restart' | 'discard' | undefined {
+    const source = snapshot.finishing?.source ?? snapshot.playback?.run?.source;
+    if (!source || source.owner !== expectedOwner) return undefined;
+    const entry = this.opts.registry.storyEntries.get(source.entryId);
+    if (!entry) return 'discard';
+    if (!this.documents.has(entry.storyId)) return 'discard';
+    if (entry.storyId !== source.rootStoryId) return 'restart';
+    let currentDocuments: Readonly<Record<string, string>>;
+    try { currentDocuments = documentFingerprints(this.documents, entry.storyId); }
+    catch { return 'restart'; }
+    const savedDocuments = snapshot.documents;
+    if (!savedDocuments || !sameDocumentFingerprints(savedDocuments, currentDocuments)) return 'restart';
+    const run = snapshot.playback.run;
+    if (!run) return undefined;
+    const document = this.documents.get(run.storyId);
+    if (!document?.nodes.some(node => node.id === run.nodeId)) return 'restart';
+    if (run.stack.some(frame => frame.nextNodeId !== null && !this.documents.get(frame.storyId)?.nodes.some(node => node.id === frame.nextNodeId))) return 'restart';
+    return undefined;
+  }
+
+  private validateCursorSnapshotOrRestart(snapshot: StoryCursorSnapshot, expectedOwner: string | null): void {
+    try { this.validateCursorSnapshot(snapshot, expectedOwner); }
+    catch (error) {
+      if (!this.cursorRecoveryKind(snapshot, expectedOwner)) throw error;
+      validateStoryPresentationSnapshot({ ...snapshot, documents: undefined, queue: undefined, finishing: undefined,
+        presentation: undefined, playback: { format: 'story-nodes-v2', run: null } }, this.documents);
+    }
+  }
+
+  private restoreOrRestartSession(snapshot: StoryCursorSnapshot, expectedOwner: string | null): StoryNodeSession | null {
+    const recovery = this.cursorRecoveryKind(snapshot, expectedOwner);
+    if (!recovery) return this.restoreSession(snapshot, expectedOwner);
+    this.coordinator.restoreOutputs(expectedOwner, snapshot.output);
+    if (recovery === 'discard') return null;
+    const source = snapshot.finishing?.source ?? snapshot.playback.run?.source;
+    const entry = source && this.opts.registry.storyEntries.get(source.entryId);
+    if (!entry || !this.documents.has(entry.storyId)) return null;
+    const prepared = this.prepareEntry(entry.id, entry.type, expectedOwner,
+      { force: true, replaceAny: true, skipConditions: true }, false);
+    if ('error' in prepared) return null;
+    if (this.travelToStartArea(prepared.session)) return null;
+    if (this.installSession(prepared.session)) return null;
+    this.initializeSession(prepared.session, prepared.initialFlags);
+    return prepared.session;
   }
 
   private validateCursorSnapshot(snapshot: StoryCursorSnapshot, expectedOwner: string | null): void {

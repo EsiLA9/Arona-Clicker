@@ -6,7 +6,9 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0350-story-continuation-and-cursor-design]] | 综合设计讨论，未施工 | 已加入 Area 赴约接取子故事：父游标保留，到场手动接取才占子槽；与同游标地点续播区分，统一返回 / 保存边界 |
 | [[ai/plan/task-0347-story-context-and-presentation-movement]] | 实施中 | 按裁定扩展 StoryDef、StoryNode、编辑器与重播运行语义 |
+| [[ai/plan/task-0348-story-talklet-click-authoring-coverage]] | 实施中 | ID 手写入口与游标 / 内容失配后从 Entry 重启已接入；其它字段覆盖待逐项完成 |
 | [[ai/plan/task-0344-story-operation-checkpoints]] | 代码与构建验收完成 | Operation 作者语义已承接到 0345 的 Runtime 队列；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |
 | [[ai/plan/task-0343-story-authoring-full-coverage]] | 待审阅，未施工 | 已核对 StoryNode 契约与编辑/保存链路；含入口—含义全覆盖清单、缺口、投放闭环和分组验收，等待审阅 |
 | [[ai/plan/task-0342-free-story-flow]] | 代码与静态验收完成 | 自由 nodes 及 Click 衔接语义已承接到 0345；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |
@@ -29,6 +31,8 @@
 
 ## 调查资料
 
+- [[ai/plan/task-0349-story-multi-cursor-discussion]]：游标、空间、羁绊回调和 FollowUp 替代的阶段讨论；后续已整合至 0350。
+- [[ai/plan/report-0349-story-cursor-topologies]]：100 个玩法 / 拓扑样本、禁嵌套准入与 FollowUp / 尾段替代调查，作为 0350 的边界依据。
 - [[ai/plan/report-storynode-playback-mechanisms-2026-10-29]]：StoryNode、编辑器与演出链调用和状态边界；含 294 项定向测试基线、已确认差异及后续排查入口。
 - [[ai/plan/report-gameplay-b-narrative-flow-2026-10-29]]：玩法 B 的流内剧情、战斗短句与里程碑对话调查；提出 MapRun 流程、Story 片段复用及统一叙事调度的组织建议。
 - [[ai/plan/report-0333-completion-audit-2026-10-28]]：0333 初次独立复核与五项失败复现；后续 F1–F4 已补齐，最新验收以 0333 / 0334 Task 为准。

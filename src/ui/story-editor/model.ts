@@ -552,6 +552,22 @@ export function renameStoryNodeId(state: StoryEditorState, oldId: string, newId:
   draft.dirty = true;
   return true;
 }
+export function renameStoryChoiceOptionId(draft: StoryDraft, nodeId: string, optionIndex: number, oldId: string, newId: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(newId)) return false;
+  const node = draft.document.nodes.find(item => item.id === nodeId);
+  if (node?.type !== 'click' || node.interaction.kind !== 'choice') return false;
+  const option = node.interaction.options[optionIndex];
+  if (!option || option.id !== oldId) return false;
+  if (oldId === newId) return true;
+  if (node.interaction.options.some((item, index) => index !== optionIndex && item.id === newId)) return false;
+  const nodes = [...draft.document.nodes];
+  const options = [...node.interaction.options];
+  options[optionIndex] = { ...option, id: newId };
+  nodes[draft.document.nodes.indexOf(node)] = { ...node, interaction: { ...node.interaction, options } };
+  draft.document = { ...draft.document, nodes };
+  draft.dirty = true;
+  return true;
+}
 export function isGeneratedStoryNodeId(nodeId: string): boolean { return /^node_[0-9a-f]{32}$/.test(nodeId); }
 export function suggestStoryNodeId(draft: StoryDraft, nodeId: string, optionId: string): string {
   const node = draft.document.nodes.find(item => item.id === nodeId);

@@ -254,7 +254,7 @@ function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interacti
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,listPath:Path,index:number,total:number,draft:StoryDraft,nodeId:string):string {
-  const id=val(opt,'id'); const out=[`<label class="story-editor-property">选项 ID<code>${esc(ctx,id)}</code></label>`,scalar(ctx,'选项文案',[...path,'text'],val(opt,'text'),state,'textarea')];
+  const id=val(opt,'id'); const out=[`<div class="story-editor-property-row"><label class="story-editor-property">选项 ID<code>${esc(ctx,id)}</code></label><button type="button" class="mini-action" data-story-rename-option-id="true" data-story-node-id="${esc(ctx,nodeId)}" data-story-option-index="${index}" data-story-option-id="${esc(ctx,id)}"${disabled(state)}>更改 ID</button><small class="story-editor-hint">选项 ID 用于稳定标识；发布后尽量不要更改。若旧游标不再匹配，恢复时会从 Entry 开始。</small></div>`,scalar(ctx,'选项文案',[...path,'text'],val(opt,'text'),state,'textarea')];
   const cp=[...path,'condition']; const cond=val(opt,'condition');
   const conditionCreate=`<button type="button" class="mini-action" data-story-init-condition="true" data-story-path="${esc(ctx,pathText(cp))}"${disabled(state)}>配置条件</button>`;
   out.push(optional(ctx,'条件',cp,cond!==undefined,state,cond!==undefined?conditionEditor(ctx,state,cp,cond):conditionCreate,undefined,draft,nodeId,conditionCreate));
@@ -290,7 +290,7 @@ export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,d
     {id:'moveToArea',label:'移动到 Area',action:'story-editor-node-type:moveToArea'},
     {id:'moveToCharaspace',label:'移动到 Chara',action:'story-editor-node-type:moveToCharaspace'},
   ],type,'节点类型');
-  const base=`<label class="story-editor-property">节点 ID<code>${esc(ctx,node.id)}</code></label>${scalar(ctx,'需要局部标记（可选）',['requiresFlag'],val(n,'requiresFlag'),state,'text',undefined,'留空时正常执行；填写后只在 Entry 局部表中存在该键时执行。')}`;
+  const base=`<div class="story-editor-property-row"><label class="story-editor-property">节点 ID<code>${esc(ctx,node.id)}</code></label><button type="button" class="mini-action" data-story-rename-node-id="${esc(ctx,node.id)}"${disabled(state)}>更改 ID</button><small class="story-editor-hint">手写 ID 更易维护。ID 是游标定位键；更改后，旧游标会从 StoryEntry 开始。内容发布后尽量不要更改。</small></div>${scalar(ctx,'需要局部标记（可选）',['requiresFlag'],val(n,'requiresFlag'),state,'text',undefined,'留空时正常执行；填写后只在 Entry 局部表中存在该键时执行。')}`;
   let body='';
   if(type==='talklet') body=talkletEditor(ctx,state,draft,n);
   else if(type==='click') body=clickEditor(ctx,state,['interaction'],record(val(n,'interaction')),draft,node.id);
