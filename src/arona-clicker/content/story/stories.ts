@@ -6,6 +6,7 @@ import { baseRegionalChatStories } from './story-regional-chat';
 import { baseMillenniumMainStories } from './story-millennium-main';
 import { baseStoryChains } from './story-chains';
 import { baseHoshinoStories } from './story-hoshino';
+import { baseShirokoStories } from './story-shiroko';
 
 export const baseStories: StoryDef[] = [
   ...baseSchaleMainStories,
@@ -15,4 +16,5 @@ export const baseStories: StoryDef[] = [
   ...baseMillenniumMainStories,
   ...baseStoryChains,
   ...baseHoshinoStories,
+  ...baseShirokoStories,
 ];

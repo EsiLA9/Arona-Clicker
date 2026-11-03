@@ -67,6 +67,12 @@ export const baseStoryHierarchy: StoryContentTable = {
         { id: 'part_3', name: '星野系列', items: [
           { id: 'base:passivestory:hoshino_conv_2', entryId: 'base:passivestory:hoshino_conv_2', replayable: true },
         ] },
+        { id: 'part_4', name: '白子系列', items: [
+          { id: 'base:passivestory:shiroko_drink_invite', entryId: 'base:passivestory:shiroko_drink_invite', replayable: true },
+          { id: 'base:activestory:shiroko_drink', entryId: 'base:activestory:shiroko_drink', replayable: true },
+          { id: 'base:passivestory:shiroko_rooftop_invite', entryId: 'base:passivestory:shiroko_rooftop_invite', replayable: true },
+          { id: 'base:activestory:shiroko_rooftop', entryId: 'base:activestory:shiroko_rooftop', replayable: true },
+        ] },
       ],
     },
     { id: 'club', name: '社团故事', parts: [] },

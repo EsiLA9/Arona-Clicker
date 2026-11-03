@@ -13596,6 +13596,64 @@
       "interruptible": true
     },
     {
+      "id": "base:passivestory:shiroko_drink_invite",
+      "storyId": "base:story:shiroko_drink_invite",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "kizuna": {
+        "entryId": "base:activestory:shiroko_drink",
+        "returnFlags": [
+          "shiroko-drink-coffee",
+          "shiroko-drink-juice"
+        ]
+      },
+      "type": "passive",
+      "repeatable": false,
+      "weight": 1,
+      "owner": "Shiroko",
+      "affectionRequired": 1,
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:shiroko_rooftop_invite",
+      "storyId": "base:story:shiroko_rooftop_invite",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "hasReadStory",
+            "key": "base:story:shiroko_drink_invite",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "kizuna": {
+        "entryId": "base:activestory:shiroko_rooftop",
+        "returnFlags": [
+          "shiroko-rooftop-photo",
+          "shiroko-rooftop-route"
+        ],
+        "areaId": "base:area:schale_rooftop"
+      },
+      "type": "passive",
+      "repeatable": false,
+      "weight": 1,
+      "owner": "Shiroko",
+      "affectionRequired": 1,
+      "interruptible": true
+    },
+    {
       "id": "base:passivestory:cooldown_demo_1",
       "storyId": "base:story:schale_briefing",
       "triggerCondition": {
@@ -18366,6 +18424,324 @@
       }
     },
     {
+      "id": "base:story:shiroko_drink_invite",
+      "name": "白子 · 出发前的饮料（好感对话）",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Shiroko"
+      },
+      "nodes": [
+        {
+          "id": "invitation",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，骑行路线已经画好了。出发前，来夏莱主厅一起选饮料吧。"
+          }
+        },
+        {
+          "id": "kizuna",
+          "type": "click",
+          "stageId": "main",
+          "interaction": {
+            "kind": "kizunaCard"
+          }
+        },
+        {
+          "id": "return-coffee",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-drink-coffee",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，刚才选的咖啡，我记住了。下次见面也给你准备热的。"
+          }
+        },
+        {
+          "id": "return-juice",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-drink-juice",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，刚才选的果汁，我记住了。下次骑行也带上冰凉的。"
+          }
+        },
+        {
+          "id": "end",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "嗯。下一次见面的地方，我也想好了。等会儿再告诉老师。"
+          }
+        }
+      ],
+      "stages": {
+        "main": {
+          "advance": "input"
+        }
+      }
+    },
+    {
+      "id": "base:story:shiroko_drink",
+      "name": "白子 · 出发前的饮料",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_main"
+      },
+      "nodes": [
+        {
+          "id": "arrival",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "narration",
+            "text": "夏莱主厅。白子把两瓶饮料并排放在地图旁边。"
+          }
+        },
+        {
+          "id": "choice",
+          "type": "click",
+          "stageId": "main",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "coffee",
+                "text": "来杯热咖啡。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "shiroko-drink-coffee",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "juice",
+                "text": "选冰果汁吧。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "shiroko-drink-juice",
+                      "value": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "coffee",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-drink-coffee",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "嗯，热咖啡。慢慢喝，我陪老师一起看地图。"
+          }
+        },
+        {
+          "id": "juice",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-drink-juice",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "嗯，冰果汁。骑行回来喝，也一定很舒服。"
+          }
+        },
+        {
+          "id": "goodbye",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "今天先准备到这里。回通讯录找我吧，我还有话想跟老师说。"
+          }
+        }
+      ],
+      "stages": {
+        "main": {
+          "advance": "input"
+        }
+      }
+    },
+    {
+      "id": "base:story:shiroko_rooftop_invite",
+      "name": "白子 · 天台的约定（好感对话）",
+      "startContext": {
+        "type": "chara",
+        "characterId": "Shiroko"
+      },
+      "nodes": [
+        {
+          "id": "invitation",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，今天想换个地方。请到夏莱天台来，到了以后，在当地的故事入口找「白子 · 天台上的约定」。我会在那里等你。"
+          }
+        },
+        {
+          "id": "kizuna",
+          "type": "click",
+          "stageId": "main",
+          "interaction": {
+            "kind": "kizunaCard"
+          }
+        },
+        {
+          "id": "return-photo",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-rooftop-photo",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，天台的合照已经存好了。下次想拍一张骑行结束后的。"
+          }
+        },
+        {
+          "id": "return-route",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-rooftop-route",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，一起记下的骑行路线已经收好了。下次就沿着它出发。"
+          }
+        },
+        {
+          "id": "end",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "今天的约定完成了。谢谢老师，愿意专程来见我。"
+          }
+        }
+      ],
+      "stages": {
+        "main": {
+          "advance": "input"
+        }
+      }
+    },
+    {
+      "id": "base:story:shiroko_rooftop",
+      "name": "白子 · 天台上的约定",
+      "startContext": {
+        "type": "area",
+        "areaId": "base:area:schale_rooftop"
+      },
+      "nodes": [
+        {
+          "id": "arrival",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "narration",
+            "text": "夏莱天台。白子倚着栏杆，手里拿着相机和一张空白路线图。"
+          }
+        },
+        {
+          "id": "choice",
+          "type": "click",
+          "stageId": "main",
+          "interaction": {
+            "kind": "choice",
+            "options": [
+              {
+                "id": "photo",
+                "text": "先一起拍张合照。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "shiroko-rooftop-photo",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "route",
+                "text": "一起记下下一次骑行的路线。",
+                "result": {
+                  "actions": [
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "shiroko-rooftop-route",
+                      "value": true
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "photo",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-rooftop-photo",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "老师，再靠近一点。嗯……这张照片，我会好好保存。"
+          }
+        },
+        {
+          "id": "route",
+          "type": "talklet",
+          "stageId": "main",
+          "requiresFlag": "shiroko-rooftop-route",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "从这里看过去，沿河那条路很适合骑行。老师标的休息点，我也记下了。"
+          }
+        },
+        {
+          "id": "goodbye",
+          "type": "talklet",
+          "stageId": "main",
+          "content": {
+            "kind": "talk",
+            "speaker": "白子",
+            "text": "风有点凉，先回去吧。回通讯录找我，我再把今天的事告诉老师。"
+          }
+        }
+      ],
+      "stages": {
+        "main": {
+          "advance": "input"
+        }
+      }
+    },
+    {
       "id": "base:story:bond_hoshino_1",
       "name": "羁绊剧情 · 星野：午后的堤防",
       "startContext": {
@@ -18896,6 +19272,34 @@
     }
   ],
   "activeStories": [
+    {
+      "id": "base:activestory:shiroko_drink",
+      "storyId": "base:story:shiroko_drink",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "openingTitle": "白子 · 出发前的饮料",
+      "type": "active"
+    },
+    {
+      "id": "base:activestory:shiroko_rooftop",
+      "storyId": "base:story:shiroko_rooftop",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "openingTitle": "白子 · 天台上的约定",
+      "type": "active"
+    },
     {
       "id": "base:activestory:schale_welcome",
       "storyId": "base:story:schale_welcome",

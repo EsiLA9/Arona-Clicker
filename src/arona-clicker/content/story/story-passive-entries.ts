@@ -3,6 +3,7 @@ import { and, cond } from '../../../engine/types/index';
 import type { PassiveStoryEntry } from '../../../data-services/contracts/story-entry';
 import { tagPath } from '../../../engine/core/tag';
 import { hoshinoConversationStories, cooldownDemoStories } from './story-conversation-walls';
+import { baseShirokoPassiveStories } from './story-shiroko';
 
 export const basePassiveStories: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:schale_briefing', 'base:story:schale_briefing').inits('base:init:schale_office').weight(1).tags(tagPath('theme', 'daily')).reveal('name', and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 30))).rewardPyroxene(15, 5).build(),
@@ -22,6 +23,7 @@ export const basePassiveStories: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:millennium_hack', 'base:story:millennium_hack').inits('base:init:millennium').weight(1).rewardPyroxene(15, 5).build(),
   passiveStory('base:passivestory:millennium_server', 'base:story:millennium_server').inits('base:init:millennium').weight(1).rewardPyroxene(15, 5).build(),
   ...hoshinoConversationStories,
+  ...baseShirokoPassiveStories,
   ...cooldownDemoStories,
   passiveStory('base:passivestory:hoshino_selfie', 'base:story:hoshino_selfie').inits('base:init:schale_office').weight(2).tags(tagPath('theme', 'daily')).rewardPyroxene(15, 5).build(),
 ];
