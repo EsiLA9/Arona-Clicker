@@ -13,9 +13,9 @@ export interface StoryNodeSource {
   readonly entryId: string;
   readonly rootStoryId: string;
   owner: string | null;
-  /** An isolated playback channel, reused by replay, formal children and onsite continuations. */
+  /** A control channel for replay, formal children and onsite continuations; only replay owns private output. */
   readonly replayId?: string;
-  /** false identifies formal playback in an isolated channel; other channels are private replay. */
+  /** false writes formal output to the current conversation history; other channels are private replay. */
   readonly isReplay?: boolean;
   readonly parentHistoryId?: string;
   /** 正式协调器分配的运行身份，用于定向演出与生命周期清理。 */

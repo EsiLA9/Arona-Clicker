@@ -74,7 +74,7 @@ export class ChatStream {
 
   activeStream(panelState: PanelState): ChatEntry[] {
     const owner = panelState.conversationVariantId;
-    if (panelState.storyReplay?.owner === owner) return panelState.storyReplay.entries;
+    if (panelState.storyReplay?.owner === owner && panelState.storyReplay.isReplay !== false) return panelState.storyReplay.entries;
     return owner ? (panelState.studentChats[owner] ??= []) : panelState.chatEntries;
   }
 
@@ -92,20 +92,24 @@ export class ChatStream {
     const current = replay
       ? game.story.getReplayPlaybackView(replayId!) ?? game.story.getPlaybackView(owner)
       : game.story.getPlaybackView(owner);
-    const previous = this.playback.get(key);
-    const stream = replay ? replay.entries : owner ? (panelState.studentChats[owner] ??= []) : panelState.chatEntries;
+    const privateReplay = replay && replay.isReplay !== false;
+    const outputKey = replay?.isReplay === false ? owner ?? '#global' : key;
+    const previous = this.playback.get(outputKey);
+    const stream = privateReplay ? replay.entries : owner ? (panelState.studentChats[owner] ??= []) : panelState.chatEntries;
+    if (replay?.isReplay === false) replay.entries = stream;
     for (const entry of stream) this.chatId = Math.max(this.chatId, entry.id + 1);
     if (previous && previous.epoch !== current.epoch) stream.length = 0;
     this.playback.set(key, current);
+    this.playback.set(outputKey, current);
 
-    const ids = this.outputIds.get(key) ?? new Map<string, number>();
+    const ids = this.outputIds.get(outputKey) ?? new Map<string, number>();
     for (const entry of stream) if (entry.storyOutputId) ids.set(entry.storyOutputId, entry.id);
     const outputs = current.entries;
     const retained = new Set(outputs.map(entry => entry.id));
     for (const id of ids.keys()) if (!retained.has(id)) ids.delete(id);
-    this.outputIds.set(key, ids);
+    this.outputIds.set(outputKey, ids);
 
-    const local = replay ? [] : stream.filter(entry => !entry.storyOutputId && entry.kind !== 'typing');
+    const local = privateReplay ? [] : stream.filter(entry => !entry.storyOutputId && entry.kind !== 'typing');
     const projected: ChatEntry[] = outputs.map(entry => {
       let id = ids.get(entry.id);
       if (id === undefined) { id = this.chatId++; ids.set(entry.id, id); }
@@ -115,7 +119,7 @@ export class ChatStream {
     // Local travel notices capture their position before the synchronous travel command.
     // Runtime records retain their own sequence even when both clocks report the same millisecond.
     const slots: ChatEntry[][] = Array.from({ length: projected.length + 1 }, () => []);
-    for (const entry of replay ? [] : local) {
+    for (const entry of local) {
       const position = entry.afterStoryOutput;
       const index = current.entries.findIndex(output => position?.epoch === current.epoch
         ? position.sequence < output.sequence : entry.timestamp <= output.timestamp);

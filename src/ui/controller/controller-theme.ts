@@ -55,7 +55,9 @@ export function restoreThemeFloat(ctrl: UIController): void {
  * Init 主题只投影到外部 Init 选择页；通讯录学生对话会临时完整替代普通界面选择。
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
-  ctrl.game.storyPresentation.activate(ctrl.panelState.conversationVariantId);
+  const channel = ctrl.panelState.storyReplay;
+  ctrl.game.storyPresentation.activate(channel?.owner === ctrl.panelState.conversationVariantId && !channel.completed
+    ? channel.replayId ?? channel.owner : ctrl.panelState.conversationVariantId);
   const replayContext = isReplayPresentationActive(ctrl.panelState) ? ctrl.panelState.storyReplay?.context : undefined;
   const area = replayContext?.type === 'area' ? ctrl.game.registry.areas.get(replayContext.areaId) : undefined;
   const state = area

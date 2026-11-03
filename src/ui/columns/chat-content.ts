@@ -32,7 +32,7 @@ export function renderChatContent(
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story || readOnly ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
-  const send = readOnly ? '' : renderSendButton(sendState, sendGate);
+  const send = readOnly ? '' : renderStoryReturn(ctx, replayId) + renderSendButton(sendState, sendGate);
 
   // 聊天流与推进按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧。
   // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
@@ -49,6 +49,13 @@ export function renderChatContent(
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}
       ${send}
     </div>`;
+}
+
+/** The explicit return also works when the completed child was restored without UI state. */
+export function renderStoryReturn(ctx: UIContext, replayId?: string): string {
+  const pending = !replayId && ctx.game.story.getPendingStoryReturn();
+  if (!pending) return '';
+  return `<button class="send-button" data-story-return-owner="${ctx.escapeHtml(pending.owner ?? '')}"><span class="send-bubble">返回${ctx.escapeHtml(pending.title)}继续故事 <span class="send-arrow">↗</span></span></button>`;
 }
 
 function renderChatLauncher(ctx: UIContext, activeStoryId: string, activeCompleted: boolean): string {
@@ -126,7 +133,7 @@ export function renderSendButton(sendState: SendState, gate: SendGatePhase | nul
     return `
       <button class="send-button disabled" disabled>
         <span class="send-bubble disabled">
-          <span class="send-text">请点击羁绊卡片</span>
+          <span class="send-text">${escape(sendState.hint ?? '请点击羁绊卡片')}</span>
         </span>
       </button>`;
   }

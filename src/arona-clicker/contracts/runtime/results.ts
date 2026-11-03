@@ -70,6 +70,8 @@ export interface StoryView {
   operationEffects?: readonly string[];
   /** The action has committed; Runtime automatically releases its presentation barrier. */
   operationCheckpoint?: true;
+  /** The continuation card is informative while travelling or waiting for its child. */
+  continuationBlocked?: boolean;
 }
 
 /** Read-only AreaHero offer derived from the current Init's pending delivery records. */
@@ -160,6 +162,8 @@ export type SendState =
     }
   | {
       mode: 'kizuna';
+      /** Travel or child-wait guidance shown instead of the ordinary card-click hint. */
+      hint?: string;
       /** 当前进行中的 StoryId（若处于剧情演出中） */
       storyId: StoryId | null;
       pageIndex: number;

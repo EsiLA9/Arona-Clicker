@@ -87,7 +87,7 @@ export function bindEvents(ctrl: UIController): void {
     const entry = ctrl.game.registry.storyEntries.get(event.storyId);
     const context = event.context ?? (entry ? ctrl.game.registry.stories.get(entry.storyId)?.startContext : undefined);
     if (event.isolated && event.replayId) {
-      ctrl.panelState.storyReplay = { entryId: event.storyId, owner: event.owner ?? null, context, replayId: event.replayId, runId: event.runId, entries: [], chatTexts: [] };
+      ctrl.panelState.storyReplay = { entryId: event.storyId, owner: event.owner ?? null, context, replayId: event.replayId, runId: event.runId, isReplay: event.isReplay, entries: [], chatTexts: [] };
     }
     const replay = ctrl.panelState.storyReplay;
     if (event.replayId && replay?.entryId === event.storyId && replay.owner === (event.owner ?? null)) {
@@ -101,7 +101,7 @@ export function bindEvents(ctrl: UIController): void {
       }
       routeToStoryContext(ctrl, context, !!event.replayId);
       if (event.replayId) ctrl.commands.activateStorySpace(event.owner ?? null, event.replayId);
-      if (event.replayId && replay?.replayId === event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出场景：${storyContextLabel(ctrl, context)}` });
+      if (event.replayId && replay?.replayId === event.replayId && replay.isReplay !== false) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出场景：${storyContextLabel(ctrl, context)}` });
       ctrl.scheduleRender();
     }
   });
@@ -115,7 +115,7 @@ export function bindEvents(ctrl: UIController): void {
     }
     routeToStoryContext(ctrl, event.context, !!event.replayId);
     if (event.replayId) ctrl.commands.activateStorySpace(event.owner ?? null, event.replayId);
-    if (event.replayId) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出移动：${storyContextLabel(ctrl, event.context)}` });
+    if (event.replayId && ctrl.panelState.storyReplay?.isReplay !== false) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出移动：${storyContextLabel(ctrl, event.context)}` });
     ctrl.scheduleRender();
   });
   ctrl.game.eventBus.on('storyRunEnded', event => {
@@ -123,6 +123,12 @@ export function bindEvents(ctrl: UIController): void {
     const replay = ctrl.panelState.storyReplay;
     if (event.replayId && replay?.replayId === event.replayId && replay.runId === event.runId) {
       if (event.reason === 'replaced' && ctrl.game.story.getReplayPlaybackView(event.replayId)?.runId) return;
+      if (event.isReplay === false) {
+        ctrl.panelState.storyReplay = undefined;
+        ctrl.commands.cancelReplayStory(event.replayId);
+        ctrl.scheduleRender();
+        return;
+      }
       if (event.reason === 'completed') {
         replay.completed = true;
         if (event.isReplay === true) ctrl.openStoryWorkspace({ selectedEntryId: replay.entryId, conversationOwner: replay.owner, mode: 'overview' });

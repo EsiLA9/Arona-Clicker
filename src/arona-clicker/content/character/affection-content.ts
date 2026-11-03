@@ -17,14 +17,14 @@ export const baseAffectionStepStories: StoryDef[] = [
   story('base:story:affinity_hoshino_bond_tail', '好感邀约 · 星野：午后的堤防').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'auto' } }).nodes([
   { id: 'bond-invitation', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '队长，午后一起去堤防坐坐吧。', speaker: '星野' } },
   { id: 'bond-card', type: 'click', stageId: 'p1', interaction: { kind: 'kizunaCard' } },
-  { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——阿比多斯 · 堤防 · 归途——' }, presentation: { align: 'center' } },
-  { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '……剧情就到这里。剩下的，我们边走边说吧，队长。', speaker: '星野' } },
-  { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'narration', text: '——羁绊剧情 · 午后的堤防 完——' }, presentation: { align: 'center' } },
+  { id: 'remembered', type: 'talklet', stageId: 'p2', requiresFlag: 'hoshino-remembers', content: { kind: 'talk', text: '原来队长一直记得第一次见面呀。看到这条消息，我又有点开心了。', speaker: '星野' } },
+  { id: 'new-memories', type: 'talklet', stageId: 'p2', requiresFlag: 'hoshino-new-memories', content: { kind: 'talk', text: '那就从今天开始，再多留下一些新回忆吧，队长。', speaker: '星野' } },
+  { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '下次的约定，我会再发消息告诉你的。今天就好好休息吧。', speaker: '星野' } },
 ]).build(),
 ];
 
 export const baseAffectionSteps: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:affinity_hoshino_1', 'base:story:affinity_hoshino_1').owner('Hoshino').repeatable(false).affectionRequired(1).build(),
   passiveStory('base:passivestory:affinity_hoshino_2', 'base:story:affinity_hoshino_2').owner('Hoshino').repeatable(false).affectionRequired(3).build(),
-  passiveStory('base:passivestory:affinity_hoshino_bond_tail', 'base:story:affinity_hoshino_bond_tail').owner('Hoshino').repeatable(false).affectionRequired(3).kizuna('base:activestory:bond_hoshino_1').replayable().build(),
+  passiveStory('base:passivestory:affinity_hoshino_bond_tail', 'base:story:affinity_hoshino_bond_tail').owner('Hoshino').inits('base:init:abydos').repeatable(false).affectionRequired(3).kizuna('base:activestory:bond_hoshino_1', ['hoshino-remembers', 'hoshino-new-memories']).replayable().build(),
 ];

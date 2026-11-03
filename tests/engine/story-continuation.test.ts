@@ -61,7 +61,7 @@ describe('bounded story continuations', () => {
   it('offers an Area-bound child without occupying the child slot before acceptance', () => {
     const g = setup(true);
     g.story.startStory(parent, 'passive', 'Hoshino');
-    expect(g.story.getSendState('Hoshino')).toMatchObject({ text: expect.stringContaining(g.registry.areas.get(area)!.name) });
+    expect(g.story.getSendState('Hoshino')).toMatchObject({ mode: 'kizuna', buttonText: expect.stringContaining(g.registry.areas.get(area)!.name) });
     expect(g.story.isBlockingMovement()).toBe(false);
     expect(g.story.saveCursors().child).toBeUndefined();
     expect(g.travelToArea(area).success).toBe(true);
@@ -83,6 +83,14 @@ describe('bounded story continuations', () => {
     const returned = g.save(); g.load(returned);
     g.story.activateOwner('Hoshino');
     expect(g.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('tail');
+  });
+  it('rejects old formal channel histories before replacing live state instead of silently discarding them', () => {
+    const g = setup(); g.story.startStory(parent, 'passive', 'Hoshino'); g.story.clickSend('Hoshino');
+    const saved = g.save();
+    const old = { ...saved, storyPlayback: { ...saved.storyPlayback, child: { ...saved.storyPlayback.child!, channelOutput: saved.storyPlayback.global.output } } };
+    const before = JSON.stringify(g.save());
+    expect(() => g.load(old)).toThrow('StoryOutputFormatChanged');
+    expect(JSON.stringify(g.save())).toBe(before);
   });
   it('waits at the current Area gate and continues the same run on acceptance', () => {
     const g = setup(false, [{ id: 'area', type: 'click', stageId: 's', interaction: { kind: 'areaContinue', areaId: area } }, talk('onsite')]);

@@ -309,6 +309,13 @@ export function bindInventoryActions(ctrl: UIController, scope: ParentNode = ctr
         return;
       }
 
+      // A continuation may already have routed through its own scene nodes.
+      if (ctrl.game.story.getActiveStoryChannel()) {
+        ctrl.deliverPendingRewardsBeforeStory();
+        ctrl.scheduleRender();
+        ctrl.scroll.forceToBottom();
+        return;
+      }
       ctrl.panelState.conversationVariantId = delivery.owner;
       ctrl.deliverPendingRewardsBeforeStory();
       if (quickEnter) {

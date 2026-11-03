@@ -27,6 +27,7 @@ function setup(atArea = false, charaScene = false) {
     { ...docBase, id: 'test:story:route_onsite', nodes: [{ id: 'area', type: 'click', stageId: 's', interaction: { kind: 'areaContinue', areaId: area } }, body] },
   ]);
   game = new GameInstance(); game.init([baseDatapack, pack]); game.story.clearAllCurrentStories();
+  game.mutations.acquireCharacter('Hoshino', 'story');
   document.body.innerHTML = '<div id="app"></div>';
   ctrl = new UIController(game, document.querySelector('#app')!); ctrl.started = true; bindEvents(ctrl);
 }
@@ -73,13 +74,18 @@ describe('Story ending navigation', () => {
     expect(document.querySelector('[data-story-replay-id] [data-send]')).toBeNull();
   });
   it('formal areaContinue root keeps the current scene', () => {
-    setup(); game.story.startStory(onsite, 'passive', 'Hoshino'); game.travelToArea(area);
+    setup(); ctrl.chat.pushToOwner(ctrl.panelState, null, { kind: 'system', text: 'prior-init' });
+    game.story.startStory(onsite, 'passive', 'Hoshino'); game.travelToArea(area);
     const invitation = game.story.getAreaStoryDeliveries(area).find(x => x.entryId === onsite)!;
     game.story.acceptAreaStoryDelivery(invitation.id!, area);
+    ctrl.render();
+    expect(document.body.textContent).toContain('prior-init');
+    expect(document.body.textContent).toContain('body');
     finishChannel(game.story.getActiveStoryChannel()!.replayId);
     expect(ctrl.panelState.workspace?.type).not.toBe('story');
     ctrl.render(); ctrl.refreshChatPanel();
     expect(document.querySelector('[data-story-replay-id] [data-send]')).toBeNull();
+    expect(document.querySelector('[data-send]')).not.toBeNull();
   });
   it('restored formal child keeps the current scene', () => {
     setup(); const channel = startChild(); game.load(game.save()); ctrl.render();
@@ -108,9 +114,10 @@ describe('Story ending navigation', () => {
   it('returns from a completed Chara scene to the parent when selecting the same contact', () => {
     setup(false, true); finishChannel(startChild());
     expect(ctrl.panelState.workspace?.type).toBe('contacts');
-    expect(ctrl.panelState.storyReplay?.completed).toBe(true);
+    expect(ctrl.panelState.storyReplay).toBeUndefined();
     ctrl.render(); ctrl.refreshChatPanel();
     expect(document.querySelector('[data-story-replay-id] [data-send]')).toBeNull();
+    expect(document.querySelector('[data-story-return-owner]')).not.toBeNull();
     ctrl.selectContactsVariant('Hoshino'); ctrl.render();
     expect(ctrl.panelState.storyReplay).toBeUndefined();
     expect(game.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('body');

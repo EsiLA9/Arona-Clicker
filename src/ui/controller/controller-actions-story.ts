@@ -48,6 +48,18 @@ function replayIdForStoryState(state: ReturnType<typeof stateForStoryElement>): 
 
 /** 绑定剧情域事件（render 后调用）。 */
 export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
+  scope.querySelectorAll<HTMLButtonElement>('[data-story-return-owner]').forEach(button => {
+    button.addEventListener('click', () => {
+      const pending = ctrl.game.story.getPendingStoryReturn();
+      if (!pending || (pending.owner ?? '') !== button.dataset.storyReturnOwner) return;
+      if (pending.owner) ctrl.openContactsWorkspace(pending.owner);
+      else {
+        ctrl.panelState.conversationVariantId = null;
+        ctrl.navigateToService('game');
+      }
+      ctrl.scheduleRender();
+    });
+  });
   const storyGateCard = scope.querySelector<HTMLElement>('[data-story-gate] .story-gate-card');
   if (storyGateCard && document.activeElement === document.body) storyGateCard.focus({ preventScroll: true });
   scope.querySelectorAll<HTMLElement>('[data-story-workspace-leave]').forEach(button => {

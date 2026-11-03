@@ -4268,7 +4268,8 @@
         "base:spot:abydos_rehab"
       ],
       "adjacentAreaIds": [
-        "base:area:abydos_pool"
+        "base:area:abydos_pool",
+        "base:area:abydos_embankment"
       ],
       "theme": {
         "colorGroupId": "base:colorgroup:abydos-sand"
@@ -4277,6 +4278,29 @@
         "default": {
           "name": "阿比多斯旧校舍",
           "description": "破旧却充满人情的校舍。对策委员会的据点，黄沙与日常并存。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:abydos-sand"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:abydos"
+    },
+    {
+      "id": "base:area:abydos_embankment",
+      "initId": "base:init:abydos",
+      "name": "阿比多斯堤防",
+      "description": "旧校舍旁的堤防。午后的海风很轻，适合坐下来聊聊。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "base:area:abydos_campus"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:abydos-sand"
+      },
+      "presentation": {
+        "default": {
+          "name": "阿比多斯堤防",
+          "description": "旧校舍旁的堤防。午后的海风很轻，适合坐下来聊聊。",
           "theme": {
             "colorGroupId": "base:colorgroup:abydos-sand"
           }
@@ -4660,9 +4684,20 @@
           }
         },
         {
-          "id": "abydos_pool",
+          "id": "abydos_embankment",
           "position": {
             "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_embankment"
+          }
+        },
+        {
+          "id": "abydos_pool",
+          "position": {
+            "x": 480,
             "y": 0
           },
           "action": {
@@ -4675,6 +4710,10 @@
         {
           "fromNodeId": "abydos_campus",
           "toNodeId": "abydos_pool"
+        },
+        {
+          "fromNodeId": "abydos_campus",
+          "toNodeId": "abydos_embankment"
         }
       ]
     },
@@ -10012,27 +10051,27 @@
   "pics": [
     {
       "id": "base:avatar(pic):hoshino",
-      "src": "zip:images/Hoshino.png",
+      "src": "/src/data/Hoshino.png",
       "label": "星野头像"
     },
     {
       "id": "base:sticker(pic):hoshino_selfie",
-      "src": "zip:images/Hoshino.png",
+      "src": "/src/data/Hoshino.png",
       "label": "星野自拍"
     },
     {
       "id": "base:background(pic):hoshino",
-      "src": "zip:images/Hoshino.png",
+      "src": "/src/data/Hoshino.png",
       "label": "场景背景示例"
     },
     {
       "id": "base:overlay(pic):triangles",
-      "src": "zip:images/background-triangles.svg",
+      "src": "/src/data/background-triangles.svg",
       "label": "三角形装饰叠层"
     },
     {
       "id": "base:overlay(pic):ba_triangles_svg",
-      "src": "zip:images/ba_triangles.svg",
+      "src": "/src/data/ba_triangles.svg",
       "label": "蔚蓝档案白色三角形叠层（SVG）"
     }
   ],
@@ -13740,11 +13779,16 @@
         "type": "AND",
         "conditions": []
       },
-      "availableInits": [],
+      "availableInits": [
+        "base:init:abydos"
+      ],
       "replayable": true,
       "kizuna": {
         "entryId": "base:activestory:bond_hoshino_1",
-        "returnFlags": []
+        "returnFlags": [
+          "hoshino-remembers",
+          "hoshino-new-memories"
+        ]
       },
       "type": "passive",
       "repeatable": false,
@@ -18761,6 +18805,21 @@
           }
         },
         {
+          "id": "departure",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "队长，那就说好了哦。我先去旧校舍旁的堤防，待会儿见。",
+            "speaker": "星野"
+          }
+        },
+        {
+          "id": "go-embankment",
+          "type": "moveToArea",
+          "areaId": "base:area:abydos_embankment"
+        },
+        {
           "id": "p1-body",
           "type": "talklet",
           "stageId": "p1",
@@ -18845,6 +18904,12 @@
                           "value": "committee"
                         }
                       ]
+                    },
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "hoshino-remembers",
+                      "value": true
                     }
                   ]
                 }
@@ -18863,6 +18928,12 @@
                           "value": "forget"
                         }
                       ]
+                    },
+                    {
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "hoshino-new-memories",
+                      "value": true
                     }
                   ]
                 }
@@ -18892,6 +18963,21 @@
                 "value": "1"
               }
             ]
+          }
+        },
+        {
+          "id": "back-to-contact",
+          "type": "moveToCharaspace",
+          "characterId": "Hoshino"
+        },
+        {
+          "id": "contact-return",
+          "type": "talklet",
+          "stageId": "p3",
+          "content": {
+            "kind": "talk",
+            "text": "队长，到家了吗？今天的海风很舒服呢。以后也常一起出来坐坐吧。",
+            "speaker": "星野"
           }
         }
       ],
@@ -19224,24 +19310,24 @@
           }
         },
         {
-          "id": "p1-body",
+          "id": "remembered",
           "type": "talklet",
-          "stageId": "p1",
+          "stageId": "p2",
+          "requiresFlag": "hoshino-remembers",
           "content": {
-            "kind": "narration",
-            "text": "——阿比多斯 · 堤防 · 归途——"
-          },
-          "presentation": {
-            "align": "center"
+            "kind": "talk",
+            "text": "原来队长一直记得第一次见面呀。看到这条消息，我又有点开心了。",
+            "speaker": "星野"
           }
         },
         {
-          "id": "p2-body",
+          "id": "new-memories",
           "type": "talklet",
           "stageId": "p2",
+          "requiresFlag": "hoshino-new-memories",
           "content": {
             "kind": "talk",
-            "text": "……剧情就到这里。剩下的，我们边走边说吧，队长。",
+            "text": "那就从今天开始，再多留下一些新回忆吧，队长。",
             "speaker": "星野"
           }
         },
@@ -19250,11 +19336,9 @@
           "type": "talklet",
           "stageId": "p3",
           "content": {
-            "kind": "narration",
-            "text": "——羁绊剧情 · 午后的堤防 完——"
-          },
-          "presentation": {
-            "align": "center"
+            "kind": "talk",
+            "text": "下次的约定，我会再发消息告诉你的。今天就好好休息吧。",
+            "speaker": "星野"
           }
         }
       ],
@@ -19629,7 +19713,9 @@
         "type": "AND",
         "conditions": []
       },
-      "availableInits": [],
+      "availableInits": [
+        "base:init:abydos"
+      ],
       "replayable": true,
       "openingTitle": "星野 · 午后的堤防",
       "type": "active",
@@ -20076,5 +20162,6 @@
       "t": "int",
       "v": 0
     }
-  }
+  },
+  "modName": "base"
 }

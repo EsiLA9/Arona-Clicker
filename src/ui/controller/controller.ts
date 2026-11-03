@@ -1013,10 +1013,11 @@ export class UIController {
 
   /** 同步当前聊天门控状态后，仅刷新中心聊天面板。 */
   private restoreStoryChannel(): void {
+    if (this.panelState.storyReplay && this.panelState.storyReplay.isReplay !== false) return;
     const channel = this.game.story.getActiveStoryChannel();
     if (!channel || this.panelState.storyReplay?.replayId === channel.replayId && this.panelState.storyReplay.runId === channel.runId) return;
     const owner = channel.context.type === 'chara' ? channel.context.characterId : null;
-    this.panelState.storyReplay = { ...channel, owner, entries: [], chatTexts: [] };
+    this.panelState.storyReplay = { ...channel, owner, isReplay: false, entries: [], chatTexts: [] };
     routeToStoryContext(this, channel.context, true);
     this.commands.activateStorySpace(channel.owner, channel.replayId);
   }

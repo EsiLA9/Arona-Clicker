@@ -40,7 +40,7 @@ Story Editor 的 Choice 绑定卡自动维护这组标准字段：把 Choice 后
 
 ## 地点续播与一层羁绊调用
 
-会话空间保留普通聊天历史，游标保留一次 Entry 的运行状态，独立演出通道负责当前场景输出。Init / Chara 根运行可以各自等待，正式子故事同时最多一个；等待本身不创建额外游标，也不全程禁止旅行。子故事与到场后正文使用独立输出，保持根运行归属，不把跨场景内容塞进 Chara 普通历史。
+会话空间保留普通聊天历史，游标保留一次 Entry 的运行状态，屏幕根据 Story 起始上下文及移动节点选择场景。Init / Chara 根运行可以各自等待，正式子故事同时最多一个；等待本身不创建额外游标，也不全程禁止旅行。正式子与到场续播沿用通道隔离推进 / token，正文按投递时的场景进入 Init 或 Chara 历史；换场不清历史，Area 正文不回灌 Chara，根运行归属不随现场变化。只有重读使用私有输出。
 
 作者只使用以下两种 Click，不填写游标、返回地址、事件名或 afterStoryId：
 
@@ -62,15 +62,15 @@ Entry 关联的字段片段如下；其余必填字段沿用现有 StoryEntry：
 }
 ```
 
-省略 areaId 就从当前卡片直接进入。父正文仍是“前文 → kizunaCard → 后文”，没有另一份尾段 Entry。子故事正常完成、结算与尾通知结束后，只把 returnFlags 允许的键返回父表：先清父表这些键，再复制子表最终存在的项；false / 0 / null 仍按存在处理。省略 returnFlags 表示只返回完成关系。玩家显式回到原 Init / Chara 空间后才越过卡片；查询、刷新、到达地点或其他故事的历史完成都不能代替本次返回。
+省略 areaId 就从当前爱心卡片直接进入。父正文仍是“前文 → kizunaCard → 后文”，没有另一份尾段 Entry。子故事正常完成、结算与尾通知结束后，只把 returnFlags 允许的键返回父表：先清父表这些键，再复制子表最终存在的项；false / 0 / null 仍按存在处理。省略 returnFlags 表示只返回完成关系。子若已经由明确移动节点回到父空间，完成时接续父后文；否则等玩家选择原空间或点击“返回”入口后接续。查询、刷新、恢复 UI 和其它故事的历史完成不代替明确返回。
 
 父只允许一个关联目标、一次成功调用；目标必须是独占关联的 Active Entry，正式启动只能经过该父卡片或赴约邀请，单独阅读使用重读。Registry 与启动检查沿 goto / insert 和 Click 结果检查可达正文，子故事禁止 kizunaCard、areaContinue、entryCard、入口请求和入口覆盖卡；服务在实际启动及延后入口再次禁止子运行递归开播。子仍可切换场景、修改世界或投递未来故事。
 
 Area 邀请由当前父 historyId 与等待序号派生，保存的是父游标而非复制一份 Entry。到场不自动播放，未接取不占子槽；忙或资格不符保持原邀请。子取消后恢复原入口，父取消则连同子运行失效。取消不撤销已经发生的世界写入；已记录完成的子结果不能因清理临时画面而丢弃。
 
-父、子、待返回结果、局部表和通道输出随 `StoryCursorCollection` 一起保存。读档检查唯一 historyId / channel、父子对应与内容指纹，换发 runId / token；损坏关联在替换当前状态前拒绝。已结算后的通知异常保留 finishing 结果，可通过“继续故事”恢复返回而不再次结算。完整回放在私有父子关系中自动接回后文，使用虚拟地点，不唤醒正式游标。
+父、子、待返回结果、局部表、会话输出与表现队列随 `StoryCursorCollection` 一起保存。读档检查唯一 historyId / channel、父子对应与内容指纹，换发 runId / token；损坏关联在替换当前状态前拒绝。旧正式 channelOutput 中已有独立正文时，因缺少当时的空间归属以 `StoryOutputFormatChanged` 拒绝加载，不静默丢弃、不自动迁移；普通无此类在播通道的存档不受该检查影响。已结算后的通知异常保留 finishing 结果，可通过“继续故事”恢复返回而不再次结算。完整回放在私有父子关系中自动接回后文，使用虚拟地点，不唤醒正式游标。
 
-基础包将星野天台 FollowUp 接线改为 areaContinue，将羁绊邀约与原尾段接成完整父正文。FollowUp、pushAfterStory 仍保留给旧包和真正独立的后续投放，不用于这些样本的内部续播。运行边界测试见 `tests/engine/story-continuation.test.ts`；界面返回和 Area 接取见 `tests/ui/story-continuation.test.ts`。
+基础包将星野天台 FollowUp 接线改为 areaContinue，将羁绊邀约与原尾段接成完整父正文。「午后的堤防」在阿比多斯、星野好感 3 级投放：子故事先在原通讯录接话，再前往旧校舍相邻堤防 Area，最后回原通讯录并按局部选择接父收尾。白子样例保留夏莱直接子调用与天台到场接取。FollowUp、pushAfterStory 仍保留给旧包和真正独立的后续投放。运行边界见 `tests/engine/story-continuation.test.ts`；三空间与正式内容见 `hoshino-story-spaces.test.ts`、`tests/ui/story-space-history.test.ts`。
 
 ## 输入后的作者回应
 

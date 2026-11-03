@@ -105,6 +105,7 @@ export class StoryService {
     };
     const core = createStoryNodeActionHost(this.actionOptions);
     this.coordinator = new StoryPlaybackCoordinator({
+      outputOwner: source => this.outputOwner(this.sessionForSource(source), source.owner),
       clock: opts.clock,
       transaction: work => this.transact(work),
       changed: (owner, replayId) => this.withSource(this.sessionForChannel(owner, replayId)?.source, () => opts.eventBus.emit({ type: 'storyPlaybackChanged', owner, ...(replayId ? { replayId } : {}) })),
@@ -181,6 +182,14 @@ export class StoryService {
       context: structuredClone(session.scene ?? session.documents.get(session.source.rootStoryId)!.startContext) };
   }
   private allSessions(): StoryNodeSession[] { return [...new Set([...this.sessions.values(), ...this.replaySessions.values()])]; }
+  private outputOwner(session: StoryNodeSession | undefined, fallback: string | null): string | null {
+    return session?.scene ? session.scene.type === 'chara' ? session.scene.characterId : null : fallback;
+  }
+  getPendingStoryReturn(): { owner: string | null; title: string } | null {
+    const parent = this.allSessions().find(x => !x.replay && x.continuation?.state === 'returned');
+    return parent ? { owner: parent.source.owner, title: parent.source.owner
+      ? this.opts.registry.characterVariants.get(parent.source.owner)?.displayName ?? parent.source.owner : '一般聊天' } : null;
+  }
   private isContinuationWait(session: StoryNodeSession): boolean {
     const view = session.player.getView();
     return view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue');
@@ -208,7 +217,7 @@ export class StoryService {
   }
   private announceChannel(session: StoryNodeSession): void {
     this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner,
-      runId: session.source.runId, replayId: session.source.replayId, isolated: true, context: session.scene });
+      runId: session.source.runId, replayId: session.source.replayId, isolated: true, isReplay: session.replay, context: session.scene });
   }
   private acceptContinuation(session: StoryNodeSession, atArea = false): StoryAdvanceResult {
     const view = session.player.getView();
@@ -256,13 +265,12 @@ export class StoryService {
     }
     const context = node.type === 'moveToArea' ? { type: 'area' as const, areaId: node.areaId }
       : { type: 'chara' as const, characterId: node.characterId };
-    session.scene = context;
     const owner = context.type === 'chara' ? context.characterId : null;
     if (!source.replayId && owner !== session.source.owner) {
       const existing = this.sessionFor(owner);
       if (existing && existing !== session) return { status: 'rejected', error: 'StorySpaceOccupied' };
     }
-    if (context.type === 'area' && !session.replay) {
+    if (context.type === 'area' && !session.replay && this.state.currentAreaId !== context.areaId) {
       const result = this.opts.travelToArea(context.areaId, true, false);
       if (!result.success) return { status: 'rejected', error: `AreaTravelFailed:${result.error}` };
       if (!this.isCurrent(session)) return { status: 'replaced' };
@@ -273,6 +281,7 @@ export class StoryService {
       this.sessions.set(ownerKey(owner), session);
     }
     if (!source.replayId || session.replay || source.parentHistoryId) { session.source.owner = owner; session.player.setOwner(owner); }
+    session.scene = context;
     this.withSource(session.source, () => this.opts.eventBus.emit({ type: 'storyContextMoved', context, owner,
       ...(source.runId ? { runId: source.runId } : {}), ...(source.replayId ? { replayId: source.replayId } : {}) }));
     return { status: 'applied' };
@@ -369,10 +378,12 @@ export class StoryService {
     const owner = session ? session.source.owner : this.completedReplays.get(replayId)!;
     if (!session) return this.coordinator.view(owner, 'idle', undefined, undefined, undefined, replayId);
     const view = session.player.getView();
-    if (session.finishing?.error && session.finishing.settled && !session.replay) return this.coordinator.view(owner, 'continue', `${session.source.historyId}:recover`, session.source.runId, session.finishing.error, replayId);
-    if (session.finishing) return this.coordinator.view(owner, session.finishing.error ? 'failed' : 'finishing', undefined, session.source.runId, session.finishing.error, replayId);
-    return this.coordinator.view(owner, view.status === 'input' ? 'input' : view.status === 'failed' ? 'failed' : 'continue',
-      'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined, replayId);
+    const presentation = session.finishing?.error && session.finishing.settled && !session.replay
+      ? this.coordinator.view(owner, 'continue', `${session.source.historyId}:recover`, session.source.runId, session.finishing.error, replayId)
+      : session.finishing ? this.coordinator.view(owner, session.finishing.error ? 'failed' : 'finishing', undefined, session.source.runId, session.finishing.error, replayId)
+      : this.coordinator.view(owner, view.status === 'input' ? 'input' : view.status === 'failed' ? 'failed' : 'continue',
+        'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined, replayId);
+    return session.replay ? presentation : { ...presentation, ...this.coordinator.saveOutputs(this.outputOwner(session, owner)) };
   }
 
   continueStory(owner: string | null, token: string): StoryAdvanceResult {
@@ -809,13 +820,13 @@ export class StoryService {
       command = session.player.submit(commandToken, optionId, causalChainId);
       if (command.ok && selectedOptionIndex !== undefined) {
         if (current.node.interaction.kind === 'choice') {
-          this.coordinator.append(normalizedOwner, `${session.source.historyId}:${current.sequence}:choice`, session.source.historyId!, {
+          this.coordinator.append(this.outputOwner(session, normalizedOwner), `${session.source.historyId}:${current.sequence}:choice`, session.source.historyId!, {
             kind: 'narration', text: '', align: 'right',
             choice: {
               options: current.node.interaction.options.map(option => ({ id: option.id, text: option.text })),
               selectedOptionId: current.node.interaction.options[selectedOptionIndex]!.id,
             },
-          }, replayId);
+          }, session.replay ? replayId : undefined);
         }
         session.lastChoiceIndex = selectedOptionIndex;
         session.lastChoiceStoryId = current.storyId;
@@ -872,9 +883,14 @@ export class StoryService {
         align: card.align ?? 'left', token: storyView.token,
       };
     }
-    const destination = interaction.kind === 'areaContinue' ? interaction.areaId : session.entry.kizuna?.areaId;
+    if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') {
+      return { mode: 'kizuna', storyId: session.source.entryId, pageIndex: storyView.pageIndex,
+        targetStoryId: storyView.page.kizuna!.storyId, title: storyView.page.kizuna!.title,
+        buttonText: storyView.page.kizuna!.buttonText, hint: storyView.continuationBlocked ? storyView.page.kizuna!.buttonText : undefined,
+        align: 'left', token: storyView.token };
+    }
     return {
-      mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: interaction.kind === 'button' ? interaction.text : session.continuation?.state === 'running' ? '等待关联故事结束' : session.continuation?.state === 'returned' ? '继续故事' : destination ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : '进入关联故事', token: storyView.token,
+      mode: 'advance', storyId: session.source.entryId, pageIndex: storyView.pageIndex, text: interaction.text, token: storyView.token,
       ...(view.press ? { clickWork: { total: view.press.total, done: view.press.done } } : {}),
     };
   }
@@ -912,6 +928,16 @@ export class StoryService {
   private projectView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
     const projected = projectStoryNodeView(session, view);
     if (!projected) return null;
+    if (view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue')) {
+      const destination = view.node.interaction.kind === 'areaContinue' ? view.node.interaction.areaId : session.entry.kizuna?.areaId;
+      const target = this.opts.registry.storyEntries.get(session.entry.kizuna?.entryId ?? session.source.entryId);
+      const title = target?.openingTitle ?? (target && session.documents.get(target.storyId)?.name);
+      const returned = session.continuation?.state === 'returned';
+      projected.continuationBlocked = session.continuation?.state === 'running' || !!destination && !session.replay && !returned;
+      projected.page = { ...projected.page, kizuna: { storyId: target?.id ?? session.source.entryId, title,
+        buttonText: returned ? '继续故事' : session.continuation?.state === 'running' ? '等待羁绊剧情结束'
+          : destination && !session.replay ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : '进入羁绊剧情' } };
+    }
     return { ...projected, token: this.coordinator.intentToken(session.source.owner, projected.token, session.source.runId, session.source.replayId),
       ...(view.status === 'operation' || view.status === 'result' ? { operationCheckpoint: true as const } : {}) };
   }
@@ -1078,7 +1104,7 @@ export class StoryService {
     this.activeSource = session.source;
     try {
       try {
-        this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner, runId: session.source.runId, ...(session.source.replayId ? { replayId: session.source.replayId, isolated: true, context: session.scene } : {}) });
+        this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner, runId: session.source.runId, ...(session.source.replayId ? { replayId: session.source.replayId, isolated: true, isReplay: session.replay, context: session.scene } : {}) });
       } catch (error) {
         this.failInstalledSession(session, `StoryInitializationFailed:${error instanceof Error ? error.message : String(error)}`);
         return;
@@ -1270,7 +1296,11 @@ export class StoryService {
     } else this.sessions.delete(ownerKey(session.source.owner));
     if (!session.source.parentHistoryId && !session.replay) this.sessions.delete(ownerKey(session.source.owner));
     const parent = session.source.parentHistoryId && this.allSessions().find(x => x.source.historyId === session.source.parentHistoryId);
-    if (parent && parent.replay && parent.continuation?.state === 'returned') { this.announceChannel(parent); this.resumeContinuation(parent); }
+    const returnedToParent = session.scene && this.outputOwner(session, session.source.owner) === (parent ? parent.source.owner : undefined);
+    if (parent && parent.continuation?.state === 'returned' && (parent.replay || returnedToParent)) {
+      if (parent.replay) this.announceChannel(parent);
+      this.resumeContinuation(parent);
+    }
     const previous = this.activeSource;
     this.activeSource = session.source;
     try {
@@ -1445,6 +1475,8 @@ export class StoryService {
     if (snapshot.finishing?.localFlags !== undefined && !isStoryRunFlags(snapshot.finishing.localFlags)) throw new Error('InvalidStoryResultFlags');
     if (snapshot.scene && (snapshot.scene.type === 'area' ? !this.opts.registry.areas.has(snapshot.scene.areaId) : snapshot.scene.type !== 'chara' || !this.opts.registry.characterVariants.has(snapshot.scene.characterId))) throw new Error('InvalidStoryScene');
     if (snapshot.channelOutput) validateStoryPresentationSnapshot({ ...snapshot, output: snapshot.channelOutput }, this.documents, source?.rootStoryId);
+    // Old formal channels have no per-space provenance; reject rather than silently lose or misfile their history.
+    if (source?.isReplay === false && snapshot.channelOutput?.entries.length) throw new Error('StoryOutputFormatChanged');
     if (!source) {
       if (snapshot.isReplay || snapshot.lastChoiceIndex !== -1 || snapshot.lastChoiceStoryId !== null || snapshot.flags.length || snapshot.presentation) throw new Error('InvalidEmptyStoryCursor');
       return;

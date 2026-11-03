@@ -6,6 +6,7 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0352-story-cursor-space-and-history]] | 代码 / 自动化验收完成 | 正式历史 / 交还、爱心卡片与星野三空间样例已实施；17 文件 / 124 项定向、类型 / 架构 / 构建通过，待浏览器手动验收 |
 | [[ai/plan/task-0347-story-context-and-presentation-movement]] | 实施中 | 按裁定扩展 StoryDef、StoryNode、编辑器与重播运行语义 |
 | [[ai/plan/task-0348-story-talklet-click-authoring-coverage]] | 实施中 | ID 手写入口与游标 / 内容失配后从 Entry 重启已接入；其它字段覆盖待逐项完成 |
 | [[ai/plan/task-0344-story-operation-checkpoints]] | 代码与构建验收完成 | Operation 作者语义已承接到 0345 的 Runtime 队列；对应自动化随 0345 全量通过，浏览器视觉验收未运行 |

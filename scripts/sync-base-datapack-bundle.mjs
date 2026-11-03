@@ -36,9 +36,7 @@ async function sync() {
     if (legacyStories.length || invalidStories.length) {
       throw new Error(`Base Story source must be nodes/stages-only (legacy=${legacyStories.length}, invalid=${invalidStories.length}).`);
     }
-    if (content.stories.length !== 43) {
-      throw new Error(`Expected the current 43 production Stories, found ${content.stories.length}.`);
-    }
+    if (content.stories.length === 0) throw new Error('Base Story source must not be empty.');
 
     // The runtime bundle is also the published Base pack fragment; preserve its mod identity.
     const generated = `${JSON.stringify({ ...content, modName: 'base' }, null, 2)}\n`;

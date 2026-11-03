@@ -3,22 +3,26 @@ import type { ActiveStoryEntry } from '../../../data-services/contracts/story-en
 import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseBondStoryEntries: ActiveStoryEntry[] = [
-  activeStory('base:activestory:bond_hoshino_1', 'base:story:bond_hoshino_1').owner('Hoshino').replayable().openingTitle('星野 · 午后的堤防').build(),
+  activeStory('base:activestory:bond_hoshino_1', 'base:story:bond_hoshino_1').owner('Hoshino').inits('base:init:abydos').replayable().openingTitle('星野 · 午后的堤防').build(),
   activeStory('base:activestory:bond_hoshino_evening', 'base:story:bond_hoshino_evening').owner('Hoshino').replayable().openingTitle('星野 · 傍晚的河堤').build(),
 ];
 
 export const baseBondStories: StoryDef[] = [
   story('base:story:bond_hoshino_1', '羁绊剧情 · 星野：午后的堤防').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
+  { id: 'departure', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '队长，那就说好了哦。我先去旧校舍旁的堤防，待会儿见。', speaker: '星野' } },
+  { id: 'go-embankment', type: 'moveToArea', areaId: 'base:area:abydos_embankment' },
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——阿比多斯 · 堤防 · 午后——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '唔……老师也来吹风吗……海风很舒服哦……', speaker: '星野' } },
   { id: 'p3-body', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '（在她旁边坐下）', speaker: '老师' } },
   { id: 'p3-button', type: 'click', stageId: 'p3', interaction: { kind: 'button', text: '（默默坐下）' } },
   { id: 'p3-button-response', type: 'talklet', stageId: 'p3-response', content: { kind: 'talk', text: '（默默坐下）', speaker: '老师' }, presentation: { side: 'right' } },
   { id: 'p4-body', type: 'talklet', stageId: 'p4', content: { kind: 'talk', text: '说起来……队长还记得第一次见面的时候吗？', speaker: '星野' } },
-  { id: 'p4-choice', type: 'click', stageId: 'p4', interaction: { kind: 'choice', options: [{ id: 'option1', text: '当然记得，就在对策委员会室。', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_choice', value: 'committee' }] }] } }, { id: 'option2', text: '抱歉……有点记不清了。', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_choice', value: 'forget' }] }] } }] } },
+  { id: 'p4-choice', type: 'click', stageId: 'p4', interaction: { kind: 'choice', options: [{ id: 'option1', text: '当然记得，就在对策委员会室。', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_choice', value: 'committee' }] }, { kind: 'localFlag', op: 'set', name: 'hoshino-remembers', value: true }] } }, { id: 'option2', text: '抱歉……有点记不清了。', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_choice', value: 'forget' }] }, { kind: 'localFlag', op: 'set', name: 'hoshino-new-memories', value: true }] } }] } },
   { id: 'p5-body', type: 'talklet', stageId: 'p5', content: { kind: 'talk', text: '呵呵……没关系哦。反正以后的日子还长着呢，队长。', speaker: '星野' } },
   { id: 'p5-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'bond_hoshino_done', value: '1' }] } },
+  { id: 'back-to-contact', type: 'moveToCharaspace', characterId: 'Hoshino' },
+  { id: 'contact-return', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '队长，到家了吗？今天的海风很舒服呢。以后也常一起出来坐坐吧。', speaker: '星野' } },
 ]).build(),
   story('base:story:bond_hoshino_evening', '羁绊剧情 · 星野：傍晚的河堤').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p4': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 傍晚的河堤' } } },

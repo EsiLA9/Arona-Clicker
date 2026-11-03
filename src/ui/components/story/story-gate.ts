@@ -62,7 +62,7 @@ export function renderStoryGate(ctx: UIContext, gate: StoryGateState): string {
   // 完结态按演出本体 id 判定（storyLog / hasCompletedStory 均记 Story.id）
   const gateEntry = ctx.game.registry.storyEntries.get(gate.storyId);
   const completed = ctx.game.story.hasCompletedStory(gateEntry?.storyId ?? gate.storyId);
-  const confirmText = gate.mode === 'replay' ? '重新观看' : completed ? '重新开始' : '进入';
+  const confirmText = gate.mode === 'replay' ? '重新观看' : gate.sourceToken && completed ? '继续故事' : completed ? '重新开始' : '进入';
 
   const variant = gate.owner ? ctx.game.rosterSystem.getVariant(gate.owner) : undefined;
   const owned = gate.owner ? ctx.game.rosterSystem.getOwned(ctx.game.state, gate.owner) : undefined;

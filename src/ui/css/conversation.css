@@ -62,7 +62,11 @@
    align-self: flex-end;
 }
 
-.kizuna-card:hover .yuzu-kizuna-item {
+.kizuna-card[aria-disabled="true"] {
+   cursor: default;
+}
+
+.kizuna-card:not([aria-disabled="true"]):hover .yuzu-kizuna-item {
    border-color: #ff92a4;
    box-shadow: 0 2px 10px rgba(255, 146, 164, .25);
 }

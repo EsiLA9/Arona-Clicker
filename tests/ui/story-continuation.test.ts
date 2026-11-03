@@ -38,7 +38,8 @@ describe('story continuation surfaces', () => {
   afterEach(() => { ctrl?.destroy(); game?.dispose(); vi.useRealTimers(); localStorage.clear(); });
   it('plays the child on its own surface, then resumes the original conversation on return', () => {
     setup();
-    document.querySelector<HTMLButtonElement>('[data-send]')!.click();
+    document.querySelector<HTMLElement>('[data-story-card-token]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
     ctrl.render();
     expect(ctrl.panelState.storyReplay?.entryId).toBe(child);
     expect(ctrl.panelState.storyReplay?.entries.some(x => x.text === '独立子故事正文')).toBe(true);
@@ -53,6 +54,9 @@ describe('story continuation surfaces', () => {
   });
   it('accepts the bound Area invitation and rebuilds the live channel after loading', () => {
     setup(true);
+    expect(document.querySelector('.yuzu-kizuna-heart')).not.toBeNull();
+    expect(document.querySelector('[data-story-card-token]')).toBeNull();
+    expect(document.body.textContent).toContain('前往夏莱天台接续故事');
     game.travelToArea(area);
     ctrl.navigateToService('game'); ctrl.panelState.conversationVariantId = null; ctrl.render();
     const button = document.querySelector<HTMLButtonElement>('[data-area-story-quick-enter]')!;
@@ -74,7 +78,8 @@ describe('story continuation surfaces', () => {
       { id: 'move', type: 'moveToCharaspace', characterId: 'Serika' }, ...doc.nodes,
     ] }]));
     game.mutations.acquireCharacter('Serika', 'story');
-    document.querySelector<HTMLButtonElement>('[data-send]')!.click();
+    document.querySelector<HTMLElement>('[data-story-card-token]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
     const saved = game.save();
     game.load(saved);
     ctrl.panelState.storyReplay = undefined;

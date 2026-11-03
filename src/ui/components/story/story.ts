@@ -280,7 +280,10 @@ export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickI
     const card = renderChoiceCard(ctx, options, options.map((_, index) => index), 'right', undefined, true, optionAddon);
     return `<div class="chat-current story-editor-click-preview${optionAddon ? ' story-editor-click-preview--choice-bindings' : ''}">${card}</div>`;
   }
-  if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return renderStoryClickPreview(ctx, { kind: 'button', text: interaction.kind === 'kizunaCard' ? '进入关联故事' : '到指定地点继续' });
+  if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
+    storyId: '', title: '羁绊剧情', buttonText: interaction.kind === 'kizunaCard' ? '进入羁绊剧情'
+      : `前往${ctx.game.registry.areas.get(interaction.areaId)?.name ?? interaction.areaId}接续故事`,
+  }, undefined, true)}</div>`;
   const card = interaction.card;
   return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: card?.request?.entryId ?? '',
@@ -457,7 +460,7 @@ export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
   if (choices.length > 0) return `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`;
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
-    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token)}</div>`;
+    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token, false, story.continuationBlocked)}</div>`;
   }
   return '';
 }
@@ -558,13 +561,14 @@ function renderKizunaCard(
   kizuna: NonNullable<StoryView['page']['kizuna']>,
   token?: string,
   preview = false,
+  disabled = false,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText ?? '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
   return `
-    <div class="kizuna-card${alignCls}"${token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
+    <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">

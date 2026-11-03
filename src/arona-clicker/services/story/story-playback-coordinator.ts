@@ -33,6 +33,7 @@ interface Barrier {
 }
 
 interface CoordinatorOptions {
+  readonly outputOwner?: (source: StoryNodeSource) => string | null;
   readonly clock?: StoryPlaybackClock;
   readonly transaction: (work: () => void) => void;
   readonly changed: (owner: string | null, replayId?: string) => void;
@@ -122,14 +123,14 @@ export class StoryPlaybackCoordinator {
       barrier.index += 1;
       if (step.kind === 'output') {
         if (!barrier.suppressed) {
-          this.append(barrier.source.owner, `${barrier.key}:${barrier.index - 1}`, barrier.source.historyId ?? barrier.source.runId ?? barrier.key, step.content, barrier.source.replayId);
+          this.append(this.options.outputOwner ? this.options.outputOwner(barrier.source) : barrier.source.owner, `${barrier.key}:${barrier.index - 1}`, barrier.source.historyId ?? barrier.source.runId ?? barrier.key, step.content, barrier.source.isReplay === false ? undefined : barrier.source.replayId);
           if (!barrier.delivered && (step.content.kind === 'talk' || step.content.kind === 'narration')) {
             barrier.delivered = true;
             this.options.delivered(barrier.source);
           }
         }
       } else {
-        if (step.effect.op === 'clearAllChatFlow') this.clear(barrier.source.owner, barrier.source.replayId);
+        if (step.effect.op === 'clearAllChatFlow') this.clear(this.options.outputOwner ? this.options.outputOwner(barrier.source) : barrier.source.owner, barrier.source.isReplay === false ? undefined : barrier.source.replayId);
         this.options.effect(step.effect, barrier.source);
       }
     }

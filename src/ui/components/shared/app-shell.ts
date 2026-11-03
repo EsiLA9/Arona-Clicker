@@ -138,6 +138,8 @@ export interface StoryWorkspaceState {
 }
 
 export interface StoryReplayState {
+  /** False for a formal channel: its entries reference the current conversation history. */
+  isReplay?: boolean;
   entryId: string;
   owner: string | null;
   context?: import('../../../data-services/contracts/story-node').StoryStartContext;

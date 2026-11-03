@@ -31,7 +31,7 @@ export type GameEvent =
   | { type: 'initUnlocked'; initId: string }
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
   | { type: 'storyAreaTraveled'; areaId: string; owner?: string | null; runId?: string }
-  | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string; replayId?: string; isolated?: boolean; context?: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string } }
+  | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string; replayId?: string; isolated?: boolean; isReplay?: boolean; context?: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string } }
   | { type: 'storyPlaybackChanged'; owner: string | null; replayId?: string }
   | { type: 'storyContextMoved'; context: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string }; owner: string | null; runId?: string; replayId?: string }
   | { type: 'storyRunEnded'; owner: string | null; runId: string; reason: StoryRunEndReason; replayId?: string;

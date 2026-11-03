@@ -6,9 +6,11 @@
 
 ## Story 到聊天条目
 
-正式子故事与 areaContinue 到场后正文也复用独立通道接口。`replayId` 在这里表示输出通道，`StoryNodeSource.isReplay === false` 才表示正式世界执行，不能仅凭存在 replayId 跳过效果。`getActiveStoryChannel()` 供读档后重建临时流；渲染重建不推进游标。选择原会话空间通过 `activateStorySpace()` 提交明确返回意图；通道临时主题以通道身份激活，与同 Chara 的普通聊天主题隔离。
+正式子故事与 areaContinue 到场后正文复用通道的播放 / token 接口，但 `StoryNodeSource.isReplay === false` 的正文写入当前场景的普通会话历史。Area 场景使用所属 Init 的普通流，Chara 场景使用该角色流；换场和进场本身不清流，也不将 Area 现场对白搬回角色聊天。只有真正重读使用私有输出。`getActiveStoryChannel()` 供读档后重建当前播放绑定，渲染不推进游标。ChatStream 的正式绑定直接引用当前会话数组，共享稳定输出 ID，不复制历史到临时沙盒；通道的临时主题仍独立激活并按运行清理。
 
-结束路由按 `storyRunEnded.isReplay` 判断：只有明确为 true 的重读完成才打开故事页。正式子故事、Area 赴约子故事与地点续播完成后保留当前场景和末尾正文，已结束通道不再显示推进按钮；选择原联系人时清理结束画面，并按原有规则接续父故事。读档沿用运行自身的正式 / 重读身份，不从 replayId 名称猜测。旧 entryCard 的确认也留在当前页面，不因普通卡片点击提前进入故事页。
+结束路由按 `storyRunEnded.isReplay` 判断：只有明确为 true 的重读完成才打开故事页。正式完成释放通道绑定，保留当前场景和普通历史，恢复该会话可用交互；若子已由移动节点明确返回父空间，完成时直接交还父游标。仍在其它场景完成时，`getPendingStoryReturn()` 提供“返回原会话继续故事”按钮，点击经 `activateStorySpace()` 明确提交返回；读档可从父等待状态重建按钮，不依赖旧 UI 结束画面。旧 entryCard 的确认留在当前页面。
+
+新 kizunaCard / areaContinue 复用原爱心卡片结构与确认浮层；绑定目的地时显示地点名称且不提供远程开播 token，需到场手动接取。子运行中为等待提示，已返回时可继续父故事，过期卡片不提供当前命令。编辑预览也复用同一外观。卡片与返回按钮只改变聊天区域内容，不新增滚动宿主；场景身份变化才切换工作区。
 
 Controller 读取 `game.story.getPlaybackView(owner)` 的输出、phase、token、typing 和 banner；重读则通过 `getReplayPlaybackView(replayId)` 读取。`ChatStream` 以 owner 或 replayId 将结果映射到普通聊天流或独立临时流，使用 Runtime 稳定输出 ID 关联本地 DOM 条目身份；反复读取、多个显示和重新挂载不会重复投递或推进。打字、思考、效果间隔、开幕标题以及自动衔接由 `StoryPlaybackCoordinator` 持有。无 UI 挂载时 Runtime 仍可完成已开始的有限表现步骤。
 
