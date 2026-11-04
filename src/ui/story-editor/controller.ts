@@ -1,3 +1,7 @@
+import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
+import { ENTRY_FIELD_SEEDS } from './authoring-view';
+import { valueAt, type ValuePath } from './structured-value';
+import type { StoryAuthoringPreview } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
 import type { PanelState } from '../components/shared/app-shell';
 import type { UIContext } from '../runtime/context';
@@ -86,10 +90,14 @@ export class StoryEditorController {
   private focusName = false;
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
+  private preview?: StoryAuthoringPreview;
+  private previewTimer?: ReturnType<typeof setInterval>;
+  private previewSignature = '';
   constructor(private readonly ctrl: UIController, readonly persistence = new StoryDraftPersistence()) {}
 
   isOpen(): boolean { return !this.disposed && this.ctrl.panelState.workspaceNavigation?.current.kind === 'story-editor'; }
   dispose(): void {
+    this.closeAuthoringPreview();
     this.save(false, false);
     this.abandonReturn();
     this.disposed = true;
@@ -143,6 +151,7 @@ export class StoryEditorController {
     return true;
   }
   beforeLeave(): boolean {
+    this.closeAuthoringPreview();
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
     if (!saved) this.requestRefresh();
@@ -196,6 +205,8 @@ export class StoryEditorController {
   }
   refresh(ctx: UIContext): boolean {
     if (!this.isOpen()) return false;
+    const draft = currentDraft(this.state);
+    if (draft) hydrateStoryAuthoring(draft, this.ctrl.game.registry);
     const frame = this.configureFrame(createStoryEditorFrame(ctx, this.state));
     const template = document.createElement('template');
     template.innerHTML = renderWorkspaceFrame(ctx, frame);
@@ -251,6 +262,8 @@ export class StoryEditorController {
       this.requestRefresh();
     };
     const click = (event: Event): void => {
+      const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
+      if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
       const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
@@ -273,7 +286,7 @@ export class StoryEditorController {
         const draft = currentDraft(this.state);
         if (draft && storySenders(createUIContext(this.ctrl.game)).some(item => item.id === sender)) composer(this.state).sender = sender;
       } else if (source) {
-        if (this.save(false, false)) { selectStory(this.state, source, this.ctrl.game.registry.stories); this.state.notice = null; }
+        if (this.save(false, false)) { this.closeAuthoringPreview(); selectStory(this.state, source, this.ctrl.game.registry.stories); this.state.notice = null; }
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
       else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
       else this.action(element.dataset.editorAction ?? '');
@@ -284,6 +297,7 @@ export class StoryEditorController {
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
       if (this.state.storageBlocked && !target.hasAttribute('data-editor-search') && !target.hasAttribute('data-editor-sender-search')) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
+      if (this.authoringInput(target, event.type)) { this.requestRefresh(); return; }
       const senders = storySenders(createUIContext(this.ctrl.game));
       if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
       else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
@@ -521,12 +535,125 @@ export class StoryEditorController {
       } });
     document.querySelector<HTMLInputElement>('.app-modal [data-story-option-id-input]')?.focus();
   }
+  private closeAuthoringPreview(): void {
+    if (this.previewTimer) clearInterval(this.previewTimer);
+    this.previewTimer = undefined; this.preview?.close(); this.preview = undefined; this.state.preview = undefined; this.previewSignature = '';
+  }
+  private updateAuthoringPreview(): void {
+    if (!this.preview) return;
+    if (!this.isOpen()) { this.closeAuthoringPreview(); return; }
+    const playback = this.preview.getView(); const story = this.preview.getStory();
+    const signature = JSON.stringify([playback?.revision, playback?.phase, playback?.banner?.title, story]);
+    if (signature === this.previewSignature) return;
+    this.previewSignature = signature; this.state.preview = { playback, story }; this.requestRefresh();
+  }
+  private authoringInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, eventType: string): boolean {
+    const draft = currentDraft(this.state);
+    if (!draft) return false;
+    if (target.hasAttribute('data-authoring-copy-id')) { this.state.copyStoryId = target.value; return true; }
+    if (target.hasAttribute('data-authoring-target')) { this.state.targetPackId = target.value; return true; }
+    if (target.hasAttribute('data-authoring-preview-entry')) { this.state.previewEntryId = target.value; return true; }
+    if (target.hasAttribute('data-authoring-kizuna-mode')) {
+      if(eventType==='change') writeStructuredValue(draft,'$authoring',[target.dataset.authoringKizunaMode!,Number(target.dataset.authoringIndex),'kizuna','areaId'],target.value==='area'?'':undefined,target.value!=='area');
+      return true;
+    }
+    if (target.hasAttribute('data-authoring-field')) {
+      if (eventType === 'change' && ENTRY_FIELD_SEEDS[target.value]) {
+        const path = [target.dataset.authoringField!, Number(target.dataset.authoringIndex), target.value];
+        writeStructuredValue(draft,'$authoring',path,structuredClone(ENTRY_FIELD_SEEDS[target.value].value));
+      }
+      return true;
+    }
+    const scope = target.dataset.valueScope; const path = this.parsePropertyPath(target.dataset.valuePath);
+    if (scope === undefined || !path) return false;
+    if (target.hasAttribute('data-value-type')) {
+      if (eventType === 'change') constructStructuredValue(draft,scope,path,target.value);
+    } else if (target.hasAttribute('data-value-input')) editStructuredValue(draft,scope,path,target.dataset.valueInput!,target.value);
+    else if (target.hasAttribute('data-value-key')) {
+      draft.structuredInputs ??= {}; draft.structuredInputs[structuredKey(draft,scope,path) + ':new-key'] = { text: target.value };
+    }
+    return true;
+  }
+  private authoringClick(target: HTMLElement): void {
+    if (this.state.storageBlocked) return;
+    const draft = currentDraft(this.state); if (!draft) return;
+    hydrateStoryAuthoring(draft,this.ctrl.game.registry);
+    this.state.error = null; this.state.notice = null;
+    try {
+      const add = target.dataset.authoringAdd;
+      if (add === 'activeStories' || add === 'passiveStories' || add === 'passivePools') { addStoryAuthoringRow(draft,add); return; }
+      if (target.hasAttribute('data-authoring-copy')) {
+        if (!copyStoryIdentity(this.state,draft,this.state.copyStoryId?.trim() ?? '',new Set(this.ctrl.game.registry.stories.keys()))) throw new Error('请输入尚未使用的完整 Story ID：mod:story:name。');
+        this.closeAuthoringPreview(); return;
+      }
+      if (target.dataset.authoringCatalog) {
+        const path = [target.dataset.authoringCatalog, Number(target.dataset.authoringIndex), 'extra'];
+        const prior = valueAt(draft.authoring,path) as { t?: string; v?: Record<string,unknown> } | undefined;
+        if (prior?.v?.storyCatalog) { this.state.notice = '目录信息已在该 Entry 的 Extra 中，可直接编辑。'; return; }
+        if (prior && prior.t !== 'dict') throw new Error('入口 Extra 必须是字典，请先修正。');
+        writeStructuredValue(draft,'$authoring',path,{ t: 'dict', v: { ...prior?.v, storyCatalog: { t: 'dict', v: { category: {t:'str',v:'作者故事'}, part: {t:'str',v:'自定义篇章'}, chapter: {t:'str',v:''} } } } });
+        return;
+      }
+      const action = target.dataset.valueAction;
+      if (action) {
+        const scope = target.dataset.valueScope!; const path = this.parsePropertyPath(target.dataset.valuePath); if (!path) return;
+        const current = valueAt(structuredRoot(draft,scope),path);
+        if (action === 'remove') {
+          if (scope === '$authoring' && path.length === 2 && typeof path[0] === 'string' && ['activeStories','passiveStories','passivePools'].includes(path[0]) && current && typeof current === 'object' && 'id' in current) {
+            draft.authoring!.removed ??= {}; const table = path[0] as 'activeStories' | 'passiveStories' | 'passivePools';
+            (draft.authoring!.removed[table] ??= []).push(String(current.id));
+          }
+          const key = structuredKey(draft,scope,path);
+          for (const input of Object.keys(draft.structuredInputs ?? {})) if (input === key || input.startsWith(key.slice(0,-1)+',')) delete draft.structuredInputs![input];
+          writeStructuredValue(draft,scope,path,undefined,true);
+        } else if (action === 'up' || action === 'down') {
+          const parentPath = path.slice(0,-1); const parent = valueAt(structuredRoot(draft,scope),parentPath); const from = Number(path[path.length-1]); const to = from + (action === 'up' ? -1 : 1);
+          if (Array.isArray(parent) && to >= 0 && to < parent.length) {
+            if (!scope.startsWith('$')) moveRowBy(draft,scope,parentPath,rowIdAt(draft,scope,parentPath,from)!,action === 'up' ? -1 : 1);
+            else {
+              const key = structuredKey(draft,scope,parentPath); const next = [...parent]; [next[from],next[to]]=[next[to],next[from]];
+              const ids = draft.structuredRows?.[key]; if(ids) [ids[from],ids[to]]=[ids[to],ids[from]];
+              writeStructuredValue(draft,scope,parentPath,next);
+            }
+          }
+        } else if (action === 'add') {
+          const key = draft.structuredInputs?.[structuredKey(draft,scope,path)+':new-key']?.text.trim() ?? '';
+          if (Array.isArray(current)) writeStructuredValue(draft,scope,[...path,current.length],'');
+          else if (current && typeof current === 'object' && key && !Object.prototype.hasOwnProperty.call(current,key)) {
+            if (!writeStructuredValue(draft,scope,[...path,key],'')) throw new Error('字段名称非法。');
+          } else throw new Error('请输入未重复的字段名称。');
+        }
+        return;
+      }
+      if (target.hasAttribute('data-authoring-preview-option') || target.dataset.authoringAction === 'advance') {
+        const result = this.preview?.advance(target.dataset.authoringPreviewOption); if (result && !result.ok) this.state.error = result.message;
+        this.updateAuthoringPreview(); return;
+      }
+      if (target.dataset.authoringAction === 'close-preview') { this.closeAuthoringPreview(); return; }
+      const compiled = compileStoryAuthoring(this.state); if (!compiled.ok) throw new Error(compiled.message);
+      const kind = target.dataset.authoringAction;
+      if (kind === 'preview') {
+        this.closeAuthoringPreview();
+        const result = this.ctrl.commands.createStoryAuthoringPreview(compiled.patch,this.state.previewEntryId ?? '');
+        if (!result.ok) throw new Error(result.message);
+        this.preview = result.preview; this.updateAuthoringPreview();
+        this.previewTimer = setInterval(()=>this.updateAuthoringPreview(),200); return;
+      }
+      const result = kind === 'check' ? this.ctrl.commands.validateStoryAuthoring(compiled.patch)
+        : kind === 'apply' ? this.ctrl.commands.applyStoryAuthoring(compiled.patch)
+        : kind === 'pack' && this.state.targetPackId && this.ctrl.commands.saveStoryAuthoringToPack ? this.ctrl.commands.saveStoryAuthoringToPack(this.state.targetPackId,compiled.patch)
+        : { ok: false, message: '请选择允许编辑的目标包。' };
+      if (!result.ok) throw new Error(result.message);
+      this.save(false,false); this.state.notice = result.message;
+    } catch (error) { this.state.error = error instanceof Error ? error.message : String(error); }
+  }
   private editStoryProperty(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); const path=this.parsePropertyPath(target.dataset.storyPropertyPath);
     if(!draft||!node||!path)return;
     if(target instanceof HTMLSelectElement) {
       // An empty enumeration choice means "keep the runtime default": delete the field instead of writing ''.
       if(!target.value) { removeProperty(draft,node.id,path); return; }
+      if(path[path.length-1] === 'op' && target.value === 'remove') removeProperty(draft,node.id,[...path.slice(0,-1),'value']);
       if(target.value==='__global__') { editProperty(draft,node.id,path,null); return; }
       if(target.value==='true') { editProperty(draft,node.id,path,true); return; }
       if(target.value==='false') { editProperty(draft,node.id,path,false); return; }
@@ -577,7 +704,7 @@ export class StoryEditorController {
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
     if (action === 'new') {
-      if (this.save(false, false)) newStory(this.state);
+      if (this.save(false, false)) { this.closeAuthoringPreview(); newStory(this.state); }
     } else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') this.state.sidebarMode = 'senders';
     else if (action === 'info' || action === 'rename') { this.state.selectedNodeId = null; this.focusName = action === 'rename'; }

@@ -1,3 +1,4 @@
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult } from '../contracts/runtime/story-authoring';
 import type { GameCommands } from '../contracts/index';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
@@ -31,6 +32,10 @@ import type {
 } from '../contracts/map/map-run';
 
 export interface GameCommandSource {
+  validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
+  applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
+  saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
@@ -94,6 +99,10 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
   const highestLogId = (entries: readonly DevLogEntry[]) => entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0);
 
   return {
+    validateStoryAuthoring: patch => game.validateStoryAuthoring(patch),
+    applyStoryAuthoring: patch => game.applyStoryAuthoring(patch),
+    createStoryAuthoringPreview: (patch, entryId) => game.createStoryAuthoringPreview(patch, entryId),
+    ...(game.saveStoryAuthoringToPack ? { saveStoryAuthoringToPack: (id: string, patch: StoryAuthoringPatch) => game.saveStoryAuthoringToPack!(id, patch) } : {}),
     saveStoryDefinition: story => game.saveStoryDefinition(story),
     restoreStoryDefinition: storyId => game.restoreStoryDefinition(storyId),
     variantTraining: game.variantTraining,

@@ -14,7 +14,7 @@
 
 作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
-右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
+右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
 
 字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）；Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。呈现字段常显，在“呈现”标题下平铺气泡位置、文字对齐、头像显示与头像引用，各有标签和用途说明，不需要先启用整个对象；未填不代写默认值，下拉框可切回默认并移除对应字段。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
 
@@ -34,9 +34,27 @@ Choice 的每个选项预览左侧有局部标记绑定卡。将该 Choice 后�
 
 源码入口：`src/ui/story-editor/model.ts`、`property-model.ts`、`property-fields.ts`、`property-options.ts`、`persistence.ts`、`view.ts`、`dom.ts`、`controller.ts`；接线位于 `src/ui/controller/controller.ts`、`controller-actions-topbar.ts` 和 `src/ui/workspace/workspace-renderer.ts`。行为、属性表单与 DOM 连续性见 `tests/ui/story-editor-model.test.ts`、`story-editor-workspace.test.ts`、`story-editor-properties.test.ts`、`story-editor-properties-model.test.ts`。按用户要求只做代码与自动化验证，未做浏览器验收。
 
+### Story 作者事务、结构值与投放
+
+Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry、PassivePool、校验、隔离试播与目标包保存。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。另存为新身份复制正文，保留原 Story / 外部引用，新副本重新配置入口。
+
+`structured-value.ts` 提供 JSON、全部 ValueExpression 运算及数值来源、Extra 各类型、条件 / 效果 / 反应 / 后续的构造模板。字段以平铺标题与控件编辑，可增删字段、增删换序列表；引用提供当前目录及未发布草稿候选。切换构造明确替换本项。theme 的 palette / tokens / nodes / background 和 Story Extra 不再仅供只读。`structuredInputs/structuredRows` 只随作者草稿保存，稳定行身份与原始错误输入不进入正式内容；无效数字即使保留了上一合法值，也会阻止提交。作者输入与渲染限 128 层 JSON（覆盖引擎 Extra 32 层）；超过时显式拒绝。
+
+`GameCommands.validateStoryAuthoring/applyStoryAuthoring` 接受一组 `stories/activeStories/passiveStories/passivePools` 及显式 removed 列表。`Registry.saveStoryAuthoring()` 在候选表上完成作者形状、Story 正式投影、引用、单层子调用和池循环检查，全部通过后才更改正式表；删除被引用内容会拒绝。应用后重建 Entry 标签声明 / 收集索引，不写玩家进度。旧的单文档 `saveStoryDefinition` 入口仍保留，不能代替多内容事务。
+
+羁绊关联用专用控件编辑：目标 Active Entry、直接进入 / Area 赴约、赴约地点、回传白名单；不提供 after / 嵌套回调结构。候选限制与最终服务校验共同遵守一层子故事和独占关联规则。`areaContinue` 仍编辑同一游标的续播地点。
+
+目录信息保存于 Entry 的 `extra.v.storyCatalog`，其值为 dict，category / part / chapter 为 str；category 与 part 必填，chapter 可空。`withAuthoredStoryCatalog()` 从已应用 Entry 投影目录，不修改内置表；重定位条目避免重复，分类身份编码后不占用导航的分隔符。作者通过“配置故事目录”创建这组元数据，随 Entry 一起保存 / 导出。
+
+`createStoryAuthoringPreview()` 使用已载入数据包、当前 Story 作者表、玩家快照与候选内容创建独立 GameInstance；使用原重读播放器验证输入、分支和父子串联，跳过持久效果 / 奖励，移动与演出仅影响隔离实例。返回只读投影与 advance / close 端口，Controller 跟随子通道，并仅在播放投影变化时刷新；换 Story、离开或销毁编辑器时释放定时器与实例。它不等价于正式奖励 / 旅行验收。
+
+`AronaClickerRuntime.saveStoryAuthoringToPack()` 只接受明确的编辑态包；新 ID 必须属于目标命名空间，删除必须针对该包已有记录。校验候选包后按身份合并四张作者表，保留图片与其它内容，经 PackManager 保存并沿用包管理导出 / 重载。包库同步保存失败恢复旧记录。此操作保存包，不隐式应用或旅行；“应用 Story 与关联内容”仍是独立操作。单文档草稿、当前运行生效与包保存是三个明确的动作。
+
+入口：`src/data-services/authoring/story-authoring.ts`、`src/arona-clicker/contracts/runtime/story-authoring.ts`、`src/ui/story-editor/authoring-model.ts`、`authoring-view.ts`、`structured-value.ts`。行为证明：`tests/engine/story-authoring.test.ts` 与 `tests/ui/story-editor-authoring.test.ts`。
+
 ### StoryDef 保存到运行内容（原型接线）
 
-右栏为所有节点提供单个可选“需要局部标记”名称；留空关闭，编辑态始终显示节点。Operation 的行为类型为“局部标记”时，写入/移除、名称和值都显示在同一行为属性组内；写入开放文字、数字、布尔和 null，已有复合 JSON 值保留，暂不提供复合值设计器。命名提示推荐 StoryName-flagid，不强制。原始数字输入与值类型仍保存在同一份草稿侧状态，不另存第二份作者状态。
+右栏为所有节点提供单个可选“需要局部标记”名称；留空关闭，编辑态始终显示节点。Operation 的行为类型为“局部标记”时，写入/移除、名称和值都显示在同一行为属性组内；写入开放文字、数字、布尔、null 与可编辑的 JSON 对象 / 数组；Button result、Choice result 与 sharedActions 的局部标记也提供同路径的操作、名称和值字段。命名提示推荐 StoryName-flagid，不强制。原始数字输入与值类型仍保存在同一份草稿侧状态，不另存第二份作者状态。
 
 普通 scalar 字段的其他行为由属性面板按分支呈现，不再降级为 E0 摘要；不在当前分支的字段休眠在草稿缓存中，切换回来可恢复。
 

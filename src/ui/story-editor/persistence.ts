@@ -1,3 +1,4 @@
+import { validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { LocalStorageAdapter, type StorageAdapter } from '../../data-services/persistence/storage-adapter';
 import { cloneStory, type StoryDraft, type StoryEditorState } from './model';
 import { stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
@@ -104,9 +105,15 @@ export class StoryDraftPersistence {
         const document = cloneStory(draft.document) as StoryDraft['document'];
         removedLegacyReplies = stripLegacyStoryReplies(document) || removedLegacyReplies;
         if (!validFlagInputs(draft.localFlagInputs, document) || !validEditorState(draft.editorState, document)) throw new Error('编辑器分支输入草稿无效');
+        if (draft.authoring !== undefined) validateStoryAuthoringShape(draft.authoring as never, true);
+        if (draft.structuredRows !== undefined && (!record(draft.structuredRows) || !Object.values(draft.structuredRows).every(rows => Array.isArray(rows) && rows.every(id=>typeof id==='string') && new Set(rows).size===rows.length))) throw new Error('结构化行身份无效');
+        if (draft.structuredInputs !== undefined && (!record(draft.structuredInputs) || !Object.values(draft.structuredInputs).every(input => record(input) && typeof input.text === 'string' && (input.error === undefined || typeof input.error === 'string')))) throw new Error('结构化输入草稿无效');
         drafts.push({ draftId: draft.draftId, sourceId: draft.sourceId, document, savedAt: draft.savedAt, dirty: false, persisted: true,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: cloneStory(draft.localFlagInputs) }),
-          ...(draft.editorState === undefined ? {} : { editorState: cloneStory(draft.editorState) }) });
+          ...(draft.editorState === undefined ? {} : { editorState: cloneStory(draft.editorState) }),
+          ...(draft.authoring === undefined ? {} : { authoring: cloneStory(draft.authoring) as never }),
+          ...(draft.structuredInputs === undefined ? {} : { structuredInputs: cloneStory(draft.structuredInputs) as never }),
+          ...(draft.structuredRows === undefined ? {} : { structuredRows: cloneStory(draft.structuredRows) as Record<string,string[]> }) });
       }
       state.drafts = drafts;
       state.currentId = typeof value.currentId === 'string' && ids.has(value.currentId) ? value.currentId : null;
@@ -128,7 +135,10 @@ export class StoryDraftPersistence {
       this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: state.currentId,
         drafts: drafts.map(draft => ({ draftId: draft.draftId, sourceId: draft.sourceId, document: draft.document, savedAt: draft.dirty ? savedAt : draft.savedAt,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: draft.localFlagInputs }),
-          ...(draft.editorState === undefined ? {} : { editorState: draft.editorState }) })) }));
+          ...(draft.editorState === undefined ? {} : { editorState: draft.editorState }),
+          ...(draft.authoring === undefined ? {} : { authoring: draft.authoring }),
+          ...(draft.structuredInputs === undefined ? {} : { structuredInputs: draft.structuredInputs }),
+          ...(draft.structuredRows === undefined ? {} : { structuredRows: draft.structuredRows }) })) }));
       for (const draft of drafts) {
         if (draft.dirty) draft.savedAt = savedAt;
         draft.dirty = false;

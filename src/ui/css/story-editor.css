@@ -199,3 +199,9 @@
 .story-editor-advanced > summary { font-size: 12px; font-weight: 600; cursor: pointer; }
 .story-editor-advanced[open] { display: flex; gap: 8px; }
 .story-editor-error .mini-action { margin-left: 8px; }
+
+.story-editor-authoring, .story-editor-value, .story-editor-preview { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.story-editor-authoring > h3 { margin: 12px 0 0; font-size: 14px; }
+.story-editor-value { padding-block: 8px; border-top: 1px solid var(--line); }
+.story-editor-value > .story-editor-list-heading > strong { overflow-wrap: anywhere; font-size: 12px; }
+.story-editor-preview { padding-block: 8px; }

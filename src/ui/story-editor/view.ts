@@ -1,3 +1,4 @@
+import { renderStoryAuthoringFields } from './authoring-view';
 import type { UIContext } from '../runtime/context';
 import { renderChatEntry, renderStoryClickPreview } from '../components/story/story';
 import { renderWorkspaceFrame, type WorkspaceColumnSpec, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
@@ -212,7 +213,7 @@ function inspector(ctx: UIContext, state: StoryEditorState): string {
       : `<label>起始区域<select data-editor-field="story-context-area"${state.storageBlocked ? ' disabled' : ''}><option value="">选择 Area</option>${[...ctx.game.registry.areas.values()].map(item => `<option value="${e(item.id)}"${startContext?.type === 'area' && startContext.areaId === item.id ? ' selected' : ''}>${e(item.name)} · ${e(item.id)}</option>`).join('')}</select></label>`}
     <label>Story ID<code>${e(draft.document.id)}</code></label>
     <label>来源<span>${e(draft.sourceId ?? '本地新建')}</span></label>
-    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p></div>`;
+    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p>${renderStoryAuthoringFields(ctx,state,draft)}</div>`;
   const index = draft.document.nodes.findIndex(item => item.id === node.id);
   const properties = renderStoryNodeProperties(ctx, state, draft, node, index);
   return `<div data-editor-key="inspector:${e(node.id)}">${properties}</div>`;

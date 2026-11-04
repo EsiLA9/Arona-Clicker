@@ -1,11 +1,12 @@
 import type { UIContext } from '../runtime/context';
 
-export type StoryReferenceKind = 'story' | 'entry' | 'activeEntry' | 'passiveEntry' | 'resource' | 'spot' | 'area' | 'init' | 'enhancement' | 'item' | 'character' | 'variant' | 'image' | 'colorGroup';
+export type StoryReferenceKind = 'story' | 'entry' | 'activeEntry' | 'passiveEntry' | 'resource' | 'spot' | 'area' | 'init' | 'enhancement' | 'item' | 'character' | 'variant' | 'image' | 'colorGroup' | 'funclet';
 
 /** Full content registry choices for Story authoring; player unlock state is never consulted. */
 export function storyReferenceOptions(ctx: UIContext, kind: StoryReferenceKind): Array<{ value: string; label: string }> {
   const registry = ctx.game.registry;
   switch (kind) {
+    case 'funclet': return [...registry.funcletDefs.values()].map(x=>({value:x.id,label:x.description || x.id}));
     case 'story': return [...registry.stories.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'entry':
     case 'activeEntry':

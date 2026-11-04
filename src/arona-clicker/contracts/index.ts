@@ -1,3 +1,4 @@
+export type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreview, StoryAuthoringPreviewResult } from './runtime/story-authoring';
 export type { GameReadModel, GameCommands, StoryDefinitionSaveResult, StoryDefinitionRestoreResult, PackCatalogReadModel, PackCatalogCommands, PackCatalogEntry, PackCatalogPane, PackCatalogRecord, PackCatalogDependencyHint, RuntimeModDraft, RuntimeModApplyResult, RuntimeInitDraft, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeResourceAmountDraft } from './runtime/runtime';
 export type { RuntimeContentBrowserQueryPort, RuntimeContentBrowserView, RuntimeContentDefinitionDetail, RuntimeContentDefinitionSummary, RuntimeContentKindDescriptor, RuntimeContentLoadedMod, RuntimeContentReferenceDiagnostic, RuntimeDefinitionRef } from '../../data-services/contracts/runtime-content-browser';
 export type {

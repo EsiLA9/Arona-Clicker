@@ -1,3 +1,4 @@
+export type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreview, StoryAuthoringPreviewResult } from './contracts/runtime/story-authoring';
 export { AronaClickerRuntime } from './runtime/runtime';
 export type { AronaClickerRuntimeOptions } from './runtime/runtime';
 export type { GameInstanceOptions, GameInstanceWiring } from './runtime/runtime-options';

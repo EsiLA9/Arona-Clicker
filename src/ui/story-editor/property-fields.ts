@@ -1,3 +1,6 @@
+import { structuredKey } from './authoring-model';
+import { currentDraft } from './model';
+import { renderStructuredValue } from './structured-value';
 import type { UIContext } from '../runtime/context';
 import { renderTabs } from '../components/shared/tabs';
 import type { StoryDraft, StoryDraftNode, StoryEditorState } from './model';
@@ -24,8 +27,8 @@ const localFlagFields = (ctx: UIContext, state: StoryEditorState, draft: StoryDr
   return `<div data-editor-key="local-flag-fields">
     <label>局部标记操作<select data-editor-key="local-flag-op" data-editor-field="local-flag-op"${disabled(state)}>${action.op ? '' : '<option value="" selected>选择操作</option>'}<option value="set"${action.op === 'set' ? ' selected' : ''}>写入 / 覆盖</option><option value="remove"${action.op === 'remove' ? ' selected' : ''}>移除</option></select></label>
     <label>标记名称<input data-editor-key="local-flag-name" data-editor-field="local-flag-name" value="${esc(ctx,action.name ?? '')}" placeholder="StoryName-flagid"${readOnly(state)}></label>
-    ${action.op === 'set' ? `<label>值类型<select data-editor-key="local-flag-type" data-editor-field="local-flag-type"${disabled(state)}>${type === 'structured' ? '<option value="structured" selected disabled>复合值（保留原值）</option>' : ''}${[['string', '文字'], ['number', '数字'], ['boolean', '布尔'], ['null', '空值']].map(([value, label]) => `<option value="${value}"${type === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
-      ${type === 'structured' ? '<p class="story-editor-hint">已有复合值会保留；改选其他类型将替换该值。</p>' : type === 'null' ? '<p class="story-editor-hint">空值仍代表键存在。</p>' : type === 'boolean'
+    ${action.op === 'set' ? `<label>值类型<select data-editor-key="local-flag-type" data-editor-field="local-flag-type"${disabled(state)}><option value="structured"${type === 'structured' ? ' selected' : ''}>对象 / 列表</option>${[['string', '文字'], ['number', '数字'], ['boolean', '布尔'], ['null', '空值']].map(([value, label]) => `<option value="${value}"${type === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
+      ${type === 'structured' ? structuredField(ctx,state,['action','value'],action.value,'局部标记值') : type === 'null' ? '<p class="story-editor-hint">空值仍代表键存在。</p>' : type === 'boolean'
         ? `<label>值<select data-editor-key="local-flag-value-boolean" data-editor-field="local-flag-value"${disabled(state)}><option value="false"${input?.text === 'false' ? ' selected' : ''}>false</option><option value="true"${input?.text === 'true' ? ' selected' : ''}>true</option></select></label>`
         : `<label>值<input data-editor-key="local-flag-value" data-editor-field="local-flag-value" value="${esc(ctx,input?.text ?? '')}"${type === 'number' ? ' inputmode="decimal"' : ''}${readOnly(state)}></label>`}` : ''}
     <p class="story-editor-hint">仅本次 Entry 有效；条件只检查键是否存在，不比较值。</p></div>`;
@@ -36,6 +39,9 @@ const choices = (ctx: UIContext, values: readonly [string, string][], current: u
     ? `<option value="${esc(ctx, selected)}" selected>${esc(ctx, selected)}（原值，目录中不存在）</option>` : '';
   return `<select data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, pathText(path))}"${disabled(state)}>${allowDefault || !selected ? `<option value=""${selected ? '' : ' selected'}>${allowDefault?'沿用默认':'选择…'}</option>` : ''}${missing}${values.map(([value, label]) => `<option value="${esc(ctx, value)}"${value === selected ? ' selected' : ''}>${esc(ctx, label)}</option>`).join('')}</select>`;
 };
+function labelledChoices(ctx: UIContext, label: string, values: readonly [string,string][], current: unknown, path: Path, state: StoryEditorState, allowDefault = false): string {
+  return `<label class="story-editor-property">${esc(ctx,label)}${choices(ctx,values,current,path,state,allowDefault)}</label>`;
+}
 function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state: StoryEditorState, kind: 'text' | 'textarea' | 'number' | 'boolean' | 'ref' | 'image' = 'text', ref?: StoryReferenceKind, hint?: string): string {
   const p = pathText(path); const current = value == null ? '' : String(value);
   let control: string;
@@ -117,7 +123,7 @@ function cursorOwnerSelect(ctx: UIContext, state: StoryEditorState, path: Path, 
 function entryCardEditor(ctx: UIContext, state: StoryEditorState, path: Path, card: Obj | null, requestPath: Path): string {
   const request = record(val(card,'request')) ?? record(card);
   const out = [scalar(ctx,'Active Entry', [...requestPath,'entryId'], val(request,'entryId'), state, 'ref','activeEntry'), cursorOwnerSelect(ctx,state,[...requestPath,'owner'],val(request,'owner'))];
-  if (card) out.push(scalar(ctx,'标题',[...path,'title'],val(card,'title'),state),scalar(ctx,'按钮文案',[...path,'buttonText'],val(card,'buttonText'),state),choices(ctx,[['left','左'],['right','右']],val(card,'align'),[...path,'align'],state,true));
+  if (card) out.push(scalar(ctx,'标题',[...path,'title'],val(card,'title'),state),scalar(ctx,'按钮文案',[...path,'buttonText'],val(card,'buttonText'),state),labelledChoices(ctx,'卡片对齐',[['left','左'],['right','右']],val(card,'align'),[...path,'align'],state,true));
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 
@@ -126,7 +132,11 @@ function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, actio
   const kind = val(action,'kind'); const out = [branch(ctx,'行为类型',[...path,'kind'],kind,actionKinds,state)];
   if (kind === 'localFlag') {
     const node = draft.document.nodes.find(item => item.id === nodeId);
-    if (node?.type === 'operation') out.push(localFlagFields(ctx, state, draft, node));
+    if (node?.type === 'operation' && path.length === 1 && path[0] === 'action') out.push(localFlagFields(ctx, state, draft, node));
+    else {
+      out.push(`<label class="story-editor-property">局部标记操作${choices(ctx,[['set','写入 / 覆盖'],['remove','移除']],val(action,'op'),[...path,'op'],state)}</label>`,scalar(ctx,'局部标记名称',[...path,'name'],val(action,'name'),state));
+      if (val(action,'op') === 'set') out.push(structuredField(ctx,state,[...path,'value'],val(action,'value'),'局部标记值'));
+    }
   } else if (kind === 'travel') out.push(scalar(ctx,'区域',[...path,'areaId'],val(action,'areaId'),state,'ref','area'),scalarOptional(ctx,'显示移动通知',action,'notice',[...path,'notice'],state,'boolean',undefined,draft,nodeId));
   else if (kind === 'entryRequest') {
     const request = record(val(action,'request')) ?? action;
@@ -149,7 +159,7 @@ function actionList(ctx: UIContext, state: StoryEditorState, path: Path, rows: u
   return `<div class="story-editor-list-block">${listHeader(ctx,'动作（按顺序）',path,state)}${rows.map((row,index) => { const id=rowIdAt(draft,nodeId,path,index) ?? String(index); return `<section class="story-editor-property-row" data-editor-key="row:${esc(ctx,id)}">${actionEditor(ctx,state,[...path,index],record(row),draft,nodeId)}${rowButtons(ctx,path,id,index,rows.length,state)}</section>`; }).join('')}</div>`;
 }
 function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, index: number, rows: unknown[], row: Obj | null, draft: StoryDraft, nodeId: string): string {
-  const opValues: [string,string][] = [['setResource','设置资源'],['addResource','增加资源'],['setSpotLevel','设置设施等级'],['addSpotLevel','增加设施等级'],['setManager','设置经理'],['addEnhancement','获得强化'],['addItem','获得物品'],['unlockInit','解锁世界线'],['setFlag','写局部标记'],['setExtra','设置 Extra'],['addExtra','增加 Extra'],['removeExtra','移除 Extra'],['grantCharacter','获得角色'],['addAffectionExp','增加好感经验']];
+  const opValues: [string,string][] = [['setResource','设置资源'],['addResource','增加资源'],['setSpotLevel','设置设施等级'],['addSpotLevel','增加设施等级'],['setManager','设置经理'],['addEnhancement','获得强化'],['addItem','获得物品'],['unlockInit','解锁世界线'],['setFlag','写持久标记'],['setExtra','设置 Extra'],['addExtra','增加 Extra'],['removeExtra','移除 Extra'],['grantCharacter','获得角色'],['addAffectionExp','增加好感经验']];
   const op=val(row,'op'); const p=[...path,index]; const fields: string[]=[];
   fields.push(branch(ctx,'状态动作',[...p,'op'],op,opValues,state));
   if (op==='setResource'||op==='addResource') fields.push(scalar(ctx,'资源',[...p,'resourceId'],val(row,'resourceId'),state,'ref','resource'),numericValueEditor(ctx,'数值',[...p,'amount'],val(row,'amount'),state));
@@ -164,26 +174,30 @@ function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, ind
   const rowId=rowIdAt(draft,nodeId,path,index)??String(index);
   return `<div class="story-editor-property-row" data-editor-key="effect:${esc(ctx,rowId)}">${fields.join('')}${rowButtons(ctx,path,rowId,index,rows.length,state)}</div>`;
 }
+function structuredField(ctx: UIContext, state: StoryEditorState, path: Path, value: unknown, title: string): string {
+  const draft = currentDraft(state);
+  return renderStructuredValue(ctx, state.selectedNodeId ?? '', path, value, title, draft?.structuredInputs, state.storageBlocked, 0, draft ? (scope, p) => structuredKey(draft,scope,p) : undefined);
+}
 function numericValueEditor(ctx: UIContext,label: string,path: Path,value: unknown,state: StoryEditorState): string {
-  if (typeof value === 'number' || value === undefined || typeof value === 'string') return scalar(ctx,label,path,value,state,'number');
-  return `<div class="story-editor-readonly" data-editor-key="${esc(ctx,key(path))}"><strong>${esc(ctx,label)}</strong><span>表达式（保持原值）</span><small>${esc(ctx,JSON.stringify(value))}</small></div>`;
+  if (typeof value === 'number' || value === undefined || typeof value === 'string') return `${scalar(ctx,label,path,value,state,'number')}<label class="story-editor-property">数值构造<select data-value-type data-value-scope="${esc(ctx,state.selectedNodeId)}" data-value-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value="">选择表达式构造…</option><option value="const">常量表达式</option><option value="value">读取数值</option><option value="add">加法</option><option value="mul">乘法</option><option value="clamp">范围限制</option></select></label>`;
+  return structuredField(ctx,state,path,value,label);
 }
 function literalValueEditor(ctx: UIContext,label: string,path: Path,value: unknown,state: StoryEditorState,draft: StoryDraft,nodeId: string): string {
-  if (value !== null && value !== undefined && typeof value === 'object') return readonlyComplex(ctx,`${label}（复杂值 / 表达式，保留原值）`,path,value);
+  if (value !== null && value !== undefined && typeof value === 'object') return structuredField(ctx,state,path,value,label);
   const recorded=literalKindAt(draft,nodeId,path);
   const kind=recorded ?? (typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : typeof value === 'string' ? 'string' : undefined);
-  const kindSelect=`<label class="story-editor-property">${esc(ctx,label)}类型<select data-story-literal-kind-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${kind?'':' selected'}>选择类型…</option>${[['string','文字'],['number','数字'],['boolean','布尔']].map(([value,text])=>`<option value="${value}"${value===kind?' selected':''}>${esc(ctx,text)}</option>`).join('')}</select><small class="story-editor-hint">数值表达式与嵌套 ExtraValue 暂不提供可视化新建；已有复杂值只读保留。</small></label>`;
+  const kindSelect=`<label class="story-editor-property">${esc(ctx,label)}类型<select data-story-literal-kind-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${kind?'':' selected'}>选择类型…</option>${[['string','文字'],['number','数字'],['boolean','布尔']].map(([value,text])=>`<option value="${value}"${value===kind?' selected':''}>${esc(ctx,text)}</option>`).join('')}</select><small class="story-editor-hint">持久标记只接受标量或数值表达式；Extra 还支持有类型的复合结构。</small></label>`;
   const control=kind==='boolean' ? scalar(ctx,label,path,value===true,state,'boolean')
     : kind==='number' ? scalar(ctx,label,path,value,state,'number')
     : scalar(ctx,label,path,value,state,'text');
-  return `<div class="story-editor-literal" data-editor-key="${esc(ctx,key(path,':literal'))}">${kindSelect}${control}</div>`;
+  return `<div class="story-editor-literal" data-editor-key="${esc(ctx,key(path,':literal'))}">${kindSelect}${control}${structuredField(ctx,state,path,value,`${label} / 结构化构造`)}</div>`;
 }
 function overlayEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null,draft: StoryDraft,nodeId: string): string {
   const command=val(value,'command'); const out=[branch(ctx,'覆盖层命令',[...path,'command'],command,[['show','显示'],['clearId','按 ID 清除'],['clearAllTexts','清除全部覆盖文本'],['clearFlow','清除当前聊天流']],state)];
   if(command==='show') {
-    out.push(scalar(ctx,'覆盖层 ID',[...path,'id'],val(value,'id'),state),scalarOptional(ctx,'X（0–1，左下原点）',value,'x',[...path,'x'],state,'number',undefined,draft,nodeId),scalarOptional(ctx,'Y（0–1，左下原点）',value,'y',[...path,'y'],state,'number',undefined,draft,nodeId),choices(ctx,[['left','左'],['center','中'],['right','右']],val(value,'align'),[...path,'align'],state,true));
+    out.push(scalar(ctx,'覆盖层 ID',[...path,'id'],val(value,'id'),state),scalarOptional(ctx,'X（0–1，左下原点）',value,'x',[...path,'x'],state,'number',undefined,draft,nodeId),scalarOptional(ctx,'Y（0–1，左下原点）',value,'y',[...path,'y'],state,'number',undefined,draft,nodeId),labelledChoices(ctx,'覆盖层对齐',[['left','左'],['center','中'],['right','右']],val(value,'align'),[...path,'align'],state,true));
     const cp=[...path,'content']; const content=record(val(value,'content')); const kind=val(content,'kind'); out.push(branch(ctx,'内容类型',[...cp,'kind'],kind,[['text','文本'],['message','消息'],['entryCard','入口卡']],state));
-    if(kind==='text') out.push(scalar(ctx,'文本',[...cp,'text'],val(content,'text'),state,'textarea'),choices(ctx,[['default','默认'],['title','标题'],['badge','徽标'],['note','注记']],val(content,'template'),[...cp,'template'],state,true),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
+    if(kind==='text') out.push(scalar(ctx,'文本',[...cp,'text'],val(content,'text'),state,'textarea'),labelledChoices(ctx,'文本模板',[['default','默认'],['title','标题'],['badge','徽标'],['note','注记']],val(content,'template'),[...cp,'template'],state,true),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
     if(kind==='message') out.push(contentEditor(ctx,state,[...cp,'content'],record(val(content,'content'))),presentationEditor(ctx,state,[...cp,'presentation'],record(val(content,'presentation'))),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
     if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...cp,'card'],record(val(content,'card')),[...cp,'card','request']));
   }
@@ -193,7 +207,7 @@ function overlayEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: 
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 function styleEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null): string {
-  return `<section class="story-editor-property-group" data-editor-key="${esc(ctx,key(path,':style'))}"><strong>基础样式</strong>${choices(ctx,[['default','默认字型'],['serif','衬线'],['sans','无衬线'],['mono','等宽'],['handwritten','手写']],val(value,'font'),[...path,'font'],state,true)}${scalar(ctx,'字号',[...path,'fontSize'],val(value,'fontSize'),state)}${scalar(ctx,'文字颜色',[...path,'color'],val(value,'color'),state)}${choices(ctx,[['true','显示背景'],['false','透明背景']],val(value,'background') === undefined ? undefined : String(val(value,'background')),[...path,'background'],state,true)}${scalar(ctx,'背景颜色',[...path,'backgroundColor'],val(value,'backgroundColor'),state)}</section>`;
+  return `<section class="story-editor-property-group" data-editor-key="${esc(ctx,key(path,':style'))}"><strong>基础样式</strong>${labelledChoices(ctx,'字型',[['default','默认字型'],['serif','衬线'],['sans','无衬线'],['mono','等宽'],['handwritten','手写']],val(value,'font'),[...path,'font'],state,true)}${scalar(ctx,'字号',[...path,'fontSize'],val(value,'fontSize'),state)}${scalar(ctx,'文字颜色',[...path,'color'],val(value,'color'),state)}${labelledChoices(ctx,'背景显示',[['true','显示背景'],['false','透明背景']],val(value,'background') === undefined ? undefined : String(val(value,'background')),[...path,'background'],state,true)}${scalar(ctx,'背景颜色',[...path,'backgroundColor'],val(value,'backgroundColor'),state)}</section>`;
 }
 function presentationActionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null): string {
   const command=val(value,'command'); const commands: [string,string][]=[['theme','临时主题'],['setEntityPresentation','设置实体表现'],['clearEntityPresentation','清除实体表现'],['openingTitle','开幕标题']];
@@ -205,7 +219,7 @@ function presentationActionEditor(ctx: UIContext,state: StoryEditorState,path: P
     out.push(`<label class="story-editor-property">主题作用域<select data-editor-key="${esc(ctx,key([...path,'value','scope'],':scope'))}" data-story-theme-scope-path="${esc(ctx,pathText([...path,'value']))}"${disabled(state)}>${[['ephemeral','临时'],['area','区域'],['student','学生']].map(([v,l])=>`<option value="${v}"${v===scope?' selected':''}>${esc(ctx,l)}</option>`).join('')}</select><small class="story-editor-hint">切换作用域只休眠/恢复实体键；颜色组与其他覆盖保持原值。</small></label>`);
     if(scope!=='ephemeral') out.push(entityKeySelect(ctx,state,[...path,'value','entityKey'],val(theme,'entityKey'),scope));
     out.push(scalar(ctx,'颜色组',[...path,'value','colorGroupId'],val(theme,'colorGroupId'),state,'ref','colorGroup'));
-    for(const field of ['palette','tokens','nodes','background']) if(hasOwn(theme??{},field)) out.push(readonlyComplex(ctx,`${field}（保留原值）`,[...path,'value',field],val(theme,field)));
+    for(const field of ['palette','tokens','nodes','background']) out.push(structuredField(ctx,state,[...path,'value',field],val(theme,field),field));
   }
   if(command==='setEntityPresentation'||command==='clearEntityPresentation') {
     const target=val(value,'target'); const targetOptions=entityPresentationTargets(ctx); const selected=typeof target==='string'?target:'';
@@ -214,9 +228,9 @@ function presentationActionEditor(ctx: UIContext,state: StoryEditorState,path: P
     if(command==='setEntityPresentation') {
       const options=targetOptionValues(ctx,target);
       out.push(typeof target==='string'
-        ? choices(ctx,options,val(value,'optionId'),[...path,'optionId'],state,true)
+        ? labelledChoices(ctx,'表现选项',options,val(value,'optionId'),[...path,'optionId'],state,true)
         : `<label class="story-editor-property">表现选项<select disabled><option value="">先选择表现目标</option></select><small class="story-editor-hint">选项来自目标实体自身的 presentation.additions。</small></label>`);
-      out.push(choices(ctx,[['story','Story'],['area','区域'],['init','世界线'],['manual','手动']],val(value,'lifetime'),[...path,'lifetime'],state,true));
+      out.push(labelledChoices(ctx,'表现生命周期',[['story','Story'],['area','区域'],['init','世界线'],['manual','手动']],val(value,'lifetime'),[...path,'lifetime'],state,true));
     }
   }
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
@@ -227,18 +241,18 @@ function entityKeySelect(ctx: UIContext,state: StoryEditorState,path: Path,value
   const missing=current&&!options.some(item=>item.value===current)?`<option value="${esc(ctx,current)}" selected>${esc(ctx,current)}（实体不存在）</option>`:'';
   return `<label class="story-editor-property">${scope==='area'?'区域':'角色差分'}<select data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${current?'':' selected'}>选择…</option>${missing}${options.map(item=>`<option value="${esc(ctx,item.value)}"${item.value===current?' selected':''}>${esc(ctx,item.label)}</option>`).join('')}</select></label>`;
 }
-function readonlyComplex(ctx: UIContext,label: string,path: Path,value: unknown): string {
-  const pretty=JSON.stringify(value);
-  return `<div class="story-editor-readonly" data-editor-key="${esc(ctx,key(path,':readonly'))}"><strong>${esc(ctx,label)}</strong><code>${esc(ctx,pretty)}</code><button type="button" class="mini-action mini-action--danger" data-story-optional-path="${esc(ctx,pathText(path))}" data-story-remove-readonly="true">从草稿中移除</button></div>`;
-}
 function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: unknown): string {
   if (!record(value)) return '<p class="story-editor-hint">条件尚未配置。</p>';
   const group=Array.isArray(record(value)?.conditions); const obj=record(value)!;
   if(group) {
-    const rows=array(obj.conditions); return `<section class="story-editor-condition" data-editor-key="condition:${pathText(path)}">${choices(ctx,[['AND','全部满足'],['OR','任一满足']],val(obj,'type'),[...path,'type'],state)}<div class="story-editor-actions"><button type="button" class="mini-action" data-story-condition-add="leaf" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件</button><button type="button" class="mini-action" data-story-condition-add="group" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件组</button></div>${rows.map((child,index)=>`<div class="story-editor-condition-child" data-editor-key="condition-row:${pathText(path)}:${index}">${conditionEditor(ctx,state,[...path,'conditions',index],child)}<button type="button" class="mini-action mini-action--danger" data-story-row-action="remove-index" data-story-row-path="${esc(ctx,pathText([...path,'conditions']))}" data-story-row-index="${index}"${disabled(state)}>删除</button></div>`).join('')}</section>`;
+    const rows=array(obj.conditions); return `<section class="story-editor-condition" data-editor-key="condition:${pathText(path)}">${labelledChoices(ctx,'条件关系',[['AND','全部满足'],['OR','任一满足']],val(obj,'type'),[...path,'type'],state)}<div class="story-editor-actions"><button type="button" class="mini-action" data-story-condition-add="leaf" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件</button><button type="button" class="mini-action" data-story-condition-add="group" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件组</button></div>${rows.map((child,index)=>`<div class="story-editor-condition-child" data-editor-key="condition-row:${pathText(path)}:${index}">${conditionEditor(ctx,state,[...path,'conditions',index],child)}<button type="button" class="mini-action mini-action--danger" data-story-row-action="remove-index" data-story-row-path="${esc(ctx,pathText([...path,'conditions']))}" data-story-row-index="${index}"${disabled(state)}>删除</button></div>`).join('')}</section>`;
   }
   const targets: [string,string][]=[['alwaysTrue','恒真'],['resource','资源'],['spotLevel','设施等级'],['manager','经理'],['flag','标记'],['hasEnh','拥有强化'],['hasTag','拥有标签'],['countTags','标签数量'],['tagCount','分类统计'],['stat','统计函数'],['hasReadStory','完成 Story'],['hasReadStoryInRun','本次 Run 完成 Story'],['visitedStoryInChain','链路经过 Story'],['extra','Extra'],['protoStat','原型统计'],['affectionLevel','好感等级'],['area','当前区域']];
-  return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${choices(ctx,targets,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state)}${choices(ctx,[['==','等于'],['!=','不等于'],['>=','大于等于'],['<=','小于等于'],['>','大于'],['<','小于']],val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
+  const refKinds: Record<string,StoryReferenceKind> = {resource:'resource',spotLevel:'spot',manager:'spot',hasEnh:'enhancement',hasReadStory:'story',hasReadStoryInRun:'story',visitedStoryInChain:'story',protoStat:'character',affectionLevel:'variant',area:'area'};
+  const conditionRef = refKinds[String(val(obj,'target'))];
+  const hints: Record<string,string> = {alwaysTrue:'恒真条件使用 == 1，无需条件键。',flag:'持久 flags 的名称；不会读取 Entry 局部标记。',hasTag:'填写设施层级标签路径。',countTags:'填写设施层级标签路径，比较拥有数量。',tagCount:'填写 kind:tag，例如 characters:school/abydos。',stat:'填写统计函数调用，例如 $FunctionName 参数。',extra:'填写 ExtraPath，读取合并视图数值。'};
+  const conditionHint = hints[String(val(obj,'target'))] ?? '从当前内容目录选择判断对象。';
+  return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${labelledChoices(ctx,'条件目标',targets,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state,conditionRef?'ref':'text',conditionRef,conditionHint)}${labelledChoices(ctx,'比较方式',[['==','等于'],['!=','不等于'],['>=','大于等于'],['<=','小于等于'],['>','大于'],['<','小于']],val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
   const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['kizunaCard','关联羁绊'],['areaContinue','到地点继续']],state)];

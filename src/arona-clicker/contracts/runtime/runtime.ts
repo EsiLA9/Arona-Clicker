@@ -1,3 +1,4 @@
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult } from './story-authoring';
 import type { AreaId, EntityThemeSlot, SpotId, ThemeOrderScope, VariantId } from '../../../engine/types/index';
 import type { MapActionRelation, MapDeclaredEffectSummary } from '../map/map-relations';
 import type { MapRunCardInstance, MapRunCardRef } from '../map/map-cards';
@@ -675,6 +676,10 @@ export type StoryDefinitionRestoreResult = { ok: true; storyId: string; operatio
 
 export interface GameCommands {
   /** Prototype authoring: affects the current Registry, without a Pack editing gate. */
+  validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
+  applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
+  saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   /** Restore the loaded source definition, or remove a Story created only in the current Registry. */
   restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;

@@ -500,7 +500,8 @@ export class PackManager {
       throw new PackManagerError(`数据包保存冲突：${normalized.id} 的 ModId、Version 或 EditingMode 不可变更。`, 'datapack-record-conflict');
     }
     this.packs.set(normalized.id, normalized);
-    this.persist();
+    try { this.persist(); }
+    catch (error) { this.packs.set(existing.id, existing); throw error; }
     return { kind: 'added', packRecordId: normalized.id, packId: packLogicalId(normalized), editingMode: packEditingMode(normalized) };
   }
 

@@ -1,3 +1,4 @@
+import { patchStoryDatapack, STORY_AUTHORING_TABLES, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
@@ -632,6 +633,24 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
 
   getRuntimeMod(): RuntimeModDraft | null {
     return this.runtimeMod;
+  }
+
+  saveStoryAuthoringToPack(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult {
+    try {
+      const pack = this.requireEditingPack(packRecordId);
+      const checked = this.validateStoryAuthoring(patch);
+      if (!checked.ok) return checked;
+      for (const table of STORY_AUTHORING_TABLES) for (const row of patch[table]) {
+        if (!row.id.startsWith(`${pack.datapack.modName ?? pack.manifest.modName}:`) && !(pack.datapack[table] ?? []).some(x => x.id === row.id)) throw new Error(`目标包不拥有 ${row.id}；请先另存为目标命名空间的身份。`);
+      }
+      for (const table of STORY_AUTHORING_TABLES) for (const id of patch.removed?.[table] ?? []) if (!(pack.datapack[table] ?? []).some(x => x.id === id)) throw new Error(`目标包不拥有待删除内容 ${id}`);
+      const datapack = patchStoryDatapack(pack.datapack, patch);
+      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
+      this.validatePackDatapacks(replaceRuntimeDatapack(active, datapack));
+      this.packManager.savePack({ ...pack, datapack, contentDigest: undefined });
+      this.persistPackManagerSnapshot();
+      return { ok: true, message: '已保存到编辑态数据包；重新载入该包后生效。可从包管理导出。' };
+    } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
   }
 
   private requireEditingPack(packRecordId: string): StoredPack {

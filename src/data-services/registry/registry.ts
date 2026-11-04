@@ -1,3 +1,4 @@
+import { mergeStoryRows, validateStoryAuthoringShape, type StoryAuthoringPatch } from '../authoring/story-authoring';
 import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../contracts/datapack';
 import type { CharacterData } from '../contracts/character-data';
 import type { CharacterVariantDef } from '../contracts/character-variant';
@@ -786,8 +787,7 @@ export class Registry {
   }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
-  /** Current-session authoring upsert; validation and cloning finish before mutation. */
-  saveStoryDefinition(story: StoryDef): void {
+  private storyDefinitionReferences(stories: ReadonlyMap<string, StoryDef> = this.stories, storyEntries = this.storyEntries) {
     const entityPresentationOptions = new Map<string, ReadonlySet<string>>();
     const collectPresentationOptions = (type: string, entries: ReadonlyMap<string, unknown>) => {
       for (const [id, raw] of entries) {
@@ -801,14 +801,61 @@ export class Registry {
     collectPresentationOptions('spot', this.spots);
     collectPresentationOptions('enhancement', this.enhancements);
     collectPresentationOptions('variant', this.characterVariants);
-    const candidate = prepareStoryDefinition(story, {
-      stories: this.stories, areas: this.areas, spots: this.spots, enhancements: this.enhancements,
+    return {
+      stories, areas: this.areas, spots: this.spots, enhancements: this.enhancements,
       items: this.items, inits: this.inits, characterVariants: this.characterVariants, characters: this.characters,
-      storyEntries: this.storyEntries, colorGroups: this.colorGroups, entityPresentationOptions,
+      storyEntries, colorGroups: this.colorGroups, entityPresentationOptions,
       pics: this.pics, funclets: this.funcletDefs, resources: this.resourceDisplays,
-    });
+    };
+  }
+  /** Current-session authoring upsert; validation and cloning finish before mutation. */
+  saveStoryDefinition(story: StoryDef): void {
+    const candidate = prepareStoryDefinition(story, this.storyDefinitionReferences());
     validateStoryContinuations([...this.storyEntries.values()], [...this._stories.values()].filter(value => value.id !== candidate.id).concat(candidate), new Set(this.areas.keys()));
     this._stories.set(candidate.id, candidate);
+  }
+  /** Validate the whole Story author transaction before touching any live table. */
+  saveStoryAuthoring(patch: StoryAuthoringPatch, validateOnly = false): void {
+    validateStoryAuthoringShape(patch);
+    const stories = new Map(mergeStoryRows([...this.stories.values()].filter(x => !patch.removed?.stories?.includes(x.id)), patch.stories).map(x => [x.id, x]));
+    const active = mergeStoryRows([...this.activeStories.values()].filter(x => !patch.removed?.activeStories?.includes(x.id)), patch.activeStories);
+    const passive = mergeStoryRows([...this.passiveStories.values()].filter(x => !patch.removed?.passiveStories?.includes(x.id)), patch.passiveStories);
+    const pools = mergeStoryRows([...this.passivePools.values()].filter(x => !patch.removed?.passivePools?.includes(x.id)), patch.passivePools);
+    const entries = new Map([...active, ...passive].map(x => [x.id, x]));
+    const refs = this.storyDefinitionReferences(stories, entries);
+    for (const story of patch.stories) stories.set(story.id, prepareStoryDefinition(story, refs));
+    if (patch.removed?.stories?.length || patch.removed?.activeStories?.length || patch.removed?.passiveStories?.length) {
+      for (const story of stories.values()) prepareStoryDefinition(story, refs);
+      for (const entry of entries.values()) for (const follow of entry.followUps ?? []) if (!entries.has(follow.outcome.storyEntryId)) throw new Error(`独立后续目标不存在：${follow.outcome.storyEntryId}`);
+      for (const init of this.inits.values()) if (init.startStoryId && !stories.has(init.startStoryId) && !entries.has(init.startStoryId)) throw new Error(`Init 起始故事不存在：${init.startStoryId}`);
+    }
+    this.validate({ name: 'Story authoring', version: '1', inits: [], areas: [], spots: [], enhancements: [],
+      items: [], characters: [], funcletDefs: [], stories: [...stories.values()], activeStories: active, passiveStories: passive, passivePools: pools });
+    const poolMap = new Map(pools.map(x => [x.id, x]));
+    const walk = (id: string, path: Set<string>): void => {
+      if (path.has(id)) throw new Error(`被动池不能循环引用：${id}`);
+      const pool = poolMap.get(id);
+      if (!pool) { if (!passive.some(x => x.id === id)) throw new Error(`被动池子项不存在：${id}`); return; }
+      if (!Array.isArray(pool.children)) throw new Error(`被动池缺少 children：${id}`);
+      path.add(id);
+      for (const child of pool.children) {
+        if (child.weight !== undefined && (!Number.isFinite(child.weight) || child.weight < 0)) throw new Error(`被动池权重非法：${id}`);
+        if (child.cooldownFrames !== undefined && (!Number.isFinite(child.cooldownFrames) || child.cooldownFrames < 0)) throw new Error(`被动池冷却非法：${id}`);
+        walk(child.id, path);
+      }
+      path.delete(id);
+    };
+    for (const pool of pools) walk(pool.id, new Set());
+    if (validateOnly) return;
+    for (const [table, ids] of Object.entries(patch.removed ?? {})) {
+      const map = table === 'stories' ? this._stories : table === 'activeStories' ? this._activeStories : table === 'passiveStories' ? this._passiveStories : this._passivePools;
+      for (const id of ids) { map.delete(id); this._tagOwnerModNames.delete(id); }
+    }
+    for (const row of patch.stories) this._stories.set(row.id, stories.get(row.id)!);
+    for (const row of patch.activeStories) this._activeStories.set(row.id, structuredClone(row));
+    for (const row of patch.passiveStories) this._passiveStories.set(row.id, structuredClone(row));
+    for (const row of patch.passivePools) this._passivePools.set(row.id, structuredClone(row));
+    for (const row of [...patch.activeStories,...patch.passiveStories]) if (row.tags && !this._tagOwnerModNames.has(row.id)) this._tagOwnerModNames.set(row.id,row.id.split(':')[0]);
   }
   /** Restore one Story from the data currently loaded into this Runtime, or remove a runtime-only addition. */
   restoreStoryDefinition(storyId: string, source?: StoryDef): void {

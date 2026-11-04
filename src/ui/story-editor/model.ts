@@ -1,9 +1,11 @@
+import type { StoryAuthoringPatch } from '../../data-services/authoring/story-authoring';
+import type { StructuredInputs } from './structured-value';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode, StoryMoveToAreaNode, StoryMoveToCharaspaceNode } from '../../data-services/contracts/story-node';
 import { isStoryLocalFlagAction, validStoryFlagName } from '../../data-services/validation/story-run-flags';
 import { localFlagAction, localFlagInput, parseLocalFlagInput, type LocalFlagInputs, type LocalFlagInput } from './flag-fields';
 import { projectStoryDefinition, stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
-import { applyLiteralKinds, clearNodeEditorState, editProperty as editStoryProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
+import { applyLiteralKinds, clearNodeEditorState, hasActiveStructuredErrors, editProperty as editStoryProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
 
 export type StoryDraftNode = Exclude<StoryNode, StoryOperationNode | StoryTransferNode | StoryMoveToAreaNode | StoryMoveToCharaspaceNode>
   | (Omit<StoryOperationNode, 'action'> & { action?: StoryOperationNode['action'] })
@@ -40,6 +42,9 @@ export interface StoryDraft {
   editorState?: StoryEditorDraftState;
   /** Transient diagnostics are recalculated from active input and are never persisted. */
   editorIssues?: StoryDraftProjectionIssue[];
+  authoring?: StoryAuthoringPatch;
+  structuredInputs?: StructuredInputs;
+  structuredRows?: Record<string,string[]>;
 }
 export interface StoryComposer { sender: string; text: string }
 export interface StoryEditorState {
@@ -55,6 +60,10 @@ export interface StoryEditorState {
   error: string | null;
   notice?: string | null;
   storageBlocked: boolean;
+  targetPackId?: string;
+  copyStoryId?: string;
+  previewEntryId?: string;
+  preview?: { playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null; story: import('../../arona-clicker/contracts/runtime/results').StoryView | null };
 }
 export interface StorySender { id: string; label: string; speaker?: string }
 export interface StoryListItem { key: string; name: string; storyId: string; draft?: StoryDraft }
@@ -92,6 +101,9 @@ export function storyDefinitionFromDraft(input: StoryDraft | StoryDraftDocument,
       draft.editorIssues = optionalIssues.map(issue => ({ ...issue, nodeId: draft.document.nodes[Number(issue.path.match(/^nodes\[(\d+)\]/)?.[1])]?.id }));
       return { ok: false, message: `${optionalIssues[0].path}：${optionalIssues[0].message}`, issues: optionalIssues };
     }
+  }
+  if (draft && hasActiveStructuredErrors(draft)) {
+    return { ok: false, message: '结构化值仍有无效输入，请先修正。', issues: [{ path: '$', message: '结构化值仍有无效输入' }] };
   }
   const candidate = cloneStory(document) as Record<string, unknown>;
   stripLegacyStoryReplies(candidate);
@@ -535,7 +547,7 @@ export function renameStoryNodeId(state: StoryEditorState, oldId: string, newId:
   const oldPrefix = `${oldId}|`;
   const newPrefix = `${newId}|`;
   const buckets = [draft.editorState?.branches, draft.editorState?.optionals, draft.editorState?.optionalPaths, draft.editorState?.optionalBranches,
-    draft.editorState?.rows, draft.editorState?.rawInputs, draft.editorState?.literalKinds].filter((bucket): bucket is Record<string, unknown> => Boolean(bucket));
+    draft.editorState?.rows, draft.editorState?.rawInputs, draft.editorState?.literalKinds, draft.structuredInputs].filter((bucket): bucket is Record<string, unknown> => Boolean(bucket));
   if (buckets.some(bucket => Object.keys(bucket).some(key => key.startsWith(newPrefix)))) return false;
   if (draft.localFlagInputs && Object.prototype.hasOwnProperty.call(draft.localFlagInputs, newId)) return false;
   for (const bucket of buckets) {
@@ -610,8 +622,10 @@ export function editNodeFlag(state: StoryEditorState, field: string, value: stri
       else {
         if (action.op !== 'set') return false;
         if (field === 'local-flag-type') {
-          if (!['string', 'number', 'boolean', 'null'].includes(value)) return false;
-          input = { type: value as LocalFlagInput['type'], text: value === 'boolean' ? 'false' : '' };
+          const key = `${node.id}|["action","value"]`;
+          for (const input of Object.keys(draft.structuredInputs ?? {})) if (input === key || input.startsWith(key.slice(0,-1)+',')) delete draft.structuredInputs![input];
+          if (!['string', 'number', 'boolean', 'null', 'structured'].includes(value)) return false;
+          input = { type: value as LocalFlagInput['type'], text: value === 'boolean' ? 'false' : '', ...(value === 'structured' ? { value: {} } : {}) };
         } else if (field === 'local-flag-value' && input && input.type !== 'structured') input = { ...input, text: value };
         else return false;
         draft.localFlagInputs ??= Object.create(null) as LocalFlagInputs;

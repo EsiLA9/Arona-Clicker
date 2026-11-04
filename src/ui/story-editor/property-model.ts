@@ -36,7 +36,7 @@ function pathSegments(draft: StoryDraft, nodeId: string, path: PropertyPath): st
   }
   return result;
 }
-function keyFor(draft: StoryDraft, nodeId: string, path: PropertyPath): string { return `${nodeId}|${JSON.stringify(pathSegments(draft, nodeId, path))}`; }
+export function propertyKey(draft: StoryDraft, nodeId: string, path: PropertyPath): string { return `${nodeId}|${JSON.stringify(pathSegments(draft, nodeId, path))}`; }
 function valueAt(root: unknown, path: PropertyPath): unknown {
   let value = root;
   for (const segment of path) {
@@ -95,7 +95,7 @@ export function editProperty(draft: StoryDraft, nodeId: string, path: PropertyPa
   if (!path.length || !selectedNode(draft, nodeId)) return false;
   const changed = mutateNode(draft, nodeId, node => assignAt(node, path, value));
   if (changed) {
-    const rawKey = keyFor(draft, nodeId, path);
+    const rawKey = propertyKey(draft, nodeId, path);
     const state = editorState(draft);
     if (typeof value === 'string') state.rawInputs[rawKey] = value;
     else delete state.rawInputs[rawKey];
@@ -130,7 +130,7 @@ export function selectDiscriminant(draft: StoryDraft, nodeId: string, path: Prop
   const previous = object(current) ? String(current[discriminator]) : '';
   if (previous === branch) return true;
   const state = editorState(draft);
-  const baseKey = keyFor(draft, nodeId, path);
+  const baseKey = propertyKey(draft, nodeId, path);
   if (object(current)) state.branches[`${baseKey}|${discriminator}:${previous}`] = structuredClone(current);
   const key = `${baseKey}|${discriminator}:${branch}`;
   const restored = state.branches[key];
@@ -159,7 +159,7 @@ export function selectThemeScope(draft: StoryDraft, nodeId: string, themePath: P
   const theme = object(current) ? structuredClone(current) : {};
   const oldScope = theme.scope === 'area' || theme.scope === 'student' ? theme.scope : 'ephemeral';
   const state = editorState(draft);
-  const base = keyFor(draft, nodeId, themePath);
+  const base = propertyKey(draft, nodeId, themePath);
   if (typeof theme.entityKey === 'string') state.branches[`${base}|theme-entity:${oldScope}`] = theme.entityKey;
   if (scope === 'ephemeral') delete theme.entityKey;
   else {
@@ -176,7 +176,7 @@ function parkPacing(draft: StoryDraft, nodeId: string, node: Record<string, unkn
   state.branches[`${nodeId}|side:pacing`] = structuredClone(node.pacing);
   delete node.pacing;
   // A parked pacing branch is asleep, not an enabled-but-empty optional: clear the switch too.
-  state.optionals[keyFor(draft, nodeId, ['pacing'])] = false;
+  state.optionals[propertyKey(draft, nodeId, ['pacing'])] = false;
   draft.dirty = true;
 }
 function restorePacing(draft: StoryDraft, nodeId: string, node: Record<string, unknown>, state: PropertyEditorState): void {
@@ -184,7 +184,7 @@ function restorePacing(draft: StoryDraft, nodeId: string, node: Record<string, u
   if (pacing === undefined || node.pacing !== undefined) return;
   node.pacing = structuredClone(pacing);
   delete state.branches[`${nodeId}|side:pacing`];
-  state.optionals[keyFor(draft, nodeId, ['pacing'])] = true;
+  state.optionals[propertyKey(draft, nodeId, ['pacing'])] = true;
   draft.dirty = true;
 }
 /** Enable/disable an optional field. A new optional starts absent until the author enters a value. */
@@ -192,7 +192,7 @@ export function toggleOptional(draft: StoryDraft, nodeId: string, path: Property
   const node = selectedNode(draft, nodeId);
   if (!node || !path.length) return false;
   const state = editorState(draft);
-  const key = keyFor(draft, nodeId, path);
+  const key = propertyKey(draft, nodeId, path);
   const hasValue = valueAt(node, path) !== undefined;
   if (!enabled && hasValue) state.branches[`${key}|optional`] = structuredClone(valueAt(node, path));
   const changed = enabled
@@ -218,7 +218,7 @@ export function toggleOptional(draft: StoryDraft, nodeId: string, path: Property
   return changed;
 }
 export function isOptionalEnabled(draft: StoryDraft, nodeId: string, path: PropertyPath): boolean {
-  const key = keyFor(draft, nodeId, path);
+  const key = propertyKey(draft, nodeId, path);
   const saved = editorState(draft).optionals[key];
   return typeof saved === 'boolean' ? saved : readProperty(draft, nodeId, path) !== undefined;
 }
@@ -266,7 +266,7 @@ function resolveStableIn(node: Record<string, unknown>, draft: StoryDraft, nodeI
   for (const part of stable) {
     if (part.startsWith('@')) {
       if (!Array.isArray(current)) return undefined;
-      const ids = editorState(draft).rows[keyFor(draft, nodeId, resolved)];
+      const ids = editorState(draft).rows[propertyKey(draft, nodeId, resolved)];
       const index = ids?.indexOf(part.slice(1)) ?? -1;
       if (index < 0) return undefined;
       resolved.push(index); current = current[index];
@@ -283,7 +283,7 @@ function listAt(draft: StoryDraft, nodeId: string, path: PropertyPath): unknown[
 }
 function rowIds(draft: StoryDraft, nodeId: string, path: PropertyPath, rows: readonly unknown[]): string[] {
   const state = editorState(draft);
-  const key = keyFor(draft, nodeId, path);
+  const key = propertyKey(draft, nodeId, path);
   let ids = state.rows[key];
   if (!ids) { ids = rows.map(item => object(item) && typeof item.id === 'string' ? item.id : newId()); state.rows[key] = ids; }
   if (ids.length !== rows.length) state.rows[key] = [...rows].map((item, index) => object(item) && typeof item.id === 'string' ? item.id : ids[index] ?? newId());
@@ -328,7 +328,7 @@ export function moveRow(draft: StoryDraft, nodeId: string, path: PropertyPath, r
   const nextRows = [...rows]; const [row] = nextRows.splice(from, 1); nextRows.splice(targetIndex, 0, row);
   const nextIds = [...ids]; const [id] = nextIds.splice(from, 1); nextIds.splice(targetIndex, 0, id);
   if (!mutateNode(draft, nodeId, node => assignAt(node, path, nextRows))) return false;
-  const key = keyFor(draft, nodeId, path); editorState(draft).rows[key] = nextIds;
+  const key = propertyKey(draft, nodeId, path); editorState(draft).rows[key] = nextIds;
   return true;
 }
 export function moveRowBy(draft: StoryDraft, nodeId: string, path: PropertyPath, rowId: string, delta: -1 | 1): boolean {
@@ -411,21 +411,21 @@ export function removeProperty(draft: StoryDraft, nodeId: string, path: Property
   if (!path.length || !selectedNode(draft, nodeId)) return false;
   if (!mutateNode(draft, nodeId, node => assignAt(node, path, undefined, true))) return false;
   const state = editorState(draft);
-  delete state.rawInputs[keyFor(draft, nodeId, path)];
-  delete literalKinds(draft)[keyFor(draft, nodeId, path)];
+  delete state.rawInputs[propertyKey(draft, nodeId, path)];
+  delete literalKinds(draft)[propertyKey(draft, nodeId, path)];
   return true;
 }
 
 /** Literal type choice for flag/extra values; the active value keeps its own type until the author re-enters it. */
 export function literalKindAt(draft: StoryDraft, nodeId: string, path: PropertyPath): LiteralKind | undefined {
-  return literalKinds(draft)[keyFor(draft, nodeId, path)];
+  return literalKinds(draft)[propertyKey(draft, nodeId, path)];
 }
 export function selectLiteralKind(draft: StoryDraft, nodeId: string, path: PropertyPath, kind: LiteralKind): boolean {
   const node = selectedNode(draft, nodeId);
   if (!node || !path.length || !['string', 'number', 'boolean'].includes(kind)) return false;
   const current = valueAt(node, path);
   const kinds = literalKinds(draft);
-  const key = keyFor(draft, nodeId, path);
+  const key = propertyKey(draft, nodeId, path);
   const wanted = kind === 'boolean' ? typeof current === 'boolean' : kind === 'number' ? typeof current === 'number' : typeof current === 'string';
   kinds[key] = kind;
   if (wanted) { draft.dirty = true; return true; }
@@ -454,4 +454,28 @@ export function applyLiteralKinds(draft: StoryDraft, document: unknown): void {
     if (kind === 'number' && typeof current === 'string' && NUMERIC_TEXT.test(current)) assignAt(node, resolved, Number(current));
     else if (kind === 'boolean' && (current === 'true' || current === 'false')) assignAt(node, resolved, current === 'true');
   }
+}
+
+/** Inactive branch buffers remain recoverable but cannot block the currently authored branch. */
+export function hasActiveStructuredErrors(draft: StoryDraft): boolean {
+  return Object.entries(draft.structuredInputs ?? {}).some(([key,input]) => {
+    if (!input.error) return false;
+    const split=key.indexOf('|');
+    if(!key.startsWith('[')&&split>0) {
+      const nodeId=key.slice(0,split); const node=selectedNode(draft,nodeId);if(!node)return false;
+      try {const stable=JSON.parse(key.slice(split+1));const path=resolveStableIn(node,draft,nodeId,stable);return path!==undefined&&valueAt(node,path)!==undefined;}catch{return false;}
+    }
+    try {
+      const [scope,...path]=JSON.parse(key) as string[];
+      let current:unknown=scope==='$document'?draft.document:scope==='$authoring'?draft.authoring:undefined;
+      const prefix:string[]=[];
+      for(const part of path) {
+        if(part.startsWith('@')&&Array.isArray(current)) {
+          const ids=draft.structuredRows?.[JSON.stringify([scope,...prefix])];const index=ids?.indexOf(part.slice(1))??-1;if(index<0)return false;current=current[index];
+        } else current=object(current)?current[part]:undefined;
+        prefix.push(part);
+      }
+      return current!==undefined;
+    }catch{return false;}
+  });
 }

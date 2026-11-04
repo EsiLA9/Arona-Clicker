@@ -6,7 +6,8 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0353-story-editor-remaining-gaps]] | 待实施，静态调查完成 | 汇总嵌套 localFlag、复杂值、主题覆盖、Entry / 羁绊关联、投放与保存闭环缺口，已排除本轮补齐项 |
+| [[ai/plan/task-0354-story-editor-authoring-api]] | 代码 / 自动化施工完成 | 作者 API、结构值、Entry / 投放、隔离试播与包保存已接入；新增 16 项通过，待桌面手动验收 |
+| [[ai/plan/task-0353-story-editor-remaining-gaps]] | 调查完成，已转入 0354 | 保留调查时缺口快照；施工与验收见 0354 |
 | [[ai/plan/task-0352-story-cursor-space-and-history]] | 代码 / 自动化验收完成 | 正式历史、爱心卡片与星野三空间样例已实施；后续取消子结束自动召回，70 项定向及类型 / 架构通过，待浏览器手动验收 |
 | [[ai/plan/task-0347-story-context-and-presentation-movement]] | 实施中 | 按裁定扩展 StoryDef、StoryNode、编辑器与重播运行语义 |
 | [[ai/plan/task-0348-story-talklet-click-authoring-coverage]] | 实施中 | ID 手写入口与游标 / 内容失配后从 Entry 重启已接入；其它字段覆盖待逐项完成 |

@@ -1,4 +1,5 @@
 import type { UIContext } from '../runtime/context';
+import { withAuthoredStoryCatalog } from './authored-story-catalog';
 import { getStoryReveal } from '../components/tooltip/tooltip';
 import {
   baseStoryHierarchy,
@@ -11,7 +12,7 @@ import {
 
 /** StoryWorkspace 与 Game 旧左栏共用故事导航内容，但不共用 Workspace 身份。 */
 export function renderStoryNavigation(ctx: UIContext, path: string[]): string {
-  const hierarchy = baseStoryHierarchy;
+  const hierarchy = withAuthoredStoryCatalog(baseStoryHierarchy, ctx.game.registry.storyEntries.values());
   return `
     ${renderStoryBreadcrumb(ctx, hierarchy, path)}
     <div class="story-nav-body">${renderStoryLevel(ctx, hierarchy, path)}</div>`;

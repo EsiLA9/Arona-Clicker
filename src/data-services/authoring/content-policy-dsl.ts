@@ -42,7 +42,7 @@ const EFFECT_OPS: readonly EffectOp[] = [
   'setResource', 'addResource', 'setSpotLevel', 'addSpotLevel', 'setManager', 'addEnhancement', 'addItem',
   'loot', 'unlockInit', 'setFlag', 'triggerStory', 'travelToArea', 'setSpotMaxLevel', 'removeSpotMaxLevel',
   'setExtra', 'addExtra', 'removeExtra', 'grantCharacter', 'addAffectionExp', 'setTheme',
-  'clearAllChatFlow', 'showChatText', 'clearIdChatFlow', 'clearAllChatText', 'showOpeningTitle',
+  'clearAllChatFlow', 'showChatText', 'clearIdChatFlow', 'clearAllChatText', 'showOpeningTitle', 'setEntityPresentation', 'clearEntityPresentation',
 ];
 
 const REVEAL_TARGETS: readonly RevealTarget[] = ['existence', 'name', 'condition', 'utility', 'unlock'];
