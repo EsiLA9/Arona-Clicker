@@ -132,6 +132,39 @@ describe('Story Editor property panel', () => {
     expect(node().pacing).toEqual({ typing: '2' });
   });
 
+  it('shows presentation fields without enabling a group, supports defaults and keeps live controls', () => {
+    open(); click('new');
+    composer('[data-editor-composer-text]', '旁白'); click('send');
+    expect(node()).not.toHaveProperty('presentation');
+    const section = q<HTMLElement>('.story-editor-presentation');
+    expect(section.querySelector('h3')?.textContent).toBe('呈现');
+    expect(section.closest('.story-editor-optional')).toBeNull();
+    expect(section.querySelector('.story-editor-property-group, .story-editor-optional-content')).toBeNull();
+    for (const [name, title] of [['side', '气泡位置'], ['align', '文字对齐'], ['avatarMode', '头像显示'], ['avatar', '头像引用']]) {
+      const label = property(['presentation', name]).closest('label')!;
+      expect(label.parentElement).toBe(section);
+      expect(label.textContent).toContain(title);
+      expect(label.querySelector('.story-editor-hint')?.textContent).toBeTruthy();
+    }
+
+    const body = q<HTMLElement>('.story-editor-right .workspace-column__body');
+    body.scrollTop = 87;
+    const avatar = property<HTMLInputElement>(['presentation', 'avatar']);
+    avatar.focus(); avatar.value = 'portrait'; avatar.setSelectionRange(4, 4);
+    avatar.dispatchEvent(new Event('input', { bubbles: true })); ctrl.flushUIUpdates();
+    expect(property(['presentation', 'avatar'])).toBe(avatar);
+    expect(document.activeElement).toBe(avatar);
+    expect(avatar.selectionStart).toBe(4);
+    setProperty(['presentation', 'avatarMode'], 'hide');
+    expect(node().presentation).toEqual({ avatar: 'portrait', avatarMode: 'hide' });
+    const mode = property<HTMLSelectElement>(['presentation', 'avatarMode']);
+    expect([...mode.options].some(option => option.value === '' && option.textContent === '沿用默认')).toBe(true);
+    setProperty(['presentation', 'avatarMode'], '');
+    expect(node().presentation).toEqual({ avatar: 'portrait' });
+    expect(property(['presentation', 'avatar'])).toBe(avatar);
+    expect(body.scrollTop).toBe(87);
+  });
+
   it('switches button, choice and entry card without leaking fields, inventing a stage advance or losing the draft on reload', () => {
     open(); click('new'); click('click');
     const stageId = node().stageId as string;

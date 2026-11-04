@@ -34,7 +34,7 @@ const choices = (ctx: UIContext, values: readonly [string, string][], current: u
   const selected = current === undefined ? '' : String(current);
   const missing = selected && !values.some(([value]) => value === selected)
     ? `<option value="${esc(ctx, selected)}" selected>${esc(ctx, selected)}（原值，目录中不存在）</option>` : '';
-  return `<select data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, pathText(path))}"${disabled(state)}>${selected ? '' : `<option value="" selected>${allowDefault?'沿用默认':'选择…'}</option>`}${missing}${values.map(([value, label]) => `<option value="${esc(ctx, value)}"${value === selected ? ' selected' : ''}>${esc(ctx, label)}</option>`).join('')}</select>`;
+  return `<select data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, pathText(path))}"${disabled(state)}>${allowDefault || !selected ? `<option value=""${selected ? '' : ' selected'}>${allowDefault?'沿用默认':'选择…'}</option>` : ''}${missing}${values.map(([value, label]) => `<option value="${esc(ctx, value)}"${value === selected ? ' selected' : ''}>${esc(ctx, label)}</option>`).join('')}</select>`;
 };
 function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state: StoryEditorState, kind: 'text' | 'textarea' | 'number' | 'boolean' | 'ref' | 'image' = 'text', ref?: StoryReferenceKind, hint?: string): string {
   const p = pathText(path); const current = value == null ? '' : String(value);
@@ -84,7 +84,13 @@ function contentEditor(ctx: UIContext, state: StoryEditorState, path: Path, cont
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 function presentationEditor(ctx: UIContext, state: StoryEditorState, path: Path, presentation: Obj | null): string {
-  return `<div class="story-editor-property-group">${choices(ctx, [['left','左侧'],['right','右侧']], val(presentation,'side'), [...path,'side'], state, true)}${choices(ctx, [['left','左对齐'],['center','居中'],['right','右对齐']], val(presentation,'align'), [...path,'align'], state, true)}${choices(ctx, [['auto','自动'],['hide','隐藏'],['show','显示']], val(presentation,'avatarMode'), [...path,'avatarMode'], state, true)}${scalar(ctx,'头像引用',[...path,'avatar'],val(presentation,'avatar'),state)}${val(presentation,'avatarMode')==='hide'?'<small class="story-editor-hint">隐藏模式仍保留头像引用；组合合法。</small>':''}</div>`;
+  return `<section class="story-editor-presentation" data-editor-key="${esc(ctx, key(path, ':presentation'))}">
+    <h3>呈现</h3>
+    <label class="story-editor-property">气泡位置${choices(ctx, [['left','左侧'],['right','右侧']], val(presentation,'side'), [...path,'side'], state, true)}<small class="story-editor-hint">控制对话气泡在左侧或右侧显示；留空沿用默认。</small></label>
+    <label class="story-editor-property">文字对齐${choices(ctx, [['left','左对齐'],['center','居中'],['right','右对齐']], val(presentation,'align'), [...path,'align'], state, true)}<small class="story-editor-hint">用于旁白文字的对齐，默认居中。</small></label>
+    <label class="story-editor-property">头像显示${choices(ctx, [['auto','自动'],['hide','隐藏'],['show','显示']], val(presentation,'avatarMode'), [...path,'avatarMode'], state, true)}<small class="story-editor-hint">自动跟随连发分组；隐藏时不显示头像；显示时连发仍显示头像与名称。</small></label>
+    ${scalar(ctx,'头像引用',[...path,'avatar'],val(presentation,'avatar'),state,'text',undefined,'填入头像资源标识；留空按发出方选择头像。隐藏时仍保留此引用。')}
+  </section>`;
 }
 function transferEditor(ctx: UIContext, state: StoryEditorState, path: Path, value: Obj | null, draft?: StoryDraft): string {
   return `<div class="story-editor-property-group">${branch(ctx,'转移方式',[...path,'mode'],val(value,'mode'),[['goto','跳转'],['insert','插入并返回']],state)}${draft ? storyReference(ctx,state,[...path,'storyId'],val(value,'storyId'),draft) : scalar(ctx,'Story',[...path,'storyId'],val(value,'storyId'),state,'ref','story')}</div>`;
@@ -274,7 +280,7 @@ function talkletEditor(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,nod
     const sender=speaker==='老师'?'teacher':speaker===undefined?'':`character:${[...ctx.game.registry.characters.values()].find(character=>character.displayName===speaker)?.id??''}`;
     out.push(`<label class="story-editor-property">发出方<select data-editor-key="sender" data-editor-field="sender"${disabled(state)}><option value="narrator">旁白</option><option value="teacher"${sender==='teacher'?' selected':''}>老师</option>${known}<option value="original"${sender==='original'?' selected':''}>保留原显示名</option></select></label>`,scalar(ctx,'发出方（自由显示名）',['content','speaker'],val(content,'speaker'),state),scalar(ctx,'图片引用',['content','image'],val(content,'image'),state,'image',undefined,'可从图片目录选择，也可填当前内容的直接资源引用。'));
   }
-  const presentation=record(val(node,'presentation')); out.push(optional(ctx,'呈现', ['presentation'],Boolean(presentation),state,presentationEditor(ctx,state,['presentation'],presentation),'头像隐藏时头像不显示；组合仍保留。',draft,String(val(node,'id'))));
+  out.push(presentationEditor(ctx,state,['presentation'],record(val(node,'presentation'))));
   const pacing=record(val(node,'pacing')); const canPace=kind==='talk'&&record(val(node,'presentation'))?.side!=='right';
   // Enabled pacing always renders both inputs, so a freshly enabled switch is not blank.
   out.push(optional(ctx,'输入节奏', ['pacing'],Boolean(pacing),state,`${scalar(ctx,'打字时长（秒）',['pacing','typing'],val(pacing,'typing'),state,'number')}${scalar(ctx,'思考时长（秒）',['pacing','thinking'],val(pacing,'thinking'),state,'number')}`,canPace?'仅非右侧对话可启用。0 表示显式关闭；缺省沿用播放器默认。':'旁白或右侧对话下休眠，切回后恢复。',draft,String(val(node,'id'))));

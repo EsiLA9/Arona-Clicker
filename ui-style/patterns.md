@@ -18,6 +18,8 @@ Choice 编辑预览的每个选项左侧有紧凑 `.story-editor-choice-flag-car
 
 Story 编辑器的属性栏顶部以 Switch 切换 Talklet、Click、Operation、Transfer；当前分支、可选能力、诊断与节点操作在 Switch 下方排列。节点流按 `nodes` 顺序自由组合；旧 stage 字段隐藏在兼容数据中，不作为编辑步骤。Talklet 后紧邻可用 Click 时自动衔接输入，否则送达后提供自由继续；连续 Click 逐个呈现。Runtime Operation 的可读状态效果按声明顺序以独立奖励条目加入聊天流；效果逐条显示期间，底部用橙色处理中状态短暂禁用推进，播完后自动衔接后续节点。标记与 Extra 控制状态不播报，Operation 不伪造聊天台词。其他字段沿用右栏既有 label / input / select / textarea 与 `.mini-action`，不引入独立表单框架或新配色。可选能力是一个带复选框的 `.story-editor-toggle` 区块，未启用只收起子项、保留开关；启用后的字段放进左侧竖线的 `.story-editor-optional-content`，与父级形成层级而不是弹窗。有序列表使用 `.story-editor-list-heading`（标题＋添加）与 `.story-editor-property-row` 浅底虚线行，行操作按钮固定在行尾；只读复杂值使用 `.story-editor-readonly` 展示原值并提供显式清理按钮，不用输入框伪装可编辑。字段诊断沿用 `.story-editor-error`，每条诊断右挂“清理该字段”危险操作，作者可见地决定是否丢弃来源字段。样式入口为 `src/ui/css/story-editor.css`，属性 DOM 行为见 `tests/ui/story-editor-properties.test.ts`。
 
+Story 编辑器的“呈现”使用常显大标题，下方平铺“气泡位置、文字对齐、头像显示、头像引用”四项，每项以 label、控件和用途说明组成。不套可选区块、竖线缩进或内部卡片；未设置时沿用默认，下拉框选值后仍可切回默认。复用 `property-fields.ts` 的 `presentationEditor`、`.story-editor-property` 与 `.story-editor-hint`，仅 `.story-editor-presentation` 负责标题和字段间距。字段使用原有路径 key 局部协调，保留输入焦点、光标与属性栏滚动；行为证据见 `tests/ui/story-editor-properties.test.ts`。
+
 Story 编辑器中栏在每个节点前及列表末尾提供轻量插入空位，只有当前空位或拖拽目标显示横线。空位以稳定节点锚点协调，点击不会选择或创建 StoryNode；拖放通过中栏根委托接收带版本和种类的载荷，当前只移动本草稿内的 StoryNode。拖动悬停只更新目标提示，不触发整栏刷新；落点更新节点顺序时沿用节点 key，保留未变更节点 DOM 与正文滚动。当前投放目标与拖动载荷使用分型入口，后续增加向节点内元素投放和绑定时再扩展其分派，不把将来的绑定语义提前写入 Story。样式入口为 `.story-editor-insertion-point` 与 `.story-editor-node.is-dragging` / `.is-drop-target`，机制及数据边界见 [[runtime-editor-and-project-checks]]。
 
 区域地图交通沿用 `area-map-workspace.ts` 的节点和详情区：当前区域通过主题色实心节点标记，详情显示到访状态，固定动作区区分普通前往、乘交通前往与快速返回。`area-map-dom.ts` 按节点身份原位更新；连线只显示领域中的真实连接，单向通路使用箭头；地图不授予通行资格。此为现有地图组件的扩展，行为覆盖见 `tests/ui/area-map-controller.test.ts`。

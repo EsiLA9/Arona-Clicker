@@ -124,6 +124,8 @@
 .story-editor-node-type-switch .switch-tabs-content { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 4px; }
 .story-editor-node-type-switch .switch-tab { min-width: 0; padding: 5px 4px; font-size: 10px; letter-spacing: 0; white-space: nowrap; }
 .story-editor-property { gap: 4px; }
+.story-editor-presentation { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.story-editor-presentation > h3 { margin: 0; font-size: 14px; }
 .story-editor-property-group,
 .story-editor-optional {
   display: flex;
