@@ -1,4 +1,8 @@
 /* Story authoring inherits Workspace surfaces, controls and chat presentation. */
+.story-editor-history { display: flex; gap: 4px; }
+.story-editor-history button:disabled { opacity: .4; cursor: default; }
+.story-editor-transfer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.story-editor-transfer button { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .story-editor-list-content,
 .story-editor-fields,
 .story-editor-composer {
@@ -96,6 +100,8 @@
 .story-editor-node .chat-bubble p,
 .story-editor-node .chat-narration-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .story-editor-click-preview { width: 100%; pointer-events: none; }
+.story-editor-click-preview > .story-editor-entry-card { display: block; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; pointer-events: auto; }
+.story-editor-click-preview > .story-editor-entry-card:disabled { pointer-events: none; }
 .story-editor-click-preview--choice-bindings .choice-card { max-width: min(100%, 520px); }
 .story-editor-click-preview--choice-bindings .choice-card-options { gap: 7px; }
 .story-editor-click-preview--choice-bindings .choice-option-row { display: grid; grid-template-columns: minmax(104px, 0.42fr) minmax(0, 1fr); align-items: stretch; gap: 7px; }

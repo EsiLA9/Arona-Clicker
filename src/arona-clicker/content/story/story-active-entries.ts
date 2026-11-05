@@ -41,6 +41,5 @@ export const baseActiveStories: ActiveStoryEntry[] = [
     .reveal('name', and(cond('hasReadStoryInRun', 'base:story:run_chain_1', '==', 1)))
     .reveal('condition', and(cond('hasReadStoryInRun', 'base:story:run_chain_2', '==', 1)))
     .build(),
-  activeStory('base:activestory:hoshino_rooftop_meet', 'base:story:hoshino_rooftop_meet').inits('base:init:schale_office').replayable().build(),
 ];
 import { Resource } from '../../types/ids';

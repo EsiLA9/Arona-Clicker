@@ -3,6 +3,7 @@ import type { PlayerState } from '../../types/state';
 import type { StoryEntryDef, BranchGuard } from '../../../data-services/contracts/story-entry';
 import type { StoryDef } from '../../../data-services/contracts/story';
 import type { StoryEntryRequest, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
+import type { StoryClickInteraction } from '../../../data-services/contracts/story-node';
 import type {
   AreaStoryDeliveryView, SendResult, SendState, StoryAdvanceResult, StoryStartResult, StoryView,
 } from '../../contracts/runtime/results';
@@ -166,6 +167,15 @@ export class StoryService {
       getCurrentStoryId: owner => this.getCurrentStoryId(owner),
       startStory: (storyId, expectedType, owner, startOpts) => this.startStory(storyId, expectedType, owner, startOpts),
     };
+    opts.eventBus.on('areaEntered', event => {
+      const source = this.activeSource;
+      if (event.type !== 'areaEntered' || !source || event.fromAreaId === event.areaId) return;
+      const session = this.sessionForSource(source);
+      const context = { type: 'area' as const, areaId: event.areaId };
+      if (session && session.source.runId === source.runId) session.scene = context;
+      this.withSource(source, () => opts.eventBus.emit({ type: 'storyContextMoved', context, owner: null,
+        ...(source.runId ? { runId: source.runId } : {}), ...(source.replayId ? { replayId: source.replayId } : {}) }));
+    });
     opts.eventBus.on('chatFlowCleared', event => {
       if (!event.runId) this.coordinator.clear(event.owner ?? null, event.replayId);
     });
@@ -187,7 +197,12 @@ export class StoryService {
   }
   private isContinuationWait(session: StoryNodeSession): boolean {
     const view = session.player.getView();
-    return view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue');
+    return view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue' || view.node.interaction.kind === 'entryCard' && !!view.node.interaction.card.continuation);
+  }
+  private continuationTarget(session: StoryNodeSession, interaction: StoryClickInteraction): { entryId: string; areaId?: string; returnFlags?: readonly string[] } | undefined {
+    if (interaction.kind === 'entryCard' && interaction.card.continuation) return { entryId: interaction.card.request.entryId, ...interaction.card.continuation };
+    if (interaction.kind === 'kizunaCard' && session.entry.kizuna) return { entryId: session.entry.kizuna.entryId, areaId: session.entry.kizuna.areaId, returnFlags: session.entry.kizuna.returnFlags };
+    return undefined;
   }
   private continuationKey(session: StoryNodeSession): string {
     const view = session.player.getView();
@@ -231,8 +246,8 @@ export class StoryService {
         runId: session.source.runId, replayId: session.source.replayId });
       return this.resumeContinuation(session);
     }
-    if (interaction.kind !== 'kizunaCard' || !session.entry.kizuna || session.source.parentHistoryId || session.called) return { success: false, error: 'AlreadyActive' };
-    const binding = session.entry.kizuna;
+    const binding = this.continuationTarget(session, interaction);
+    if (!binding || session.source.parentHistoryId || session.called) return { success: false, error: 'AlreadyActive' };
     if (binding.areaId && !session.replay && (!atArea || this.state.currentAreaId !== binding.areaId)) return { success: false, error: 'ConditionNotMet' };
     if (this.allSessions().some(x => x.source.parentHistoryId && !x.replay && !session.replay)) return { success: false, error: 'AlreadyActive' };
     const channel = newRunId();
@@ -517,7 +532,12 @@ export class StoryService {
       if (!source?.parentHistoryId || !source.replayId || source.isReplay !== false || collection.child.isReplay || collection.child.continuation || collection.child.called || collection.child.continued) throw new Error('InvalidStoryChild');
       this.validateCursorSnapshot(collection.child, source.owner);
       const parent = [collection.global, ...Object.values(collection.chats)].find(x => x.playback.run?.source.historyId === source.parentHistoryId);
-      if (!parent?.continuation || parent.continuation.state !== 'running' || parent.continuation.childHistoryId !== source.historyId || this.opts.registry.storyEntries.get(parent.playback.run!.source.entryId)?.kizuna?.entryId !== source.entryId) throw new Error('OrphanStoryChild');
+      const parentRun = parent?.playback.run;
+      const parentNode = parentRun && this.documents.get(parentRun.storyId)?.nodes.find(node => node.id === parentRun.nodeId);
+      const parentEntry = parentRun && this.opts.registry.storyEntries.get(parentRun.source.entryId);
+      const targetId = parentNode?.type === 'click' && parentNode.interaction.kind === 'entryCard' && parentNode.interaction.card.continuation
+        ? parentNode.interaction.card.request.entryId : parentEntry?.kizuna?.entryId;
+      if (!parent?.continuation || parent.continuation.state !== 'running' || parent.continuation.childHistoryId !== source.historyId || targetId !== source.entryId) throw new Error('OrphanStoryChild');
     }
     for (const cursor of [collection.global, ...Object.values(collection.chats)]) {
       const source = cursor.finishing?.source ?? cursor.playback.run?.source;
@@ -529,7 +549,7 @@ export class StoryService {
       if (cursor.continuation) {
         const run = cursor.playback.run;
         const node = run && this.documents.get(run.storyId)?.nodes.find(x => x.id === run.nodeId);
-        if (node?.type !== 'click' || node.interaction.kind !== 'kizunaCard' || cursor.continuation.state === 'returned' && cursor.called !== true) throw new Error('InvalidStoryContinuation');
+        if (node?.type !== 'click' || !(node.interaction.kind === 'kizunaCard' || node.interaction.kind === 'entryCard' && !!node.interaction.card.continuation) || cursor.continuation.state === 'returned' && cursor.called !== true) throw new Error('InvalidStoryContinuation');
       }
       if (cursor.continuation && (!['running', 'returned'].includes(cursor.continuation.state) || typeof cursor.continuation.childHistoryId !== 'string' || !cursor.continuation.childHistoryId.trim() || cursor.playback.run?.pending.kind !== 'input')) throw new Error('InvalidStoryContinuation');
       if (cursor.continuation || cursor.called || source?.replayId) this.validateCursorSnapshot(cursor, source!.owner);
@@ -639,9 +659,9 @@ export class StoryService {
       const view = session.player.getView();
       if (view.status !== 'input') return [];
       const interaction = view.node.interaction;
-      const targetArea = interaction.kind === 'areaContinue' ? interaction.areaId : interaction.kind === 'kizunaCard' ? session.entry.kizuna?.areaId : undefined;
+      const targetArea = interaction.kind === 'areaContinue' ? interaction.areaId : this.continuationTarget(session, interaction)?.areaId;
       if (targetArea !== areaId) return [];
-      const entryId = interaction.kind === 'areaContinue' ? session.source.entryId : session.entry.kizuna!.entryId;
+      const entryId = interaction.kind === 'areaContinue' ? session.source.entryId : this.continuationTarget(session, interaction)!.entryId;
       const entry = this.opts.registry.storyEntries.get(entryId)!;
       return [{ id: this.continuationKey(session), entryId, areaId, title: entry.openingTitle ?? this.documents.get(entry.storyId)!.name, owner: null }];
     });
@@ -781,7 +801,7 @@ export class StoryService {
     if (!session) return { success: false, error: 'NoActiveStory' };
     if (session.source.replayId && !replayId) return { success: false, error: 'PresentationPending' };
     const current = session.player.getView();
-    if (current.status === 'input' && (current.node.interaction.kind === 'kizunaCard' || current.node.interaction.kind === 'areaContinue')) return this.acceptContinuation(session);
+    if (current.status === 'input' && this.isContinuationWait(session)) return this.acceptContinuation(session);
     const commandToken = token ?? ('token' in current ? current.token : undefined);
     if (!commandToken || current.status !== 'delivery' && current.status !== 'operation' && current.status !== 'result' && current.status !== 'input') return { success: false, error: 'NoActiveStory' };
     if (current.status === 'input' && current.node.interaction.kind !== 'choice' && !allowClickInput) {
@@ -873,6 +893,14 @@ export class StoryService {
     };
     const interaction = view.node.interaction;
     if (interaction.kind === 'choice') return { mode: 'choice', confirmed: true, token: storyView.token };
+    if (interaction.kind === 'entryCard' && interaction.card.continuation) {
+      const target = this.opts.registry.storyEntries.get(interaction.card.request.entryId);
+      const destination = interaction.card.continuation.areaId;
+      return { mode: 'kizuna', storyId: session.source.entryId, pageIndex: storyView.pageIndex,
+        targetStoryId: interaction.card.request.entryId, title: interaction.card.title ?? target?.openingTitle,
+        buttonText: session.continuation?.state === 'running' ? '等待剧情结束' : interaction.card.buttonText?.trim() || (destination && !session.replay ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : target?.openingTitle ?? '进入剧情'),
+        hint: storyView.continuationBlocked ? interaction.card.buttonText : undefined, align: interaction.card.align ?? 'left', token: storyView.token };
+    }
     if (interaction.kind === 'entryCard') {
       const card = interaction.card;
       return {
@@ -906,6 +934,7 @@ export class StoryService {
     const playback = this.getPlaybackView(target);
     const current = session.player.getView();
     if (current.status === 'input' && current.node.interaction.kind === 'choice') return { type: 'choice' };
+    if (current.status === 'input' && this.isContinuationWait(session)) return { type: 'completed', storyId: session.source.entryId, finished: false, advance: this.acceptContinuation(session), absorbed: [] };
     const previousDone = current.status === 'input' ? current.press?.done : undefined;
     const result = playback.phase === 'input'
       ? this.submitStoryInput(target, token ?? playback.token ?? '')
@@ -926,13 +955,14 @@ export class StoryService {
   private projectView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
     const projected = projectStoryNodeView(session, view);
     if (!projected) return null;
-    if (view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue')) {
-      const destination = view.node.interaction.kind === 'areaContinue' ? view.node.interaction.areaId : session.entry.kizuna?.areaId;
-      const target = this.opts.registry.storyEntries.get(session.entry.kizuna?.entryId ?? session.source.entryId);
+    if (view.status === 'input' && (view.node.interaction.kind === 'kizunaCard' || view.node.interaction.kind === 'areaContinue' || view.node.interaction.kind === 'entryCard' && !!view.node.interaction.card.continuation)) {
+      const binding = this.continuationTarget(session, view.node.interaction);
+      const destination = view.node.interaction.kind === 'areaContinue' ? view.node.interaction.areaId : binding?.areaId;
+      const target = this.opts.registry.storyEntries.get(binding?.entryId ?? session.source.entryId);
       const title = target?.openingTitle ?? (target && session.documents.get(target.storyId)?.name);
       const returned = session.continuation?.state === 'returned';
       projected.continuationBlocked = session.continuation?.state === 'running' || !!destination && !session.replay && !returned;
-      const authoredButtonText = view.node.interaction.buttonText?.trim();
+      const authoredButtonText = view.node.interaction.kind === 'entryCard' ? view.node.interaction.card.buttonText?.trim() : view.node.interaction.buttonText?.trim();
       projected.page = { ...projected.page, kizuna: { storyId: target?.id ?? session.source.entryId, title,
         buttonText: returned ? '继续故事' : session.continuation?.state === 'running' ? '等待羁绊剧情结束'
           : authoredButtonText || (destination && !session.replay ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : '进入羁绊剧情') } };
@@ -1280,7 +1310,9 @@ export class StoryService {
         const view = parent.player.save();
         if (view.run) {
           const flags = { ...view.run.localFlags };
-          for (const key of parent.entry.kizuna?.returnFlags ?? []) {
+          const parentView = parent.player.getView();
+          const returnFlags = parentView.status === 'input' ? this.continuationTarget(parent, parentView.node.interaction)?.returnFlags : undefined;
+          for (const key of returnFlags ?? parent.entry.kizuna?.returnFlags ?? []) {
             delete flags[key];
             if (Object.prototype.hasOwnProperty.call(session.finishing?.localFlags ?? {}, key)) Object.defineProperty(flags, key, { value: session.finishing!.localFlags![key], enumerable: true, configurable: true, writable: true });
           }

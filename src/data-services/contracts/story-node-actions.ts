@@ -128,6 +128,8 @@ export type StoryEntryRequest =
  */
 export interface StoryEntryCard {
   readonly request: Extract<StoryEntryRequest, { readonly intent: 'card' }>;
+  /** Optional parent cursor: the target runs as a child and returns here after completion. */
+  readonly continuation?: { readonly areaId?: AreaId; readonly returnFlags?: readonly string[] };
   readonly title?: string;
   readonly buttonText?: string;
   readonly align?: 'left' | 'right';

@@ -306,7 +306,7 @@ describe('Workspace 页面生命周期', () => {
     finishStory(game, 0, 'Hoshino');
     game.mutations.acquireCharacter('Hoshino', 'story');
 
-    const entryId = 'base:activestory:hoshino_rooftop_meet';
+    const entryId = 'test:activestory:followup-target';
     const entry = game.registry.activeStories.get(entryId)!;
     const ownerEntry = { ...entry, owner: 'Hoshino' };
     (game.registry.activeStories as unknown as Map<string, typeof ownerEntry>).set(entryId, ownerEntry);
@@ -319,10 +319,10 @@ describe('Workspace 页面生命周期', () => {
     document.querySelector<HTMLButtonElement>('[data-area-workspace-open]')!.click();
 
     expect(controller.panelState.workspaceNavigation?.current).toEqual({ kind: 'area', areaId });
-    expect(document.querySelector('[data-area-story-entry="base:activestory:hoshino_rooftop_meet"] strong')?.textContent)
-      .toBe('天台的相遇');
+    expect(document.querySelector('[data-area-story-entry="test:activestory:followup-target"] strong')?.textContent)
+      .toBe('FollowUp target');
 
-    const acceptButton = document.querySelector<HTMLButtonElement>('[data-area-story-accept="base:activestory:hoshino_rooftop_meet"]')!;
+    const acceptButton = document.querySelector<HTMLButtonElement>('[data-area-story-accept="test:activestory:followup-target"]')!;
     expect(game.story.startStory('base:passivestory:schale_sunset', 'passive', 'Hoshino').success).toBe(true);
     acceptButton.click();
 
@@ -346,7 +346,7 @@ describe('Workspace 页面生命周期', () => {
     game.state.areaStoryDeliveries?.splice(0);
     controller.panelState.leftTab = 'area';
     controller.render();
-    const sourceId = 'base:activestory:hoshino_rooftop_meet';
+    const sourceId = 'test:activestory:followup-target';
     const source = game.registry.activeStories.get(sourceId)!;
     const areaId = game.getView().currentAreaId!;
     const entryIds: string[] = [];

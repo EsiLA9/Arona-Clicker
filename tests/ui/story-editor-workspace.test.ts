@@ -56,6 +56,250 @@ describe('Story Editor workspace prototype', () => {
     localStorage.clear();
   });
 
+  it('switches both columns together and shares Story/Entry history without losing Story work', () => {
+    open(); click('new'); click('click');
+    const state = ctrl.storyEditor.state;
+    const first = currentDraft(state)!;
+    const node = currentNode(state)!;
+    input('[data-editor-composer-text]', '待发送正文');
+    const frame = find('[data-workspace-frame="story-editor"]');
+    const center = find('.story-editor-center .workspace-column__body');
+    const right = find('.story-editor-right .workspace-column__body');
+    const stories = find('[data-editor-key="sidebar-stories"]');
+    center.scrollTop = 128; right.scrollTop = 64;
+    const render = vi.spyOn(ctrl, 'render');
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click(); ctrl.flushUIUpdates();
+    expect(stories.hidden).toBe(true);
+    expect(currentDraft(state)).toBe(first);
+    expect(find('[data-editor-composer-text]')).toBeTruthy();
+    const entry = [...game.registry.activeStories.values()][0];
+    find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click(); ctrl.flushUIUpdates();
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    expect(currentDraft(state)).toBeUndefined();
+    expect(root.querySelector('[data-editor-composer-text]')).toBeNull();
+    expect(root.querySelector('[data-editor-field="name"]')).toBeNull();
+    expect(find('.story-editor-center [data-editor-entry-page]').dataset.editorEntryPage).toBe(entry.id);
+    expect(find('.story-editor-right [data-editor-entry-page]').dataset.editorEntryPage).toBe(entry.id);
+    expect(find(`[data-editor-entry="${entry.id}"]`).getAttribute('aria-pressed')).toBe('true');
+    center.scrollTop = 31; right.scrollTop = 17;
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:stories"]').click(); ctrl.flushUIUpdates();
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    const second = [...game.registry.stories.values()][0];
+    find<HTMLButtonElement>(`[data-editor-story="source:${second.id}"]`).click(); ctrl.flushUIUpdates();
+    expect(currentDraft(state)?.document.id).toBe(second.id);
+    click('history-back');
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    expect(center.scrollTop).toBe(31); expect(right.scrollTop).toBe(17);
+    click('history-back');
+    expect(currentDraft(state)).toBe(first);
+    expect(currentNode(state)?.id).toBe(node.id);
+    expect(center.scrollTop).toBe(128); expect(right.scrollTop).toBe(64);
+    expect(find<HTMLTextAreaElement>('[data-editor-composer-text]').value).toBe('待发送正文');
+    click('history-forward');
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    find<HTMLButtonElement>(`[data-editor-story="${first.draftId}"]`).click(); ctrl.flushUIUpdates();
+    expect(currentNode(state)?.id).toBe(node.id);
+    expect(composer(state).text).toBe('待发送正文');
+    expect(find('[data-workspace-frame="story-editor"]')).toBe(frame);
+    expect(find('.story-editor-center .workspace-column__body')).toBe(center);
+    expect(find('.story-editor-right .workspace-column__body')).toBe(right);
+    expect(find('[data-editor-key="sidebar-stories"]')).toBe(stories);
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it('lists Active and Passive Entries with draft precedence, independent search and unpublished targets', () => {
+    open(); click('new');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const active = [...game.registry.activeStories.values()][0];
+    const passive = [...game.registry.passiveStories.values()][0];
+    draft.authoring!.activeStories.push({ ...active, openingTitle: '草稿入口标题' }, { ...active, id: 'local:activestory:unpublished', storyId: draft.document.id, openingTitle: '未发布入口' });
+    draft.dirty = true;
+    input('[data-editor-search]', '独立的 Story 搜索');
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click(); ctrl.flushUIUpdates();
+    expect(find(`[data-editor-entry="${active.id}"]`).textContent).toContain('草稿入口标题');
+    expect(root.querySelectorAll(`[data-editor-entry="${active.id}"]`)).toHaveLength(1);
+    expect(find(`[data-editor-entry="${passive.id}"]`).textContent).toContain('Passive');
+    input('[data-editor-entry-search]', '未发布入口');
+    expect(root.querySelectorAll('[data-editor-entry]')).toHaveLength(1);
+    find<HTMLButtonElement>('[data-editor-entry="local:activestory:unpublished"]').click(); ctrl.flushUIUpdates();
+    expect(state.target).toEqual({ kind: 'entry', id: 'local:activestory:unpublished' });
+    expect(game.registry.activeStories.has('local:activestory:unpublished')).toBe(false);
+    expect(state.search).toBe('独立的 Story 搜索');
+    input('[data-editor-entry-search]', passive.id);
+    expect(root.querySelectorAll('[data-editor-entry]')).toHaveLength(1);
+    expect(find(`[data-editor-entry="${passive.id}"]`)).toBeTruthy();
+  });
+
+  it('blocks Story/Entry navigation on draft save failure and skips removed Entry history', () => {
+    open(); click('new');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const entry = [...game.registry.activeStories.values()][0];
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click(); ctrl.flushUIUpdates();
+    const save = vi.spyOn(ctrl.storyEditor.persistence, 'save').mockReturnValue(false);
+    const index = state.visitIndex;
+    find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click(); ctrl.flushUIUpdates();
+    expect(currentDraft(state)).toBe(draft);
+    expect(state.visitIndex).toBe(index);
+    save.mockRestore();
+    find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click(); ctrl.flushUIUpdates();
+    click('new');
+    const second = currentDraft(state)!;
+    second.authoring!.removed = { activeStories: [entry.id] };
+    click('history-back');
+    expect(currentDraft(state)).toBe(draft);
+  });
+
+  it.each(['entryCard', 'continuation', 'kizunaCard'] as const)('opens an Entry from the %s node card without starting gameplay', kind => {
+    open(); click('new'); click('click');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const node = currentNode(state)!;
+    const entry = [...game.registry.activeStories.values()][0];
+    draft.document.nodes = [{ id: node.id, type: 'click', stageId: 'input', interaction: kind === 'kizunaCard'
+      ? { kind: 'kizunaCard' }
+      : { kind: 'entryCard', card: { request: { entryId: entry.id, entryType: 'active', owner: null, intent: 'card' }, ...(kind === 'continuation' ? { continuation: {} } : {}) } } }];
+    if (kind === 'kizunaCard') draft.authoring!.activeStories.push({ ...entry, id: 'local:activestory:parent', storyId: draft.document.id, kizuna: { entryId: entry.id } });
+    draft.dirty = true;
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    const gameplay = game.storyService.getCurrentStoryId();
+    const registered = structuredClone(game.registry.activeStories.get(entry.id));
+    const card = find<HTMLButtonElement>('.story-editor-flow button[data-editor-entry-target]');
+    expect(card.disabled).toBe(false);
+    expect(card.dataset.editorEntryTarget).toBe(entry.id);
+    card.click(); ctrl.flushUIUpdates();
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    expect(find('.story-editor-center [data-authoring-field]')).toBeTruthy();
+    expect(game.storyService.getCurrentStoryId()).toBe(gameplay);
+    expect(game.registry.activeStories.get(entry.id)).toEqual(registered);
+    click('history-back');
+    expect(currentDraft(state)).toBe(draft);
+    expect(currentNode(state)?.id).toBe(node.id);
+  });
+
+  it('disables missing Entry targets and keeps areaContinue as a selectable node', () => {
+    open(); click('new'); click('click');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const node = currentNode(state)!;
+    draft.document.nodes = [{ id: node.id, type: 'click', stageId: 'input', interaction: { kind: 'entryCard', card: { request: { entryId: 'missing:activestory:target', entryType: 'active', owner: null, intent: 'card' } } } }];
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    expect(find<HTMLButtonElement>('.story-editor-flow button[data-editor-entry-target]').disabled).toBe(true);
+    click('info'); find<HTMLElement>('[data-editor-node]').click(); ctrl.flushUIUpdates();
+    expect(currentNode(state)?.id).toBe(node.id);
+    draft.document.nodes = [{ id: node.id, type: 'click', stageId: 'input', interaction: { kind: 'areaContinue', areaId: baseDatapack.areas[0].id } }];
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    expect(root.querySelector('.story-editor-flow [data-editor-entry-target]')).toBeNull();
+  });
+
+  it('browses Transfer targets and restores selection, gaps, scroll and unsent text through bounded history', () => {
+    open(); click('new'); click('transfer');
+    const state = ctrl.storyEditor.state;
+    const first = currentDraft(state)!;
+    const node = currentNode(state)!;
+    click('new');
+    const second = currentDraft(state)!;
+    first.document.nodes = [{ ...node, type: 'transfer', transfer: { mode: 'insert', storyId: second.document.id } }];
+    const choose = (id: string): void => { find<HTMLButtonElement>(`[data-editor-story="${id}"]`).click(); ctrl.flushUIUpdates(); };
+    choose(first.draftId);
+    find<HTMLElement>(`[data-editor-node="${node.id}"]`).click(); ctrl.flushUIUpdates();
+    find<HTMLButtonElement>(`[data-story-insertion-before="${node.id}"]`).click(); ctrl.flushUIUpdates();
+    input('[data-editor-composer-text]', '待发送');
+    const center = find('.story-editor-center .workspace-column__body');
+    const right = find('.story-editor-right .workspace-column__body');
+    center.scrollTop = 145; right.scrollTop = 73;
+    const header = find('.story-editor-center .panel-tabs-region');
+    const fullRender = vi.spyOn(ctrl, 'render');
+    const target = find<HTMLButtonElement>(`.story-editor-flow [data-editor-story-target="${second.document.id}"]`);
+    expect(target.textContent).toContain(second.document.name);
+    expect(target.parentElement!.textContent).toContain('insert');
+    target.click(); ctrl.flushUIUpdates();
+    expect(currentDraft(state)).toBe(second);
+    expect(center.scrollTop).toBe(0);
+    click('history-back');
+    expect(currentDraft(state)).toBe(first);
+    expect(state.selectedNodeId).toBe(node.id);
+    expect(state.insertionBeforeNodeId).toBe(node.id);
+    expect(center.scrollTop).toBe(145); expect(right.scrollTop).toBe(73);
+    expect(find<HTMLInputElement>('[data-editor-composer-text]').value).toBe('待发送');
+    expect(find('.story-editor-center .workspace-column__body')).toBe(center);
+    expect(find('.story-editor-center .panel-tabs-region')).toBe(header);
+    click('history-forward'); expect(currentDraft(state)).toBe(second);
+    click('history-back'); click('new');
+    expect(find<HTMLButtonElement>('[data-editor-action="history-forward"]').disabled).toBe(true);
+    expect(fullRender).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)!).visits).toBeUndefined();
+    for (let i = 0; i < 52; i++) choose(i % 2 ? first.draftId : second.draftId);
+    expect(state.visits.length).toBe(50);
+  });
+
+  it('shows nested result Transfers and missing targets without executing Click or Entry inputs', () => {
+    open(); click('new'); click('click');
+    const runningStory = game.storyService.getCurrentStoryId();
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const id = draft.document.nodes[0].id;
+    draft.document.nodes = [{ id, type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [
+      { id: 'a', text: '选项', result: { transfer: { mode: 'goto', storyId: 'missing:story:target' } } },
+      { id: 'b', text: '自己', result: { transfer: { mode: 'insert', storyId: draft.document.id } } },
+    ] } }];
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    const missing = find<HTMLButtonElement>('.story-editor-flow [data-editor-story-target="missing:story:target"]');
+    expect(missing.disabled).toBe(true);
+    expect(missing.textContent).toContain('目标不存在');
+    expect(missing.parentElement!.textContent).toContain('goto');
+    const index = state.visitIndex;
+    find<HTMLButtonElement>(`.story-editor-flow [data-editor-story-target="${draft.document.id}"]`).click(); ctrl.flushUIUpdates();
+    expect(state.visitIndex).toBe(index);
+    expect(currentDraft(state)).toBe(draft);
+    expect(game.storyService.getCurrentStoryId()).toBe(runningStory);
+    expect(root.querySelector('.story-editor-right [data-editor-story-target]')).not.toBeNull();
+    const target = [...game.registry.stories.values()][0];
+    draft.document.nodes = [{ id, type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', result: { transfer: { mode: 'goto', storyId: target.id } } } }];
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    find<HTMLButtonElement>(`.story-editor-flow [data-editor-story-target="${target.id}"]`).click(); ctrl.flushUIUpdates();
+    expect(currentDraft(state)!.document.id).toBe(target.id);
+    expect(game.storyService.getCurrentStoryId()).toBe(runningStory);
+  });
+
+  it('keeps the current story and history when saving before navigation fails', () => {
+    open(); click('new'); const first = currentDraft(ctrl.storyEditor.state)!;
+    click('new'); const second = currentDraft(ctrl.storyEditor.state)!;
+    const index = ctrl.storyEditor.state.visitIndex;
+    vi.spyOn(ctrl.storyEditor.persistence, 'save').mockReturnValue(false);
+    find<HTMLButtonElement>(`[data-editor-story="${first.draftId}"]`).click(); ctrl.flushUIUpdates();
+    expect(currentDraft(ctrl.storyEditor.state)).toBe(second);
+    expect(ctrl.storyEditor.state.visitIndex).toBe(index);
+    click('history-back');
+    expect(currentDraft(ctrl.storyEditor.state)).toBe(second);
+    expect(ctrl.storyEditor.state.visitIndex).toBe(index);
+  });
+
+  it('returns from node properties to Story properties through the right titlebar', () => {
+    open();
+    click('new');
+    expect(root.querySelector('.story-editor-right [data-column-back]')).toBeNull();
+    click('click');
+    expect(currentNode(ctrl.storyEditor.state)).toBeTruthy();
+    const draft = currentDraft(ctrl.storyEditor.state)!;
+    const documentBefore = structuredClone(draft.document);
+    input('[data-editor-composer-text]', '未发送正文');
+    const body = find('.story-editor-center .workspace-column__body');
+    const composerField = find('[data-editor-composer-text]');
+    const back = find<HTMLButtonElement>('.story-editor-right .ui-cluster--right-tabs-region [data-column-back]');
+    back.click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.isOpen()).toBe(true);
+    expect(ctrl.storyEditor.state.selectedNodeId).toBeNull();
+    expect(find('[data-editor-field="name"]')).toBeTruthy();
+    expect(root.querySelector('.story-editor-right [data-column-back]')).toBeNull();
+    expect(currentDraft(ctrl.storyEditor.state)).toBe(draft);
+    expect(draft.document).toEqual(documentBefore);
+    expect(find('.story-editor-center .workspace-column__body')).toBe(body);
+    expect(find('[data-editor-composer-text]')).toBe(composerField);
+    expect(composer(ctrl.storyEditor.state).text).toBe('未发送正文');
+  });
+
   it('edits one gate and local flag actions, keeps focused controls, and never publishes unfinished values', () => {
     open();
     click('new');
@@ -279,15 +523,15 @@ describe('Story Editor workspace prototype', () => {
   it('blocks switching, new documents and topbar exit on write failure, keeping live content', () => {
     open(); click('new');
     input('[data-editor-composer-text]', '需要保留'); click('send');
-    const id = ctrl.storyEditor.state.currentId;
+    const id = ctrl.storyEditor.state.target;
     const storage = vi.spyOn(LocalStorageAdapter.prototype, 'set').mockImplementation(() => { throw new Error('quota exceeded'); });
     click('save');
     expect(root.textContent).toContain('quota exceeded');
     expect(currentDraft(ctrl.storyEditor.state)?.dirty).toBe(true);
-    click('new'); expect(ctrl.storyEditor.state.currentId).toBe(id);
+    click('new'); expect(ctrl.storyEditor.state.target).toBe(id);
     const row = find<HTMLButtonElement>('[data-editor-story]');
     row.click(); ctrl.flushUIUpdates();
-    expect(ctrl.storyEditor.state.currentId).toBe(id);
+    expect(ctrl.storyEditor.state.target).toBe(id);
     const frame = find('[data-workspace-frame="story-editor"]');
     const renders = ctrl.getRefreshStats().fullRenders;
     find<HTMLButtonElement>('[data-service="settings"]').click(); ctrl.flushUIUpdates();

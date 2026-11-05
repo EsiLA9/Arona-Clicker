@@ -1,6 +1,6 @@
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { emptyStoryAuthoring, STORY_AUTHORING_TABLES, type StoryAuthoringPatch } from '../../data-services/authoring/story-authoring';
-import { storyDefinitionFromDraft, type StoryDraft, type StoryEditorState } from './model';
+import { currentAuthoringDraft, storyDefinitionFromDraft, type StoryDraft, type StoryEditorState } from './model';
 import { editProperty, propertyKey, addRow, removeRow, rowIdAt } from './property-model';
 import { setValueAt, valueAt, readStructuredInput, presetValue, type ValuePath } from './structured-value';
 
@@ -73,7 +73,7 @@ export function constructStructuredValue(draft: StoryDraft, scope: string, path:
 }
 export function compileStoryAuthoring(state: StoryEditorState): { ok: true; patch: StoryAuthoringPatch } | { ok: false; message: string } {
   const patch = emptyStoryAuthoring();
-  const current = state.drafts.find(x => x.draftId === state.currentId);
+  const current = currentAuthoringDraft(state);
   if (!current) return { ok: false, message: '先选择 Story。' };
   const needed = new Set([current.document.id]);
   const entries = new Map(state.drafts.flatMap(x => [...(x.authoring?.activeStories ?? []), ...(x.authoring?.passiveStories ?? [])]).map(x => [x.id,x]));
@@ -110,7 +110,7 @@ export function copyStoryIdentity(state: StoryEditorState, draft: StoryDraft, id
   const copy: StoryDraft = structuredClone(draft);
   copy.draftId = crypto.randomUUID(); copy.sourceId = null; copy.document = { ...copy.document, id };
   copy.authoring = emptyStoryAuthoring(); copy.dirty = true; copy.persisted = false; copy.savedAt = null;
-  state.drafts.push(copy); state.currentId = copy.draftId; state.selectedNodeId = null;
+  state.drafts.push(copy); state.target = { kind: 'story', id }; state.selectedNodeId = null;
   return true;
 }
 export function addStoryAuthoringRow(draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools'): void {

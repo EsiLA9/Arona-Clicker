@@ -277,8 +277,16 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     return { entryId: id, entryType: x.entryType, owner: x.owner, intent: x.intent };
   };
   const card = (v: unknown, path: string): Obj => {
-    const x = object(v, path, ['request', 'title', 'buttonText', 'align']) ?? {};
+    const x = object(v, path, ['request', 'continuation', 'title', 'buttonText', 'align']) ?? {};
     const out: Obj = { request: request(x.request, `${path}.request`, true) };
+    if (hasOwn(x, 'continuation')) {
+      const c = object(x.continuation, `${path}.continuation`, ['areaId', 'returnFlags']) ?? {};
+      if (hasOwn(c, 'areaId')) { c.areaId = string(c.areaId, `${path}.continuation.areaId`, true); ref('areas', c.areaId as string, `${path}.continuation.areaId`); }
+      if (hasOwn(c, 'returnFlags')) {
+        if (!Array.isArray(c.returnFlags) || c.returnFlags.some(flag => typeof flag !== 'string' || !flag.trim()) || new Set(c.returnFlags).size !== c.returnFlags.length) fail(`${path}.continuation.returnFlags`, '回传标记必须是唯一的非空字符串');
+      }
+      out.continuation = c;
+    }
     for (const k of ['title', 'buttonText']) if (hasOwn(x, k)) out[k] = string(x[k], `${path}.${k}`);
     if (hasOwn(x, 'align')) { if (!enums(x.align, ['left', 'right'])) fail(`${path}.align`, '对齐方式无效'); else out.align = x.align; }
     return out;

@@ -38,10 +38,11 @@ describe('Story Editor property draft model', () => {
     const state = createStoryEditorState(); selectStory(state, `source:${story.id}`, sources);
     const draft = currentDraft(state)!;
     selectDiscriminant(draft, 'talk', ['content'], 'kind', 'narration');
-    expect(readProperty(draft, 'talk', ['content'])).toEqual({ kind: 'narration' });
+    expect(readProperty(draft, 'talk', ['content'])).toEqual({ kind: 'narration', text: 'Hi' });
     expect(readProperty(draft, 'talk', ['pacing'])).toBeUndefined();
     const narration = storyDefinitionFromDraft(draft);
-    expect(narration).toMatchObject({ ok: false, issues: [{ path: 'nodes[0].content.text' }] });
+    expect(narration).toMatchObject({ ok: true });
+    if (narration.ok && narration.story.nodes[0]?.type === 'talklet') expect(narration.story.nodes[0].content).toEqual({ kind: 'narration', text: 'Hi' });
     selectDiscriminant(draft, 'talk', ['content'], 'kind', 'talk');
     expect(readProperty(draft, 'talk', ['content'])).toEqual({ kind: 'talk', speaker: '老师', text: 'Hi', image: 'test:image:portrait' });
     expect(readProperty(draft, 'talk', ['pacing'])).toEqual({ typing: 2 });

@@ -79,7 +79,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
         followUps: [{
           id: 'test-follow-up',
           waitFor: { kind: 'next-enter-area', areaId: 'base:area:schale_rooftop' },
-          outcome: { kind: 'start-story-entry', storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
+          outcome: { kind: 'start-story-entry', storyEntryId: 'base:activestory:shiroko_drink' },
         }],
       }],
     };
@@ -109,7 +109,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     const duplicate = {
       id: 'duplicate',
       waitFor: { kind: 'next-enter-area' as const, areaId: 'base:area:schale_rooftop' },
-      outcome: { kind: 'start-story-entry' as const, storyEntryId: 'base:activestory:hoshino_rooftop_meet' },
+      outcome: { kind: 'start-story-entry' as const, storyEntryId: 'base:activestory:shiroko_drink' },
     };
     const broken: Datapack = {
       ...baseDatapack,

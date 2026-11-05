@@ -13624,10 +13624,6 @@
       },
       "availableInits": [],
       "replayable": true,
-      "kizuna": {
-        "entryId": "base:activestory:bond_hoshino_evening",
-        "returnFlags": []
-      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
@@ -13645,13 +13641,6 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "kizuna": {
-        "entryId": "base:activestory:shiroko_drink",
-        "returnFlags": [
-          "shiroko-drink-coffee",
-          "shiroko-drink-juice"
-        ]
-      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
@@ -13677,14 +13666,6 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "kizuna": {
-        "entryId": "base:activestory:shiroko_rooftop",
-        "returnFlags": [
-          "shiroko-rooftop-photo",
-          "shiroko-rooftop-route"
-        ],
-        "areaId": "base:area:schale_rooftop"
-      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
@@ -13783,13 +13764,6 @@
         "base:init:abydos"
       ],
       "replayable": true,
-      "kizuna": {
-        "entryId": "base:activestory:bond_hoshino_1",
-        "returnFlags": [
-          "hoshino-remembers",
-          "hoshino-new-memories"
-        ]
-      },
       "type": "passive",
       "repeatable": false,
       "weight": 1,
@@ -18056,41 +18030,9 @@
           }
         },
         {
-          "id": "rooftop-scene",
-          "type": "transfer",
-          "transfer": {
-            "mode": "insert",
-            "storyId": "base:story:hoshino_rooftop_meet"
-          }
-        }
-      ],
-      "stages": {
-        "p1": {
-          "advance": "input"
-        },
-        "p2": {
-          "advance": "input"
-        },
-        "p2-response": {
-          "advance": "auto"
-        },
-        "p1-response": {
-          "advance": "auto"
-        }
-      }
-    },
-    {
-      "id": "base:story:hoshino_rooftop_meet",
-      "name": "天台的相遇",
-      "startContext": {
-        "type": "chara",
-        "characterId": "Hoshino"
-      },
-      "nodes": [
-        {
-          "id": "p1-body",
+          "id": "rooftop-arrival",
           "type": "talklet",
-          "stageId": "p1",
+          "stageId": "p3",
           "content": {
             "kind": "talk",
             "text": "老师，您真的来了……！晚霞把天空染成橘色，像我们第一次见面那天一样。",
@@ -18098,9 +18040,9 @@
           }
         },
         {
-          "id": "p1-button",
+          "id": "rooftop-arrival-response",
           "type": "click",
-          "stageId": "p1",
+          "stageId": "p3",
           "interaction": {
             "kind": "button",
             "text": "我答应过你呀。",
@@ -18121,9 +18063,9 @@
           }
         },
         {
-          "id": "p1-button-response",
+          "id": "rooftop-arrival-teacher",
           "type": "talklet",
-          "stageId": "p1-response",
+          "stageId": "p3-response",
           "content": {
             "kind": "talk",
             "text": "我答应过你呀。",
@@ -18134,9 +18076,9 @@
           }
         },
         {
-          "id": "p2-body",
+          "id": "rooftop-evening",
           "type": "talklet",
-          "stageId": "p2",
+          "stageId": "p4",
           "content": {
             "kind": "talk",
             "text": "……能和老师并肩看这片晚霞，就是我最想做的事。",
@@ -18144,9 +18086,9 @@
           }
         },
         {
-          "id": "p2-button",
+          "id": "rooftop-evening-response",
           "type": "click",
-          "stageId": "p2",
+          "stageId": "p4",
           "interaction": {
             "kind": "button",
             "text": "以后也要一起来。",
@@ -18172,9 +18114,9 @@
           }
         },
         {
-          "id": "p2-button-response",
+          "id": "rooftop-evening-teacher",
           "type": "talklet",
-          "stageId": "p2-response",
+          "stageId": "p4-response",
           "content": {
             "kind": "talk",
             "text": "以后也要一起来。",
@@ -18185,9 +18127,9 @@
           }
         },
         {
-          "id": "p3-body",
+          "id": "rooftop-goodbye",
           "type": "talklet",
-          "stageId": "p3",
+          "stageId": "p5",
           "content": {
             "kind": "talk",
             "text": "天台风大，我们去图书馆吧。那里有你说的那本旧童话……我还想听老师讲一遍。",
@@ -18195,9 +18137,9 @@
           }
         },
         {
-          "id": "p3-button",
+          "id": "rooftop-goodbye-response",
           "type": "click",
-          "stageId": "p3",
+          "stageId": "p5",
           "interaction": {
             "kind": "button",
             "text": "好，边走边讲。",
@@ -18218,9 +18160,9 @@
           }
         },
         {
-          "id": "p3-button-response",
+          "id": "rooftop-goodbye-teacher",
           "type": "talklet",
-          "stageId": "p3-response",
+          "stageId": "p5-response",
           "content": {
             "kind": "talk",
             "text": "好，边走边讲。",
@@ -18238,16 +18180,28 @@
         "p2": {
           "advance": "input"
         },
+        "p2-response": {
+          "advance": "auto"
+        },
+        "p1-response": {
+          "advance": "auto"
+        },
         "p3": {
           "advance": "input"
         },
         "p3-response": {
           "advance": "auto"
         },
-        "p2-response": {
+        "p4": {
+          "advance": "input"
+        },
+        "p4-response": {
           "advance": "auto"
         },
-        "p1-response": {
+        "p5": {
+          "advance": "input"
+        },
+        "p5-response": {
           "advance": "auto"
         }
       }
@@ -18438,7 +18392,18 @@
           "type": "click",
           "stageId": "p3",
           "interaction": {
-            "kind": "kizunaCard"
+            "kind": "entryCard",
+            "card": {
+              "request": {
+                "entryId": "base:activestory:bond_hoshino_evening",
+                "entryType": "active",
+                "owner": null,
+                "intent": "card"
+              },
+              "continuation": {
+                "returnFlags": []
+              }
+            }
           }
         },
         {
@@ -18490,7 +18455,21 @@
           "type": "click",
           "stageId": "main",
           "interaction": {
-            "kind": "kizunaCard"
+            "kind": "entryCard",
+            "card": {
+              "request": {
+                "entryId": "base:activestory:shiroko_drink",
+                "entryType": "active",
+                "owner": null,
+                "intent": "card"
+              },
+              "continuation": {
+                "returnFlags": [
+                  "shiroko-drink-coffee",
+                  "shiroko-drink-juice"
+                ]
+              }
+            }
           }
         },
         {
@@ -18649,7 +18628,22 @@
           "type": "click",
           "stageId": "main",
           "interaction": {
-            "kind": "kizunaCard"
+            "kind": "entryCard",
+            "card": {
+              "request": {
+                "entryId": "base:activestory:shiroko_rooftop",
+                "entryType": "active",
+                "owner": null,
+                "intent": "card"
+              },
+              "continuation": {
+                "areaId": "base:area:schale_rooftop",
+                "returnFlags": [
+                  "shiroko-rooftop-photo",
+                  "shiroko-rooftop-route"
+                ]
+              }
+            }
           }
         },
         {
@@ -19306,7 +19300,21 @@
           "type": "click",
           "stageId": "p1",
           "interaction": {
-            "kind": "kizunaCard"
+            "kind": "entryCard",
+            "card": {
+              "request": {
+                "entryId": "base:activestory:bond_hoshino_1",
+                "entryType": "active",
+                "owner": null,
+                "intent": "card"
+              },
+              "continuation": {
+                "returnFlags": [
+                  "hoshino-remembers",
+                  "hoshino-new-memories"
+                ]
+              }
+            }
           }
         },
         {
@@ -19689,19 +19697,6 @@
             ]
           }
         }
-      ],
-      "replayable": true,
-      "type": "active"
-    },
-    {
-      "id": "base:activestory:hoshino_rooftop_meet",
-      "storyId": "base:story:hoshino_rooftop_meet",
-      "triggerCondition": {
-        "type": "AND",
-        "conditions": []
-      },
-      "availableInits": [
-        "base:init:schale_office"
       ],
       "replayable": true,
       "type": "active"

@@ -237,7 +237,7 @@ export class StoryNodePlayer {
       const pending = run.pending;
       if (pending.kind !== 'input') return 'InputNotReady';
       const interaction = pending.node.interaction;
-      if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return 'ContinuationHostRequired';
+      if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue' || interaction.kind === 'entryCard' && interaction.card.continuation) return 'ContinuationHostRequired';
       let actions: readonly StoryAction[] = [];
       let result: StoryNodeResult | undefined;
       if (interaction.kind === 'choice') {

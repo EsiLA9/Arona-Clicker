@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
-import { currentDraft, currentNode, renameStoryNodeId } from '../../src/ui/story-editor/model';
+import { currentAuthoringDraft, currentNode, renameStoryNodeId } from '../../src/ui/story-editor/model';
 import { compileStoryAuthoring, constructStructuredValue, editStructuredValue, hydrateStoryAuthoring } from '../../src/ui/story-editor/authoring-model';
 import { editProperty, moveRowBy, rowIdAt, selectDiscriminant, selectNodeType } from '../../src/ui/story-editor/property-model';
 import { withAuthoredStoryCatalog } from '../../src/ui/columns/authored-story-catalog';
@@ -11,7 +11,7 @@ import '../../src/ui/runtime/service-definitions';
 
 describe('Story authoring UI and draft API', () => {
   let game: GameInstance, ctrl: UIController, root: HTMLElement;
-  const draft = () => currentDraft(ctrl.storyEditor.state)!;
+  const draft = () => currentAuthoringDraft(ctrl.storyEditor.state)!;
   const q = <T extends HTMLElement = HTMLElement>(selector: string): T => { const item = root.querySelector<T>(selector); expect(item,selector).not.toBeNull(); return item!; };
   const click = (selector: string) => { q<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
   const change = (element: HTMLInputElement | HTMLSelectElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
@@ -29,9 +29,14 @@ describe('Story authoring UI and draft API', () => {
   it('creates and edits an Entry, checks/applies it, and retains it after draft reload', () => {
     click('[data-authoring-add="activeStories"]');
     const entry=draft().authoring!.activeStories[0]; const scope='$authoring';
+    expect(root.querySelector('[data-authoring-field="activeStories"]')).toBeNull();
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    expect(q('[data-authoring-field="activeStories"]').closest('.story-editor-center')).not.toBeNull();
+    expect(root.querySelector('.story-editor-right [data-value-input]')).toBeNull();
     const identity=valueControl(scope,['activeStories',0,'id'],'data-value-input'); identity.focus();
     change(identity,'local:activestory:manual');expect(document.activeElement).toBe(identity);
     expect(entry.id).toBe('local:activestory:manual');
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:entry.id});
     click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeNull();
     expect(game.registry.activeStories.has(entry.id)).toBe(false);
     click('[data-authoring-action="apply"]'); expect(ctrl.storyEditor.state.error).toBeNull();
@@ -40,6 +45,131 @@ describe('Story authoring UI and draft API', () => {
     ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
     expect(draft().document.id).toBe(id); expect(draft().authoring!.activeStories[0].id).toBe(entry.id);
   });
+  it('edits a registered Passive Entry in the center and retains invalid input through navigation and reload', () => {
+    const entry = [...game.registry.passiveStories.values()][0];
+    const original = structuredClone(entry);
+    click('[data-column-action="story-editor-sidebar:entries"]');
+    click(`[data-editor-entry="${entry.id}"]`);
+    const owner = draft();
+    const index = owner.authoring!.passiveStories.findIndex(row => row.id === entry.id);
+    const weight = valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input');
+    weight.focus(); change(weight,'-');
+    expect(document.activeElement).toBe(weight);
+    expect(weight.closest('.story-editor-center')).not.toBeNull();
+    click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeTruthy();
+    expect(game.registry.passiveStories.get(entry.id)).toEqual(original);
+    click('[data-editor-action="save"]');
+    ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    expect(valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input').value).toBe('-');
+    change(valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input'),'2');
+    click('[data-authoring-catalog="passiveStories"]');
+    expect(draft().authoring!.passiveStories[index].extra).toBeTruthy();
+    click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeNull();
+  });
+
+  it('removes an Entry from its center form and returns to its owner Story', () => {
+    click('[data-authoring-add="activeStories"]');
+    const owner = draft(); const entry = owner.authoring!.activeStories[0];
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    const remove = [...root.querySelectorAll<HTMLButtonElement>('[data-value-action="remove"]')].find(button => button.dataset.valuePath === JSON.stringify(['activeStories',0]))!;
+    remove.click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'story',id:owner.document.id});
+    expect(owner.authoring!.activeStories).toHaveLength(0);
+    expect(owner.authoring!.removed?.activeStories).toContain(entry.id);
+  });
+
+  it('edits, saves and removes Passive Pools in the Entry center without switching the selected Entry', () => {
+    expect(root.querySelector('[data-authoring-add="passivePools"]')).toBeNull();
+    click('[data-authoring-add="passiveStories"]');
+    const owner = draft(); const entry = owner.authoring!.passiveStories[0];
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    const center = q('.story-editor-center .workspace-column__body');
+    const right = q('.story-editor-right .workspace-column__body');
+    click('[data-authoring-add="passivePools"]');
+    const pool = owner.authoring!.passivePools[0];
+    const identity = valueControl('$authoring',['passivePools',0,'id'],'data-value-input');
+    identity.focus(); change(identity,'local:passivepool:manual');
+    expect(document.activeElement).toBe(identity);
+    expect(identity.closest('.story-editor-center')).not.toBeNull();
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:entry.id});
+    const children = [...root.querySelectorAll<HTMLButtonElement>('[data-value-action="add"]')].find(button => button.dataset.valuePath === JSON.stringify(['passivePools',0,'children']))!;
+    children.click(); ctrl.flushUIUpdates();
+    change(valueControl('$authoring',['passivePools',0,'children',0],'data-value-type'),'pool-child');
+    change(valueControl('$authoring',['passivePools',0,'children',0,'id'],'data-value-input'),entry.id);
+    const weightPath = ['passivePools',0,'children',0,'weight'];
+    change(valueControl('$authoring',weightPath,'data-value-input'),'-');
+    click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeTruthy();
+    expect(game.registry.passivePools.has(pool.id)).toBe(false);
+    expect(q('.story-editor-center .workspace-column__body')).toBe(center);
+    expect(q('.story-editor-right .workspace-column__body')).toBe(right);
+    click('[data-editor-action="save"]');
+    ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
+    expect(root.querySelector('[data-authoring-add="passivePools"]')).toBeNull();
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    expect(valueControl('$authoring',weightPath,'data-value-input').value).toBe('-');
+    change(valueControl('$authoring',weightPath,'data-value-input'),'2');
+    click('[data-authoring-action="apply"]'); expect(ctrl.storyEditor.state.error).toBeNull();
+    expect(game.registry.passivePools.get(pool.id)?.children).toEqual([{id:entry.id,weight:2}]);
+    const remove = [...root.querySelectorAll<HTMLButtonElement>('[data-value-action="remove"]')].find(button => button.dataset.valuePath === JSON.stringify(['passivePools',0]))!;
+    remove.click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:entry.id});
+    expect(draft().authoring!.passivePools).toHaveLength(0);
+    expect(draft().authoring!.removed?.passivePools).toContain(pool.id);
+    click('[data-authoring-action="apply"]'); expect(ctrl.storyEditor.state.error).toBeNull();
+    expect(game.registry.passivePools.has(pool.id)).toBe(false);
+  });
+
+  it('shows live calls and callers in Story/Entry properties and navigates them through shared history', () => {
+    const gameplay = game.storyService.getCurrentStoryId();
+    click('[data-authoring-add="activeStories"]');
+    const first = draft(), firstEntry = first.authoring!.activeStories[0];
+    click('[data-editor-action="new"]');
+    const second = draft();
+    change(q('[data-editor-field="story-context-area"]'),baseDatapack.areas[0].id);
+    click('[data-authoring-add="activeStories"]');
+    const secondEntry = second.authoring!.activeStories[0];
+    first.document.nodes = [
+      {id:'next',type:'transfer',transfer:{mode:'insert',storyId:second.document.id}},
+      {id:'invite',type:'operation',action:{kind:'entryRequest',request:{entryId:secondEntry.id,entryType:'active',owner:null,intent:'ordinary'}}},
+      {id:'missing',type:'transfer',transfer:{mode:'goto',storyId:'test:story:missing'}},
+    ];
+    first.dirty = true;
+    click(`[data-editor-story="${first.draftId}"]`);
+    const relations = q('.story-editor-right .story-editor-relations');
+    expect(relations.textContent).toContain('调用表');
+    expect(relations.textContent).toContain('被调用表');
+    expect(q<HTMLButtonElement>('.story-editor-relations [data-editor-story-target="test:story:missing"]').disabled).toBe(true);
+    expect(q(`.story-editor-relations [data-editor-entry-target="${firstEntry.id}"]`).textContent).toContain('起始 Story');
+    const name = q<HTMLInputElement>('[data-editor-field="name"]');
+    name.focus(); change(name,'关系测试');
+    expect(document.activeElement).toBe(name);
+    expect(q('.story-editor-relations')).toBe(relations);
+    first.document.nodes = first.document.nodes.filter(node=>node.id!=='missing');
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    expect(root.querySelector('.story-editor-relations [data-editor-story-target="test:story:missing"]')).toBeNull();
+    click(`.story-editor-relations [data-editor-entry-target="${firstEntry.id}"]`);
+    const potential = q('.story-editor-right .story-editor-relations');
+    expect(potential.textContent).toContain('潜在调用集');
+    expect(potential.querySelector(`[data-editor-story-target="${first.document.id}"]`)).not.toBeNull();
+    expect(potential.querySelector(`[data-editor-story-target="${second.document.id}"]`)).not.toBeNull();
+    click(`.story-editor-relations [data-editor-entry-target="${secondEntry.id}"]`);
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:secondEntry.id});
+    expect(q('.story-editor-relations').textContent).toContain('节点 invite');
+    click(`.story-editor-relations [data-editor-story-target="${first.document.id}"]`);
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'story',id:first.document.id});
+    click('[data-editor-action="history-back"]');
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:secondEntry.id});
+    click('[data-editor-action="history-back"]');
+    expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:firstEntry.id});
+    change(valueControl('$authoring',['activeStories',0,'storyId'],'data-value-input'),second.document.id);
+    expect(root.querySelector(`.story-editor-relations [data-editor-story-target="${first.document.id}"]`)).toBeNull();
+    expect(q(`.story-editor-relations [data-editor-story-target="${second.document.id}"]`)).toBeTruthy();
+    expect(game.registry.stories.has(first.document.id)).toBe(false);
+    expect(game.registry.activeStories.has(firstEntry.id)).toBe(false);
+    expect(game.storyService.getCurrentStoryId()).toBe(gameplay);
+  });
+
   it('exposes nested localFlag fields and structured values in a Button result', () => {
     click('[data-editor-action="click"]'); const node=currentNode(ctrl.storyEditor.state)!;
     editProperty(draft(),node.id,['interaction','text'],'继续');
@@ -56,15 +186,11 @@ describe('Story authoring UI and draft API', () => {
     const compiled=compileStoryAuthoring(ctrl.storyEditor.state); expect(compiled.ok).toBe(true);
     if(compiled.ok) expect(compiled.patch.stories[0].nodes[0]).toMatchObject({interaction:{result:{actions:[{kind:'localFlag',name:'selected',value:{number:3}}]}}});
   });
-  it('provides bounded child and Area invitation controls without an after callback editor', () => {
+  it('does not expose legacy bounded child association controls', () => {
     click('[data-authoring-add="activeStories"]');
-    change(q('[data-authoring-field="activeStories"]'),'kizuna');
-    const mode=q<HTMLSelectElement>('[data-authoring-kizuna-mode]');change(mode,'area');
-    const binding=draft().authoring!.activeStories[0].kizuna!;expect(binding.areaId).toBe('');
-    change(valueControl('$authoring',['activeStories',0,'kizuna','areaId'],'data-value-input'),baseDatapack.areas[0].id);
-    expect(binding.areaId).toBe(baseDatapack.areas[0].id);
-    change(q('[data-authoring-kizuna-mode]'),'direct');expect(binding).not.toHaveProperty('areaId');
-    expect(root.textContent).toContain('回传局部标记白名单');expect(binding.returnFlags).toEqual([]);
+    click(`[data-editor-entry-target="${draft().authoring!.activeStories[0].id}"]`);
+    expect([...q<HTMLSelectElement>('[data-authoring-field="activeStories"]').options].some(option=>option.value==='kizuna')).toBe(false);
+    expect(root.querySelector('[data-authoring-kizuna-mode]')).toBeNull();
   });
   it('keeps pending numeric input with its stable action row after reorder and reload', () => {
     click('[data-editor-action="click"]');const node=currentNode(ctrl.storyEditor.state)!;

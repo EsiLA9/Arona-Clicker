@@ -63,7 +63,7 @@ describe('0336 independent draft acceptance', () => {
     editStoryNodeBody(draft, 'node', '');
     expect(readProperty(draft, 'node', ['interaction', 'card', 'buttonText'])).toBeUndefined();
     const storage = new MemoryStorage(); const state = createStoryEditorState();
-    state.drafts.push(draft); state.currentId = draft.draftId;
+    state.drafts.push(draft); state.target = { kind: 'story', id: draft.document.id };
     expect(new StoryDraftPersistence(storage).save(state)).toBe(true);
     const restored = createStoryEditorState(); new StoryDraftPersistence(storage).load(restored);
     expect(readStoryNodeBody(currentDraft(restored)!, 'node')).toBe('');
@@ -74,10 +74,10 @@ describe('0336 independent draft acceptance', () => {
       { id: 'node', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '进入羁绊' } },
     ] };
     const { draft } = open(story);
-    selectDiscriminant(draft, 'node', ['interaction'], 'kind', 'kizunaCard');
-    expect(readProperty(draft, 'node', ['interaction', 'buttonText'])).toBe('进入羁绊');
+    selectDiscriminant(draft, 'node', ['interaction'], 'kind', 'entryCard');
+    expect(readProperty(draft, 'node', ['interaction', 'card', 'buttonText'])).toBe('进入羁绊');
     editStoryNodeBody(draft, 'node', '');
-    expect(readProperty(draft, 'node', ['interaction', 'buttonText'])).toBeUndefined();
+    expect(readProperty(draft, 'node', ['interaction', 'card', 'buttonText'])).toBeUndefined();
     selectDiscriminant(draft, 'node', ['interaction'], 'kind', 'areaContinue');
     editProperty(draft, 'node', ['interaction', 'areaId'], 'base:area:schale_main');
     expect(readProperty(draft, 'node', ['interaction', 'buttonText'])).toBeUndefined();

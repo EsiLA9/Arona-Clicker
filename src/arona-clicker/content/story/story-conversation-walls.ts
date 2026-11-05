@@ -29,7 +29,6 @@ export const hoshinoConversationStories: PassiveStoryEntry[] = [
     .build(),
   passiveStory('base:passivestory:hoshino_bond_invite', 'base:story:hoshino_bond_invite')
     .owner('Hoshino')
-    .kizuna('base:activestory:bond_hoshino_evening')
     .replayable()
     .inits()
     .repeatable(false)

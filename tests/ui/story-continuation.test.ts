@@ -9,7 +9,7 @@ import { bindEvents } from '../../src/ui/controller/controller-events';
 const parent = 'test:passivestory:ui_parent', child = 'test:activestory:ui_child';
 const area = 'base:area:schale_rooftop';
 let game: GameInstance, ctrl: UIController;
-function setup(invitation = false) {
+function setup(invitation = false, travelChild = false) {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
     { id: parent, storyId: 'test:story:ui_parent', type: 'passive', owner: 'Hoshino', repeatable: false, weight: 1, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, kizuna: { entryId: child, ...(invitation ? { areaId: area } : {}) } },
@@ -19,7 +19,10 @@ function setup(invitation = false) {
       { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } },
       { id: 'tail', type: 'talklet', stageId: 's', content: { kind: 'talk', speaker: '星野', text: '原聊天后文' } },
     ] },
-    { id: 'test:story:ui_child', name: 'Child', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: [
+    { id: 'test:story:ui_child', name: 'Child', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: travelChild ? [
+      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回主厅', result: { actions: [{ kind: 'travel', areaId: 'base:area:schale_main' }] } } },
+      { id: 'body', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '独立子故事正文' } },
+    ] : [
       { id: 'body', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '独立子故事正文' } },
     ] },
   ])]);
@@ -29,6 +32,7 @@ function setup(invitation = false) {
   ctrl = new UIController(game, document.querySelector('#app')!);
   ctrl.started = true;
   bindEvents(ctrl);
+  if (travelChild) expect(game.travelToArea(area).success).toBe(true);
   game.story.startStory(parent, 'passive', 'Hoshino');
   ctrl.openContactsWorkspace('Hoshino');
   ctrl.render();
@@ -93,5 +97,20 @@ describe('story continuation surfaces', () => {
     expect(game.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('card');
     ctrl.render(); ctrl.refreshChatPanel();
     expect(game.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('card');
+  });
+  it('updates the active Story scene and theme context immediately after a Story travel action', () => {
+    setup(false, true);
+    const travelEvents: unknown[] = [];
+    game.eventBus.on('storyContextMoved', event => { if (event.type === 'storyContextMoved') travelEvents.push(event); });
+    document.querySelector<HTMLElement>('[data-story-card-token]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-story-gate-confirm]')!.click();
+    ctrl.render();
+    expect(ctrl.panelState.storyReplay?.context).toEqual({ type: 'area', areaId: area });
+    const replayId = ctrl.panelState.storyReplay!.replayId;
+    document.querySelector<HTMLButtonElement>('[data-send]')!.click();
+    ctrl.render();
+    expect(game.getView().currentAreaId).toBe('base:area:schale_main');
+    expect(travelEvents).toContainEqual(expect.objectContaining({ context: { type: 'area', areaId: 'base:area:schale_main' }, replayId }));
+    expect(ctrl.panelState.storyReplay?.context).toEqual({ type: 'area', areaId: 'base:area:schale_main' });
   });
 });

@@ -181,7 +181,7 @@ describe('Story Editor authoring model and persistence', () => {
     expect(storyList(state, sources)).toHaveLength(1);
     state.search = '找不到';
     expect(storyList(state, sources)).toEqual([]);
-    expect(state.currentId).toBe(`source:${source.id}`);
+    expect(state.target).toEqual({ kind: 'story', id: source.id });
   });
 
   it('does not save a source merely because it was viewed', () => {

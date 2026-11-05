@@ -27,6 +27,7 @@ export function validateStoryContinuations(entries: readonly StoryEntryDef[], do
         const input = node.interaction;
         if (input.kind === 'kizunaCard') { cards++; if (child) fail(id, 'NestedKizuna'); }
         if (input.kind === 'areaContinue') { if (!areaIds.has(input.areaId)) fail(id, 'AreaNotFound'); if (child) fail(id, 'ChildAreaWait'); }
+        if (input.kind === 'entryCard' && input.card.continuation) { cards++; if (child) fail(id, 'NestedKizuna'); if (input.card.continuation.areaId && !areaIds.has(input.card.continuation.areaId)) fail(id, 'AreaNotFound'); }
         if (input.kind === 'entryCard' && child) fail(id, 'NestedEntryCard');
         if (input.kind === 'button') result(input.result);
         if (input.kind === 'choice') { input.sharedActions?.forEach(action); input.options.forEach(x => result(x.result)); }
@@ -36,9 +37,13 @@ export function validateStoryContinuations(entries: readonly StoryEntryDef[], do
   };
   for (const entry of entries) {
     const count = walk(entry.storyId, false);
-    if (count > 1 || count !== Number(Boolean(entry.kizuna))) fail(entry.id, 'OneCardAndBindingRequired');
-    if (!entry.kizuna) continue;
-    const binding = entry.kizuna;
+    if (count > 1 || entry.kizuna && count !== 1 || !entry.kizuna && count > 1) fail(entry.id, 'OneCardAndBindingRequired');
+    const continuationNode = stories.get(entry.storyId)?.nodes?.find(node => node.type === 'click' && node.interaction.kind === 'entryCard' && node.interaction.card.continuation);
+    const continuation = continuationNode?.type === 'click' && continuationNode.interaction.kind === 'entryCard' ? continuationNode.interaction.card.continuation : undefined;
+    if (!entry.kizuna && !continuation) continue;
+    const continuationEntryId = continuationNode?.type === 'click' && continuationNode.interaction.kind === 'entryCard' ? continuationNode.interaction.card.request.entryId : undefined;
+    const binding = entry.kizuna ?? (continuation && continuationEntryId ? { entryId: continuationEntryId, areaId: continuation.areaId, returnFlags: continuation.returnFlags } : undefined);
+    if (!binding) continue;
     const target = entries.find(x => x.id === binding.entryId);
     if (!target || target.type !== 'active' || target.id === entry.id || target.kizuna || targets.has(target.id)) fail(entry.id, 'InvalidChildTarget');
     targets.add(target!.id);

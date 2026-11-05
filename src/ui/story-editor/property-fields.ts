@@ -1,3 +1,4 @@
+import { renderStoryTransfer } from './transfer-view';
 import { structuredKey } from './authoring-model';
 import { currentDraft } from './model';
 import { renderStructuredValue } from './structured-value';
@@ -66,10 +67,10 @@ function bodyEditor(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, 
   const path = node?.type === 'talklet' ? ['content','text']
     : kind === 'button' ? ['interaction','text']
       : kind === 'entryCard' ? ['interaction','card','buttonText']
-        : kind === 'kizunaCard' || kind === 'areaContinue' ? ['interaction','buttonText'] : undefined;
+        : kind === 'areaContinue' ? ['interaction','buttonText'] : undefined;
   const property = path ? ` data-story-property-path="${esc(ctx,pathText(path))}"` : '';
-  const hint = ['entryCard','kizunaCard','areaContinue'].includes(String(kind)) ? '<small class="story-editor-hint">留空时使用该入口的默认按钮文案。</small>' : '';
-  return `<label class="story-editor-property">正文<textarea rows="3" data-editor-key="story-body:${esc(ctx,nodeId)}" data-story-body-node="${esc(ctx,nodeId)}"${property}${readOnly(state)}>${esc(ctx,readStoryNodeBody(draft,nodeId))}</textarea>${hint}</label>`;
+  const hint = ['entryCard','areaContinue'].includes(String(kind)) ? '<small class="story-editor-hint">留空时使用该入口的默认按钮文案。</small>' : '';
+  return `<label class="story-editor-property">正文<textarea rows="3" data-editor-field="text" data-editor-key="story-body:${esc(ctx,nodeId)}" data-story-body-node="${esc(ctx,nodeId)}"${property}${readOnly(state)}>${esc(ctx,readStoryNodeBody(draft,nodeId))}</textarea>${hint}</label>`;
 }
 function branch(ctx: UIContext, label: string, path: Path, current: unknown, values: readonly [string, string][], state: StoryEditorState): string {
   const discriminator = path[path.length - 1]; const objectPath = path.slice(0, -1);
@@ -114,7 +115,7 @@ function presentationEditor(ctx: UIContext, state: StoryEditorState, path: Path,
 }
 function transferEditor(ctx: UIContext, state: StoryEditorState, path: Path, value: Obj | null, draft?: StoryDraft): string {
   const mode=val(value,'mode'); const id=String(val(value,'storyId')??''); const target=ctx.game.registry.stories.get(id);
-  return `<div class="story-editor-property-group">${branch(ctx,'转移方式',[...path,'mode'],mode,[['goto','跳转'],['insert','插入并返回']],state)}${draft ? storyReference(ctx,state,[...path,'storyId'],id,draft) : scalar(ctx,'Story',[...path,'storyId'],id,state,'ref','story')}<p class="story-editor-hint">${mode==='goto'?`goto 离开当前正文并进入“${esc(ctx,target?.name??(id||'目标 Story'))}”；不创建返回点。`:`insert 先播放“${esc(ctx,target?.name??(id||'目标 Story'))}”，结束后回到调用位置的下一节点。`}</p></div>`;
+  return `<div class="story-editor-property-group">${branch(ctx,'转移方式',[...path,'mode'],mode,[['goto','跳转'],['insert','插入并返回']],state)}${draft ? storyReference(ctx,state,[...path,'storyId'],id,draft) : scalar(ctx,'Story',[...path,'storyId'],id,state,'ref','story')}<p class="story-editor-hint">${mode==='goto'?`goto 离开当前正文并进入“${esc(ctx,target?.name??(id||'目标 Story'))}”；不创建返回点。`:`insert 先播放“${esc(ctx,target?.name??(id||'目标 Story'))}”，结束后回到调用位置的下一节点。`}</p>${renderStoryTransfer(ctx,state,{ mode: mode === 'goto' || mode === 'insert' ? mode : undefined, storyId: id })}</div>`;
 }
 function storyReference(ctx: UIContext,state:StoryEditorState,path:Path,value:unknown,draft:StoryDraft):string {
   const current=value==null?'':String(value); const options=storyReferenceOptions(ctx,'story'); const self=draft.document.id;
@@ -135,11 +136,25 @@ function cursorOwnerSelect(ctx: UIContext, state: StoryEditorState, path: Path, 
   const missing = unknown ? `<option value="${esc(ctx,owner)}" selected>${esc(ctx,owner)}（原值，角色目录中不存在）</option>` : '';
   return `<label class="story-editor-property">游标归属<select data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value="__global__"${owner == null ? ' selected' : ''}>全局（null）</option>${characters.map(character => `<option value="${esc(ctx,character.id)}"${owner === character.id ? ' selected' : ''}>${esc(ctx,character.displayName)}</option>`).join('')}${missing}</select><small class="story-editor-hint">全局 null 与角色字符串是两种显式取值。</small></label>`;
 }
-function entryCardEditor(ctx: UIContext, state: StoryEditorState, path: Path, card: Obj | null, requestPath: Path): string {
+function entryCardEditor(ctx: UIContext, state: StoryEditorState, path: Path, card: Obj | null, requestPath: Path, draft: StoryDraft, nodeId: string): string {
   const request = record(val(card,'request')) ?? record(card);
-  const out = [scalar(ctx,'Active Entry', [...requestPath,'entryId'], val(request,'entryId'), state, 'ref','activeEntry'), cursorOwnerSelect(ctx,state,[...requestPath,'owner'],val(request,'owner'))];
+  const out = [storyEntryReference(ctx,state,[...requestPath,'entryId'],val(request,'entryId'),draft), cursorOwnerSelect(ctx,state,[...requestPath,'owner'],val(request,'owner'))];
   if (card) out.push(scalar(ctx,'标题',[...path,'title'],val(card,'title'),state),labelledChoices(ctx,'卡片对齐',[['left','左'],['right','右']],val(card,'align'),[...path,'align'],state,true));
+  const continuation = record(val(card,'continuation'));
+  const continuationPath = [...path,'continuation'];
+  const continuationCreate = `<button type="button" class="mini-action" data-story-init-object="true" data-story-path="${esc(ctx,pathText(continuationPath))}"${disabled(state)}>完成后返回当前故事</button>`;
+  out.push(optional(ctx,'父故事续接',continuationPath,continuation!==null,state,continuation
+    ? `${scalar(ctx,'赴约地点',[...continuationPath,'areaId'],val(continuation,'areaId'),state,'ref','area')}${renderStructuredValue(ctx,nodeId,[...continuationPath,'returnFlags'],continuation.returnFlags,'回传局部标记白名单',draft.structuredInputs,state.storageBlocked,0,(scope,p)=>structuredKey(draft,scope,p))}`
+    : continuationCreate, undefined, undefined, undefined, continuationCreate));
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
+}
+function storyEntryReference(ctx: UIContext,state:StoryEditorState,path:Path,value:unknown,draft:StoryDraft):string {
+  const current=value==null?'':String(value);
+  const registry=storyReferenceOptions(ctx,'activeEntry');
+  const drafts=state.drafts.flatMap(item=>item.authoring?.activeStories??[]);
+  const options=[...registry,...drafts.filter(x=>!registry.some(item=>item.value===x.id)).map(x=>({value:x.id,label:`主动 · ${x.openingTitle||x.id}（草稿）`}))];
+  const missing=current&&!options.some(item=>item.value===current)?`<option value="${esc(ctx,current)}" selected>${esc(ctx,current)}（目标不存在）</option>`:'';
+  return `<label class="story-editor-property">目标 StoryEntry<select data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${current?'':' selected'}>选择主动 Entry…</option>${missing}${options.map(item=>`<option value="${esc(ctx,item.value)}"${item.value===current?' selected':''}>${esc(ctx,item.label)}</option>`).join('')}</select></label>`;
 }
 
 const actionKinds: readonly [string,string][] = [['state','状态动作'],['travel','移动'],['entryRequest','请求剧情入口'],['overlay','覆盖层演出'],['presentation','表现演出'],['localFlag','局部标记']];
@@ -237,7 +252,7 @@ function overlayEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: 
     const cp=[...path,'content']; const content=record(val(value,'content')); const kind=val(content,'kind'); out.push(branch(ctx,'内容类型',[...cp,'kind'],kind,[['text','文本'],['message','消息'],['entryCard','入口卡']],state));
     if(kind==='text') out.push(scalar(ctx,'文本',[...cp,'text'],val(content,'text'),state,'textarea'),labelledChoices(ctx,'文本模板',[['default','默认'],['title','标题'],['badge','徽标'],['note','注记']],val(content,'template'),[...cp,'template'],state,true),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
     if(kind==='message') out.push(contentEditor(ctx,state,[...cp,'content'],record(val(content,'content'))),presentationEditor(ctx,state,[...cp,'presentation'],record(val(content,'presentation'))),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
-    if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...cp,'card'],record(val(content,'card')),[...cp,'card','request']));
+    if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...cp,'card'],record(val(content,'card')),[...cp,'card','request'],draft,nodeId));
   }
   if(command==='clearId') out.push(`<label class="story-editor-property">覆盖层 ID<input list="${listId}" data-editor-key="${esc(ctx,key([...path,'id']))}" data-story-property-path="${esc(ctx,pathText([...path,'id']))}" value="${esc(ctx,val(value,'id')??'')}"${readOnly(state)}><datalist id="${listId}">${storyOverlayIds(ctx,draft).map(id=>`<option value="${esc(ctx,id)}"></option>`).join('')}</datalist></label><p class="story-editor-hint">候选来自当前 Story 与可达转移。只清除当前 owner 的同 ID 覆盖层；未找到时不改聊天流。</p>`);
   if(command==='clearAllTexts') out.push('<p class="story-editor-hint">清除当前 owner 的全部演出覆盖层，保留聊天历史与 Story 进度。</p>');
@@ -374,7 +389,7 @@ function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value
   return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${labelledChoices(ctx,'条件目标',targets,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state,conditionRef?'ref':'text',conditionRef,conditionHint)}${labelledChoices(ctx,'比较方式',[['==','等于'],['!=','不等于'],['>=','大于等于'],['<=','小于等于'],['>','大于'],['<','小于']],val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
-  const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['kizunaCard','关联羁绊'],['areaContinue','到地点继续']],state)];
+  const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['areaContinue','到地点继续']],state)];
   out.push(bodyEditor(ctx,state,draft,nodeId));
   if(kind==='button') {
     const press=record(val(interaction,'press')); const pressPath=[...path,'press'];
@@ -389,10 +404,9 @@ function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interacti
     const optionsPath=[...path,'options']; const options=array(val(interaction,'options'));
     out.push(listHeader(ctx,'选项（按顺序）',optionsPath,state),...options.map((item,index)=>choiceOption(ctx,state,[...optionsPath,index],record(item),optionsPath,index,options.length,draft,nodeId)));
   }
-  if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...path,'card'],record(val(interaction,'card')),[...path,'card','request']));
+  if(kind==='entryCard') out.push(entryCardEditor(ctx,state,[...path,'card'],record(val(interaction,'card')),[...path,'card','request'],draft,nodeId));
   if(kind==='areaContinue') out.push(scalar(ctx,'续播地点',[...path,'areaId'],val(interaction,'areaId'),state,'ref','area'));
   if(kind==='areaContinue') out.push('<p class="story-editor-hint">停住当前 Entry；玩家到达指定 Area 后手动接纳，沿同一游标继续后继。</p>');
-  if(kind==='kizunaCard') out.push('<p class="story-editor-hint">从当前 Entry 的羁绊关联读取目标；正式子故事最多一层，结束保留子故事最终场景。</p>');
   return out.join('');
 }
 function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,listPath:Path,index:number,total:number,draft:StoryDraft,nodeId:string):string {

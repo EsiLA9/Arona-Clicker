@@ -10,13 +10,19 @@
 
 ### Story Editor E1
 
+左栏顶部提供 Story、Entry 与发出方标签；标签只切换目录，不改变中右栏当前查看对象。Entry 目录合并 Registry 的 Active / Passive Entry 与已有作者草稿，草稿同 ID 内容优先，并排除草稿显式删除项，支持独立的名称 / ID 搜索。点击 Story 或 Entry 通过同一查看目标切换中右两栏；Entry 中栏复用原有结构化 Entry 表单，配置字段、故事目录、所属 Story 共用的 PassivePool 表单及新增 / 移除操作，以及草稿保存 / 校验 / 应用操作；右栏显示调用关系。Story 右栏的关联 Entry 区域仅保留链接与新增操作。Entry 页面编辑所属 Story 的既有作者草稿，未新增独立 Entry 存储；保存后重新打开可恢复所属 Story 并再次进入 Entry。前进 / 后退共用一份 Story / Entry 浏览历史；返回已访问的 Story 可恢复节点选择、插入位置、滚动与未发送文字。查看目标与历史属于编辑器 UI 会话，不写玩家状态；既有本地草稿信封保持不变。
+
+Story 属性右栏提供直接「调用表」与「被调用表」；Entry 右栏提供递归展开并去重的「潜在调用集」与直接「被调用表」。`relations-model.ts` 复用已声明引用收集器，从 Registry 合并当前 Story / Entry 草稿，按一次调用位置保留来源，建立双向关系；不另存关系表。调用包括顶层及按钮 / 选项的 Story 转移、共享动作 / 结果动作 / Operation 的 Entry 请求与覆盖层卡片、Click 入口卡、Entry 起始 Story、独立后续、旧羁绊绑定及奖励 / 完结反应中的 triggerStory。已读条件、前置条件、分支门控与 Extra 文本不作为调用。潜在调用集包含条件分支并跨 Story / Entry 展开，循环按目标身份去重，不判断运行时条件或实际执行顺序。缺失目标保留 ID 并禁用跳转；关系项复用现有 Story / Entry 导航与浏览历史，不播放剧情。
+
+中栏顶部提供故事浏览的后退 / 前进，左栏选故事、新建及 Transfer 目标跳转共用一份最多 50 步的会话内历史。返回恢复节点选择、插入空位和中 / 右栏滚动；未发送正文仍按草稿保留。后退后打开另一故事会截断前进记录，删除后已不存在的目标在回溯时跳过。切换前保存失败则留在当前故事。历史不进入草稿持久化、StoryDef 或玩家存档。顶层 Transfer、Button / Choice 结果中的 Transfer 及右栏转移属性显示 goto / insert、目标名称和 ID，点击只打开作者文档，优先使用本地草稿；缺失目标保留 ID 并禁用跳转。Click 的 StoryEntry 卡片导航见下文。入口为 `transfer-view.ts`、`controller.ts`，行为见 `tests/ui/story-editor-workspace.test.ts`。
+
 游戏顶栏右侧的“Story 编辑器”打开独立 `story-editor` Workspace，大厅未进入 Init 时也可用。左栏查询当前 Registry 的 Story 定义与本地草稿，按名称/ID 搜索；中栏按 `nodes` 顺序呈现作者节点并在固定底部输入；右栏编辑当前节点，未选中时编辑 Story 名称。三个栏使用共享顶部、单一表面和独立滚动，入口不复用播放用途的 `story` 路由。
 
-作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
+作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行剧情；entryCard 主体按钮只打开目标 Entry 编辑页，兼容 kizunaCard 在关联目标唯一时同样支持跳转。目标缺失或未配置时主体禁用，外围节点仍可选择；areaContinue 不跳转到其他 Entry。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
 右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。Talklet 与 Click 共用一个草稿“正文”：Talklet 对话/旁白使用 `content.text`，按钮和入口类 Click 使用对应文案字段。正文跨类型和子类型切换保留；切入空选项组时仅在首次创建时把正文作为第一项，已有选项保持不变。该共享缓存仅用于编辑，不进入 StoryDef。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
 
-字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）、kizunaCard 与 areaContinue。入口类按钮文案为空时沿用各自运行时默认描述。Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。呈现字段常显，在“呈现”标题下平铺气泡位置、文字对齐、头像显示与头像引用，各有标签和用途说明，不需要先启用整个对象；未填不代写默认值，下拉框可切回默认并移除对应字段。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
+字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）与 areaContinue。编辑器不提供 kizunaCard 作者模式；已有内容仍由兼容运行时处理。入口类按钮文案为空时沿用各自运行时默认描述。Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。呈现字段常显，在“呈现”标题下平铺气泡位置、文字对齐、头像显示与头像引用，各有标签和用途说明，不需要先启用整个对象；未填不代写默认值，下拉框可切回默认并移除对应字段。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
 
 Choice 的每个选项预览左侧有局部标记绑定卡。将该 Choice 后的 StoryNode 拖入卡片，会成对写入 option 结果的 `localFlag set true` 与目标节点的 `requiresFlag`；标记名使用 Story、option ID 和递增序号组成的 `Story-choiceId-num` 风格。卡片能列出绑定节点、逐项解除并级联改名；自动生成 `node_<32位hex>` 的目标 ID 会收到可取消的易读 ID 更名提示。标记反查与创建受标记节点目前只提供模型接口，不增加 UI。该便利功能只维护标准 Story 字段，不增加运行时合同或 Schema。
 
@@ -36,13 +42,13 @@ Choice 的每个选项预览左侧有局部标记绑定卡。将该 Choice 后�
 
 ### Story 作者事务、结构值与投放
 
-Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry、PassivePool、校验、隔离试播与目标包保存。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。另存为新身份复制正文，保留原 Story / 外部引用，新副本重新配置入口。
+Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry 链接与新增、校验、隔离试播与目标包保存；Entry 与 PassivePool 详情在 Entry 中栏编辑。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。另存为新身份复制正文，保留原 Story / 外部引用，新副本重新配置入口。
 
 `structured-value.ts` 提供 JSON、全部 ValueExpression 运算及数值来源、Extra 各类型、条件 / 效果 / 反应 / 后续的构造模板。字段以平铺标题与控件编辑，可增删字段、增删换序列表；引用提供当前目录及未发布草稿候选。切换构造明确替换本项。theme 的 palette / tokens / nodes / background 和 Story Extra 不再仅供只读。`structuredInputs/structuredRows` 只随作者草稿保存，稳定行身份与原始错误输入不进入正式内容；无效数字即使保留了上一合法值，也会阻止提交。作者输入与渲染限 128 层 JSON（覆盖引擎 Extra 32 层）；超过时显式拒绝。
 
 `GameCommands.validateStoryAuthoring/applyStoryAuthoring` 接受一组 `stories/activeStories/passiveStories/passivePools` 及显式 removed 列表。`Registry.saveStoryAuthoring()` 在候选表上完成作者形状、Story 正式投影、引用、单层子调用和池循环检查，全部通过后才更改正式表；删除被引用内容会拒绝。应用后重建 Entry 标签声明 / 收集索引，不写玩家进度。旧的单文档 `saveStoryDefinition` 入口仍保留，不能代替多内容事务。
 
-羁绊关联用专用控件编辑：目标 Active Entry、直接进入 / Area 赴约、赴约地点、回传白名单；不提供 after / 嵌套回调结构。候选限制与最终服务校验共同遵守一层子故事和独占关联规则。`areaContinue` 仍编辑同一游标的续播地点。
+编辑器不提供 Entry 的 kizuna 关联字段或 Click 的 kizunaCard 创建入口；已有 Entry.kizuna / kizunaCard 内容仍由底层兼容机制投影、校验与播放。新编写的跨 Entry 内容使用剧情入口卡选择目标 StoryEntry。`areaContinue` 仍编辑同一游标的续播地点。
 
 目录信息保存于 Entry 的 `extra.v.storyCatalog`，其值为 dict，category / part / chapter 为 str；category 与 part 必填，chapter 可空。`withAuthoredStoryCatalog()` 从已应用 Entry 投影目录，不修改内置表；重定位条目避免重复，分类身份编码后不占用导航的分隔符。作者通过“配置故事目录”创建这组元数据，随 Entry 一起保存 / 导出。
 

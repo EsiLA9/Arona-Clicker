@@ -430,25 +430,25 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.storyFollowUps.getDiagnostics().find(d => d.followUpId === 'rooftop-meet')?.state).toBe('fulfilled');
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop').map(delivery => delivery.entryId))
-      .toContain('base:activestory:hoshino_rooftop_meet');
+      .toContain('test:activestory:followup-target');
     expect(g.getView().currentStory).toBeNull();
 
-    const accepted = g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    const accepted = g.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop');
     expect(accepted.success).toBe(true);
     expect(g.getView().currentStory).not.toBeNull();
-    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(g.getView().currentStory!.storyDefId).toBe('test:story:followup-target');
 
     let finishGuard = 0;
     finishStory(g);
-    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'test:activestory:followup-target')?.status)
       .toBe('completed');
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toEqual([]);
     const completedCount = g.state.storyLog.length;
-    expect(g.story.replayStory('base:activestory:hoshino_rooftop_meet').success).toBe(true);
+    expect(g.story.replayStory('test:activestory:followup-target').success).toBe(true);
     let replayGuard = 0;
     finishStory(g);
     expect(g.state.storyLog).toHaveLength(completedCount);
-    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+    expect(g.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'test:activestory:followup-target')?.status)
       .toBe('completed');
   });
 
@@ -505,7 +505,7 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
     const deliveries = g.story.getAreaStoryDeliveries('base:area:schale_rooftop');
     expect(deliveries.map(delivery => delivery.entryId)).toEqual(expect.arrayContaining([
-      'base:activestory:hoshino_rooftop_meet', parallelActive.id,
+      'test:activestory:followup-target', parallelActive.id,
     ]));
     expect(deliveries).toHaveLength(2);
     expect(g.getView().currentStory?.storyId).toBe(parallelPassive.id);
@@ -602,7 +602,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.init([baseDatapack]);
     g.inits.startNewGame('base:init:schale_office');
     g.mutations.createAreaStoryDelivery({
-      entryId: 'base:activestory:hoshino_rooftop_meet',
+      entryId: 'test:activestory:followup-target',
       areaId: 'base:area:schale_main',
       sourceId: 'test:old-init',
     });
@@ -624,7 +624,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.inits.startNewGame('base:init:schale_office');
     let guard = 0;
     finishStory(g);
-    const active = g.registry.activeStories.get('base:activestory:hoshino_rooftop_meet')!;
+    const active = g.registry.activeStories.get('test:activestory:followup-target')!;
     const ownerEntry: ActiveStoryEntry = { ...active, owner: 'Hoshino' };
     registrySet(g.registry.activeStories, ownerEntry.id, ownerEntry);
     registrySet(g.registry.storyEntries, ownerEntry.id, ownerEntry);
@@ -677,24 +677,24 @@ describe('基础数据包池树（schale_office）', () => {
 
     restored.load(source.save());
     expect(restored.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
-    const accepted = restored.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    const accepted = restored.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop');
     expect(accepted.success).toBe(true);
-    expect(restored.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+    expect(restored.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'test:activestory:followup-target')?.status)
       .toBe('pending');
 
     restored.story.clearCurrentStory();
     expect(restored.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
-    expect(restored.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
+    expect(restored.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop').success).toBe(true);
     playing.load(restored.save());
-    expect(playing.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
-    expect(playing.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+    expect(playing.getView().currentStory?.storyDefId).toBe('test:story:followup-target');
+    expect(playing.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'test:activestory:followup-target')?.status)
       .toBe('pending');
 
     let finishGuard = 0;
     finishStory(playing);
-    expect(playing.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'base:activestory:hoshino_rooftop_meet')?.status)
+    expect(playing.state.areaStoryDeliveries?.find(delivery => delivery.entryId === 'test:activestory:followup-target')?.status)
       .toBe('completed');
-    expect(playing.state.storyLog.some(row => row.storyId === 'base:story:hoshino_rooftop_meet')).toBe(true);
+    expect(playing.state.storyLog.some(row => row.storyId === 'test:story:followup-target')).toBe(true);
 
     source.stop();
     restored.stop();
@@ -728,6 +728,7 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.travelToArea('base:area:schale_rooftop').success).toBe(true);
     readRooftopInvite(g);
     expect(g.state.triggersCompleted).not.toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
+    setCurrentArea(g, 'base:area:schale_rooftop');
     expect(g.getView().currentStory).toBeNull();
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toEqual([]);
     expect(g.travelToArea('base:area:schale_main').success).toBe(true);
@@ -769,7 +770,7 @@ describe('基础数据包池树（schale_office）', () => {
     g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
-    const rejected = g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop');
+    const rejected = g.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop');
     expect(rejected).toMatchObject({ success: false, error: 'AlreadyActive' });
     g.eventBus.emit({ type: 'areaEntered', areaId: 'base:area:schale_rooftop', fromAreaId: 'base:area:schale_main' });
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
@@ -796,8 +797,8 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.getView().currentStory?.storyId).toBe(extId);
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
-    expect(g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
-    expect(g.getView().currentStory?.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(g.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop').success).toBe(true);
+    expect(g.getView().currentStory?.storyDefId).toBe('test:story:followup-target');
   });
 
   // 播完邀约、进入天台后出现独立的待接取「天台相遇」剧情。
@@ -815,8 +816,8 @@ describe('基础数据包池树（schale_office）', () => {
     expect(g.state.triggersCompleted).toContain('base:passivestory:hoshino_conv_2#follow-up:rooftop-meet');
     expect(g.getView().currentStory).toBeNull();
     expect(g.story.getAreaStoryDeliveries('base:area:schale_rooftop')).toHaveLength(1);
-    expect(g.story.acceptAreaStoryDelivery('base:activestory:hoshino_rooftop_meet', 'base:area:schale_rooftop').success).toBe(true);
-    expect(g.getView().currentStory!.storyDefId).toBe('base:story:hoshino_rooftop_meet');
+    expect(g.story.acceptAreaStoryDelivery('test:activestory:followup-target', 'base:area:schale_rooftop').success).toBe(true);
+    expect(g.getView().currentStory!.storyDefId).toBe('test:story:followup-target');
   });
 
   // 回归：渲染守卫按 entry.id 反查 owner（story.storyId 是对外 Entry.id），

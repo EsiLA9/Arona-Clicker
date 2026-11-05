@@ -262,9 +262,10 @@ function renderChoiceCard(
 export interface StoryClickPreviewOptions {
   /** Editor-only decoration placed beside each Choice option; Runtime rendering does not use it. */
   readonly choiceOptionAddon?: (option: { id: string; text: string }, index: number) => string;
+  readonly entryTarget?: { readonly id: string; readonly available: boolean };
 }
 
-/** Read-only author preview of the input controls as they appear during Story playback. */
+/** Author preview; optional Entry navigation only opens its editor page. */
 export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickInteraction | undefined, previewOptions: StoryClickPreviewOptions = {}): string {
   if (!interaction) return '<div class="story-editor-action-node"><span>Click</span><strong>未配置交互</strong></div>';
   if (interaction.kind === 'button') {
@@ -283,14 +284,14 @@ export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickI
   if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: '', title: '羁绊剧情', buttonText: interaction.buttonText?.trim() || (interaction.kind === 'kizunaCard' ? '进入羁绊剧情'
       : `前往${ctx.game.registry.areas.get(interaction.areaId)?.name ?? interaction.areaId}接续故事`),
-  }, undefined, true)}</div>`;
+  }, undefined, true, previewOptions.entryTarget ? !previewOptions.entryTarget.available : false, previewOptions.entryTarget?.id)}</div>`;
   const card = interaction.card;
   return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: card?.request?.entryId ?? '',
     title: card?.title,
     buttonText: card?.buttonText?.trim() || '进入羁绊剧情',
     align: card?.align ?? 'left',
-  }, undefined, true)}</div>`;
+  }, undefined, true, previewOptions.entryTarget ? !previewOptions.entryTarget.available : false, previewOptions.entryTarget?.id)}</div>`;
 }
 
 /** "正在输入"气泡：复用 talk 气泡骨架（头像/名字/侧向），正文为 send-dots 节奏点（§4 页级打字提示）。
@@ -562,13 +563,16 @@ function renderKizunaCard(
   token?: string,
   preview = false,
   disabled = false,
+  editorEntryId?: string,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText?.trim() || '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
+  const tag = editorEntryId === undefined ? 'div' : 'button';
+  const editorAttributes = editorEntryId === undefined ? '' : ` type="button" data-editor-entry-target="${ctx.escapeHtml(editorEntryId)}"${disabled ? ' disabled title="Entry 不存在或尚未配置"' : ''}`;
   return `
-    <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
+    <${tag} class="kizuna-card${alignCls}${editorEntryId === undefined ? '' : ' story-editor-entry-card'}"${editorAttributes}${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">
@@ -584,5 +588,5 @@ function renderKizunaCard(
           </div>
         </div>
       </div>
-    </div>`;
+    </${tag}>`;
 }

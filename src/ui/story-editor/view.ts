@@ -1,8 +1,12 @@
-import { renderStoryAuthoringFields } from './authoring-view';
+import { renderStoryAuthoringFields, renderStoryEntryFields } from './authoring-view';
+import { renderStoryTransfer } from './transfer-view';
+import { renderStoryRelations } from './relations-view';
 import type { UIContext } from '../runtime/context';
 import { renderChatEntry, renderStoryClickPreview } from '../components/story/story';
 import { renderWorkspaceFrame, type WorkspaceColumnSpec, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../components/shared/workspace-titlebar';
+import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntries, storyEditorTargetKey } from './model';
 import { renderTabs } from '../components/shared/tabs';
 import { renderAvatarSvg } from '../presentation/avatar-renderer';
 import { choiceOptionFlagBindings, composer, currentDraft, currentNode, senderChangeAllowed, senderForNode, storyList, type StoryDraft, type StoryDraftNode, type StoryEditorState, type StorySender } from './model';
@@ -161,15 +165,23 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     }
   } else if (node.type === 'click') {
     const click = node as Partial<Extract<StoryDraftNode, { type: 'click' }>>;
-    body = renderStoryClickPreview(ctx, click.interaction, click.interaction?.kind === 'choice' ? {
-      choiceOptionAddon: (option, index) => renderChoiceOptionFlagCard(ctx, state, draft, node.id, index, option.id),
-    } : undefined);
+    const legacyTargets = [...new Set([...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].flatMap(entry => entry.kizuna ? [entry.kizuna.entryId] : []))];
+    const targetId = click.interaction?.kind === 'entryCard' ? click.interaction.card?.request?.entryId ?? ''
+      : click.interaction?.kind === 'kizunaCard' ? legacyTargets.length === 1 ? legacyTargets[0] : '' : undefined;
+    body = renderStoryClickPreview(ctx, click.interaction, {
+      ...(targetId === undefined ? {} : { entryTarget: { id: targetId, available: storyEntries(state,ctx.game.registry.storyEntries).has(targetId) } }),
+      ...(click.interaction?.kind === 'choice' ? {
+      choiceOptionAddon: (option, index) => {
+        const transfer = click.interaction?.kind === 'choice' ? click.interaction.options[index]?.result?.transfer : undefined;
+        return renderChoiceOptionFlagCard(ctx, state, draft, node.id, index, option.id) + (transfer ? renderStoryTransfer(ctx, state, transfer) : '');
+      },
+      } : {}),
+    });
+    if (click.interaction?.kind === 'button' && click.interaction.result?.transfer) body += renderStoryTransfer(ctx, state, click.interaction.result.transfer);
   } else {
     if (node.type === 'operation') body = renderOperationPreview(ctx, node.action);
     else if (node.type === 'transfer') {
-      const configured = Boolean(node.transfer);
-      const label = configured ? '转移至另一 Story' : '尚未配置转移';
-      body = `<div class="story-editor-action-node"><span>Transfer</span><strong>${label}</strong></div>`;
+      body = renderStoryTransfer(ctx, state, node.transfer);
     } else {
       const target = node.type === 'moveToArea' ? node.areaId : node.characterId;
       body = `<div class="story-editor-action-node"><span>${node.type === 'moveToArea' ? '移动到 Area' : '移动到 Chara'}</span><strong>${ctx.escapeHtml(target || '尚未选择目标')}</strong></div>`;
@@ -213,33 +225,48 @@ function inspector(ctx: UIContext, state: StoryEditorState): string {
       : `<label>起始区域<select data-editor-field="story-context-area"${state.storageBlocked ? ' disabled' : ''}><option value="">选择 Area</option>${[...ctx.game.registry.areas.values()].map(item => `<option value="${e(item.id)}"${startContext?.type === 'area' && startContext.areaId === item.id ? ' selected' : ''}>${e(item.name)} · ${e(item.id)}</option>`).join('')}</select></label>`}
     <label>Story ID<code>${e(draft.document.id)}</code></label>
     <label>来源<span>${e(draft.sourceId ?? '本地新建')}</span></label>
-    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p>${renderStoryAuthoringFields(ctx,state,draft)}</div>`;
+    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p>${renderStoryRelations(ctx,state)}${renderStoryAuthoringFields(ctx,state,draft)}</div>`;
   const index = draft.document.nodes.findIndex(item => item.id === node.id);
   const properties = renderStoryNodeProperties(ctx, state, draft, node, index);
   return `<div data-editor-key="inspector:${e(node.id)}">${properties}</div>`;
 }
 function baseColumn(ctx: UIContext, state: StoryEditorState, key: string, panel: 'left' | 'center' | 'right', title: string): WorkspaceColumnSpec {
-  return { key, definitionId: key, bindingKey: currentDraft(state)?.draftId ?? '', slot: panel,
+  return { key, definitionId: key, bindingKey: storyEditorTargetKey(state), slot: panel,
     width: `var(--workspace-${panel}-width)`, workspaceOwner: 'story-editor', hostId: `${panel}Panel.${key}`,
     themeScope: `${panel}.story-editor`, surface: 'panel', scroll: panel === 'left' ? 'content' : 'auto', className: `story-editor-column story-editor-${panel}`,
     header: renderWorkspaceTitlebar(ctx, panel, title, panel === 'left' ? 'data-column-back' : undefined), content: '' };
 }
+function entryName(ctx: UIContext, state: StoryEditorState, entry: StoryEntryDef): string {
+  return entry.openingTitle || state.drafts.find(draft => draft.document.id === entry.storyId)?.document.name
+    || ctx.game.registry.stories.get(entry.storyId)?.name || entry.id;
+}
 export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
   const list = storyList(state, ctx.game.registry.stories);
   const draft = currentDraft(state);
+  const entrySearch = state.entrySearch.trim().toLocaleLowerCase();
+  const entries = [...storyEntries(state, ctx.game.registry.storyEntries).values()]
+    .filter(entry => !entrySearch || `${entryName(ctx, state, entry)}\n${entry.id}`.toLocaleLowerCase().includes(entrySearch));
   const senders = storySenders(ctx);
   const senderSearch = state.senderSearch.trim().toLocaleLowerCase();
   const visibleSenders = senders.filter(sender => !senderSearch || `${sender.label}\n${sender.id}`.toLocaleLowerCase().includes(senderSearch));
   const selectedSender = composer(state).sender;
   const switchTabs = renderTabs(ctx, 'left', [
     { id: 'stories', label: 'Story', action: 'story-editor-sidebar:stories' },
+    { id: 'entries', label: 'Entry', action: 'story-editor-sidebar:entries' },
     { id: 'senders', label: '发出方', action: 'story-editor-sidebar:senders' },
   ], state.sidebarMode);
   return { ...baseColumn(ctx, state, 'story-editor-list', 'left', 'Story'), content: `<div class="story-editor-list-content">
     <section class="story-editor-sidebar-pane story-editor-list-content" data-editor-key="sidebar-stories" role="tabpanel"${state.sidebarMode === 'stories' ? '' : ' hidden'}>
       <label class="story-editor-search">搜索 Story<input type="search" data-editor-key="search" data-editor-search value="${ctx.escapeHtml(state.search)}" placeholder="名称或 ID"></label>
       <div class="story-editor-actions">${button('new', '新建', state.storageBlocked)}${button('rename', '重命名', !draft || state.storageBlocked)}${button('delete-draft', '删除草稿', state.storageBlocked || !draft || !draft.persisted && !draft.dirty, true)}</div>
-      <div class="story-editor-list" data-scroll-owner="content-region" data-scroll-key="stories" data-editor-key="story-list">${list.map(item => `<button type="button" class="story-editor-list-item${item.key === state.currentId ? ' is-selected' : ''}" data-editor-key="story:${ctx.escapeHtml(item.key)}" data-editor-story="${ctx.escapeHtml(item.key)}" aria-pressed="${item.key === state.currentId}"><strong>${ctx.escapeHtml(item.name || '未命名 Story')}</strong><small>${ctx.escapeHtml(item.storyId)}</small>${item.draft && (item.draft.dirty || item.draft.persisted) ? '<span class="story-editor-draft-label">草稿</span>' : ''}</button>`).join('') || empty('没有匹配的 Story。')}</div>
+      <div class="story-editor-list" data-scroll-owner="content-region" data-scroll-key="stories" data-editor-key="story-list">${list.map(item => `<button type="button" class="story-editor-list-item${item.storyId === draft?.document.id ? ' is-selected' : ''}" data-editor-key="story:${ctx.escapeHtml(item.key)}" data-editor-story="${ctx.escapeHtml(item.key)}" aria-pressed="${item.storyId === draft?.document.id}"><strong>${ctx.escapeHtml(item.name || '未命名 Story')}</strong><small>${ctx.escapeHtml(item.storyId)}</small>${item.draft && (item.draft.dirty || item.draft.persisted) ? '<span class="story-editor-draft-label">草稿</span>' : ''}</button>`).join('') || empty('没有匹配的 Story。')}</div>
+    </section>
+    <section class="story-editor-sidebar-pane story-editor-list-content" data-editor-key="sidebar-entries" role="tabpanel"${state.sidebarMode === 'entries' ? '' : ' hidden'}>
+      <label class="story-editor-search">搜索 Entry<input type="search" data-editor-key="entry-search" data-editor-entry-search value="${ctx.escapeHtml(state.entrySearch)}" placeholder="名称或 ID"></label>
+      <div class="story-editor-list" data-scroll-owner="content-region" data-scroll-key="entries" data-editor-key="entry-list">${entries.map(entry => {
+        const selected = state.target?.kind === 'entry' && state.target.id === entry.id;
+        return `<button type="button" class="story-editor-list-item${selected ? ' is-selected' : ''}" data-editor-key="entry:${ctx.escapeHtml(entry.id)}" data-editor-entry="${ctx.escapeHtml(entry.id)}" aria-pressed="${selected}"><strong>${ctx.escapeHtml(entryName(ctx, state, entry))}</strong><small>${ctx.escapeHtml(entry.id)}</small><span class="story-editor-draft-label">${entry.type === 'active' ? 'Active' : 'Passive'}</span></button>`;
+      }).join('') || empty('没有匹配的 Entry。')}</div>
     </section>
     <section class="story-editor-sidebar-pane story-editor-senders-content" data-editor-key="sidebar-senders" role="tabpanel"${state.sidebarMode === 'senders' ? '' : ' hidden'}>
       <label class="story-editor-search">搜索发出方<input type="search" data-editor-key="sender-search" data-editor-sender-search value="${ctx.escapeHtml(state.senderSearch)}" placeholder="名称或 ID"></label>
@@ -247,6 +274,10 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
       <div class="story-editor-sender-list" data-scroll-owner="content-region" data-scroll-key="senders" data-editor-key="sender-list">${visibleSenders.map(sender => `<button type="button" class="story-editor-list-item story-editor-sender-item${sender.id === selectedSender ? ' is-selected' : ''}" data-editor-key="sender:${ctx.escapeHtml(sender.id)}" data-editor-sender="${ctx.escapeHtml(sender.id)}" aria-pressed="${sender.id === selectedSender}"${!draft || state.storageBlocked ? ' disabled' : ''}>${senderAvatar(ctx, sender)}<strong>${ctx.escapeHtml(sender.label)}</strong></button>`).join('') || empty('没有匹配的发出方。')}</div>
     </section>
   </div>`, header: renderWorkspaceTitlebar(ctx, 'left', 'Story 编辑器', 'data-column-back', switchTabs) };
+}
+function editorHistoryHeader(ctx: UIContext, state: StoryEditorState, title: string): string {
+  return renderWorkspaceTitlebar(ctx, 'center', title, undefined,
+    `<div class="story-editor-history" role="group" aria-label="浏览历史"><button type="button" class="workspace-back" data-editor-action="history-back" aria-label="后退" title="后退"${state.visitIndex > 0 ? '' : ' disabled'}>←</button><button type="button" class="workspace-back" data-editor-action="history-forward" aria-label="前进" title="前进"${state.visitIndex >= 0 && state.visitIndex < state.visits.length - 1 ? '' : ' disabled'}>→</button></div>`);
 }
 export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
   const draft = currentDraft(state);
@@ -260,6 +291,7 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
     ? `${renderInsertionPoint(ctx, state, nodes[0].id)}${nodes.map((node, index) => `${renderEditorNode(ctx, state, node)}${renderInsertionPoint(ctx, state, nodes[index + 1]?.id ?? null)}`).join('')}`
     : `<p class="story-editor-empty">从下方发送第一条正文，或添加一个节点。</p>${renderInsertionPoint(ctx, state, null)}`;
   return { ...baseColumn(ctx, state, 'story-editor-flow', 'center', draft?.document.name || '编辑'),
+    header: editorHistoryHeader(ctx, state, draft?.document.name || '编辑'),
     content: `${renderSelectedOverlayCanvases(ctx,state)}<div class="story-editor-flow" data-editor-key="flow">${flow}</div>`,
   footer: `<div class="story-editor-composer" data-editor-key="composer"><div class="story-editor-actions">${button('info', 'Story 信息', !draft)}${button('save', '保存草稿', !editable)}${button('save-to-runtime', '保存到运行内容', !editable)}${button('restore-source', '读取本地/系统数据', !editable, true)}<span data-editor-status>${draft?.dirty ? '未保存' : draft?.persisted ? '已保存' : draft ? '已注册' : ''}</span></div>
       <p class="story-editor-hint" data-editor-key="save-notice" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p>
@@ -276,10 +308,22 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
       <div class="story-editor-actions">${button('click', '＋ Click', !editable)}${button('operation', '＋ Operation', !editable)}${button('transfer', '＋ Transfer', !editable)}${button('moveToArea', '＋ 移动到 Area', !editable)}${button('moveToCharaspace', '＋ 移动到 Chara', !editable)}</div></div>` };
 }
 export function createStoryEditorInspectorColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
-  return { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', '属性'), content: `<div data-editor-key="inspector">${inspector(ctx, state)}</div>` };
+  return { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', '属性'),
+    header: renderWorkspaceTitlebar(ctx, 'right', '属性', currentNode(state) ? 'data-column-back' : undefined),
+    content: `<div data-editor-key="inspector">${inspector(ctx, state)}</div>` };
 }
 export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState): WorkspaceFrameSpec {
-  return { id: 'story-editor', updates: 'external', columns: [createStoryEditorListColumn(ctx, state), createStoryEditorFlowColumn(ctx, state), createStoryEditorInspectorColumn(ctx, state)] };
+  const columns = [createStoryEditorListColumn(ctx, state)];
+  if (state.target?.kind === 'entry') {
+    const entry = storyEntries(state, ctx.game.registry.storyEntries).get(state.target.id);
+    const name = entry ? entryName(ctx, state, entry) : state.target.id;
+    columns.push({ ...baseColumn(ctx, state, 'story-editor-flow', 'center', name),
+      header: editorHistoryHeader(ctx, state, name),
+      content: `<div data-editor-key="entry-page" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}"><p class="story-editor-hint">${ctx.escapeHtml(state.target.id)}</p>${entry ? renderStoryEntryFields(ctx,state) : empty('该 Entry 已不存在。')}<p class="story-editor-hint" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p><p class="story-editor-error" role="status"${state.error ? '' : ' hidden'}>${ctx.escapeHtml(state.error ?? '')}</p></div>` },
+    { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', 'Entry 属性'),
+      content: `<div data-editor-key="entry-inspector" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${renderStoryRelations(ctx,state)}</div>` });
+  } else columns.push(createStoryEditorFlowColumn(ctx, state), createStoryEditorInspectorColumn(ctx, state));
+  return { id: 'story-editor', updates: 'external', columns };
 }
 export function renderStoryEditorWorkspace(ctx: UIContext, state: StoryEditorState): string {
   return renderWorkspaceFrame(ctx, createStoryEditorFrame(ctx, state));

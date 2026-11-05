@@ -23,13 +23,13 @@ function finishChannel(g: GameInstance, channel: string) {
   }
   throw new Error('Channel did not finish');
 }
-function setup(atArea = false, nodes?: StoryDef['nodes']) {
+function setup(atArea = false, nodes?: StoryDef['nodes'], entryCard = false) {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
-    { id: parent, storyId: 'test:story:parent', type: 'passive', repeatable: false, replayable: true, weight: 1, owner: 'Hoshino', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, ...(nodes ? {} : { kizuna: { entryId: child, returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } }) },
+    { id: parent, storyId: 'test:story:parent', type: 'passive', repeatable: false, replayable: true, weight: 1, owner: 'Hoshino', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, ...(!entryCard && !nodes ? { kizuna: { entryId: child, returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } } : {}) },
     { id: child, storyId: 'test:story:child', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
   ], [
-    { id: 'test:story:parent', name: 'parent', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: nodes ?? [{ id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } }, talk('tail', 'chosen')] },
+    { id: 'test:story:parent', name: 'parent', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: nodes ?? [entryCard ? { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'entryCard', card: { request: { entryId: child, entryType: 'active', owner: null, intent: 'card' }, continuation: { returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } } } } : { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } }, talk('tail', 'chosen')] },
     { id: 'test:story:child', name: 'child', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: [
       { id: 'flag', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'chosen', value: false } }, talk('body'),
     ] },
@@ -57,6 +57,50 @@ describe('bounded story continuations', () => {
     expect(g.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('tail');
     expect(g.story.saveCursors().chats['variant:Hoshino'].playback.run!.localFlags).toEqual({ chosen: false });
     expect(g.story.getPlaybackView('Hoshino').entries.some(e => e.text === 'body')).toBe(false);
+  });
+  it('runs an entryCard continuation as a child, restores it after save, and returns only allowed flags', () => {
+    const g = setup(false, undefined, true);
+    expect(g.story.startStory(parent, 'passive', 'Hoshino').success).toBe(true);
+    const startChild = g.story.clickSend('Hoshino');
+    expect(startChild.type).toBe('completed');
+    if (startChild.type === 'completed') expect(startChild.advance.success).toBe(true);
+    const snapshot = g.save(); g.load(snapshot);
+    const channel = g.story.saveCursors().child!.playback.run!.source.replayId!;
+    finishChannel(g, channel);
+    g.story.activateOwner('Hoshino');
+    expect(g.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('tail');
+    expect(g.story.saveCursors().chats['variant:Hoshino'].playback.run!.localFlags).toEqual({ chosen: false });
+  });
+  it('delivers an entryCard continuation at its authored Area and accepts it manually', () => {
+    const g = setup(true, undefined, true);
+    g.story.startStory(parent, 'passive', 'Hoshino');
+    expect(g.travelToArea(area).success).toBe(true);
+    expect(g.story.getAreaStoryDeliveries(area).some(x => x.entryId === child)).toBe(true);
+    const offer = g.story.getAreaStoryDeliveries(area).find(x => x.entryId === child)!;
+    expect(g.story.acceptAreaStoryDelivery(offer.id!, area).success).toBe(true);
+    expect(g.story.saveCursors().child).toBeTruthy();
+  });
+  it('moves the active Story scene context with a travel action while the run continues', () => {
+    const destination = 'base:area:schale_main';
+    const g = setup(false, [
+      { id: 'wait', type: 'click', stageId: 's', interaction: { kind: 'areaContinue', areaId: area } },
+      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回夏莱主厅', result: { actions: [{ kind: 'travel', areaId: destination }] } } },
+      talk('tail'),
+    ]);
+    expect(g.story.startStory(parent, 'passive', 'Hoshino').success).toBe(true);
+    finishStory(g, 0, 'Hoshino');
+    expect(g.travelToArea(area).success).toBe(true);
+    const delivery = g.story.getAreaStoryDeliveries(area).find(x => x.entryId === parent)!;
+    expect(g.story.acceptAreaStoryDelivery(delivery.id!, area).success).toBe(true);
+    const channel = g.story.getActiveStoryChannel()!;
+    const moved: unknown[] = [];
+    g.eventBus.on('storyContextMoved', event => { if (event.type === 'storyContextMoved' && event.replayId === channel.replayId) moved.push(event); });
+    expect(g.story.getReplayStoryView(channel.replayId)!.nodeId).toBe('travel');
+    const playback = g.story.getReplayPlaybackView(channel.replayId)!;
+    expect(g.story.submitReplayStoryInput(channel.replayId, playback.token!).success).toBe(true);
+    expect(g.state.currentAreaId).toBe(destination);
+    expect(g.story.getActiveStoryChannel()!.context).toEqual({ type: 'area', areaId: destination });
+    expect(moved).toContainEqual(expect.objectContaining({ type: 'storyContextMoved', context: { type: 'area', areaId: destination }, replayId: channel.replayId }));
   });
   it('uses authored continuation button copy when present', () => {
     const g = setup();
@@ -212,18 +256,23 @@ describe('bounded story continuations', () => {
     g.story.activateOwner('Hoshino');
     expect(g.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('tail');
   });
-  it('runs the migrated rooftop as one Entry through the Area continuation and inserted scene', () => {
+  it('keeps the rooftop invitation and encounter in one Entry across the Area continuation', () => {
     const g = setup();
     const entry = 'base:passivestory:hoshino_conv_2';
     expect(g.story.startStory(entry, 'passive', 'Hoshino', { skipConditions: true }).success).toBe(true);
     finishStory(g, 0, 'Hoshino');
     expect(g.story.getCurrentStoryView('Hoshino')!.nodeId).toBe('rooftop-continue');
+    const runId = g.story.getCurrentStoryView('Hoshino')!.runId;
     g.travelToArea(area);
     const invitation = g.story.getAreaStoryDeliveries(area).find(x => x.entryId === entry)!;
     expect(g.story.acceptAreaStoryDelivery(invitation.id!, area).success).toBe(true);
-    finishChannel(g, g.story.getActiveStoryChannel()!.replayId);
+    const channel = g.story.getActiveStoryChannel()!;
+    expect(channel.entryId).toBe(entry);
+    expect(channel.runId).toBe(runId);
+    expect(g.story.getReplayStoryView(channel.replayId)!.nodeId).toBe('rooftop-arrival');
+    finishChannel(g, channel.replayId);
     expect(g.state.storyLog.some(x => x.storyId === 'base:story:hoshino_rooftop_hint')).toBe(true);
-    expect(g.state.areaStoryDeliveries?.some(x => x.entryId === 'base:activestory:hoshino_rooftop_meet') ?? false).toBe(false);
+    expect(g.state.storyLog.some(x => x.storyId === 'base:story:hoshino_rooftop_meet')).toBe(false);
   });
   it('recovers a committed child result after a notification failure without granting twice', () => {
     const g = setup();

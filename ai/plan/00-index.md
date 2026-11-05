@@ -6,8 +6,8 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0357-story-choice-flags-and-deferred-operations]] | 待施工 | Choice 收敛为条件与局部 flags，效果迁至后续 Operation；先盘点内置内容、转移与持久 flag 消费者，合同收紧及旧内容处理待裁定 |
 | [[ai/plan/task-0355-story-editor-theme-position-and-flow-tools]] | 实现与自动化验证完成 | 主题专用设置、六点定位预设、信息流 / 控制流影响说明与隔离表现预览已接入；原全量失败项已逐类处理，最终 371 文件 / 3689 项通过；待桌面鼠标验收 |
-| [[ai/plan/task-0356-story-kizuna-entry-migration]] | 进行中 | 把 Story 编辑器中的关联羁绊作者表达迁移为 StoryEntry 剧情入口，保留旧运行机制 |
 | [[ai/plan/task-0354-story-editor-authoring-api]] | 代码 / 自动化施工完成 | 作者 API、结构值、Entry / 投放、隔离试播与包保存已接入；新增 16 项通过，待桌面手动验收 |
 | [[ai/plan/task-0353-story-editor-remaining-gaps]] | 调查完成，已转入 0354 | 保留调查时缺口快照；施工与验收见 0354 |
 | [[ai/plan/task-0352-story-cursor-space-and-history]] | 代码 / 自动化验收完成 | 正式历史、爱心卡片与星野三空间样例已实施；后续取消子结束自动召回，70 项定向及类型 / 架构通过，待浏览器手动验收 |

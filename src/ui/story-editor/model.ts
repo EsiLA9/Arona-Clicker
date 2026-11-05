@@ -1,6 +1,7 @@
 import type { StoryAuthoringPatch } from '../../data-services/authoring/story-authoring';
 import type { StructuredInputs } from './structured-value';
 import type { StoryDef } from '../../data-services/contracts/story';
+import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode, StoryMoveToAreaNode, StoryMoveToCharaspaceNode } from '../../data-services/contracts/story-node';
 import { isStoryLocalFlagAction, validStoryFlagName } from '../../data-services/validation/story-run-flags';
 import { localFlagAction, localFlagInput, parseLocalFlagInput, type LocalFlagInputs, type LocalFlagInput } from './flag-fields';
@@ -47,14 +48,25 @@ export interface StoryDraft {
   structuredRows?: Record<string,string[]>;
 }
 export interface StoryComposer { sender: string; text: string }
+export type StoryEditorTarget = { kind: 'story'; id: string } | { kind: 'entry'; id: string };
+export interface StoryEditorVisit {
+  target: StoryEditorTarget;
+  selectedNodeId: string | null;
+  insertionBeforeNodeId: string | null;
+  centerScroll: number;
+  rightScroll: number;
+}
 export interface StoryEditorState {
+  visits: StoryEditorVisit[];
+  visitIndex: number;
   drafts: StoryDraft[];
-  currentId: string | null;
+  target: StoryEditorTarget | null;
   selectedNodeId: string | null;
   /** Transient gap anchor before a node; null means the end of the current Story. */
   insertionBeforeNodeId: string | null;
-  sidebarMode: 'stories' | 'senders';
+  sidebarMode: 'stories' | 'entries' | 'senders';
   search: string;
+  entrySearch: string;
   senderSearch: string;
   composers: Record<string, StoryComposer>;
   error: string | null;
@@ -76,10 +88,28 @@ export const cloneStory = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const identity = (prefix: string): string => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 export function createStoryEditorState(): StoryEditorState {
-  return { drafts: [], currentId: null, selectedNodeId: null, insertionBeforeNodeId: null, sidebarMode: 'stories', search: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
+  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, insertionBeforeNodeId: null, sidebarMode: 'stories', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
-  return state.drafts.find(draft => draft.draftId === state.currentId);
+  const target = state.target;
+  return target?.kind === 'story' ? state.drafts.find(draft => draft.document.id === target.id) : undefined;
+}
+/** Entry forms edit the existing owner draft while the viewing target stays an Entry. */
+export function currentAuthoringDraft(state: StoryEditorState): StoryDraft | undefined {
+  const target = state.target;
+  if (target?.kind !== 'entry') return currentDraft(state);
+  return [...state.drafts].reverse().find(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
+}
+export function storyEditorTargetKey(state: StoryEditorState): string {
+  return state.target ? `${state.target.kind}:${state.target.id}` : '';
+}
+export function storyEntries(state: StoryEditorState, sources: ReadonlyMap<string, StoryEntryDef>): ReadonlyMap<string, StoryEntryDef> {
+  const entries = new Map(sources);
+  for (const draft of state.drafts) {
+    for (const id of [...(draft.authoring?.removed?.activeStories ?? []), ...(draft.authoring?.removed?.passiveStories ?? [])]) entries.delete(id);
+    for (const entry of [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])]) entries.set(entry.id, entry);
+  }
+  return entries;
 }
 export function currentNode(state: StoryEditorState): StoryDraftNode | undefined {
   return currentDraft(state)?.document.nodes.find(node => node.id === state.selectedNodeId);
@@ -165,7 +195,8 @@ export function storyDefinitionFromDraft(input: StoryDraft | StoryDraftDocument,
   return { ok: true, story: projected.story };
 }
 export function composer(state: StoryEditorState): StoryComposer {
-  return state.currentId ? state.composers[state.currentId] ??= { sender: 'narrator', text: '' } : { sender: 'narrator', text: '' };
+  const draft = currentDraft(state);
+  return draft ? state.composers[draft.draftId] ??= { sender: 'narrator', text: '' } : { sender: 'narrator', text: '' };
 }
 export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>): StoryListItem[] {
   const entries = [...sources.values()].map(source => {
@@ -202,7 +233,7 @@ export function selectStory(state: StoryEditorState, key: string, sources: Reado
     }
   }
   if (!draft) return false;
-  state.currentId = draft.draftId;
+  state.target = { kind: 'story', id: draft.document.id };
   state.selectedNodeId = null;
   state.insertionBeforeNodeId = null;
   return true;
@@ -211,7 +242,7 @@ export function newStory(state: StoryEditorState): StoryDraft {
   const id = identity('story');
   const draft: StoryDraft = { draftId: id, sourceId: null, document: { id: `local:story:${id}`, name: '未命名 Story', nodes: [], stages: {} }, dirty: true, persisted: false, savedAt: null };
   state.drafts.push(draft);
-  state.currentId = id;
+  state.target = { kind: 'story', id: draft.document.id };
   state.selectedNodeId = null;
   state.insertionBeforeNodeId = null;
   return draft;

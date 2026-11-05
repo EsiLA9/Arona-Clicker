@@ -4,11 +4,15 @@
 
 ## 复用模式
 
+Story / Entry 的调用关系复用 `.story-editor-list` 与 `.story-editor-list-item`，在既有属性栏内以「调用表 / 潜在调用集」及「被调用表」分区，不新增滚动宿主。每项显示对象类型、名称、ID 和调用来源；缺失目标禁用。`relations-view.ts` 使用原有 Story / Entry 目标按钮属性与浏览历史，`patchEditorDOM` 按目标和调用位置 key 协调关系行，保留三栏、输入焦点与滚动容器。机制见 [[runtime-editor-and-project-checks]]，行为证据见 `tests/ui/story-editor-relations-model.test.ts`、`tests/ui/story-editor-authoring.test.ts`；未做浏览器视觉验收。
+
+Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 与 `.workspace-back` 控件，按钮位于既有 `panel-tabs-region`，不新增滚动宿主。Transfer 目标使用 `transfer-view.ts` 的统一方式 / 名称 / ID 行与 `.mini-action`，顶层节点、结果分支及属性栏共用；缺失目标禁用。切换走 `workspace.story-editor` 区域协调，保留顶部和正文滚动宿主，历史返回后恢复对应位置。状态边界见 [[runtime-editor-and-project-checks]]，DOM 与导航行为见 `tests/ui/story-editor-workspace.test.ts`；未做浏览器视觉验收。
+
 正式羁绊调用与地点续播复用 `story.ts` 的 `.kizuna-card / .yuzu-kizuna-*` 爱心卡片，标题来自关联 Entry / Story，目的地来自 Area。赴约或等待态没有可提交 token，避免远程开播；正式子结束停在最终场景，恢复该场景原有合法 `.send-button` / Choice，不另设召回按钮。结果已回到当前父空间时使用普通“继续故事”Click。沿用原聊天滚动宿主和区域刷新，不新增页面或卡片皮肤。行为验证见 `tests/ui/story-space-history.test.ts`、`story-continuation.test.ts`；尚未做浏览器视觉验收。
 
 运行态已提交的 Choice 复用 `story.ts` 的 Choice 卡片和现有 disabled 样式，保留全部选项，所选项显示“已选择”。历史卡片的 `.chat-current` 根以 Runtime 输出 ID 对应的流实例 key 协调；下一组 Choice 保持独立的当前输入。更新沿用聊天区域刷新与滚动恢复，不新增滚动宿主、定时器或整页刷新。行为验证见 `tests/ui/story-consecutive-choice.test.ts`，保存归属见 [[story-chat-and-theme-presentation]]。
 
-Story 编辑器左栏顶部以 Switch 切换 Story 列表和发出方目录；两种视图保持挂载，切换只显隐对应面板，保留各自搜索、滚动和编辑中的 Composer。发出方来自当前 Registry 的旁白、老师与角色；目录项只显示圆形头像和名字，优先使用默认角色差分的色组或图片，无头像时显示名字首字。当前发出方在目录中标记。后续入口可复用该左栏视图切换，不替换三栏 Workspace。
+Story 编辑器左栏顶部以 Switch 切换 Story、Entry 列表和发出方目录；三种视图保持挂载，切换只显隐对应面板，保留各自搜索、滚动和编辑中的 Composer。Entry 沿用 Story 列表项样式，显示名称、ID 与 Active / Passive 类型。点击 Story 或 Entry 统一切换中右两栏，复用相同 Frame、列身份、顶部栏与滚动容器；Entry 中栏复用原有结构化字段表单和 `.story-editor-authoring`，并在独立的被动池区块编辑所属 Story 共用的 PassivePool，右栏显示调用关系；Story 右栏以入口链接替代 Entry 详情表单，PassivePool 表单与新增操作也移至 Entry 中栏，浏览历史共用中栏前进 / 后退控件。StoryNode 的 Entry 入口卡沿用爱心卡片外观，主体为编辑器导航按钮，缺失目标时禁用；覆盖编辑预览的 pointer-events 限制，使卡片可以打开 Entry 而不执行剧情。发出方来自当前 Registry 的旁白、老师与角色；目录项只显示圆形头像和名字，优先使用默认角色差分的色组或图片，无头像时显示名字首字。当前发出方在目录中标记。后续入口可复用该左栏视图切换，不替换三栏 Workspace。
 
 Story 编辑器固定输入区沿用 Talklet 的头像、姓名与气泡层级；圆形发出方头像入口切换左栏到发出方目录，正文编辑留在聊天气泡内，发送使用共享 `send-button` / `send-bubble` 样式。输入更新保留 textarea 节点与焦点。“保存草稿”和“保存到运行内容”仍在操作组中；运行内容保存是显式动作，不随输入或导航自动提交。成功与错误提示使用原位状态区，保留输入、选中节点与滚动；“仅当前运行有效”说明保存范围。写入机制见 [[runtime-editor-and-project-checks]]。
 
@@ -20,7 +24,7 @@ Story 编辑器的属性栏顶部以 Switch 切换 Talklet、Click、Operation�
 
 Story 编辑器的“呈现”使用常显大标题，下方平铺“气泡位置、文字对齐、头像显示、头像引用”四项，每项以 label、控件和用途说明组成。不套可选区块、竖线缩进或内部卡片；未设置时沿用默认，下拉框选值后仍可切回默认。复用 `property-fields.ts` 的 `presentationEditor`、`.story-editor-property` 与 `.story-editor-hint`，仅 `.story-editor-presentation` 负责标题和字段间距。字段使用原有路径 key 局部协调，保留输入焦点、光标与属性栏滚动；行为证据见 `tests/ui/story-editor-properties.test.ts`。
 
-Story 作者配置沿用右栏原滚动宿主：Story 信息按文档身份、扩展、关联内容、检查 / 试播 / 保存的大标题平铺；结构值的路径标题标识实际数据关系，不套多层卡片或竖线缩进。类型构造、字段增删、列表换序与引用候选复用普通 label / select / input 与 mini-action；切换构造说明会替换本项。Entry 羁绊关联用目标、直接 / Area 赴约、白名单的专用字段，不展示内部游标。结构值输入和行沿稳定 key 更新，编辑 Entry ID、换序和错误输入不重建输入或滚动宿主。隔离试播只在投影变化时刷新，离开即释放。入口为 `authoring-view.ts` / `structured-value.ts` 与 `.story-editor-authoring/.story-editor-value/.story-editor-preview`；状态与接口边界见 [[runtime-editor-and-project-checks]]，DOM 证据见 `tests/ui/story-editor-authoring.test.ts`。当前未做浏览器视觉验收。
+Story 作者配置沿用右栏原滚动宿主：Story 信息按文档身份、扩展、关联内容、检查 / 试播 / 保存的大标题平铺；结构值的路径标题标识实际数据关系，不套多层卡片或竖线缩进。类型构造、字段增删、列表换序与引用候选复用普通 label / select / input 与 mini-action；切换构造说明会替换本项。编辑器不提供 Entry 羁绊绑定字段，旧绑定只在兼容数据和运行时保留；跨 Entry 内容通过剧情入口卡选目标 StoryEntry。结构值输入和行沿稳定 key 更新，编辑 Entry ID、换序和错误输入不重建输入或滚动宿主。隔离试播只在投影变化时刷新，离开即释放。入口为 `authoring-view.ts` / `structured-value.ts` 与 `.story-editor-authoring/.story-editor-value/.story-editor-preview`；状态与接口边界见 [[runtime-editor-and-project-checks]]，DOM 证据见 `tests/ui/story-editor-authoring.test.ts`。当前未做浏览器视觉验收。
 
 Story 主题 / 覆盖层作者控件沿用同一右栏字段与中栏节点流，不再嵌套滚动容器。`presentation.theme` 的色板、token、语义颜色与背景层按具体合同呈现；空字段显示继承来源，显式覆盖可恢复继承。引用的 ColorGroup / 实体 ThemeDef 通过 `ThemeContentEditorService` 在选定编辑态包打开会话，使用其 preview / save / cancel 路径。`overlay.show` 的位置画布位于中栏，重用 `renderChatTexts`，归一化 x/y 双向映射到同一草稿字段；拖动过程中只更新画布与数值输入，释放时合并到 `workspace.story-editor` 区域刷新。稳定动作路径识别覆盖层，不以坐标或数组索引作 DOM 身份；浮层锚点仍由 `patchEditorDOM` 的 mutation range 生命周期处理。执行影响说明跟随 Overlay / Transfer / Entry 动作字段。自动化行为入口为 `tests/ui/story-editor-properties.test.ts`、`tests/engine/story-authoring.test.ts` 与 `tests/engine/theme-content-editor-service.test.ts`；本轮未完成桌面浏览器手动验收。
 

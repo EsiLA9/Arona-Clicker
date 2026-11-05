@@ -1,6 +1,6 @@
 import { validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { LocalStorageAdapter, type StorageAdapter } from '../../data-services/persistence/storage-adapter';
-import { cloneStory, type StoryDraft, type StoryEditorState } from './model';
+import { cloneStory, currentAuthoringDraft, type StoryDraft, type StoryEditorState } from './model';
 import { stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
 import type { LocalFlagInputs } from './flag-fields';
 import { isStoryFlagValue } from '../../data-services/validation/story-run-flags';
@@ -40,7 +40,7 @@ function validDocument(value: unknown): boolean {
       && (node.pacing === undefined || record(node.pacing));
     if (node.type !== 'click' || !record(node.interaction)) return false;
     const interaction = node.interaction;
-    if (interaction.kind === 'kizunaCard') return optionalString(interaction.buttonText);
+    if (interaction.kind === 'kizunaCard') return optionalString(interaction.buttonText); // Legacy runtime data remains round-trippable.
     if (interaction.kind === 'areaContinue') return optionalString(interaction.areaId) && optionalString(interaction.buttonText);
     return interaction.kind === 'button' ? optionalString(interaction.text)
       : interaction.kind === 'choice' ? (interaction.options === undefined || Array.isArray(interaction.options) && interaction.options.every(option => record(option) && optionalString(option.text)))
@@ -116,7 +116,8 @@ export class StoryDraftPersistence {
           ...(draft.structuredRows === undefined ? {} : { structuredRows: cloneStory(draft.structuredRows) as Record<string,string[]> }) });
       }
       state.drafts = drafts;
-      state.currentId = typeof value.currentId === 'string' && ids.has(value.currentId) ? value.currentId : null;
+      const current = drafts.find(draft => draft.draftId === value.currentId);
+      state.target = current ? { kind: 'story', id: current.document.id } : null;
       if (removedLegacyReplies) this.save(state, true);
     } catch (error) {
       state.storageBlocked = true;
@@ -132,7 +133,7 @@ export class StoryDraftPersistence {
     const drafts = state.drafts.filter(draft => draft.persisted || draft.dirty);
     try {
       if (!drafts.every(draft => validDocument(draft.document) && validFlagInputs(draft.localFlagInputs, draft.document) && validEditorState(draft.editorState, draft.document))) throw new Error('草稿基本结构或节点身份无效');
-      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: state.currentId,
+      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: currentAuthoringDraft(state)?.draftId ?? null,
         drafts: drafts.map(draft => ({ draftId: draft.draftId, sourceId: draft.sourceId, document: draft.document, savedAt: draft.dirty ? savedAt : draft.savedAt,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: draft.localFlagInputs }),
           ...(draft.editorState === undefined ? {} : { editorState: draft.editorState }),

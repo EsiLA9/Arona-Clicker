@@ -80,7 +80,7 @@ function authoredBody(node: Record<string, unknown> | undefined): string | undef
   if (interaction.kind === 'button' && typeof interaction.text === 'string') return interaction.text;
   if (interaction.kind === 'choice' && Array.isArray(interaction.options) && object(interaction.options[0]) && typeof interaction.options[0].text === 'string') return interaction.options[0].text;
   if (interaction.kind === 'entryCard' && object(interaction.card) && typeof interaction.card.buttonText === 'string') return interaction.card.buttonText;
-  return typeof interaction.buttonText === 'string' ? interaction.buttonText : undefined;
+  return interaction.kind === 'areaContinue' && typeof interaction.buttonText === 'string' ? interaction.buttonText : undefined;
 }
 
 export function readStoryNodeBody(draft: StoryDraft, nodeId: string): string {
@@ -101,7 +101,7 @@ function applyStoryNodeBody(draft: StoryDraft, nodeId: string, body: string): vo
   if (node?.type !== 'click' || !object(node.interaction)) return;
   const interaction = node.interaction;
   if (interaction.kind === 'button') editProperty(draft, nodeId, ['interaction', 'text'], body);
-  else if (interaction.kind === 'entryCard' || interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') {
+  else if (interaction.kind === 'entryCard' || interaction.kind === 'areaContinue') {
     const path: PropertyPath = interaction.kind === 'entryCard' ? ['interaction', 'card', 'buttonText'] : ['interaction', 'buttonText'];
     if (body) editProperty(draft, nodeId, path, body);
     else removeProperty(draft, nodeId, path);
