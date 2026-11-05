@@ -2,7 +2,7 @@
 
 > 调查日期：2026-10-28。本文是后续编写的范围与入口，不把候选主题直接当作已验证的机制规范。
 
-> 后续澄清：本轮用户所指的是世界区域的 Area Map，而非 Gameplay B MapRun。Area Map 的专门调查和优先编写范围见 [[ai/plan/report-area-map-wiki-2026-10-28]]；本文保留为更广范围的参考，原有 Gameplay B 排序不代表此次需求的优先级。
+> 后续澄清：本轮用户所指的是世界区域的 Area Map，而非 Gameplay B MapRun。专题调查正文已随旧归档清理；当前机制说明见 [[area-map-overview|Area Map 概览]] 与 [[area-map-projection-and-session|投影与会话]]。本文保留为更广范围的参考，原有 Gameplay B 排序不代表此次需求的优先级。
 
 ## 调查方法与限制
 

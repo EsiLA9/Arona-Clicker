@@ -23,8 +23,8 @@ let style: HTMLStyleElement | null = null;
 const mountedRoots: HTMLElement[] = [];
 
 beforeAll(() => {
-  const main = readFileSync(resolve(process.cwd(), 'src/ui/main.ts'), 'utf8');
-  const imports = [...main.matchAll(/import\('\.\/css\/([^']+\.css)'\)/g)].map(match => match[1]);
+  const gameStyles = readFileSync(resolve(process.cwd(), 'src/ui/css/game.css'), 'utf8');
+  const imports = [...gameStyles.matchAll(/@import\s+['"]\.\/([^'"]+\.css)['"]/g)].map(match => match[1]);
   const relevant = ['layout.css', 'cards.css', 'workspace-controls.css'];
   const order = relevant.map(file => imports.indexOf(file));
   expect(order.every(index => index >= 0)).toBe(true);

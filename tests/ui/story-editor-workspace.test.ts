@@ -23,7 +23,16 @@ describe('Story Editor workspace prototype', () => {
     expect(node, selector).not.toBeNull();
     return node!;
   };
-  const click = (action: string): void => { find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates(); };
+  const click = (action: string): void => {
+    find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates();
+    if (action === 'new') {
+      const draft = currentDraft(ctrl.storyEditor.state);
+      if (draft && !draft.document.startContext) {
+        draft.document = { ...draft.document, startContext: { type: 'area', areaId: game.registry.areas.keys().next().value ?? '' } };
+        draft.dirty = true; ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+      }
+    }
+  };
   const input = (selector: string, value: string): void => {
     const field = find<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(selector);
     field.value = value;
@@ -148,7 +157,7 @@ describe('Story Editor workspace prototype', () => {
     open(); click('new'); click('operation');
     const nodeId = currentNode(ctrl.storyEditor.state)!.id;
     const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-column-action^="story-editor-node-type:"]')];
-    expect(tabs.map(tab => tab.textContent?.trim())).toEqual(['Talklet', 'Click', 'Operation', 'Transfer']);
+    expect(tabs.map(tab => tab.textContent?.trim())).toEqual(['Talklet', 'Click', 'Operation', 'Transfer', '移动到 Area', '移动到 Chara']);
     expect(tabs.find(tab => tab.dataset.columnAction?.endsWith(':operation'))?.getAttribute('aria-selected')).toBe('true');
     expect(root.querySelector('[data-story-node-type]')).toBeNull();
 

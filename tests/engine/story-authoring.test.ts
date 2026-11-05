@@ -4,6 +4,7 @@ import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { emptyStoryAuthoring } from '../../src/data-services/authoring/story-authoring';
 import type { StoryAuthoringPreview } from '../../src/arona-clicker/contracts/runtime/story-authoring';
+import type { StoryClickNode } from '../../src/data-services/contracts/story-node';
 
 const makePatch = () => ({ ...emptyStoryAuthoring(),
   stories: [{ id: 'test:story:authoring', name: '作者故事', startContext: { type: 'area' as const, areaId: baseDatapack.areas[0].id }, stages: { s: { advance: 'input' as const } }, nodes: [
@@ -54,6 +55,31 @@ describe('Story authoring transactions', () => {
     expect(game.registry.stories.has('test:story:authoring')).toBe(false);
     expect(game.state).toEqual(before);
     preview.close(); expect(preview.getView()).toBeNull();
+  });
+  it('projects isolated theme and overlay output as detached visual data', () => {
+    vi.useFakeTimers(); const game=start(); const patch=makePatch();
+    const choice=patch.stories[0].nodes[0] as StoryClickNode & {interaction:Extract<StoryClickNode['interaction'],{kind:'choice'}>};
+    Object.assign(choice.interaction.options[0]!,{result:{actions:[
+      {kind:'localFlag',op:'set',name:'answer',value:{count:3}},
+      {kind:'presentation',command:{command:'theme',value:{tokens:{primary:'#123456'},background:[{kind:'solid',value:'#abcdef'}]}}},
+      {kind:'overlay',command:{command:'show',id:'preview-note',x:.25,y:.75,align:'center',content:{kind:'text',template:'note',text:'隔离覆盖层'}}},
+    ]}});
+    const result=game.createStoryAuthoringPreview(patch,'test:activestory:authoring');expect(result.ok,JSON.stringify(result)).toBe(true);if(!result.ok)return;
+    preview=result.preview;expect(preview.getProjection()?.scene).toEqual({type:'area',id:baseDatapack.areas[0].id});
+    expect(preview.advance('one')).toMatchObject({ok:true});
+    const phases:string[]=[];
+    for(let i=0;i<25&&!preview.getProjection()?.presentation.overlays.length;i++){
+      phases.push(String(preview.getView()?.phase));
+      vi.advanceTimersByTime(60000);
+      const choiceId=preview.getStory()?.page.choices?.[0]?.id;
+      preview.advance(choiceId);
+    }
+    const projection=preview.getProjection();
+    expect(projection?.theme.tokens.primary,JSON.stringify({phases,view:preview.getView(),projection})).toBe('#123456');
+    expect(projection?.theme.background.some(layer=>layer.value==='#abcdef')).toBe(true);
+    expect(projection?.presentation.overlays).toMatchObject([{id:'preview-note',value:{text:'隔离覆盖层',x:.25,y:.75,align:'center'}}]);
+    expect(game.registry.stories.has('test:story:authoring')).toBe(false);
+    preview.close();expect(preview.getProjection()).toBeNull();
   });
   it('follows the child channel and returns only the allowed flags during whole-story preview', () => {
     vi.useFakeTimers(); const game = start(); const patch = makePatch();

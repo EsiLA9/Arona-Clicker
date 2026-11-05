@@ -84,9 +84,12 @@ describe('Story 历史恢复', () => {
 
     expect(game.story.advanceStory(undefined, owner).success).toBe(true);
     controller.refreshChatPanel();
+    const completedHistory = controller.activeStream();
+    expect(completedHistory.map(entry => entry.text)).toEqual([TEXT, TEXT]);
     expect(game.story.replayStory(ENTRY, owner).success).toBe(true);
     controller.refreshChatPanel();
-    expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT, TEXT, TEXT]);
+    expect(controller.activeStream().map(entry => entry.text)).toEqual([TEXT, TEXT]);
+    expect(completedHistory.map(entry => entry.text)).toEqual([TEXT, TEXT]);
   });
 
   it('全新 Controller 恢复历史时继续分配唯一消息 ID', () => {

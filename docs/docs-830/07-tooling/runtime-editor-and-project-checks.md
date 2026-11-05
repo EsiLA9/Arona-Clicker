@@ -14,9 +14,9 @@
 
 作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
-右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
+右栏属性面板顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara，下面呈现当前分支基本项、可选能力、字段诊断与节点操作。节点 ID 只读，类型切换保留同一 node.id；切换类型或分支只改变启用状态，旧输入休眠在草稿，恢复时取该节点/该行最近一次输入。Talklet 与 Click 共用一个草稿“正文”：Talklet 对话/旁白使用 `content.text`，按钮和入口类 Click 使用对应文案字段。正文跨类型和子类型切换保留；切入空选项组时仅在首次创建时把正文作为第一项，已有选项保持不变。该共享缓存仅用于编辑，不进入 StoryDef。未启用可选能力时保留开关并收起子项；启用后立即渲染字段，首次进入不代填目标、空效果或首个目录项。不适用的分支不显示也不提交。旧 `stageId` / `stages` 作为兼容字段保存在内容中，不在属性栏编辑，也不决定播放顺序。
 
-字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）；Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。呈现字段常显，在“呈现”标题下平铺气泡位置、文字对齐、头像显示与头像引用，各有标签和用途说明，不需要先启用整个对象；未填不代写默认值，下拉框可切回默认并移除对应字段。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
+字段矩阵覆盖 Talklet 的 talk/narration、呈现与节奏；Click 的 button（press/result）、choice（有序选项、条件、结果与 sharedActions）、entryCard（固定 active/card、owner 全局 null 或角色游标）、kizunaCard 与 areaContinue。入口类按钮文案为空时沿用各自运行时默认描述。Operation 的 state/travel/entryRequest/overlay/presentation 及 localFlag；Transfer 的 goto/insert。呈现字段常显，在“呈现”标题下平铺气泡位置、文字对齐、头像显示与头像引用，各有标签和用途说明，不需要先启用整个对象；未填不代写默认值，下拉框可切回默认并移除对应字段。老师回应由作者追加为 Talklet；分支回应可让 Choice 结果写入局部标记，再由后续 Talklet 的 `requiresFlag` 控制。StoryAction 列表在同一编辑块内复用，行身份来自草稿稳定 rowId 而非数组索引，支持增删与上移下移。style 使用合同明确定义的字段（font/fontSize/color/background/backgroundColor），不写 CSS；theme 的 scope 是特殊切换，只休眠/恢复 area 或 student 的 entityKey，颜色组与 palette/tokens/nodes/background 覆盖保持；setEntityPresentation 先选 target，再选该实体的 optionId，缺目标时选项控件禁用并说明。
 
 Choice 的每个选项预览左侧有局部标记绑定卡。将该 Choice 后的 StoryNode 拖入卡片，会成对写入 option 结果的 `localFlag set true` 与目标节点的 `requiresFlag`；标记名使用 Story、option ID 和递增序号组成的 `Story-choiceId-num` 风格。卡片能列出绑定节点、逐项解除并级联改名；自动生成 `node_<32位hex>` 的目标 ID 会收到可取消的易读 ID 更名提示。标记反查与创建受标记节点目前只提供模型接口，不增加 UI。该便利功能只维护标准 Story 字段，不增加运行时合同或 Schema。
 
@@ -46,7 +46,7 @@ Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry、P
 
 目录信息保存于 Entry 的 `extra.v.storyCatalog`，其值为 dict，category / part / chapter 为 str；category 与 part 必填，chapter 可空。`withAuthoredStoryCatalog()` 从已应用 Entry 投影目录，不修改内置表；重定位条目避免重复，分类身份编码后不占用导航的分隔符。作者通过“配置故事目录”创建这组元数据，随 Entry 一起保存 / 导出。
 
-`createStoryAuthoringPreview()` 使用已载入数据包、当前 Story 作者表、玩家快照与候选内容创建独立 GameInstance；使用原重读播放器验证输入、分支和父子串联，跳过持久效果 / 奖励，移动与演出仅影响隔离实例。返回只读投影与 advance / close 端口，Controller 跟随子通道，并仅在播放投影变化时刷新；换 Story、离开或销毁编辑器时释放定时器与实例。它不等价于正式奖励 / 旅行验收。
+`createStoryAuthoringPreview()` 使用已载入数据包、当前 Story 作者表、玩家快照与候选内容创建独立 GameInstance；使用原重读播放器验证输入、分支和父子串联，跳过持久效果 / 奖励，移动与演出仅影响隔离实例。除播放条目外，`getProjection()` 返回只读虚拟场景、解析后的主题 token / 背景与当前 Run 覆盖层快照；不向 UI 暴露 GameInstance、PlayerState 或可变 Map。Story 编辑器用正式聊天覆盖层 renderer 呈现这些数据，位置画布写回当前 Story 动作的 x / y 草稿字段。Controller 跟随子通道，并仅在播放投影变化时刷新；换 Story、离开或销毁编辑器时释放定时器与实例。它不等价于正式奖励 / 旅行验收。
 
 `AronaClickerRuntime.saveStoryAuthoringToPack()` 只接受明确的编辑态包；新 ID 必须属于目标命名空间，删除必须针对该包已有记录。校验候选包后按身份合并四张作者表，保留图片与其它内容，经 PackManager 保存并沿用包管理导出 / 重载。包库同步保存失败恢复旧记录。此操作保存包，不隐式应用或旅行；“应用 Story 与关联内容”仍是独立操作。单文档草稿、当前运行生效与包保存是三个明确的动作。
 

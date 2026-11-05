@@ -71,6 +71,50 @@ function selectedNode(draft: StoryDraft, nodeId: string): Record<string, unknown
   const index = nodeIndex(draft, nodeId);
   return index < 0 ? undefined : draft.document.nodes[index] as unknown as Record<string, unknown>;
 }
+
+const storyBodyKey = (nodeId: string): string => `${nodeId}|shared-body`;
+function authoredBody(node: Record<string, unknown> | undefined): string | undefined {
+  if (node?.type === 'talklet' && object(node.content) && typeof node.content.text === 'string') return node.content.text;
+  const interaction = node?.type === 'click' && object(node.interaction) ? node.interaction : undefined;
+  if (!interaction) return undefined;
+  if (interaction.kind === 'button' && typeof interaction.text === 'string') return interaction.text;
+  if (interaction.kind === 'choice' && Array.isArray(interaction.options) && object(interaction.options[0]) && typeof interaction.options[0].text === 'string') return interaction.options[0].text;
+  if (interaction.kind === 'entryCard' && object(interaction.card) && typeof interaction.card.buttonText === 'string') return interaction.card.buttonText;
+  return typeof interaction.buttonText === 'string' ? interaction.buttonText : undefined;
+}
+
+export function readStoryNodeBody(draft: StoryDraft, nodeId: string): string {
+  const cached = draft.editorState?.branches?.[storyBodyKey(nodeId)];
+  return typeof cached === 'string' ? cached : authoredBody(selectedNode(draft, nodeId)) ?? '';
+}
+
+function rememberStoryNodeBody(draft: StoryDraft, nodeId: string): string {
+  const state = editorState(draft);
+  const key = storyBodyKey(nodeId);
+  if (typeof state.branches[key] !== 'string') state.branches[key] = authoredBody(selectedNode(draft, nodeId)) ?? '';
+  return state.branches[key] as string;
+}
+
+function applyStoryNodeBody(draft: StoryDraft, nodeId: string, body: string): void {
+  const node = selectedNode(draft, nodeId);
+  if (node?.type === 'talklet') { editProperty(draft, nodeId, ['content', 'text'], body); return; }
+  if (node?.type !== 'click' || !object(node.interaction)) return;
+  const interaction = node.interaction;
+  if (interaction.kind === 'button') editProperty(draft, nodeId, ['interaction', 'text'], body);
+  else if (interaction.kind === 'entryCard' || interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') {
+    const path: PropertyPath = interaction.kind === 'entryCard' ? ['interaction', 'card', 'buttonText'] : ['interaction', 'buttonText'];
+    if (body) editProperty(draft, nodeId, path, body);
+    else removeProperty(draft, nodeId, path);
+  }
+}
+
+export function editStoryNodeBody(draft: StoryDraft, nodeId: string, body: string): boolean {
+  if (!selectedNode(draft, nodeId)) return false;
+  editorState(draft).branches[storyBodyKey(nodeId)] = body;
+  applyStoryNodeBody(draft, nodeId, body);
+  draft.dirty = true;
+  return true;
+}
 export type LiteralKind = 'string' | 'number' | 'boolean';
 function literalKinds(draft: StoryDraft): Record<string, LiteralKind> {
   const state = editorState(draft);
@@ -129,6 +173,8 @@ export function selectDiscriminant(draft: StoryDraft, nodeId: string, path: Prop
   if (object(current) && current[discriminator] !== undefined && typeof current[discriminator] !== 'string') return false;
   const previous = object(current) ? String(current[discriminator]) : '';
   if (previous === branch) return true;
+  const switchingBody = path.length === 1 && (path[0] === 'content' || path[0] === 'interaction');
+  const body = switchingBody ? rememberStoryNodeBody(draft, nodeId) : '';
   const state = editorState(draft);
   const baseKey = propertyKey(draft, nodeId, path);
   if (object(current)) state.branches[`${baseKey}|${discriminator}:${previous}`] = structuredClone(current);
@@ -144,8 +190,15 @@ export function selectDiscriminant(draft: StoryDraft, nodeId: string, path: Prop
   }
   const node = selectedNode(draft, nodeId);
   if (changed && path.length === 1 && path[0] === 'content' && node?.type === 'talklet') {
+    editProperty(draft, nodeId, ['content', 'text'], body);
     if (branch === 'narration') parkPacing(draft, nodeId, node, state);
     else if (branch === 'talk' && (node.presentation as Record<string, unknown> | undefined)?.side !== 'right') restorePacing(draft, nodeId, node, state);
+  }
+  if (changed && path.length === 1 && path[0] === 'interaction' && node?.type === 'click') {
+    if (branch === 'choice') {
+      const options = valueAt(node, ['interaction', 'options']);
+      if (!Array.isArray(options) || options.length === 0) editProperty(draft, nodeId, ['interaction', 'options'], [{ id: 'option1', text: body }]);
+    } else applyStoryNodeBody(draft, nodeId, body);
   }
   return changed;
 }
@@ -342,6 +395,7 @@ export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNod
   if (!['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(type)) return false;
   const node = selectedNode(draft, nodeId);
   if (!node || node.type === type) return Boolean(node);
+  const body = node.type === 'talklet' || node.type === 'click' ? rememberStoryNodeBody(draft, nodeId) : readStoryNodeBody(draft, nodeId);
   const state = editorState(draft);
   const oldType = String(node.type);
   const payload = structuredClone(node); delete payload.type; delete payload.id;
@@ -370,6 +424,7 @@ export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNod
   const nodes = [...draft.document.nodes] as unknown as Record<string, unknown>[];
   nodes[index] = next;
   draft.document = { ...draft.document, nodes: nodes as unknown as StoryDraftNode[] };
+  if (type === 'talklet' || type === 'click') applyStoryNodeBody(draft, nodeId, body);
   const newStage = (type === 'talklet' || type === 'click') && typeof next.stageId === 'string' ? next.stageId : undefined;
   if (newStage && state.inactiveStageIds) state.inactiveStageIds = state.inactiveStageIds.filter(id => id !== newStage);
   draft.dirty = true;

@@ -158,8 +158,8 @@ function clickPage(node: Extract<StoryNodePlaybackView, { status: 'input' }>['no
       choices: interaction.options.map(option => ({ id: option.id, text: option.text })),
     };
   }
-  if (interaction.kind === 'areaContinue') return { kind: 'click', text: '到指定地点继续故事' };
-  if (interaction.kind === 'kizunaCard') return { kind: 'click', text: '进入关联故事' };
+  if (interaction.kind === 'areaContinue') return { kind: 'click', text: interaction.buttonText?.trim() || '到指定地点继续故事' };
+  if (interaction.kind === 'kizunaCard') return { kind: 'click', text: interaction.buttonText?.trim() || '进入关联故事' };
   const card = interaction.card;
   return {
     kind: 'click', text: card.buttonText ?? '',

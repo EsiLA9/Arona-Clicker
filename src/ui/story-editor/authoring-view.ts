@@ -3,7 +3,8 @@ import type { PackCatalogReadModel } from '../../arona-clicker/contracts/runtime
 import type { StoryDraft, StoryEditorState } from './model';
 import { valueAt, renderStructuredValue } from './structured-value';
 import { structuredKey } from './authoring-model';
-import { renderChatEntry } from '../components/story/story';
+import { renderChatEntry, renderChatTexts, type ChatTextEntry } from '../components/story/story';
+import { buildBackgroundView, renderBackground } from '../presentation/background-service';
 
 export const ENTRY_FIELD_SEEDS: Record<string, { label: string; value: unknown }> = {
   owner: { label: '归属角色', value: '' }, kizuna: { label: '羁绊子故事 / 赴约 / 回传', value: { entryId: '', returnFlags: [] } },
@@ -55,6 +56,16 @@ export function renderStoryAuthoringFields(ctx: UIContext, state: StoryEditorSta
   `).join('')}`).join('');
   const preview = state.preview;
   const phaseLabels: Record<string,string> = {idle:'播放结束',typing:'正在输入',thinking:'正在思考',operation:'正在呈现效果',banner:'开幕标题',continue:'等待继续',input:'等待输入',finishing:'正在收尾',failed:'播放失败'};
+  const projection = preview?.projection;
+  const sceneName = projection?.scene.type === 'area'
+    ? ctx.game.registry.areas.get(projection.scene.id)?.name ?? projection.scene.id
+    : projection ? ctx.game.registry.characterVariants.get(projection.scene.id)?.displayName ?? projection.scene.id : '';
+  const visual = projection ? `<div class="story-editor-preview-stage" aria-label="隔离试播表现预览">
+    ${renderBackground(buildBackgroundView(projection.theme.background,ctx.game.pics,projection.theme.tokens),'story-editor-preview-background')}
+    <div class="story-editor-preview-scene">演出场景 · ${e(sceneName || '未指定')}</div>
+    ${renderChatTexts(ctx,projection.presentation.overlays.map(({id,value})=>({id,text:value.text,talklet:value.talklet,x:value.x??0,y:value.y??1,align:value.align??'left',kind:value.kind,style:value.style,title:value.title,buttonText:value.buttonText,targetStoryId:value.targetStoryId,timestamp:0} satisfies ChatTextEntry)))}
+    ${projection.presentation.overlays.length?'':'<p class="story-editor-preview-empty">暂无覆盖层</p>'}
+  </div><div class="story-editor-preview-colors">${Object.entries(projection.theme.tokens).slice(0,8).map(([name,value])=>`<span><b>${e(name)}</b> ${e(value)}</span>`).join('')}</div>` : '';
   return `<section class="story-editor-authoring" data-editor-key="story-authoring:${e(draft.draftId)}">
     <h3>文档身份</h3><label class="story-editor-property">新 Story ID<input data-editor-key="copy-story-id" data-authoring-copy-id value="${e(state.copyStoryId ?? '')}" placeholder="mod:story:name"${locked}></label><button type="button" class="mini-action" data-authoring-copy${locked}>另存为新身份</button><p class="story-editor-hint">新副本保留正文，入口由你重新配置；原 Story 与外部引用保留。</p>
     <h3>文档扩展</h3>${value('$document',['extra'],draft.document.extra,'Story Extra')}
@@ -63,6 +74,6 @@ export function renderStoryAuthoringFields(ctx: UIContext, state: StoryEditorSta
     <label class="story-editor-property">试播 Entry<select data-authoring-preview-entry${locked}><option value="">${entries.length ? '选择入口' : '先新增或选择关联 Entry'}</option>${entries.map(entry=>`<option value="${e(String(entry.id ?? ''))}"${entry.id===state.previewEntryId?' selected':''}>${e(String(entry.openingTitle || entry.id || ''))}</option>`).join('')}</select></label>
     <button type="button" class="mini-action" data-authoring-action="preview"${locked}>隔离试播</button><p class="story-editor-hint">试播使用独立实例与重读规则，验证输入、分支与父子串联；不结算持久奖励，移动与演出仅影响隔离实例。关闭后释放演出。</p>
     <label class="story-editor-property">保存目标包<select data-authoring-target${locked}><option value="">${targets.length ? '选择编辑态数据包' : '请先在包管理创建编辑副本'}</option>${targets.map(target=>`<option value="${e(target.packRecordId ?? target.id)}"${target.packRecordId===state.targetPackId?' selected':''}>${e(target.name)} · ${e(target.modName)}</option>`).join('')}</select></label><button type="button" class="mini-action" data-authoring-action="pack"${locked}>保存到目标包</button><p class="story-editor-hint">仅修改目标包内的作者内容；重新载入后生效，导出沿用包管理。新内容 ID 使用目标包命名空间。</p>
-    ${preview ? `<section class="story-editor-preview" data-editor-key="authoring-preview"><h3>隔离试播</h3>${preview.playback?.entries.map(entry=>renderChatEntry(ctx,{ ...entry, kind: entry.kind === 'travel' ? 'reward' : entry.kind })).join('') ?? ''}${preview.playback?.banner ? `<p>${e(preview.playback.banner.title)}</p>` : ''}<p class="story-editor-hint">${e(preview.playback?.error ?? phaseLabels[preview.playback?.phase ?? 'idle'])}</p>${preview.story?.page.choices?.map(choice=>`<button type="button" class="mini-action" data-authoring-preview-option="${e(choice.id)}">${e(choice.text)}</button>`).join('') ?? ''}<button type="button" class="mini-action" data-authoring-action="advance">继续 / 加速</button><button type="button" class="mini-action" data-authoring-action="close-preview">关闭试播</button></section>` : ''}
+    ${preview ? `<section class="story-editor-preview" data-editor-key="authoring-preview"><h3>隔离试播</h3><p class="story-editor-hint">${e(preview.playback?.error ?? phaseLabels[preview.playback?.phase ?? 'idle'])} · ${e(sceneName || '未指定演出场景')}</p>${visual}${preview.playback?.entries.map(entry=>renderChatEntry(ctx,{ ...entry, kind: entry.kind === 'travel' ? 'reward' : entry.kind })).join('') ?? ''}${preview.playback?.banner ? `<p>${e(preview.playback.banner.title)}</p>` : ''}${preview.story?.page.choices?.map(choice=>`<button type="button" class="mini-action" data-authoring-preview-option="${e(choice.id)}">${e(choice.text)}</button>`).join('') ?? ''}<button type="button" class="mini-action" data-authoring-action="advance">继续 / 加速</button><button type="button" class="mini-action" data-authoring-action="close-preview">关闭试播</button></section>` : ''}
   </section>`;
 }

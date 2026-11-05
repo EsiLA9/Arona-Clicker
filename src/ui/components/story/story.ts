@@ -281,14 +281,14 @@ export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickI
     return `<div class="chat-current story-editor-click-preview${optionAddon ? ' story-editor-click-preview--choice-bindings' : ''}">${card}</div>`;
   }
   if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
-    storyId: '', title: '羁绊剧情', buttonText: interaction.kind === 'kizunaCard' ? '进入羁绊剧情'
-      : `前往${ctx.game.registry.areas.get(interaction.areaId)?.name ?? interaction.areaId}接续故事`,
+    storyId: '', title: '羁绊剧情', buttonText: interaction.buttonText?.trim() || (interaction.kind === 'kizunaCard' ? '进入羁绊剧情'
+      : `前往${ctx.game.registry.areas.get(interaction.areaId)?.name ?? interaction.areaId}接续故事`),
   }, undefined, true)}</div>`;
   const card = interaction.card;
   return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: card?.request?.entryId ?? '',
     title: card?.title,
-    buttonText: card?.buttonText,
+    buttonText: card?.buttonText?.trim() || '进入羁绊剧情',
     align: card?.align ?? 'left',
   }, undefined, true)}</div>`;
 }
@@ -564,7 +564,7 @@ function renderKizunaCard(
   disabled = false,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
-  const buttonText = ctx.escapeHtml(kizuna.buttonText ?? '进入羁绊剧情');
+  const buttonText = ctx.escapeHtml(kizuna.buttonText?.trim() || '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
   return `

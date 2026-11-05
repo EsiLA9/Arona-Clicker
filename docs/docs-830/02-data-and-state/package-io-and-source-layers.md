@@ -13,6 +13,8 @@
 
 低层 `loadDatapackFromZip()` 可直接把 ZIP 内 JSON fragments 合并为 Datapack；它与带 manifest、身份校验和图片结果的 `parsePack()` 包路径职责不同。导出侧 `ZipArchiveWriter` 接收 `ArchivePlan`：先拒绝绝对路径、反斜线、空路径段、`.` / `..` 和重复路径，再按路径稳定排序并生成 ZIP。这样导出结果只包含调用方明确提供的条目。
 
+TypeScript Base 文件夹导出通过 `scripts/export-base-datapack.mjs` 读取作者源，写入 `datapack.json`、图片资源和 `content/` 下的分片；`metadata.json` 保存 name/version，每个 Datapack 顶层字段各有一个 JSON fragment。`parsePack()` 会把这些文件合并为同一 Datapack。Runtime 静态 bundle 仍由 `scripts/sync-base-datapack-bundle.mjs` 生成到 `base-pack/content.json`，与面向包目录的多文件导出分开维护。
+
 ## 来源层与覆盖解析
 
 `DefinitionSourceLayer` 将定义按 `base`、`pack`、`draft` 来源分层，每条记录由 `(table, id)` 定位。`resolveDefinition(layers, key)` 按调用方给定的优先顺序从上向下检查；每层先检查 tombstone，再检查该层记录。遇到记录即返回 `resolved`。遇到 suspend tombstone 时，如果传入的层中存在该 key 的记录，就返回 `suspended` 及查找到的被遮蔽记录；记录也可能属于 tombstone 所在层。没有记录时返回 `missing`。

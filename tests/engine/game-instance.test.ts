@@ -930,7 +930,7 @@ describe('GameInstance (integration)', () => {
     expect(result.success).toBe(true);
   });
 
-  test('story can require an area move via travelToArea effect during performance', () => {
+  test('replay skips a Story travel action while rendering the isolated story view', () => {
     game.init([baseDatapack]);
     finishCurrentStory(game);
     const storyId = 'base:story:schale_welcome';
@@ -939,9 +939,12 @@ describe('GameInstance (integration)', () => {
       { id: 'move', type: 'operation', action: { kind: 'travel', areaId: 'base:area:schale_library' } },
       { id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: '抵达。' } },
     ] }] });
-    expect(game.story.replayStory('base:activestory:schale_welcome').success).toBe(true);
-    expect(game.getView().currentAreaId).toBe('base:area:schale_library');
-    expect(game.getView().currentStory).not.toBeNull();
+    const replay = game.story.replayStory('base:activestory:schale_welcome');
+    expect(replay.success).toBe(true);
+    if (!replay.success || !replay.replayId) return;
+    expect(game.getView().currentAreaId).toBe('base:area:schale_main');
+    expect(game.story.getReplayStoryView(replay.replayId)).toMatchObject({ page: { text: '抵达。' } });
+    expect(game.getView().currentStory).toBeNull();
   });
 
   test('spots are acquired via purchase / area-grant / story-grant', () => {

@@ -7,7 +7,7 @@ describe('production StoryBuilder uses explicit node authoring', () => {
   it('builds a multi-body choice stage followed by separate work and confirmation', () => {
     const builder = story('story:test', 'Test');
     expect(builder).toBeInstanceOf(StoryBuilder);
-    const document = builder.stages({ choose: { advance: 'input' }, work: { advance: 'input' }, confirm: { advance: 'input' } }).nodes([
+    const document = builder.startInArea('base:area:schale_main').stages({ choose: { advance: 'input' }, work: { advance: 'input' }, confirm: { advance: 'input' } }).nodes([
       { id: 'first', type: 'talklet', stageId: 'choose', content: { kind: 'talk', text: '第一句' } },
       { id: 'second', type: 'talklet', stageId: 'choose', content: { kind: 'talk', text: '第二句' } },
       { id: 'choose', type: 'click', stageId: 'choose', interaction: { kind: 'choice', options: [{ id: 'yes', text: '继续' }] } },
@@ -19,7 +19,7 @@ describe('production StoryBuilder uses explicit node authoring', () => {
   });
   it('does not retain a mutable caller node array and preserves author metadata', () => {
     const nodes: StoryNode[] = [{ id: 'line', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '独白' } }];
-    const document = story('story:test', 'Test').nodes(nodes).stages({ body: { advance: 'auto' } })
+    const document = story('story:test', 'Test').startInArea('base:area:schale_main').nodes(nodes).stages({ body: { advance: 'auto' } })
       .extra({ t: 'dict', v: { tier: { t: 'int', v: 1 } } }).build();
     nodes.length = 0;
     expect(document.nodes).toHaveLength(1);

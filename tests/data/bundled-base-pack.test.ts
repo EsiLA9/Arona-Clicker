@@ -29,7 +29,7 @@ describe('发布基础数据包', () => {
       read: async () => new TextEncoder().encode(JSON.stringify(value)),
     }))));
 
-    expect(parsed.manifest).toMatchObject({ modName: 'base', version: '1.0.2', dependencies: [] });
+    expect(parsed.manifest).toMatchObject({ modName: 'base', version: defaultDatapack.version, dependencies: [] });
     expect(parsed.datapack).toEqual(defaultDatapack);
     expect(parsed.jsonFileCount).toBe(1);
     expect(parsed.ignoredCount).toBe(0);

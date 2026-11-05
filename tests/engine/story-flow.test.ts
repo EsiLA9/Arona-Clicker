@@ -17,24 +17,31 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import { and } from '../../src/engine/types';
 import { finishWelcome, settleStoryPresentation, clickGatePack, clickWorkGatePack, whisperClickPack, gotoClickPack, makePack } from './story-test-fixtures';
 
-function currentStory(game: GameInstance) {
-  const view = game.story.getCurrentStoryView();
+function currentStory(game: GameInstance, replayId?: string) {
+  const view = replayId ? game.story.getReplayStoryView(replayId) : game.story.getCurrentStoryView();
   if (!view) throw new Error('expected current StoryNode wait point');
   return view;
 }
 
-function deliver(game: GameInstance) {
-  settleStoryPresentation(game);
-  if (game.story.getPlaybackView().phase === 'input') return { success: true, finished: false, story: currentStory(game) };
-  const view = currentStory(game);
+function deliver(game: GameInstance, replayId?: string) {
+  settleStoryPresentation(game, null, replayId);
+  const playback = replayId ? game.story.getReplayPlaybackView(replayId) : game.story.getPlaybackView();
+  if (playback?.phase === 'input') return { success: true, finished: false, story: currentStory(game, replayId) };
+  const view = currentStory(game, replayId);
   if (view.phase !== 'delivery') throw new Error(`expected delivery, got ${view.phase}`);
-  return game.story.advanceStory(undefined, null, view.token);
+  return replayId ? game.story.continueReplayStory(replayId, view.token) : game.story.advanceStory(undefined, null, view.token);
 }
 
 function click(game: GameInstance) {
   const view = currentStory(game);
   if (view.phase !== 'input') throw new Error(`expected input, got ${view.phase}`);
   return game.story.clickSend(null, view.token);
+}
+
+function clickReplay(game: GameInstance, replayId: string) {
+  const view = currentStory(game, replayId);
+  if (view.phase !== 'input') throw new Error(`expected input, got ${view.phase}`);
+  return game.story.submitReplayStoryInput(replayId, view.token);
 }
 
 describe('Story 主流程（click 门控推进）', () => {
@@ -177,31 +184,34 @@ describe('Story 主流程（click 门控推进）', () => {
     finishWelcome(game);
 
     // 启动千禧年危机（active entry，availableInits 限 millennium init → 用 replayStory 绕过）
-    expect(game.story.replayStory('base:activestory:millennium_game_crisis').success).toBe(true);
+    const replay = game.story.replayStory('base:activestory:millennium_game_crisis');
+    expect(replay.success).toBe(true);
+    if (!replay.success || !replay.replayId) return;
+    const replayId = replay.replayId;
 
     // 依次送达 intro 旁白、桃依正文与按钮；按钮后老师的显式 Talklet 和美依正文分别送达。
-    expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p1-body', phase: 'delivery' });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ nodeId: 'p2-body', phase: 'delivery', page: { speaker: '桃依' } });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ nodeId: 'p2-button', phase: 'input' });
-    expect(click(game).type).toBe('completed');
-    expect(currentStory(game)).toMatchObject({ nodeId: 'p2-button-response', page: { speaker: '老师' }, phase: 'delivery' });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ nodeId: 'p3-body', page: { speaker: '美依' }, phase: 'delivery' });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_whisper', nodeId: 'p1-body', phase: 'delivery', page: { speaker: '美依' } });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_whisper', nodeId: 'p2-body', phase: 'delivery', page: { speaker: '桃依' } });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    expect(currentStory(game)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p4-body', phase: 'delivery', page: { speaker: '老师' } });
-    expect(deliver(game)).toMatchObject({ success: true, finished: false });
-    const choice = currentStory(game);
+    expect(currentStory(game, replayId)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p1-body', phase: 'delivery' });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ nodeId: 'p2-body', phase: 'delivery', page: { speaker: '桃依' } });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ nodeId: 'p2-button', phase: 'input' });
+    expect(clickReplay(game, replayId).success).toBe(true);
+    expect(currentStory(game, replayId)).toMatchObject({ nodeId: 'p2-button-response', page: { speaker: '老师' }, phase: 'delivery' });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ nodeId: 'p3-body', page: { speaker: '美依' }, phase: 'delivery' });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_whisper', nodeId: 'p1-body', phase: 'delivery', page: { speaker: '美依' } });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_whisper', nodeId: 'p2-body', phase: 'delivery', page: { speaker: '桃依' } });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    expect(currentStory(game, replayId)).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p4-body', phase: 'delivery', page: { speaker: '老师' } });
+    expect(deliver(game, replayId)).toMatchObject({ success: true, finished: false });
+    const choice = currentStory(game, replayId);
     expect(choice).toMatchObject({ storyDefId: 'base:story:millennium_game_crisis_intro', nodeId: 'p4-choice', phase: 'input' });
-    expect(game.story.getSendState()).toMatchObject({ mode: 'choice', confirmed: true });
+    expect(game.story.getReplaySendState(replayId)).toMatchObject({ mode: 'choice', confirmed: true });
 
     // 选择 option1 → goto 调试分支；使用稳定optionId而非过滤后位置。
-    expect(game.story.advanceStory(choice.page.choices![0]!.id, null, choice.token)).toMatchObject({ success: true, finished: false });
-    expect(game.getView().currentStory!.storyDefId).toBe('base:story:millennium_game_crisis_debug');
+    expect(game.story.submitReplayStoryInput(replayId, choice.token, choice.page.choices![0]!.id)).toMatchObject({ success: true, finished: false });
+    expect(game.story.getReplayStoryView(replayId)?.storyDefId).toBe('base:story:millennium_game_crisis_debug');
   });
 });

@@ -58,6 +58,15 @@ describe('bounded story continuations', () => {
     expect(g.story.saveCursors().chats['variant:Hoshino'].playback.run!.localFlags).toEqual({ chosen: false });
     expect(g.story.getPlaybackView('Hoshino').entries.some(e => e.text === 'body')).toBe(false);
   });
+  it('uses authored continuation button copy when present', () => {
+    const g = setup();
+    const story = g.registry.stories.get('test:story:parent')!;
+    g.registry.saveStoryDefinition({ ...story, nodes: [
+      { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard', buttonText: '约定的称呼' } }, talk('tail', 'chosen'),
+    ] });
+    g.story.startStory(parent, 'passive', 'Hoshino');
+    expect(g.story.getCurrentStoryView('Hoshino')!.page.kizuna?.buttonText).toBe('约定的称呼');
+  });
   it('offers an Area-bound child without occupying the child slot before acceptance', () => {
     const g = setup(true);
     g.story.startStory(parent, 'passive', 'Hoshino');

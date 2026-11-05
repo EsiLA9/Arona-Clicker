@@ -12,7 +12,7 @@ import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, can
 import { StoryDraftPersistence } from './persistence';
 import { createStoryEditorFrame, storySenders } from './view';
 import { patchEditorDOM } from './dom';
-import { addRow, editProperty, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
+import { addRow, editProperty, editStoryNodeBody, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
 import type { Discriminator, LiteralKind, PropertyPath } from './property-model';
 
 const DISCRIMINATORS: readonly string[] = ['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type'];
@@ -66,6 +66,18 @@ function highlightStoryDropAnchor(flow: HTMLElement, beforeNodeId: string | null
     slot.classList.toggle('is-drop-target', active);
   }
 }
+function writeThemeContentValue(root: unknown,path: readonly (string|number)[],value: unknown,remove=false): boolean {
+  if(!path.length||path.some(part=>typeof part==='string'&&['__proto__','constructor','prototype'].includes(part)))return false;
+  let current=root as Record<string|number,unknown>;
+  for(let i=0;i<path.length-1;i++){
+    const key=path[i]!;let child=current[key];
+    if(!child||typeof child!=='object'){child=typeof path[i+1]==='number'?[]:{};Object.defineProperty(current,key,{value:child,writable:true,enumerable:true,configurable:true});}
+    current=child as Record<string|number,unknown>;
+  }
+  const key=path.at(-1)!;if(Array.isArray(current)&&typeof key==='number'){if(remove)current.splice(key,1);else current[key]=value;return true;}
+  if(typeof key==='string'){if(remove)delete current[key];else Object.defineProperty(current,key,{value,writable:true,enumerable:true,configurable:true});return true;}
+  return false;
+}
 /** Split `nodes[3].action.effects[1].op` into the node index and the node-relative property path. */
 function splitIssuePath(raw: string): { index: number; path: (string | number)[] } | null {
   const head = /^nodes\[(\d+)\]/.exec(raw);
@@ -85,6 +97,7 @@ export class StoryEditorController {
   private loaded = false;
   private disposed = false;
   private draggingNodeId: string | null = null;
+  private overlayDrag?: { pointerId: number; nodeId: string; path: PropertyPath; overlay: HTMLElement; canvas: HTMLElement; x: number; y: number };
   private returnState?: { location: WorkspaceLocation; navigation?: WorkspaceNavigationState; workspace: PanelState['workspace']; mapEntrySource: PanelState['mapEntrySource']; init: string | null };
   private revealNodeId: string | null = null;
   private focusName = false;
@@ -98,6 +111,7 @@ export class StoryEditorController {
   isOpen(): boolean { return !this.disposed && this.ctrl.panelState.workspaceNavigation?.current.kind === 'story-editor'; }
   dispose(): void {
     this.closeAuthoringPreview();
+    this.closeThemeContentEdit();
     this.save(false, false);
     this.abandonReturn();
     this.disposed = true;
@@ -258,10 +272,45 @@ export class StoryEditorController {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target)) return;
       if (event.type === 'contextmenu') event.preventDefault();
-      this.state.selectedNodeId = target.dataset.editorNode ?? null;
+      const selected=target.dataset.editorNode??null;if(selected!==this.state.selectedNodeId)this.closeThemeContentEdit();this.state.selectedNodeId = selected;
       this.requestRefresh();
     };
     const click = (event: Event): void => {
+      const contentTarget=event.target instanceof Element?event.target.closest<HTMLElement>('[data-story-theme-content-open], [data-theme-content-action]'):null;
+      if(contentTarget&&root.contains(contentTarget)&&!(contentTarget instanceof HTMLButtonElement&&contentTarget.disabled)){this.themeContentClick(contentTarget);this.requestRefresh();return;}
+      const overlayPreset=event.target instanceof Element?event.target.closest<HTMLElement>('[data-story-overlay-preset]'):null;
+      if(overlayPreset&&root.contains(overlayPreset)&&!(overlayPreset instanceof HTMLButtonElement&&overlayPreset.disabled)){
+        const draft=currentDraft(this.state);const node=currentNode(this.state);const path=this.parsePropertyPath(overlayPreset.dataset.storyOverlayPath);
+        const placements:Record<string,readonly[number,number,'left'|'center'|'right']>={'top-left':[.08,.9,'left'],'top-center':[.5,.9,'center'],'top-right':[.92,.9,'right'],'bottom-left':[.08,.1,'left'],'bottom-center':[.5,.1,'center'],'bottom-right':[.92,.1,'right']};
+        const placement=placements[overlayPreset.dataset.storyOverlayPreset??''];
+        if(draft&&node&&path&&placement){editProperty(draft,node.id,[...path,'x'],placement[0]);editProperty(draft,node.id,[...path,'y'],placement[1]);editProperty(draft,node.id,[...path,'align'],placement[2]);}
+        this.requestRefresh();return;
+      }
+      const themeTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-theme-add], [data-story-theme-remove], [data-story-theme-add-key], [data-story-theme-add-palette], [data-story-theme-add-background]') : null;
+      if (themeTarget && root.contains(themeTarget) && !(themeTarget instanceof HTMLButtonElement && themeTarget.disabled)) {
+        const draft=currentDraft(this.state); const node=currentNode(this.state);
+        if(draft&&node) {
+          const path=this.parsePropertyPath(themeTarget.dataset.storyThemeAdd ?? themeTarget.dataset.storyThemeRemove ?? themeTarget.dataset.storyThemeAddKey ?? themeTarget.dataset.storyThemeAddPalette ?? themeTarget.dataset.storyThemeAddBackground);
+          if(path&&themeTarget.dataset.storyThemeAdd) editProperty(draft,node.id,path,themeTarget.dataset.storyThemeValue ?? '');
+          else if(path&&themeTarget.dataset.storyThemeRemove) removeProperty(draft,node.id,path);
+          else if(path&&themeTarget.dataset.storyThemeAddKey) {
+            const name=themeTarget.parentElement?.querySelector<HTMLInputElement>('[data-story-theme-key]')?.value.trim() ?? '';
+            if(!name||['__proto__','constructor','prototype'].includes(name)||readProperty(draft,node.id,[...path,name])!==undefined) this.state.error='请输入未重复的合法键名。';
+            else { editProperty(draft,node.id,[...path,name],''); this.state.error=null; }
+          } else if(path&&themeTarget.dataset.storyThemeAddPalette) {
+            const theme=valueAt(node,path.slice(0,-1)) as {colorGroupId?:string;palette?:unknown[]} | undefined;
+            const group=theme?.colorGroupId?this.ctrl.game.registry.colorGroups.get(theme.colorGroupId):undefined;
+            const inherited=group?.slots.map(slot=>slot.color).slice(0,6) ?? [];
+            const colors=readProperty(draft,node.id,path);
+            if(!Array.isArray(colors)) editProperty(draft,node.id,path,inherited);
+            else addRow(draft,node.id,path,inherited[colors.length] ?? inherited.at(-1) ?? '');
+          } else if(path&&themeTarget.dataset.storyThemeAddBackground) {
+            if(!Array.isArray(readProperty(draft,node.id,path))) editProperty(draft,node.id,path,[]);
+            addRow(draft,node.id,path,{id:`story-bg-${crypto.randomUUID().replace(/-/g,'')}`,kind:'solid',value:'var(--bg)'});
+          }
+        }
+        this.requestRefresh(); return;
+      }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
       const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id]') : null;
@@ -286,7 +335,7 @@ export class StoryEditorController {
         const draft = currentDraft(this.state);
         if (draft && storySenders(createUIContext(this.ctrl.game)).some(item => item.id === sender)) composer(this.state).sender = sender;
       } else if (source) {
-        if (this.save(false, false)) { this.closeAuthoringPreview(); selectStory(this.state, source, this.ctrl.game.registry.stories); this.state.notice = null; }
+        if (this.save(false, false)) { this.closeAuthoringPreview();this.closeThemeContentEdit(); selectStory(this.state, source, this.ctrl.game.registry.stories); this.state.notice = null; }
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
       else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
       else this.action(element.dataset.editorAction ?? '');
@@ -295,9 +344,21 @@ export class StoryEditorController {
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+      if(target.hasAttribute('data-theme-content-path')){
+        const edit=this.state.themeContentEdit;const path=this.parsePropertyPath(target.dataset.themeContentPath);if(!edit||!path)return;
+        let value:unknown=target.value;
+        if(target.dataset.themeContentKind==='boolean')value=target.value==='true';
+        else if(target.dataset.themeContentKind==='number'&&target.value.trim()&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(target.value)&&Number.isFinite(Number(target.value)))value=Number(target.value);
+        writeThemeContentValue(edit.draft,path,value);edit.error=undefined;this.requestRefresh();return;
+      }
       if (this.state.storageBlocked && !target.hasAttribute('data-editor-search') && !target.hasAttribute('data-editor-sender-search')) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
       if (this.authoringInput(target, event.type)) { this.requestRefresh(); return; }
+      if (draft && target.hasAttribute('data-story-body-node')) {
+        const nodeId = target.dataset.storyBodyNode;
+        if (nodeId && node?.id === nodeId) editStoryNodeBody(draft, nodeId, target.value);
+        this.requestRefresh(); return;
+      }
       const senders = storySenders(createUIContext(this.ctrl.game));
       if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
       else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
@@ -448,12 +509,41 @@ export class StoryEditorController {
       const flow = target?.closest<HTMLElement>('.story-editor-flow');
       if (flow) { clearStoryFlagDropStates(flow); highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId); }
     };
+    const overlayPointerDown = (event: PointerEvent): void => {
+      if (event.button !== 0 || this.state.storageBlocked) return;
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-chat-text]') : null;
+      const canvas = target?.closest<HTMLElement>('[data-story-overlay-canvas]'); const node = currentNode(this.state);
+      const path = this.parsePropertyPath(canvas?.dataset.storyOverlayPath);
+      if (!target || !canvas || !node || !path || !root.contains(canvas)) return;
+      const x = Number(target.style.left.replace('%','')) / 100; const y = Number(target.style.bottom.replace('%','')) / 100;
+      this.overlayDrag = { pointerId: event.pointerId, nodeId: node.id, path, overlay: target, canvas, x, y };
+      canvas.setPointerCapture(event.pointerId); target.classList.add('is-positioning'); event.preventDefault();
+    };
+    const overlayPointerMove = (event: PointerEvent): void => {
+      const drag = this.overlayDrag; if (!drag || drag.pointerId !== event.pointerId) return;
+      const rect = drag.canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return;
+      drag.x = Math.min(1,Math.max(0,(event.clientX-rect.left)/rect.width)); drag.y = Math.min(1,Math.max(0,(rect.bottom-event.clientY)/rect.height));
+      drag.overlay.style.left = `${drag.x*100}%`; drag.overlay.style.bottom = `${drag.y*100}%`;
+      for (const input of root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')) {
+        if (input.dataset.storyPropertyPath === JSON.stringify([...drag.path,'x'])) input.value = drag.x.toFixed(3);
+        if (input.dataset.storyPropertyPath === JSON.stringify([...drag.path,'y'])) input.value = drag.y.toFixed(3);
+      }
+      event.preventDefault();
+    };
+    const overlayPointerEnd = (event: PointerEvent): void => {
+      const drag = this.overlayDrag; if (!drag || drag.pointerId !== event.pointerId) return;
+      this.overlayDrag = undefined; drag.overlay.classList.remove('is-positioning');
+      const draft = currentDraft(this.state); const node = currentNode(this.state);
+      if (!draft || !node || node.id !== drag.nodeId) return;
+      editProperty(draft,node.id,[...drag.path,'x'],drag.x); editProperty(draft,node.id,[...drag.path,'y'],drag.y);
+      this.state.notice = null; this.requestRefresh();
+    };
     const nodeKeydown = (event: KeyboardEvent): void => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target)) return;
       event.preventDefault();
-      this.state.selectedNodeId = target.dataset.editorNode ?? null;
+      const selected=target.dataset.editorNode??null;if(selected!==this.state.selectedNodeId)this.closeThemeContentEdit();this.state.selectedNodeId = selected;
       this.requestRefresh();
     };
     root.addEventListener('click', click);
@@ -465,12 +555,18 @@ export class StoryEditorController {
     root.addEventListener('dragleave', dragLeave);
     root.addEventListener('drop', drop);
     root.addEventListener('dragend', dragEnd);
+    root.addEventListener('pointerdown', overlayPointerDown);
+    root.addEventListener('pointermove', overlayPointerMove);
+    root.addEventListener('pointerup', overlayPointerEnd);
+    root.addEventListener('pointercancel', overlayPointerEnd);
     root.addEventListener('keydown', nodeKeydown);
     return () => {
       root.removeEventListener('click', click); root.removeEventListener('contextmenu', select);
       root.removeEventListener('input', input); root.removeEventListener('change', input);
       root.removeEventListener('dragstart', dragStart); root.removeEventListener('dragover', dragOver);
       root.removeEventListener('dragleave', dragLeave); root.removeEventListener('drop', drop); root.removeEventListener('dragend', dragEnd);
+      root.removeEventListener('pointerdown', overlayPointerDown); root.removeEventListener('pointermove', overlayPointerMove);
+      root.removeEventListener('pointerup', overlayPointerEnd); root.removeEventListener('pointercancel', overlayPointerEnd);
       root.removeEventListener('keydown', nodeKeydown);
     };
   }
@@ -535,6 +631,75 @@ export class StoryEditorController {
       } });
     document.querySelector<HTMLInputElement>('.app-modal [data-story-option-id-input]')?.focus();
   }
+  private closeThemeContentEdit(): void {
+    const edit=this.state.themeContentEdit;if(!edit)return;this.ctrl.commands.themeContentEditor?.cancel(edit.session.sessionId);
+    this.state.themeContentEdit=undefined; this.ctrl.refreshTheme();
+  }
+  private themeContentNumbersValid(value:unknown,path:string[]=[]):string|undefined {
+    if(Array.isArray(value)){for(let i=0;i<value.length;i++){const issue=this.themeContentNumbersValid(value[i],[...path,String(i)]);if(issue)return issue;}return;}
+    if(!value||typeof value!=='object')return;
+    for(const [key,child] of Object.entries(value as Record<string,unknown>)){
+      if(['opacity','scale','rotation','width','height','x','y'].includes(key)&&child!==undefined&&(typeof child!=='number'||!Number.isFinite(child)))return `${[...path,key].join('.')} 必须是有效数字。`;
+      const issue=this.themeContentNumbersValid(child,[...path,key]);if(issue)return issue;
+    }
+  }
+  private themeContentClick(target:HTMLElement):void {
+    const editor=this.ctrl.commands.themeContentEditor;
+    if(target.dataset.storyThemeContentOpen){
+      const kind=target.dataset.storyThemeContentOpen;const packRecordId=target.dataset.storyThemeContentPack??'';const contentId=target.dataset.storyThemeContentId??'';
+      if(!editor||!packRecordId||!contentId){this.state.error='主题内容编辑服务不可用或目标包未选择。';return;}
+      this.closeThemeContentEdit();
+      let owner:import('../../arona-clicker/services/presentation/theme-content-editor-service').ThemeContentTarget['owner'];
+      if(kind==='theme-def')try{owner=JSON.parse(target.dataset.storyThemeContentOwner??'') as typeof owner;}catch{this.state.error='ThemeDef 内容定位信息无效。';return;}
+      if(kind!=='color-group'&&kind!=='theme-def'){this.state.error='不支持此主题内容类型。';return;}
+      const result=editor.beginEdit({packRecordId,kind:kind as 'color-group'|'theme-def',contentId,...(owner?{owner}:{})});
+      if(!result.ok){this.state.error=result.message;return;}
+      this.state.themeContentEdit={session:result.value,draft:structuredClone(result.value.draft),previewing:false,rows:{}};this.state.error=null;return;
+    }
+    const edit=this.state.themeContentEdit;const action=target.dataset.themeContentAction;
+    if(!edit||!action)return;
+    if(action==='cancel'){this.closeThemeContentEdit();return;}
+    if(action==='preview'||action==='save'){
+      const invalid=this.themeContentNumbersValid(edit.draft);
+      if(invalid){edit.error=invalid;return;}
+      const result=action==='preview'?editor?.preview(edit.session.sessionId,edit.draft):editor?.save(edit.session.sessionId,edit.draft);
+      if(!result){edit.error='主题内容编辑服务不可用。';return;}
+      if(!result.ok){edit.error=result.message;return;}
+      if(action==='preview'){edit.previewing=true;edit.error=undefined;this.ctrl.refreshTheme();return;}
+      this.state.themeContentEdit=undefined;this.state.notice='主题定义已保存到所选编辑态数据包。';this.ctrl.refreshTheme();return;
+    }
+    const path=this.parsePropertyPath(target.dataset.themeContentPath);if(!path)return;
+    const current=valueAt(edit.draft,path);
+    if(action==='add-key'){
+      const name=target.parentElement?.querySelector<HTMLInputElement>('[data-theme-content-key]')?.value.trim()??'';
+      if(!name||['__proto__','constructor','prototype'].includes(name)||(current&&typeof current==='object'&&Object.prototype.hasOwnProperty.call(current,name))){edit.error='请输入未重复的合法键名。';return;}
+      writeThemeContentValue(edit.draft,[...path,name],'');edit.error=undefined;return;
+    }
+    if(action==='add-slot'){
+      if(!Array.isArray(current)||current.length>=6){edit.error='色槽最多六个。';return;}current.push({role:'accent',color:'#ffffff'});edit.error=undefined;return;
+    }
+    if(action==='add-palette'){
+      const theme=edit.draft as {colorGroupId?:string;palette?:string[]};const inherited=theme.colorGroupId?this.ctrl.game.registry.colorGroups.get(theme.colorGroupId)?.slots.map(slot=>slot.color).slice(0,6)??[]:[];
+      const palette=Array.isArray(current)?current as string[]:[];if(palette.length>=6){edit.error='色板最多六色。';return;}
+      if(!Array.isArray(current)&&inherited.length)theme.palette=[...inherited];else{theme.palette=palette;theme.palette.push(inherited[palette.length]??inherited.at(-1)??'');}edit.error=undefined;return;
+    }
+    if(action==='add-layer'){
+      if(!Array.isArray(current))writeThemeContentValue(edit.draft,path,[]);
+      const layers=valueAt(edit.draft,path) as unknown[];layers.push({id:`theme-layer-${crypto.randomUUID().replace(/-/g,'')}`,kind:'solid',value:'var(--bg)',...(path[0]==='presentation'?{region:'story'}:{})});edit.error=undefined;return;
+    }
+    if(action==='add-component'){
+      if(!Array.isArray(current))writeThemeContentValue(edit.draft,path,[]);
+      (valueAt(edit.draft,path) as unknown[]).push({id:`component-${crypto.randomUUID().replace(/-/g,'')}`,parent:'story',anchor:'center',size:{unit:'auto'}});edit.error=undefined;return;
+    }
+    const index=Number(target.dataset.themeContentIndex);
+    if(action==='remove'&&target.dataset.themeContentIndex===undefined){writeThemeContentValue(edit.draft,path,undefined,true);edit.error=undefined;return;}
+    if((action==='remove'||action==='up'||action==='down')&&Array.isArray(current)&&Number.isInteger(index)&&index>=0&&index<current.length){
+      const key=JSON.stringify(path);const ids=edit.rows[key]??[];
+      if(action==='remove'){current.splice(index,1);ids.splice(index,1);}
+      else{const next=index+(action==='up'?-1:1);if(next<0||next>=current.length)return;[current[index],current[next]]=[current[next],current[index]];[ids[index],ids[next]]=[ids[next]!,ids[index]!];}
+      edit.rows[key]=ids;edit.error=undefined;
+    }
+  }
   private closeAuthoringPreview(): void {
     if (this.previewTimer) clearInterval(this.previewTimer);
     this.previewTimer = undefined; this.preview?.close(); this.preview = undefined; this.state.preview = undefined; this.previewSignature = '';
@@ -542,16 +707,16 @@ export class StoryEditorController {
   private updateAuthoringPreview(): void {
     if (!this.preview) return;
     if (!this.isOpen()) { this.closeAuthoringPreview(); return; }
-    const playback = this.preview.getView(); const story = this.preview.getStory();
-    const signature = JSON.stringify([playback?.revision, playback?.phase, playback?.banner?.title, story]);
+    const playback = this.preview.getView(); const story = this.preview.getStory(); const projection = this.preview.getProjection();
+    const signature = JSON.stringify([playback?.revision, playback?.phase, playback?.banner?.title, story, projection?.scene]);
     if (signature === this.previewSignature) return;
-    this.previewSignature = signature; this.state.preview = { playback, story }; this.requestRefresh();
+    this.previewSignature = signature; this.state.preview = { playback, story, projection }; this.requestRefresh();
   }
   private authoringInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, eventType: string): boolean {
     const draft = currentDraft(this.state);
     if (!draft) return false;
     if (target.hasAttribute('data-authoring-copy-id')) { this.state.copyStoryId = target.value; return true; }
-    if (target.hasAttribute('data-authoring-target')) { this.state.targetPackId = target.value; return true; }
+    if (target.hasAttribute('data-authoring-target')) { if(this.state.targetPackId!==target.value)this.closeThemeContentEdit();this.state.targetPackId = target.value; return true; }
     if (target.hasAttribute('data-authoring-preview-entry')) { this.state.previewEntryId = target.value; return true; }
     if (target.hasAttribute('data-authoring-kizuna-mode')) {
       if(eventType==='change') writeStructuredValue(draft,'$authoring',[target.dataset.authoringKizunaMode!,Number(target.dataset.authoringIndex),'kizuna','areaId'],target.value==='area'?'':undefined,target.value!=='area');
@@ -704,10 +869,10 @@ export class StoryEditorController {
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
     if (action === 'new') {
-      if (this.save(false, false)) { this.closeAuthoringPreview(); newStory(this.state); }
+      if (this.save(false, false)) { this.closeAuthoringPreview();this.closeThemeContentEdit(); newStory(this.state); }
     } else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') this.state.sidebarMode = 'senders';
-    else if (action === 'info' || action === 'rename') { this.state.selectedNodeId = null; this.focusName = action === 'rename'; }
+    else if (action === 'info' || action === 'rename') { this.closeThemeContentEdit();this.state.selectedNodeId = null; this.focusName = action === 'rename'; }
     else if (action === 'delete-node') deleteNode(this.state);
     else if (action === 'up' || action === 'down') moveNode(this.state, action === 'up' ? -1 : 1);
     else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer' || action === 'moveToArea' || action === 'moveToCharaspace') {

@@ -1726,16 +1726,48 @@ export class GameInstance {
       if (!entry) throw new Error('先选择一个可试播的 Entry。');
       const replayable = structuredClone(entry); replayable.replayable = true;
       sandbox.registry.saveStoryAuthoring({ ...emptyStoryAuthoring(), [entry.type === 'active' ? 'activeStories' : 'passiveStories']: [replayable] });
+      let scene: import('../contracts/runtime/story-authoring').StoryAuthoringPreviewProjection['scene'] = (() => {
+        const startContext = sandbox.registry.stories.get(entry.storyId)?.startContext;
+        return startContext?.type === 'chara'
+          ? { type: 'chara', id: startContext.characterId }
+          : { type: 'area', id: startContext?.type === 'area' ? startContext.areaId : '' };
+      })();
+      const projectScene = (next: typeof scene): void => {
+        sandbox.colorSystem.popSceneTheme('area'); sandbox.colorSystem.popSceneTheme('student');
+        const scope = next.type === 'area' ? 'area' as const : 'student' as const;
+        const entityKey = next.type === 'area' ? `area:${next.id}` : `variant:${next.id}`;
+        const entity = next.type === 'area' ? sandbox.registry.areas.get(next.id) : sandbox.registry.characterVariants.get(next.id);
+        const declaredTheme = entity && 'theme' in entity ? entity.theme : entity && 'colorGroupId' in entity && entity.colorGroupId ? { colorGroupId: entity.colorGroupId } : undefined;
+        const theme = sandbox.colorSystem.resolveEntityTheme(sandbox.state,entityKey,{declaredTheme}).theme;
+        if(theme) sandbox.colorSystem.pushSceneTheme({id:`story-authoring-scene:${entityKey}`,sourceId:`story-authoring-scene:${entityKey}`,scope,groupId:theme.colorGroupId as never,palette:theme.palette,tokens:theme.tokens,nodeOverrides:theme.nodes,background:theme.background,presentation:theme.presentation});
+        scene = { ...next };
+      };
+      projectScene(scene);
       const start = sandbox.storyService.replayStory(entryId);
       if (!start.success || !start.replayId) throw new Error(start.success ? '试播未创建通道' : start.detail ?? start.error);
       const id = start.replayId;
       let channel = id;
       sandbox.eventBus.on('storyTriggered', event => { if (event.type === 'storyTriggered' && event.replayId) channel = event.replayId; });
       sandbox.eventBus.on('storyRunEnded', event => { if (event.type === 'storyRunEnded' && event.replayId === channel && channel !== id) channel = id; });
+      sandbox.eventBus.on('storyContextMoved', event => { if (event.type === 'storyContextMoved' && event.replayId === channel) projectScene(event.context.type === 'area' ? { type: 'area', id: event.context.areaId } : { type: 'chara', id: event.context.characterId }); });
       let closed = false;
       return { ok: true, preview: {
         getView: () => closed ? null : sandbox.storyService.getReplayPlaybackView(channel),
         getStory: () => closed ? null : sandbox.storyService.getReplayStoryView(channel),
+        getProjection: () => {
+          if (closed) return null;
+          const view = sandbox.storyService.getReplayPlaybackView(channel);
+          if (!view) return null;
+          projectScene(scene);
+          sandbox.storyPresentation.activate(view.replayId ?? view.owner);
+          const theme = sandbox.colorSystem.runtime.resolve();
+          return {
+            revision: view.revision,
+            scene: { ...scene },
+            theme: { tokens: { ...theme.tokens }, palette: [...theme.palette], background: theme.background.map(layer => ({ ...layer })) },
+            presentation: sandbox.storyPresentation.snapshotForRun(view.runId),
+          };
+        },
         getSendState: () => sandbox.storyService.getReplaySendState(channel),
         advance: optionId => {
           if (closed) return { ok: false, message: '试播已关闭。' };

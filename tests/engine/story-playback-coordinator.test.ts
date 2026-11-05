@@ -106,7 +106,7 @@ describe('Runtime Story presentation has one advancement authority', () => {
     expect(g.state.resources['base:resource:credit']).toBe(before + 5);
   });
 
-  it('rejects changed source content and malformed queue progress before replacing the live run', () => {
+  it('rejects malformed queue progress and restarts changed source content from the current definition', () => {
     const g = setup([{ id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: 'original' } }]);
     g.story.startActiveStory(entryId);
     const save = g.save();
@@ -115,9 +115,14 @@ describe('Runtime Story presentation has one advancement authority', () => {
     corrupt.storyPlayback.global.queue.index = 10000;
     expect(() => g.load(corrupt)).toThrow('QueueProgress');
     expect(g.story.getPlaybackView()).toEqual(current);
-    g.registry.saveStoryDefinition({ ...g.registry.stories.get(storyId)!, name: 'edited under same ID' });
-    expect(() => g.load(save)).toThrow('DocumentMismatch');
-    expect(g.story.getCurrentStoryView()?.page.text).toBe('original');
+    const changed = g.registry.stories.get(storyId)!;
+    g.registry.saveStoryDefinition({
+      ...changed,
+      nodes: changed.nodes.map(node => node.type === 'talklet' ? { ...node, content: { ...node.content, text: 'edited' } } : node),
+    });
+    expect(() => g.load(save)).not.toThrow();
+    expect(g.story.getCurrentStoryView()?.page.text).toBe('edited');
+    expect(g.story.getPlaybackView().runId).not.toBe(current.runId);
   });
 
   it('stops a failed visual step and never advances to later state operations', () => {

@@ -646,12 +646,15 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (v.kind === 'entryCard') {
       const x = object(v, path, ['kind', 'card']) ?? {}; return { kind: 'entryCard', card: card(x.card, `${path}.card`) };
     }
-    if (v.kind === 'kizunaCard') { object(v, path, ['kind']); return { kind: 'kizunaCard' }; }
+    if (v.kind === 'kizunaCard') {
+      const x = object(v, path, ['kind', 'buttonText']) ?? {};
+      return { kind: 'kizunaCard', ...(hasOwn(x, 'buttonText') ? { buttonText: string(x.buttonText, `${path}.buttonText`, true) } : {}) };
+    }
     if (v.kind === 'areaContinue') {
-      const x = object(v, path, ['kind', 'areaId']) ?? {};
+      const x = object(v, path, ['kind', 'areaId', 'buttonText']) ?? {};
       const areaId = string(x.areaId, `${path}.areaId`, true);
       ref('areas', areaId, `${path}.areaId`);
-      return { kind: 'areaContinue', areaId };
+      return { kind: 'areaContinue', areaId, ...(hasOwn(x, 'buttonText') ? { buttonText: string(x.buttonText, `${path}.buttonText`, true) } : {}) };
     }
     fail(`${path}.kind`, '未知 Click interaction 类型'); return {};
   }

@@ -17,12 +17,13 @@ export function finishWelcome(g: GameInstance, owner: string | null = null): voi
 
 /** 连续推进直到剧情结束；遇到选项时优先选第 choiceIndex 个可用候选。 */
 /** Complete only pure presentation; never consume player input. */
-export function settleStoryPresentation(g: GameInstance, owner: string | null = null): void {
+export function settleStoryPresentation(g: GameInstance, owner: string | null = null, replayId?: string): void {
   const alreadyFake = vi.isFakeTimers();
   if (!alreadyFake) { g.story.suspendPlayback(); vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); g.story.resumePlayback(); }
   try {
     for (let guard = 0; guard < 1000; guard++) {
-      if (!['typing', 'thinking', 'operation', 'banner', 'finishing'].includes(g.story.getPlaybackView(owner).phase)) return;
+      const playback = replayId ? g.story.getReplayPlaybackView(replayId) : g.story.getPlaybackView(owner);
+      if (!['typing', 'thinking', 'operation', 'banner', 'finishing'].includes(playback?.phase ?? 'idle')) return;
       if (vi.getTimerCount() === 0) return;
       vi.advanceTimersToNextTimer();
     }

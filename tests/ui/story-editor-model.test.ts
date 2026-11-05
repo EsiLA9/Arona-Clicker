@@ -25,6 +25,7 @@ describe('Story Editor authoring model and persistence', () => {
     const state = createStoryEditorState();
     const draft = newStory(state);
     const node = appendNode(state, 'operation', senders)!;
+    draft.document.startContext = { type: 'area', areaId: 'base:area:schale_main' };
     const value = { route: ['a', false, null] };
     draft.document.nodes = [{ ...node, type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'composite', value } }];
     editNodeFlag(state, 'local-flag-op', 'remove');
@@ -42,6 +43,7 @@ describe('Story Editor authoring model and persistence', () => {
     const state = createStoryEditorState();
     const draft = newStory(state);
     const node = appendNode(state, 'operation', senders)!;
+    draft.document.startContext = { type: 'area', areaId: 'base:area:schale_main' };
     editNodeFlag(state, 'local-flag-op', 'set');
     editNodeFlag(state, 'local-flag-name', '自由名称');
     editNodeFlag(state, 'local-flag-type', 'number');

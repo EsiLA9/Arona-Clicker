@@ -87,6 +87,7 @@ describe('StoryEntry builders', () => {
       triggerCondition: and(),
       repeatable: true,
       weight: 1,
+      interruptible: true,
       availableInits: ['base:init:schale_office'],
       tags: [['theme', 'daily']],
       revealTriggers: [

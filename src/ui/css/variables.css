@@ -1,9 +1,28 @@
 /* ============================================================
-   ui/css/variables.css — 远程字体 + :root 兜底主题变量
+   ui/css/variables.css — 本地字体 + :root 兜底主题变量
    （自 styles.css 拆出，区块顺序与原文件一致）
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+@font-face {
+   font-family: Manrope;
+   src: url('../fonts/Manrope-Variable.ttf') format('truetype');
+   font-weight: 400 800;
+   font-display: swap;
+}
+
+@font-face {
+   font-family: 'DM Mono';
+   src: url('../fonts/DMMono-Regular.ttf') format('truetype');
+   font-weight: 400;
+   font-display: swap;
+}
+
+@font-face {
+   font-family: 'DM Mono';
+   src: url('../fonts/DMMono-Medium.ttf') format('truetype');
+   font-weight: 500;
+   font-display: swap;
+}
 
 /* 兜底常量：无 JS / 未注入主题时的默认界面色。
    运行时所有 --<name> 由 src/ui/theme-tree.ts 的 buildThemeVars 注入（含 --ac-* 强制层）。

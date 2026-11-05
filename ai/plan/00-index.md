@@ -6,6 +6,8 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0355-story-editor-theme-position-and-flow-tools]] | 实现与自动化验证完成 | 主题专用设置、六点定位预设、信息流 / 控制流影响说明与隔离表现预览已接入；原全量失败项已逐类处理，最终 371 文件 / 3689 项通过；待桌面鼠标验收 |
+| [[ai/plan/task-0356-story-kizuna-entry-migration]] | 进行中 | 把 Story 编辑器中的关联羁绊作者表达迁移为 StoryEntry 剧情入口，保留旧运行机制 |
 | [[ai/plan/task-0354-story-editor-authoring-api]] | 代码 / 自动化施工完成 | 作者 API、结构值、Entry / 投放、隔离试播与包保存已接入；新增 16 项通过，待桌面手动验收 |
 | [[ai/plan/task-0353-story-editor-remaining-gaps]] | 调查完成，已转入 0354 | 保留调查时缺口快照；施工与验收见 0354 |
 | [[ai/plan/task-0352-story-cursor-space-and-history]] | 代码 / 自动化验收完成 | 正式历史、爱心卡片与星野三空间样例已实施；后续取消子结束自动召回，70 项定向及类型 / 架构通过，待浏览器手动验收 |
@@ -41,12 +43,12 @@
 - [[ai/plan/report-0349-story-cursor-topologies]]：100 个玩法 / 拓扑样本、禁嵌套准入与 FollowUp / 尾段替代调查，作为 0350 的边界依据。
 - [[ai/plan/report-storynode-playback-mechanisms-2026-10-29]]：StoryNode、编辑器与演出链调用和状态边界；含 294 项定向测试基线、已确认差异及后续排查入口。
 - [[ai/plan/report-gameplay-b-narrative-flow-2026-10-29]]：玩法 B 的流内剧情、战斗短句与里程碑对话调查；提出 MapRun 流程、Story 片段复用及统一叙事调度的组织建议。
-- [[ai/plan/report-0333-completion-audit-2026-10-28]]：0333 初次独立复核与五项失败复现；后续 F1–F4 已补齐，最新验收以 0333 / 0334 Task 为准。
+- 0333 完成度复核摘要（2026-10-28）：曾记录五项失败复现；报告正文已随旧归档清理，后续状态与验收以 [[ai/plan/task-0333-semantic-columns-and-workspace-composition]] / [[ai/plan/task-0334-unified-workspace-column-structure]] 为准。
 - [[ai/plan/report-gameplay-b-test-alignment-2026-10-29]]：Gameplay B 样例地图演进后 25 项陈旧测试的对齐修复；生产代码与 Registry 校验未放宽，全量 3491 项通过。
 
 - Task 0331（原归档已删除）：本轮 Wiki 编写结果与验证记录；三项定向测试失败原因待后续厘清。
 - [[ai/plan/report-wiki-map-and-module-audit-2026-10-28]]：Area Map、MapRun、角色训练与其他模块的 Wiki 缺口和编写顺序。
-- [[ai/plan/report-area-map-wiki-2026-10-28]]：世界区域导航地图的专门调查与 Wiki 补写范围。
+- Area Map 世界区域导航专题调查（2026-10-28）：调查正文已随旧归档清理；当前机制说明见 [[area-map-overview|Area Map 概览]] 与 [[area-map-projection-and-session|投影与会话]]。
 - [[ai/plan/report-wiki-830-coverage-2026-10-28]]：项目地图与现行 Wiki 的覆盖调查及候选编写范围。
 - [[ai/plan/report-map-entry-css-structure-2026-10-28]]：地图准备页（MapEntry）CSS 结构调查，及其与通用工作区结构 CSS 的差异与风险。
 

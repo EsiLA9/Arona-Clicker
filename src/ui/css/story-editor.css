@@ -205,3 +205,32 @@
 .story-editor-value { padding-block: 8px; border-top: 1px solid var(--line); }
 .story-editor-value > .story-editor-list-heading > strong { overflow-wrap: anywhere; font-size: 12px; }
 .story-editor-preview { padding-block: 8px; }
+.story-editor-preview-stage { position: relative; isolation: isolate; box-sizing: border-box; height: 210px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); }
+.story-editor-preview-background { position: absolute; inset: 0; z-index: -1; }
+.story-editor-preview-stage .chat-text-overlay { max-width: 70%; }
+.story-editor-preview-scene { position: absolute; top: 8px; left: 10px; z-index: 1; padding: 3px 7px; border-radius: 4px; background: color-mix(in srgb, var(--panel-light) 88%, transparent); color: var(--ink-on-panel-light); font-size: 10px; pointer-events: none; }
+.story-editor-preview-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted-on-panel); font-size: 12px; pointer-events: none; }
+.story-editor-preview-colors { display: flex; flex-wrap: wrap; gap: 4px 8px; color: var(--muted-on-panel); font-size: 10px; overflow-wrap: anywhere; }
+.story-editor-preview-colors b { color: var(--ink-on-panel); }
+.story-editor-overlay-canvas { position: relative; box-sizing: border-box; height: 190px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); touch-action: none; }
+.story-editor-overlay-canvas .chat-text-overlay { max-width: 70%; pointer-events: auto; cursor: move; user-select: none; }
+.story-editor-overlay-canvas .chat-text-overlay.is-positioning { z-index: 2; outline: 2px solid var(--cyan); outline-offset: 3px; }
+.story-editor-overlay-axis { position: absolute; z-index: 1; right: 8px; bottom: 6px; padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, var(--panel-light) 85%, transparent); color: var(--muted-on-panel); font-size: 9px; pointer-events: none; }
+.story-editor-overlay-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.story-editor-overlay-presets > strong { margin-right: 3px; font-size: 11px; }
+.story-editor-theme-map { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding-top: 8px; border-top: 1px solid var(--line); }
+.story-editor-theme-map > h4 { margin: 0; font-size: 12px; }
+.story-editor-theme-value { display: grid; grid-template-columns: minmax(100px, .7fr) minmax(0, 1.3fr) auto; align-items: center; gap: 6px 10px; min-width: 0; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); font-size: 11px; }
+.story-editor-theme-value > strong { overflow-wrap: anywhere; }
+.story-editor-theme-value > .story-editor-hint { overflow-wrap: anywhere; }
+.story-editor-theme-value > .story-editor-theme-color { grid-column: 2; }
+.story-editor-theme-color { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.story-editor-theme-color > input:not([type='color']) { flex: 1 1 auto; min-width: 0; }
+.story-editor-column .story-editor-theme-color > input[type='color'] { flex: 0 0 40px; width: 40px; height: 34px; padding: 3px; cursor: pointer; }
+.story-editor-theme-value > button { grid-column: 3; grid-row: 1 / span 2; }
+.story-editor-theme-add-key { display: flex; align-items: end; gap: 6px; }
+.story-editor-theme-add-key > input { flex: 1 1 auto; }
+.story-editor-theme-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-top: 8px; border-top: 2px solid var(--cyan); }
+.story-editor-theme-content > h4 { margin: 0; font-size: 13px; }
+.story-editor-theme-content .story-editor-property-row { background: transparent; }
+.story-editor-overlay-preview { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }

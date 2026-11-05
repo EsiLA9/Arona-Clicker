@@ -404,7 +404,12 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
   }
 
   save(source: StoryNodeSource): StoryPresentationSnapshot {
-    const state = source.runId ? this.runPresentations.get(source.runId) : undefined;
+    return this.snapshotForRun(source.runId);
+  }
+
+  /** Detached read-only view for isolated authoring previews. */
+  snapshotForRun(runId: string | undefined): StoryPresentationSnapshot {
+    const state = runId ? this.runPresentations.get(runId) : undefined;
     return {
       ...(state?.ephemeralTheme === undefined ? {} : { ephemeralTheme: cloneEphemeralTheme(state.ephemeralTheme) }),
       entities: [...(state?.entities.values() ?? [])].map(entity => ({ ...entity })),

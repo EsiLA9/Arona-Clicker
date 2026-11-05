@@ -341,6 +341,7 @@ describe('顶栏与设置工作区', () => {
   it('拖入启用列表时高亮同名项，并且只在确认后按原位置交换', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);
+    const baseId = game.getPackCatalog().entries.find(entry => entry.modName === 'base')!.id;
     const parsed = (modName: string, version: string) => ({
       manifest: { modName, name: modName, version, dependencies: [] },
       datapack: {
@@ -398,8 +399,8 @@ describe('顶栏与设置工作区', () => {
     const regionRefreshesBeforeSwap = Number(root.dataset.uiRefreshRegion);
     dragToConflict();
     document.querySelector<HTMLButtonElement>('[data-modal-action="swap-datapack-entry"]')!.click();
-    expect(workspace().draftEnabledIds).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', editingId, 'later-active']);
-    expect(workspace().draftOrder).toEqual(['base@1.0.2', 'gameplay-b@1.0.0', editingId, 'later-active', 'shared-active']);
+    expect(workspace().draftEnabledIds).toEqual([baseId, 'gameplay-b@1.0.0', editingId, 'later-active']);
+    expect(workspace().draftOrder).toEqual([baseId, 'gameplay-b@1.0.0', editingId, 'later-active', 'shared-active']);
     expect(root.querySelector(`[data-pack-select="${editingId}"]`)).not.toBeNull();
     expect(Number(root.dataset.uiRefreshFull), `regions ${regionRefreshesBeforeSwap} -> ${root.dataset.uiRefreshRegion}`).toBe(fullRendersBeforeSwap);
     expect(Number(root.dataset.uiRefreshRegion)).toBeGreaterThan(regionRefreshesBeforeSwap);

@@ -932,9 +932,10 @@ export class StoryService {
       const title = target?.openingTitle ?? (target && session.documents.get(target.storyId)?.name);
       const returned = session.continuation?.state === 'returned';
       projected.continuationBlocked = session.continuation?.state === 'running' || !!destination && !session.replay && !returned;
+      const authoredButtonText = view.node.interaction.buttonText?.trim();
       projected.page = { ...projected.page, kizuna: { storyId: target?.id ?? session.source.entryId, title,
         buttonText: returned ? '继续故事' : session.continuation?.state === 'running' ? '等待羁绊剧情结束'
-          : destination && !session.replay ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : '进入羁绊剧情' } };
+          : authoredButtonText || (destination && !session.replay ? `前往${this.opts.registry.areas.get(destination)?.name ?? destination}接续故事` : '进入羁绊剧情') } };
     }
     return { ...projected, token: this.coordinator.intentToken(session.source.owner, projected.token, session.source.runId, session.source.replayId),
       ...(view.status === 'operation' || view.status === 'result' ? { operationCheckpoint: true as const } : {}) };

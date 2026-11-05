@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,19 +5,18 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { baseDatapackExportAssets, baseDatapackSource } from '../../src/arona-clicker/content/base-datapack-source';
 import { defaultDatapack } from '../../src/arona-clicker/content/default-datapack';
+import { exportBaseDatapackFolder } from '../../scripts/base-datapack-export.mjs';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 import { parsePack } from '../../src/data-services/datapack/pack-parser';
 import { FolderPackSource } from '../../src/data-services/datapack/source';
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
-const exportScript = path.join(projectRoot, 'scripts/export-base-datapack.mjs');
-
 describe('Base TypeScript → 数据包文件夹导出', () => {
   test('输出可解析的完整文件夹包，数据与 TS 组合逐字段相等，重复导出稳定', async () => {
     const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ac-base-pack-export-'));
     const outputDir = path.join(tempRoot, 'base');
     try {
-      runExport(outputDir);
+      await runExport(outputDir);
       const firstSnapshot = await snapshotFolder(outputDir);
       const files = await readFolderEntries(outputDir);
       const parsed = await parsePack(new FolderPackSource(files));
@@ -31,10 +29,12 @@ describe('Base TypeScript → 数据包文件夹导出', () => {
       });
       expect(parsed.datapack).toEqual(expectedPackageProjection());
       expect(runtimeProjection()).toEqual(defaultDatapack);
+      expect(files.some(file => file.path === 'content/stories.json')).toBe(true);
+      expect(files.some(file => file.path === 'content.json')).toBe(false);
       expect(parsed.images.map(image => image.path).sort()).toEqual(
         baseDatapackExportAssets.map(asset => asset.packagePath).sort(),
       );
-      expect(parsed.jsonFileCount).toBe(1);
+      expect(parsed.jsonFileCount).toBe(Object.keys(baseDatapackSource).length - 1);
       expect(parsed.ignoredCount).toBe(0);
 
       for (const asset of baseDatapackExportAssets) {
@@ -43,7 +43,7 @@ describe('Base TypeScript → 数据包文件夹导出', () => {
         expect(packageBytes).toEqual(sourceBytes);
       }
 
-      runExport(outputDir);
+      await runExport(outputDir);
       expect(await snapshotFolder(outputDir)).toEqual(firstSnapshot);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -51,14 +51,13 @@ describe('Base TypeScript → 数据包文件夹导出', () => {
   }, 20_000);
 });
 
-function runExport(outputDir: string): void {
-  const result = spawnSync(process.execPath, [exportScript, outputDir], {
-    cwd: projectRoot,
-    encoding: 'utf8',
+function runExport(outputDir: string): Promise<void> {
+  return exportBaseDatapackFolder({
+    datapack: baseDatapackSource,
+    assets: baseDatapackExportAssets,
+    outputDir,
+    projectRoot,
   });
-  if (result.status !== 0) {
-    throw new Error(`Base 包导出失败：${result.stderr || result.stdout || result.error?.message || result.status}`);
-  }
 }
 
 function expectedPackageProjection(): Datapack {

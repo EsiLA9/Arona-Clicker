@@ -521,6 +521,7 @@
     {
       "id": "area-map-demo:story:arrival",
       "name": "抵达广场",
+      "startContext": { "type": "area", "areaId": "area-map-demo:area:b" },
       "stages": { "arrival": { "advance": "auto" } },
       "nodes": [
         { "id": "arrival-first", "type": "talklet", "stageId": "arrival", "content": { "kind": "narration", "text": "你穿过街道，抵达了中央广场。" } },

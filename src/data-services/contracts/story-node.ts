@@ -146,8 +146,14 @@ export type StoryClickInteraction =
   | StoryButtonInteraction
   | StoryChoiceInteraction
   | StoryEntryCardInteraction
-  | { readonly kind: 'kizunaCard' }
-  | { readonly kind: 'areaContinue'; readonly areaId: AreaId };
+  | {
+      readonly kind: 'kizunaCard';
+      /** 空白时沿用羁绊入口默认文案。 */ readonly buttonText?: string;
+    }
+  | {
+      readonly kind: 'areaContinue'; readonly areaId: AreaId;
+      /** 空白时沿用地点续播默认文案。 */ readonly buttonText?: string;
+    };
 
 /** 单按钮输入；可声明按击工作量和成功结果。 */
 export interface StoryButtonInteraction {

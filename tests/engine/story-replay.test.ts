@@ -29,30 +29,47 @@ import {
   makePack,
 } from './story-test-fixtures';
 
-function advanceToChoice(game: GameInstance): StoryView {
+function advanceToChoice(game: GameInstance, replayId: string): StoryView {
   for (let guard = 0; guard < 200; guard++) {
-    settleStoryPresentation(game);
-    const view = game.story.getCurrentStoryView();
+    settleStoryPresentation(game, null, replayId);
+    const view = game.story.getReplayStoryView(replayId);
     if (!view) throw new Error('Story ended before its choice input');
     if (view.phase === 'delivery') {
-      const result = game.story.advanceStory(undefined, null, view.token);
+      const result = game.story.continueReplayStory(replayId, view.token);
       if (!result.success) throw new Error(`delivery failed: ${result.error}`);
       continue;
     }
     if (view.page.choices?.length) return view;
-    const result = game.story.clickSend(null, view.token);
-    if (result.type === 'idle' || result.type === 'choice'
-      || result.type === 'completed' && !result.advance.success) {
-      throw new Error('Story stopped before its choice input');
-    }
+    const result = game.story.submitReplayStoryInput(replayId, view.token);
+    if (!result.success) throw new Error(`Story stopped before its choice input: ${result.error}`);
   }
   throw new Error('Story choice loop exceeded its guard');
 }
 
-function choose(game: GameInstance, view: StoryView, index: number) {
+function choose(game: GameInstance, replayId: string, view: StoryView, index: number) {
   const optionId = view.page.choices?.[index]?.id;
   if (!optionId) throw new Error(`Choice ${index} is unavailable`);
-  return game.story.advanceStory(optionId, null, view.token);
+  return game.story.submitReplayStoryInput(replayId, view.token, optionId);
+}
+
+function finishReplay(game: GameInstance, replayId: string, choiceIndex = 0): void {
+  for (let guard = 0; guard < 200; guard++) {
+    settleStoryPresentation(game, null, replayId);
+    const playback = game.story.getReplayPlaybackView(replayId);
+    if (!playback || playback.phase === 'idle') return;
+    if (playback.phase === 'continue') {
+      const result = game.story.continueReplayStory(replayId, playback.token!);
+      if (!result.success) throw new Error(`replay continue failed: ${result.error}`);
+    } else if (playback.phase === 'input') {
+      const view = game.story.getReplayStoryView(replayId)!;
+      const selected = view.availableChoiceIndexes.includes(choiceIndex) ? choiceIndex : view.availableChoiceIndexes[0];
+      const optionId = view.page.choices && selected !== undefined ? view.page.choices[selected]?.id : undefined;
+      const result = game.story.submitReplayStoryInput(replayId, playback.token!, optionId);
+      if (!result.success) throw new Error(`replay input failed: ${result.error}`);
+    } else if (playback.phase === 'failed') throw new Error(playback.error ?? 'Replay failed');
+    else throw new Error(`Unexpected replay phase: ${playback.phase}`);
+  }
+  throw new Error('Replay fixture did not reach a bounded terminal state');
 }
 
 describe('重阅读与分歧点准入守卫', () => {
@@ -73,8 +90,11 @@ describe('重阅读与分歧点准入守卫', () => {
     // supply_mission 未设 replayable → 拒绝
     expect(game.story.replayStory('test:story:supply_mission')).toMatchObject({ success: false, error: 'NotReplayable' });
     // desert_mission 可重阅读
-    expect(game.story.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
-    expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_intro');
+    const replay = game.story.replayStory('test:story:desert_mission');
+    expect(replay).toMatchObject({ success: true });
+    if (!replay.success || !replay.replayId) return;
+    expect(game.story.getReplayStoryView(replay.replayId)?.storyDefId).toBe('test:story:desert_intro');
+    expect(game.getView().currentStory).toBeNull();
   });
 
   test('分歧点守卫：未真读分支时拒绝进入，已读分支放行', () => {
@@ -87,19 +107,22 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(game.getView().currentStory).toBeNull();
 
     // 重阅读：逐个确认正文 delivery 到达 choice Click，再选“正面突击”。
-    expect(game.story.replayStory('test:story:desert_mission')).toMatchObject({ success: true });
-    const choice = advanceToChoice(game);
-    const blocked = choose(game, choice, 0);
+    const replay = game.story.replayStory('test:story:desert_mission');
+    expect(replay).toMatchObject({ success: true });
+    if (!replay.success || !replay.replayId) return;
+    const replayId = replay.replayId;
+    const choice = advanceToChoice(game, replayId);
+    const blocked = choose(game, replayId, choice, 0);
     expect(blocked).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     if ('denialMessage' in blocked) {
       expect(blocked.denialMessage).toBe('你还没有真正走过突击路线，无法进入该分歧。');
     }
     // 页面未推进、效果未应用：仍停在选项页
-    expect(game.story.getCurrentStoryView()).toMatchObject({ storyDefId: 'test:story:desert_intro', nodeId: choice.nodeId, token: choice.token });
+    expect(game.story.getReplayStoryView(replayId)).toMatchObject({ storyDefId: 'test:story:desert_intro', nodeId: choice.nodeId, token: choice.token });
 
     // 改选"迂回谈判"（已真读）→ 放行
-    expect(choose(game, choice, 1)).toMatchObject({ success: true, finished: false });
-    expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_negotiate');
+    expect(choose(game, replayId, choice, 1)).toMatchObject({ success: true, finished: false });
+    expect(game.story.getReplayStoryView(replayId)?.storyDefId).toBe('test:story:desert_negotiate');
   });
 
   test('分歧点守卫：先真读分支后，重阅读可正常进入', () => {
@@ -112,9 +135,11 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(game.getView().currentStory).toBeNull();
 
     // 重阅读：逐个确认正文 delivery 到达 choice Click，选突击 → 已读 → 放行。
-    game.story.replayStory('test:story:desert_mission');
-    expect(choose(game, advanceToChoice(game), 0)).toMatchObject({ success: true, finished: false });
-    expect(game.getView().currentStory!.storyDefId).toBe('test:story:desert_assault');
+    const replay = game.story.replayStory('test:story:desert_mission');
+    expect(replay.success).toBe(true);
+    if (!replay.success || !replay.replayId) return;
+    expect(choose(game, replay.replayId, advanceToChoice(game, replay.replayId), 0)).toMatchObject({ success: true, finished: false });
+    expect(game.story.getReplayStoryView(replay.replayId)?.storyDefId).toBe('test:story:desert_assault');
   });
 
   test('重阅读可完整走完链，但不重复发放奖励（防刷）', () => {
@@ -138,9 +163,11 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
 
     // 重阅读再走突击 → 不重复发放
-    game.story.replayStory('test:story:replay_reward');
-    finishStory(game, 0);
-    expect(game.getView().currentStory).toBeNull();
+    const replay = game.story.replayStory('test:story:replay_reward');
+    expect(replay.success).toBe(true);
+    if (!replay.success || !replay.replayId) return;
+    finishReplay(game, replay.replayId, 0);
+    expect(game.story.getReplayStoryView(replay.replayId)).toBeNull();
     expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
   });
 
@@ -151,18 +178,23 @@ describe('重阅读与分歧点准入守卫', () => {
     // 首次走谈判（未读突击）→ 重阅读选突击被拒
     game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 1);
-    game.story.replayStory('test:story:desert_mission');
-    const firstChoice = advanceToChoice(game);
-    expect(choose(game, firstChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    const firstReplay = game.story.replayStory('test:story:desert_mission');
+    expect(firstReplay.success).toBe(true);
+    if (!firstReplay.success || !firstReplay.replayId) return;
+    const firstReplayId = firstReplay.replayId;
+    const firstChoice = advanceToChoice(game, firstReplayId);
+    expect(choose(game, firstReplayId, firstChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
     // 改走谈判完成本次重阅读（真实读完谈判分支）
-    expect(choose(game, firstChoice, 1)).toMatchObject({ success: true, finished: false });
-    finishStory(game, 1);
+    expect(choose(game, firstReplayId, firstChoice, 1)).toMatchObject({ success: true, finished: false });
+    finishReplay(game, firstReplayId, 1);
 
     // 第二次重阅读：走谈判分支时经过的 negotiate 已完整读过，仍放行；
     // 突击分支从未被真实阅读 → 仍被拒
-    game.story.replayStory('test:story:desert_mission');
-    const secondChoice = advanceToChoice(game);
-    expect(choose(game, secondChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    expect(choose(game, secondChoice, 1)).toMatchObject({ success: true, finished: false });
+    const secondReplay = game.story.replayStory('test:story:desert_mission');
+    expect(secondReplay.success).toBe(true);
+    if (!secondReplay.success || !secondReplay.replayId) return;
+    const secondChoice = advanceToChoice(game, secondReplay.replayId);
+    expect(choose(game, secondReplay.replayId, secondChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
+    expect(choose(game, secondReplay.replayId, secondChoice, 1)).toMatchObject({ success: true, finished: false });
   });
 });

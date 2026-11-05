@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import JSZip from 'jszip';
@@ -8,7 +7,9 @@ import JSZip from 'jszip';
 const script = path.resolve('scripts/archive-docs.mjs');
 const temporary: string[] = [];
 function fixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'archive-docs-'));
+  const testRoot = path.resolve('.test-artifacts');
+  fs.mkdirSync(testRoot, { recursive: true });
+  const root = fs.mkdtempSync(path.join(testRoot, 'archive-docs-'));
   temporary.push(root);
   const put = (name: string, content: string | Buffer = '内容') => {
     const full = path.join(root, name);
@@ -27,7 +28,8 @@ describe('compressed document archive CLI', () => {
     expect(run('list').status).toBe(0);
     expect(fs.existsSync(archive)).toBe(false);
     const source = put('ai/archive/inbox/retired/old.md', '旧材料');
-    expect(run('add', 'ai/archive/inbox/retired').status).toBe(0);
+    const result = run('add', 'ai/archive/inbox/retired');
+    expect(result.status, result.stderr).toBe(0);
     expect(fs.existsSync(source)).toBe(false);
     expect(run('read', 'ai/archive/inbox/retired/old.md').stdout).toBe('旧材料');
   });
@@ -35,12 +37,14 @@ describe('compressed document archive CLI', () => {
   it('appends UTF-8 documents and binary evidence to one ZIP, then reads without extraction', async () => {
     const { root, put, run, archive } = fixture();
     const task = put('ai/plan/task-demo.md', '# 已完成\n归档正文');
-    expect(run('add', 'ai/plan/task-demo.md').status).toBe(0);
+    const first = run('add', 'ai/plan/task-demo.md');
+    expect(first.status, first.stderr).toBe(0);
     expect(fs.existsSync(task)).toBe(false);
     const binary = Buffer.from([0, 255, 128, 1]);
     put('ai/plan/demo-units/evidence.bin', binary);
     put('ai/plan/demo-units/记录.md', '记录');
-    expect(run('add', 'ai/plan/demo-units').status).toBe(0);
+    const second = run('add', 'ai/plan/demo-units');
+    expect(second.status, second.stderr).toBe(0);
     expect(fs.existsSync(path.join(root, 'ai/plan/demo-units'))).toBe(false);
     const zip = await JSZip.loadAsync(fs.readFileSync(archive), { checkCRC32: true });
     expect(await zip.file('ai/plan/demo-units/evidence.bin')!.async('nodebuffer')).toEqual(binary);
@@ -54,7 +58,8 @@ describe('compressed document archive CLI', () => {
   it('rejects a duplicate without changing the archive or deleting the new source', () => {
     const { put, run, archive } = fixture();
     put('ai/plan/task.md', '原文');
-    expect(run('add', 'ai/plan/task.md').status).toBe(0);
+    const first = run('add', 'ai/plan/task.md');
+    expect(first.status, first.stderr).toBe(0);
     const original = fs.readFileSync(archive);
     const source = put('ai/plan/task.md', '新文');
     expect(run('add', 'ai/plan/task.md').status).toBe(1);
@@ -90,11 +95,16 @@ describe('compressed document archive CLI', () => {
     expect(fs.readFileSync(pending, 'utf8')).toBe('pending');
   });
 
-  it('rejects a source reached through a directory junction or symlink', () => {
+  it('rejects a source reached through a directory junction or symlink', context => {
     const { root, put, run } = fixture();
     const target = put('elsewhere/task.md');
     fs.mkdirSync(path.join(root, 'ai/plan'), { recursive: true });
-    fs.symlinkSync(path.dirname(target), path.join(root, 'ai/plan/linked'), process.platform === 'win32' ? 'junction' : 'dir');
+    try {
+      fs.symlinkSync(path.dirname(target), path.join(root, 'ai/plan/linked'), process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EPERM') return context.skip();
+      throw error;
+    }
     expect(run('add', 'ai/plan/linked').status).toBe(1);
     expect(fs.existsSync(target)).toBe(true);
   });

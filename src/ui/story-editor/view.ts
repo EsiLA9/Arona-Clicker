@@ -6,7 +6,7 @@ import { renderWorkspaceTitlebar } from '../components/shared/workspace-titlebar
 import { renderTabs } from '../components/shared/tabs';
 import { renderAvatarSvg } from '../presentation/avatar-renderer';
 import { choiceOptionFlagBindings, composer, currentDraft, currentNode, senderChangeAllowed, senderForNode, storyList, type StoryDraft, type StoryDraftNode, type StoryEditorState, type StorySender } from './model';
-import { renderStoryNodeProperties } from './property-fields';
+import { renderSelectedOverlayCanvases, renderStoryNodeProperties } from './property-fields';
 import type { StoryAction, StoryStateAction, StoryNumericValue } from '../../data-services/contracts/story-node-actions';
 
 export function storySenders(ctx: UIContext): StorySender[] {
@@ -260,7 +260,7 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
     ? `${renderInsertionPoint(ctx, state, nodes[0].id)}${nodes.map((node, index) => `${renderEditorNode(ctx, state, node)}${renderInsertionPoint(ctx, state, nodes[index + 1]?.id ?? null)}`).join('')}`
     : `<p class="story-editor-empty">从下方发送第一条正文，或添加一个节点。</p>${renderInsertionPoint(ctx, state, null)}`;
   return { ...baseColumn(ctx, state, 'story-editor-flow', 'center', draft?.document.name || '编辑'),
-    content: `<div class="story-editor-flow" data-editor-key="flow">${flow}</div>`,
+    content: `${renderSelectedOverlayCanvases(ctx,state)}<div class="story-editor-flow" data-editor-key="flow">${flow}</div>`,
   footer: `<div class="story-editor-composer" data-editor-key="composer"><div class="story-editor-actions">${button('info', 'Story 信息', !draft)}${button('save', '保存草稿', !editable)}${button('save-to-runtime', '保存到运行内容', !editable)}${button('restore-source', '读取本地/系统数据', !editable, true)}<span data-editor-status>${draft?.dirty ? '未保存' : draft?.persisted ? '已保存' : draft ? '已注册' : ''}</span></div>
       <p class="story-editor-hint" data-editor-key="save-notice" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p>
       <p class="story-editor-error" role="status"${state.error ? '' : ' hidden'}>${ctx.escapeHtml(state.error ?? '')}</p>

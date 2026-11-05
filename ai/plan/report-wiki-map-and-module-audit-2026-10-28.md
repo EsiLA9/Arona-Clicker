@@ -8,7 +8,7 @@
 
 本文的**缺少正文**指当前 Wiki 没有系统说明某机制；**已有概览、需要加深**指已有页面涉及但不足以回答列出的问题；**已覆盖、可补实例**指已有相应正文，不应误判为完全未写。按读者问题和稳定职责决定拆页，不要求每个类各有一页。
 
-Area Map 是世界区域导航；MapRun 是地图玩法的局内状态；Operation Run 是另一个独立的局内作战流程。三者的命令、状态和规则不能相互替代。前两者应优先编写；详细 Area Map 先前调查见 [[ai/plan/report-area-map-wiki-2026-10-28]]，项目其他候选主题可对照 [[ai/plan/report-wiki-830-coverage-2026-10-28]]。
+Area Map 是世界区域导航；MapRun 是地图玩法的局内状态；Operation Run 是另一个独立的局内作战流程。三者的命令、状态和规则不能相互替代。前两者应优先编写；Area Map 当前机制说明见 [[area-map-overview|Area Map 概览]] 与 [[area-map-projection-and-session|投影与会话]]，项目其他候选主题可对照 [[ai/plan/report-wiki-830-coverage-2026-10-28]]。
 
 ## 一、Area Map：世界区域导航
 

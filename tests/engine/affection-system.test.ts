@@ -32,34 +32,34 @@ function makeVariant(id: string, proto: Character): CharacterVariantDef[] {
   }];
 }
 
-const stepStory1 = story('test:story:s1', '台阶一').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+const stepStory1 = story('test:story:s1', '台阶一').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶一 · 第一页', speaker: '星野' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '台阶一 · 完', speaker: '星野' } },
   { id: 'p2-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'Hoshino', amount: 50 }] } },
 ]).build();
 
-const stepStory2 = story('test:story:s2', '台阶二').stages({ 'p1': { advance: 'auto' } }).nodes([
+const stepStory2 = story('test:story:s2', '台阶二').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶二 · 完', speaker: '星野' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'Hoshino', amount: 50 }] } },
 ]).build();
 
-const stepStoryA = story('test:story:sa', '台阶A').stages({ 'p1': { advance: 'auto' } }).nodes([
+const stepStoryA = story('test:story:sa', '台阶A').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶A · 完', speaker: '星野' } },
 ]).build();
-const stepStoryB = story('test:story:sb', '台阶B').stages({ 'p1': { advance: 'auto' } }).nodes([
+const stepStoryB = story('test:story:sb', '台阶B').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '台阶B · 完', speaker: '星野' } },
 ]).build();
 
-const chatterStory = story('test:story:chatter', '日常闲聊').stages({ 'p1': { advance: 'auto' } }).nodes([
+const chatterStory = story('test:story:chatter', '日常闲聊').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '唔……闲聊……', speaker: '星野' } },
 ]).build();
 
-const kizunaStory = story('test:story:kizuna_story', '羁绊剧情').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+const kizunaStory = story('test:story:kizuna_story', '羁绊剧情').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——羁绊演出——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '羁绊剧情 · 完', speaker: '星野' } },
 ]).build();
 
-const tailStory = story('test:story:tail', '羁绊尾巴').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+const tailStory = story('test:story:tail', '羁绊尾巴').startInArea('test:area:story').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——归途——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '尾巴 · 完', speaker: '星野' } },
 ]).build();

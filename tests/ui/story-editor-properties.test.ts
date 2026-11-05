@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { defaultDatapack } from '../../src/arona-clicker/content';
+import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { UIController } from '../../src/ui/controller/controller';
 import { currentDraft } from '../../src/ui/story-editor/model';
+import { editProperty } from '../../src/ui/story-editor/property-model';
 import { STORY_EDITOR_STORAGE_KEY } from '../../src/ui/story-editor/persistence';
 import '../../src/ui/runtime/service-definitions';
 
@@ -24,7 +26,7 @@ describe('Story Editor property panel', () => {
     expect(found, selector).not.toBeNull();
     return found!;
   };
-  const click = (action: string): void => { q<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates(); };
+  const click = (action: string): void => { q<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); if(action==='new'){const current=currentDraft(ctrl.storyEditor.state);if(current&&!current.document.startContext){current.document={...current.document,startContext:{type:'area',areaId:[...game.registry.areas.keys()][0]??''}};current.dirty=true;ctrl.storyEditor.requestRefresh();}} ctrl.flushUIUpdates(); };
   const composer = (selector: string, value: string): void => {
     const field = q<HTMLInputElement | HTMLTextAreaElement>(selector);
     field.value = value;
@@ -169,13 +171,12 @@ describe('Story Editor property panel', () => {
     open(); click('new'); click('click');
     const stageId = node().stageId as string;
     expect(draft().document.stages[stageId].advance).toBe('input');
+    expect(q<HTMLElement>('[data-story-body-node]').closest('.story-editor-property-group')).toBeNull();
     setProperty(['interaction', 'text'], '继续调查');
 
     selectBranch(['interaction'], 'kind', 'choice');
-    expect(node().interaction).toEqual({ kind: 'choice' });
-    rowAction('add', ['interaction', 'options']);
+    expect(node().interaction).toEqual({ kind: 'choice', options: [{ id: 'option1', text: '继续调查' }] });
     const option = ((node().interaction as Obj).options as Obj[])[0];
-    expect(String(option.id)).toMatch(/^option_[A-Za-z0-9]+$/);
     setProperty(['interaction', 'options', 0, 'text'], '去左边');
     expect(root.textContent).toContain('选项（按顺序）');
 
@@ -185,7 +186,7 @@ describe('Story Editor property panel', () => {
     expect((node().interaction as Obj).options).toEqual([{ id: option.id, text: '去左边' }]);
 
     selectBranch(['interaction'], 'kind', 'entryCard');
-    expect(node().interaction).toEqual({ kind: 'entryCard', card: { request: { entryType: 'active', intent: 'card', owner: null } } });
+    expect(node().interaction).toEqual({ kind: 'entryCard', card: { buttonText: '继续调查', request: { entryType: 'active', intent: 'card', owner: null } } });
     const entry = [...game.registry.storyEntries].find(([, item]) => item.type === 'active')!;
     expect(entry).toBeTruthy();
     setProperty(['interaction', 'card', 'request', 'entryId'], entry[0]);
@@ -193,7 +194,7 @@ describe('Story Editor property panel', () => {
     submit();
     expect(ctrl.storyEditor.state.error).toBeNull();
     expect((stored().nodes as Obj[])[0]).toMatchObject({
-      stageId, interaction: { kind: 'entryCard', card: { request: { entryId: entry[0], entryType: 'active', intent: 'card', owner: null } } },
+      stageId, interaction: { kind: 'entryCard', card: { buttonText: '继续调查', request: { entryId: entry[0], entryType: 'active', intent: 'card', owner: null } } },
     });
     expect(draft().document.stages[stageId].advance).toBe('input');
 
@@ -289,6 +290,70 @@ describe('Story Editor property panel', () => {
     expect((node().action as Obj).command).toEqual({ command: 'clearEntityPresentation', target: targets[0].value });
     expect((node().action as Obj).command).not.toHaveProperty('optionId');
     expect((node().action as Obj).command).not.toHaveProperty('lifetime');
+  });
+
+  it('edits theme values through semantic fields and keeps defaults as inherited values', () => {
+    open(); click('new'); click('operation');
+    const node=currentDraft(ctrl.storyEditor.state)!.document.nodes[0]!;
+    const colorGroup=[...game.registry.colorGroups.values()][0]!;
+    editProperty(draft(),node.id,['action'],{kind:'presentation',command:{command:'theme',value:{colorGroupId:colorGroup.id}}});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    expect(root.textContent).toContain('有序色板（最多六色）');
+    expect(root.textContent).toContain('主色');
+    expect(root.textContent).toContain('语义颜色');
+    expect(root.textContent).toContain('背景图层');
+    const add=[...root.querySelectorAll<HTMLButtonElement>('[data-story-theme-add]')].find(button=>button.dataset.storyThemeAdd===json(['action','command','value','tokens','primary']))!;
+    expect(add).toBeTruthy();add.click();ctrl.flushUIUpdates();
+    const theme=((((node as unknown as Obj).action as Obj).command as Obj).value as Obj);
+    expect(theme.tokens).toMatchObject({primary:game.colorSystem.describeGroup(colorGroup).tokens.find(token=>token.key==='primary')?.value});
+    setProperty(['action','command','value','tokens','primary'],'#345678');
+    expect(theme.tokens).toMatchObject({primary:'#345678'});
+    const remove=[...root.querySelectorAll<HTMLButtonElement>('[data-story-theme-remove]')].find(button=>button.dataset.storyThemeRemove===json(['action','command','value','tokens','primary']))!;
+    remove.click();ctrl.flushUIUpdates();expect(theme.tokens).toEqual({});
+  });
+
+  it('previews overlay content at its authored coordinates and explains the difference between flow clears', () => {
+    open();click('new');click('operation');
+    const selected=currentDraft(ctrl.storyEditor.state)!.document.nodes[0]!;
+    editProperty(draft(),selected.id,['action'],{kind:'overlay',command:{command:'show',id:'banner',x:.35,y:.42,align:'center',content:{kind:'text',template:'title',text:'标题'}}});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    let overlay=q<HTMLElement>('.story-editor-overlay-canvas [data-chat-text="banner"]');
+    expect(overlay.getAttribute('style')).toContain('left: 35%');expect(overlay.getAttribute('style')).toContain('bottom: 42%');
+    expect(root.textContent).toContain('同 ID 后写内容替换旧覆盖层');
+    expect(hasProperty(['action','command','x'])).toBe(true);expect(hasProperty(['action','command','y'])).toBe(true);
+    q<HTMLButtonElement>('[data-story-overlay-preset="bottom-right"]').click();ctrl.flushUIUpdates();
+    expect((node().action as Obj).command).toMatchObject({x:.92,y:.1,align:'right'});
+    overlay=q<HTMLElement>('.story-editor-overlay-canvas [data-chat-text="banner"]');
+    const canvas=overlay.closest<HTMLElement>('[data-story-overlay-canvas]')!;
+    vi.spyOn(canvas,'getBoundingClientRect').mockReturnValue({left:0,right:200,top:0,bottom:100,width:200,height:100,x:0,y:0,toJSON:()=>({})} as DOMRect);
+    canvas.setPointerCapture=()=>{};
+    const pointer=(target:HTMLElement,type:string,x:number,y:number)=>{const event=new MouseEvent(type,{bubbles:true,cancelable:true,button:0,clientX:x,clientY:y});Object.defineProperty(event,'pointerId',{value:7});target.dispatchEvent(event);};
+    pointer(overlay,'pointerdown',70,58);pointer(canvas,'pointermove',140,20);pointer(canvas,'pointerup',140,20);ctrl.flushUIUpdates();
+    expect((node().action as Obj).command).toMatchObject({x:.7,y:.8});
+    editProperty(draft(),selected.id,['action','command'],{command:'clearAllTexts'});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();expect(root.textContent).toContain('保留聊天历史与剧情进度');
+    editProperty(draft(),selected.id,['action','command'],{command:'clearFlow'});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();expect(root.textContent).toContain('不回退已执行动作或剧情进度');
+  });
+
+  it('edits referenced ColorGroup through the editing-pack content service', () => {
+    ctrl.destroy();game.stop();
+    const runtime=new AronaClickerRuntime();game=runtime;runtime.init([baseDatapack]);ctrl=new UIController(runtime,root);
+    const source=runtime.packManager.listPacks().find(pack=>pack.manifest.modName==='base')!;
+    const editing=runtime.packManager.cloneAsEditing(source.id).pack;
+    open();click('new');click('operation');
+    const selected=currentDraft(ctrl.storyEditor.state)!.document.nodes[0]!;const group=[...runtime.registry.colorGroups.values()][0]!;
+    ctrl.storyEditor.state.targetPackId=editing.id;
+    editProperty(draft(),selected.id,['action'],{kind:'presentation',command:{command:'theme',value:{colorGroupId:group.id}}});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    q<HTMLButtonElement>('[data-story-theme-content-open="color-group"]').click();ctrl.flushUIUpdates();
+    const color=[...root.querySelectorAll<HTMLInputElement>('[data-theme-content-path]')].find(input=>input.dataset.themeContentPath===json(['slots',0,'color']))!;
+    expect(color).toBeTruthy();color.value='#456789';color.dispatchEvent(new Event('input',{bubbles:true}));ctrl.flushUIUpdates();
+    q<HTMLButtonElement>('[data-theme-content-action="preview"]').click();ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.themeContentEdit?.previewing).toBe(true);
+    q<HTMLButtonElement>('[data-theme-content-action="save"]').click();ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.themeContentEdit).toBeUndefined();
+    expect(runtime.packManager.getPack(editing.id)?.datapack.colorGroups?.find(item=>item.id===group.id)?.slots[0]?.color).toBe('#456789');
   });
 
   it('keeps invalid numeric text in the draft, blocks the whole submit and locates the failing field', () => {
