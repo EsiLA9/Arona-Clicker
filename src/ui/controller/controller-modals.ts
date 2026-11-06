@@ -13,7 +13,8 @@ import { nodeSource, renderPresentationHostTarget, renderPresentationTargetOptio
 import type { UIController } from './controller';
 import type { BackgroundLayerDef, ComponentPlacementDef, PresentationHostState, PresentationHostStateDef, PresentationRegion, PresentationTextColorMode } from '../../engine/types/theme';
 import { getPresentationTargets } from '../presentation/presentation-targets';
-import { refreshPresentationHostElements } from './controller-theme';
+import { refreshPresentationHostElements, uiTheme } from './controller-theme';
+import type { UserThemeDraft } from '../../arona-clicker/types/user-theme';
 import { CORNER_RADIUS_MAX, CORNER_RADIUS_MIN, SKEW_X_DEG_MAX, SKEW_X_DEG_MIN } from '../presentation/presentation-config';
 import {
   addTargetLayer,
@@ -189,12 +190,39 @@ export function openSpotShopModal(ctrl: UIController, spotId: string): void {
   ctrl.render();
 }
 
+function previewUserTheme(ctrl: UIController, draft: UserThemeDraft | null): void {
+  if (document.querySelector('.app-modal[data-story-editor-theme]')) ctrl.storyEditor.state.uiTheme?.preview(draft);
+  else ctrl.game.colorSystem.setUserThemePreview(draft);
+}
+
+function openStoryEditorTheme(ctrl: UIController): void {
+  const theme = ctrl.storyEditor.state.uiTheme;
+  if (!theme) return;
+  const session = theme.beginEdit();
+  theme.preview(session.draft); ctrl.refreshTheme();
+  ctrl.modal.open({ title: '编辑器主题', body: renderUserThemeEditor(createUIContext(ctrl.game), session, true, ['Story 编辑器']),
+    width: 420, panelClass: 'user-theme-modal',
+    footer: '<button class="modal-close">取消</button><button class="primary-button" data-user-theme-save>应用到编辑器</button>',
+    onClose: () => { cleanupUserThemeLayerOverlay(session.id); document.querySelector('.app-modal')?.removeAttribute('data-story-editor-theme'); theme.preview(null); ctrl.refreshTheme(); } });
+  const modal = document.querySelector('.app-modal');
+  if (!modal) return;
+  modal.setAttribute('data-story-editor-theme', '');
+  bindUserThemeDrag(modal);
+  bindUserThemeEditor(ctrl, modal, session, true);
+  modal.querySelector('[data-user-theme-save]')?.addEventListener('click', () => {
+    const issues = theme.apply(session.draft);
+    if (issues.length) { showUserThemeError(modal, issues.join('；')); return; }
+    ctrl.modal.close();
+  });
+}
+
 export function openUserThemeEditor(ctrl: UIController): void {
+  if (ctrl.storyEditor.isOpen()) { openStoryEditorTheme(ctrl); return; }
   // 编辑器从主题浮窗打开时，浮窗本身仍应保持 active；全量 render 会重建顶部按钮，
   // 因此先从当前 DOM 捕捉打开状态，避免只依赖可能尚未同步的控制器标记。
   const themeFloatWasOpen = ctrl.themeFloatOpen || Boolean(ctrl.root.querySelector('[data-theme-float].open'));
   if (themeFloatWasOpen) ctrl.themeFloatOpen = true;
-  const runtimeTheme = ctrl.game.colorSystem.runtimeTheme();
+  const runtimeTheme = uiTheme(ctrl);
   const initialPalette = runtimeTheme.palette.length > 0
     ? runtimeTheme.palette
     : [runtimeTheme.tokens.primary ?? '#6b8cff'];
@@ -206,7 +234,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
   const capability = ctrl.game.userThemeService.capability();
   const current = session as import('../../arona-clicker/services/presentation/user-theme-service').UserThemeEditSession;
   if (capability.active) {
-    ctrl.game.colorSystem.setUserThemePreview(current.draft);
+    previewUserTheme(ctrl, current.draft);
     ctrl.render();
     if (themeFloatWasOpen) {
       const button = ctrl.root.querySelector<HTMLButtonElement>('#theme-palette-btn');
@@ -221,7 +249,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
   }
   ctrl.modal.open({ title: '用户自定主题', body: renderUserThemeEditor(createUIContext(ctrl.game), current, capability.active, capability.sources), width: 420, panelClass: 'user-theme-modal', footer: `<button class="modal-close">取消</button><button class="primary-button" data-user-theme-save ${capability.active ? '' : 'disabled'}>保存并应用</button>`, onClose: () => {
     cleanupUserThemeLayerOverlay(current.id);
-    ctrl.game.colorSystem.setUserThemePreview(null);
+    previewUserTheme(ctrl, null);
     ctrl.game.userThemeService.discard(current.id);
     ctrl.render();
   } });
@@ -322,7 +350,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-system-color-ignore]').forEach(input => input.addEventListener('change', event => {
     if (!active) return;
     draft.systemColorLayerIgnored = !(event.currentTarget as HTMLInputElement).checked;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-theme-editor-section]').forEach(button => button.addEventListener('click', () => {
@@ -350,7 +378,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (!active) return;
     draft.tokens = { ...(draft.tokens ?? {}), [input.dataset.userThemeToken!]: input.value };
     if (input.dataset.userThemeToken) {
-      ctrl.game.colorSystem.setUserThemePreview(draft);
+      previewUserTheme(ctrl, draft);
       ctrl.refreshTheme();
     }
     const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
@@ -361,7 +389,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const palette = [...(draft.palette ?? [])];
     palette[index] = input.value;
     draft.palette = palette;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
   }));
@@ -376,7 +404,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     while (enabled.length > 0 && enabled[enabled.length - 1] === undefined) enabled.pop();
     draft.palette = palette.length > 0 ? palette : undefined;
     draft.paletteUiEnabled = palette.length > 0 ? enabled : undefined;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     const input = button.parentElement?.querySelector<HTMLInputElement>('input'); if (input) { input.value = '#6b8cff'; input.disabled = true; }
     button.disabled = true;
@@ -394,7 +422,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (input) input.value = '#6b8cff';
     const code = button.parentElement?.querySelector('code');
     if (code) code.textContent = tokenSource(token, draft);
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-palette-enable]').forEach(button => button.addEventListener('click', () => {
@@ -416,13 +444,13 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (clear) clear.disabled = !hasColor;
     if (code) code.textContent = palette[index] ?? '无色';
     button.textContent = hasColor ? (enabled[index] === false ? '仅头像' : '参与 UI') : '添加颜色';
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+    previewUserTheme(ctrl, draft); ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-node]').forEach(input => input.addEventListener('input', () => {
     if (!active) return;
     const node = input.dataset.userThemeNode as import('../../engine/types/theme').ThemeNodeName;
     draft.nodes = { ...(draft.nodes ?? {}), [node]: input.value };
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
   }));
@@ -436,7 +464,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const input = modal.querySelector<HTMLInputElement>(`[data-user-theme-node="${node}"]`);
     if (input) input.value = '#6b8cff';
     const code = button.parentElement?.querySelector('code'); if (code) code.textContent = nodeSource(node, draft);
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLInputElement>('[data-user-theme-scope-node]').forEach(input => input.addEventListener('input', () => {
@@ -444,7 +472,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const scope = input.dataset.userThemeScopeNode!;
     const node = input.dataset.userThemeScopeNodeName as import('../../engine/types/theme').ThemeNodeName;
     draft.scopes = { ...(draft.scopes ?? {}), [scope]: { ...(draft.scopes?.[scope] ?? {}), [node]: input.value } };
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+    previewUserTheme(ctrl, draft); ctrl.refreshTheme();
     const code = input.parentElement?.querySelector('code'); if (code) code.textContent = input.value;
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-scope-clear]').forEach(button => button.addEventListener('click', () => {
@@ -455,7 +483,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     if (draft.scopes && Object.keys(draft.scopes).length === 0) delete draft.scopes;
     const input = button.parentElement?.querySelector('input'); if (input) input.value = '#6b8cff';
     const code = button.parentElement?.querySelector('code'); if (code) code.textContent = scopeSource(scope, node, draft);
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme();
+    previewUserTheme(ctrl, draft); ctrl.refreshTheme();
   }));
   const targetPicker = modal.querySelector<HTMLElement>('[data-user-theme-target-picker]');
   const targetOptions = modal.querySelector<HTMLElement>('[data-user-theme-target-options]');
@@ -471,7 +499,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const hosts = presentation.hosts ?? (presentation.hosts = []);
     if (!hosts.some(host => host.id === target.id)) hosts.push({ id: target.id, parent: target.parent });
     if (targetPicker) targetPicker.hidden = true;
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
+    previewUserTheme(ctrl, draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active, target.id);
   });
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-target-add]').forEach(button => button.addEventListener('click', () => {
     if (!active || !targetPicker) return;
@@ -493,26 +521,26 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
     const host = hosts.find(item => item.id === region) ?? { id: region, parent: undefined, layers: [] };
     if (!hosts.includes(host)) hosts.push(host);
     host.opacity = Math.max(0, Math.min(1, Number(input.value) || 0));
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
   }));
   modal.querySelectorAll<HTMLSelectElement>('[data-user-theme-component-parent]').forEach(select => select.addEventListener('change', () => {
     if (!active) return;
-    const component = components().find(item => item.id === select.dataset.userThemeComponentParent); if (component) { component.parent = select.value; ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.render(); }
+    const component = components().find(item => item.id === select.dataset.userThemeComponentParent); if (component) { component.parent = select.value; previewUserTheme(ctrl, draft); ctrl.render(); }
   }));
   modal.querySelectorAll<HTMLButtonElement>('[data-user-theme-component-anchor]').forEach(button => button.addEventListener('click', () => {
     if (!active) return;
     const component = components().find(item => item.id === button.dataset.userThemeComponentAnchor); if (!component) return;
     component.anchor = button.dataset.anchor as ComponentPlacementDef['anchor'];
     button.parentElement?.querySelectorAll('[data-user-theme-component-anchor]').forEach(item => item.classList.toggle('active', item === button));
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.render();
   }));
   for (const axis of ['x', 'y'] as const) modal.querySelectorAll<HTMLInputElement>(`[data-user-theme-component-${axis}]`).forEach(input => input.addEventListener('input', () => {
     if (!active) return;
     const component = components().find(item => item.id === input.dataset[`userThemeComponent${axis.toUpperCase()}`]); if (!component) return;
     component.offset = { x: component.offset?.x ?? 0, y: component.offset?.y ?? 0, unit: component.offset?.unit ?? 'percent', [axis]: Number(input.value) || 0 };
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.render();
   }));
   modal.querySelectorAll<HTMLElement>('[data-user-theme-host-card]').forEach(card => bindPresentationHostCard(ctrl, modal, session, active, card));
@@ -520,7 +548,7 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 }
 
 function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
-  const runtime = ctrl.game.colorSystem.selectorBaseTheme();
+  const runtime = (ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme?.resolve(false) : undefined) ?? ctrl.game.colorSystem.selectorBaseTheme();
   const hostId = target.kind === 'global' ? 'global' : target.hostId;
   const globalHost = runtime.presentation?.hosts?.find(item => item.id === 'global');
   if (hostId === 'global') {
@@ -671,11 +699,11 @@ function bindUserThemeLayerManager(ctrl: UIController, modal: Element, session: 
     if (form) form.innerHTML = renderLayerEditorForm(createUIContext(ctrl.game), ui.dialogDraft, active);
     form?.querySelector<HTMLElement>('[data-theme-layer-dialog-field="id"]')?.focus();
   };
-  const preview = (): void => { ctrl.game.colorSystem.setUserThemePreview(session.draft); ctrl.refreshTheme(); if (ui.target?.kind === 'host' && ui.target.hostId) refreshPresentationHostElements(ctrl, [ui.target.hostId]); else refreshPresentationHostElements(ctrl); };
+  const preview = (): void => { previewUserTheme(ctrl, session.draft); ctrl.refreshTheme(); if (ui.target?.kind === 'host' && ui.target.hostId) refreshPresentationHostElements(ctrl, [ui.target.hostId]); else refreshPresentationHostElements(ctrl); };
   let dialogPreviewFrame = 0;
   const dialogPreview = (): void => {
     if (!ui.dialogTarget || !ui.dialogDraft) return;
-    ctrl.game.colorSystem.setUserThemePreview(withPreviewLayer(
+    previewUserTheme(ctrl, withPreviewLayer(
       session.draft,
       ui.dialogTarget,
       ui.dialogLayerId,
@@ -901,7 +929,7 @@ function refreshUserThemeEditor(ctrl: UIController, modal: Element, session: imp
   const body = modal.querySelector<HTMLElement>('.modal-body');
   if (!body) return;
   const capability = ctrl.game.userThemeService.capability();
-  body.innerHTML = renderUserThemeEditor(createUIContext(ctrl.game), session, active, capability.sources);
+  body.innerHTML = renderUserThemeEditor(createUIContext(ctrl.game), session, active, ctrl.storyEditor.isOpen() ? ['Story 编辑器'] : capability.sources);
   body.querySelector<HTMLElement>('.user-theme-editor')?.setAttribute('data-theme-editor-current-section', section);
   body.querySelector<HTMLElement>('.user-theme-editor')?.setAttribute('data-theme-editor-current-filter', editor?.dataset.themeEditorCurrentFilter ?? 'all');
   body.querySelector<HTMLElement>(`[data-theme-editor-panel="${section}"]`)?.removeAttribute('hidden');
@@ -965,7 +993,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     const mode = (event.currentTarget as HTMLSelectElement).value as PresentationTextColorMode;
     if (state === 'default') host.textColorMode = mode;
     else target.textColorMode = mode;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
     refreshPresentationHostCard(ctrl, modal, session, active, hostId);
@@ -976,7 +1004,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     if (!host) return;
     const value = (event.currentTarget as HTMLSelectElement).value;
     host.shape = value === 'rounded-parallelogram' ? 'rounded-parallelogram' : undefined;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
      refreshPresentationHostCard(ctrl, modal, session, active, hostId);
@@ -998,7 +1026,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
       host[key] = bounded;
       (event.currentTarget as HTMLInputElement).value = String(bounded);
     }
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
   }));
@@ -1008,7 +1036,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     if (!host) return;
     delete host.cornerRadius;
     delete host.skewXDeg;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
     refreshPresentationHostCard(ctrl, modal, session, active, hostId);
@@ -1031,7 +1059,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
       if (state === 'default') host.decoration = decoration;
       else target.decoration = decoration;
     }
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
     refreshPresentationHostCard(ctrl, modal, session, active, hostId);
@@ -1052,7 +1080,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     else if (key === 'inset') decoration.inset = Math.max(0, Math.min(24, Number(value) || 0));
     else if (key === 'opacity') decoration.opacity = Math.max(0, Math.min(1, Number(value) || 0));
     else if (key === 'style' && (value === 'solid' || value === 'dashed' || value === 'dotted')) decoration.style = value;
-    ctrl.game.colorSystem.setUserThemePreview(draft);
+    previewUserTheme(ctrl, draft);
     ctrl.refreshTheme();
     refreshPresentationHostElements(ctrl, [hostId]);
   }));
@@ -1061,7 +1089,7 @@ function bindPresentationHostCard(ctrl: UIController, modal: Element, session: i
     const index = presentation.hosts.findIndex(item => item.id === hostId);
     if (index < 0) return;
     presentation.hosts.splice(index, 1);
-    ctrl.game.colorSystem.setUserThemePreview(draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
+    previewUserTheme(ctrl, draft); ctrl.refreshTheme(); refreshUserThemeEditor(ctrl, modal, session, active);
   }));
 }
 

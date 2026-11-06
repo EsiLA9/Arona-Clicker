@@ -1,3 +1,4 @@
+import { renderLocalFlagNaviButton } from './local-flag-navi';
 import { STORY_AUTHORING_MAX_DEPTH } from '../../data-services/authoring/story-authoring';
 import { storyReferenceOptions, type StoryReferenceKind } from './property-options';
 import type { UIContext } from '../runtime/context';
@@ -75,17 +76,22 @@ export function renderStructuredValue(ctx: UIContext, scope: string, path: Value
       if (fixedRecord && name === 'kizuna') return '';
       const segment = Array.isArray(value) ? Number(name) : name;
       const move = Array.isArray(value) ? `<div class="story-editor-actions"><button type="button" class="mini-action" data-value-action="up" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===0 || disabled ? ' disabled' : ''}>上移</button><button type="button" class="mini-action" data-value-action="down" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===value.length-1 || disabled ? ' disabled' : ''}>下移</button></div>` : '';
-      return renderStructuredValue(ctx, scope, [...path, segment], child, `${title} / ${valueTitle(segment)}`, inputs, disabled, depth + 1, identity, references) + move;
+      const flagNames = object(value) && (value.target === 'flag' && name === 'key' || value.op === 'setFlag' && name === 'target') ? references?.$globalFlags
+        : object(value) && value.kind === 'localFlag' && name === 'name' || path.at(-1) === 'returnFlags' ? references?.$localFlags : undefined;
+      return renderStructuredValue(ctx, scope, [...path, segment], child, `${title} / ${valueTitle(segment)}`, inputs, disabled, depth + 1, identity, flagNames ? { ...references, [segment]: flagNames } : references) + move;
     }).join('');
     content = `${Array.isArray(value) ? '' : `<label class="story-editor-property">新字段名称<input data-editor-key="new-key:${e(key)}" data-value-key ${attrs} value="${e(inputs[key + ':new-key']?.text ?? '')}"${locked}></label>`}<button type="button" class="mini-action" data-value-action="add" ${attrs}${locked}>${Array.isArray(value) ? '添加列表项' : '添加字段'}</button>${children}`;
   } else if (mode === 'null' || value === undefined) content = `<p class="story-editor-hint">${value === null ? '空值仍表示键存在。' : '选择值类型后开始编辑；未设置的字段不写入内容。'}</p>`;
   else if (mode === 'boolean') content = `<label class="story-editor-property">值<select data-editor-key="value:${e(key)}" data-value-input="boolean" ${attrs}${locked}><option value="false"${value === false ? ' selected' : ''}>false</option><option value="true"${value === true ? ' selected' : ''}>true</option></select></label>`;
   else {
     const field = String(path[path.length-1]);
-    const kinds: Record<string,StoryReferenceKind> = {storyId:'story',entryId:'entry',storyEntryId:'entry',areaId:'area',owner:'variant',variantId:'variant',characterId:'variant',resource:'resource',resourceId:'resource',spot:'spot',spotId:'spot',area:'area',init:'init',initId:'init',itemId:'item',colorGroupId:'colorGroup',funclet:'funclet'};
-    const candidates = references?.[field] ?? (kinds[field] ? storyReferenceOptions(ctx,kinds[field]) : []);
+    const kinds: Record<string,StoryReferenceKind> = {storyId:'story',entryId:'entry',storyEntryId:'entry',areaId:'area',owner:'variant',variantId:'variant',characterId:'variant',resource:'resource',resourceId:'resource',spot:'spot',spotId:'spot',area:'area',init:'init',initId:'init',itemId:'item',colorGroupId:'colorGroup',funclet:'funclet',managerId:'character',enhancementId:'enhancement',pushAfterStory:'story',avatar:'image',image:'image'};
+    const kind = path.at(-2) === 'availableInits' ? 'init' : kinds[field];
+    const candidates = references?.[field] ?? (kind ? storyReferenceOptions(ctx,kind) : []);
+    const localFlagField = references?.$localFlags !== undefined && references[field] === references.$localFlags;
+    const reference = mode === 'string' && (kind !== undefined || references?.[field] !== undefined);
     const listId = `value-ref-${Array.from(key).map(c=>c.codePointAt(0)!.toString(16)).join('-')}`;
-    content = `<label class="story-editor-property">值<input data-editor-key="value:${e(key)}" data-value-input="${mode}" ${attrs} value="${e(inputs[key]?.text ?? String(value))}"${mode === 'number' ? ' inputmode="decimal"' : ''}${candidates.length ? ` list="${e(listId)}"` : ''}${locked}></label>${candidates.length ? `<datalist id="${e(listId)}">${candidates.map(x=>`<option value="${e(x.value)}" label="${e(x.label)}"></option>`).join('')}</datalist>` : ''}`;
+    content = `<label class="story-editor-property">值<input${reference && !localFlagField ? ` data-story-reference="${kind ?? 'globalFlag'}" data-reference-label="${e(title)}"` : ''} data-editor-key="value:${e(key)}" data-value-input="${mode}" ${attrs} value="${e(inputs[key]?.text ?? String(value))}"${mode === 'number' ? ' inputmode="decimal"' : ''}${reference ? ` list="${e(listId)}"` : ''}${locked}>${localFlagField ? renderLocalFlagNaviButton(disabled,path.at(-2)==='returnFlags') : ''}</label>${reference ? `<datalist id="${e(listId)}">${candidates.map(x=>`<option value="${e(x.value)}" label="${e(x.label)}"></option>`).join('')}</datalist>` : ''}`;
   }
   return `<section class="story-editor-value" data-editor-key="structured:${e(key)}">${heading}${selector}${selector ? '<small class="story-editor-hint">切换值类型或构造会替换本项内容。</small>' : ''}${inputs[key]?.error ? `<p class="story-editor-error">${e(inputs[key].error!)}</p>` : ''}${content}</section>`;
 }

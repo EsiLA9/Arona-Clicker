@@ -59,6 +59,7 @@ describe('describeEffect 全 op 覆盖', () => {
   test('角色成长与演出效果使用实际 target/value 语义', () => {
     expect(describeEffect(eff('addAffectionExp', 'arona', 5), nameOf)).toBe('阿罗娜 好感 +5');
     expect(describeEffect(eff('showChatText', 'perf:talklet', { talklet: { speaker: '阿罗娜', text: '你好' } }), nameOf)).toBe('演出对话「阿罗娜：你好」@perf:talklet');
+    expect(describeEffect(eff('showChatText', 'perf:talklet', { talklet: { characterId: 'arona', displayName: '向导', text: '你好' } }), nameOf)).toBe('演出对话「向导：你好」@perf:talklet');
     expect(describeEffect(eff('setEntityPresentation', 'variant:Arona', { optionId: 'alternate' }), nameOf)).toBe('切换实体表现：variant:Arona → alternate');
     expect(describeEffect(eff('setTheme', '', { colorGroupId: 'base:colorgroup:coral' }), nameOf)).toBe('临时主题：色彩组 base:colorgroup:coral');
   });

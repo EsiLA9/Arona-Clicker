@@ -188,6 +188,14 @@ const STORY_IMAGE_PATHS = [
   /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]\.command\.content\.content\.image$/,
 ];
 
+const STORY_CHARACTER_PATHS = [
+  /^\$\.nodes\[\d+\]\.content\.characterId$/,
+  /^\$\.nodes\[\d+\]\.action\.command\.content\.content\.characterId$/,
+  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]\.command\.content\.content\.characterId$/,
+  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]\.command\.content\.content\.characterId$/,
+  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]\.command\.content\.content\.characterId$/,
+];
+
 const STORY_STATE_REFERENCE_RULES: Readonly<Record<string, readonly [string, string, string]>> = {
   setResource: ['resourceId', '设置资源', 'resourceDisplays'],
   addResource: ['resourceId', '增加资源', 'resourceDisplays'],
@@ -331,6 +339,7 @@ export function collectDefinitionReferences(
     if (kind === 'stories' && matches(path, STORY_IMAGE_PATHS) && typeof node === 'string' && isQualifiedId(node)) {
       add(path, node, '剧情图片', ['pics']);
     }
+    if (kind === 'stories' && matches(path, STORY_CHARACTER_PATHS)) add(path, node, '剧情发出方角色', ['characters']);
 
     if (kind === 'stories' && STORY_INTERACTION_PATH.test(path) && isRecord(node)) {
       const interaction = safeRecord(node);

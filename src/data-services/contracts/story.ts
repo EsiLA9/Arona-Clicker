@@ -7,6 +7,8 @@ import type { StoryNodeDocument } from './story-node';
 export interface Talklet {
   readonly text: string;
   readonly speaker?: string;
+  readonly characterId?: string;
+  readonly displayName?: string;
   readonly choices?: readonly StoryChoice[];
   /** Display projection for a new entryCard interaction; never an authoring/runtime request. */
   readonly kizuna?: { readonly storyId: string; readonly title?: string; readonly buttonText?: string; readonly align?: 'left' | 'right' };

@@ -2,6 +2,8 @@
 
 本文回答：Story 查询如何变成聊天流，以及运行时主题如何投影到 UI 宿主。
 
+Talklet 的 `content.characterId` 保存发出方角色引用；默认名称和头像来自该角色及其默认差分。`content.displayName` 是仅覆盖名称的临时文案，不参与角色 / 头像匹配；旧故事的 `speaker` 仍作为旧身份与名称的兼容来源。`presentation.avatar` 显式图片覆盖角色头像，清空后恢复默认；avatarMode 继续控制显隐。角色引用与临时名贯穿正文页、Runtime 输出 / 打字队列、重读、覆盖层、聊天历史和快照校验，UI 通过同一 `resolveStorySpeaker()` 解析姓名与默认头像，避免别名碰巧等于其他角色时换头像。回归见 `tests/ui/story-speaker.test.ts` 与 `tests/engine/story-playback-coordinator.test.ts`。
+
 聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示读取同一 owner 的 Runtime 播放视图，不各自创建剧情推进器或 Story 计时器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动按实例隔离。普通播放默认从触发时所在的对话流开始；Entry 的 `travelToStartContext` 可要求真实前往 StoryDef 起始空间。重播始终虚拟切到该上下文，Area 三栏与设施按虚拟 Area / Init 渲染，主题也按同一上下文解析；AreaHero 和手动移动交互在播放期间禁用。Entry 开启此选项时另执行真实前往。显式移动节点的 `storyContextMoved` 将后续空间变化交给 Controller：`moveToArea` 正常播放时强制旅行并切换真实 Area，重播中的显式移动只更新虚拟场景并显示“演出场景/演出移动”。
 
 ## Story 到聊天条目
@@ -27,6 +29,8 @@ Story 正文、实际动作通知和尾奖励属于 Runtime 输出；商店、�
 Choice 提交成功后，Runtime 输出保存完整选项组和所选 option ID，排在该选项的结果通知之前。UI 复用当前 Choice 卡片，将全部按钮禁用并标记已选择项，不携带可提交的 token 或命令绑定；连续 Choice 的下一组仍以当前输入独立渲染。历史卡片随 Runtime 输出保存和恢复，遵循同一条目上限与清空规则。
 
 ## 主题与 Presentation 投影
+
+画布文字色由背景图层合成代表色决定：`controller-theme.ts` 在语义兼容变量写入后再设置 `--ink-on-canvas` / `--muted-on-canvas`，防止最终背景的判定被 `tokens.bg` 或语义底色覆盖。顶部 AronaClicker 标识的 `.brand-lockup` 消费该画布前景色；Init / GlobalEnh 选择页同样按聚焦背景生成局部变量。`readableOnColor` 对无法解析的颜色默认返回浅色文字；画布背景缺失或无法合成时也使用浅色文字，已知亮底仍返回深字。字色按现有图层代表色服务近似计算，不读取图片像素。验证见 `tests/ui/header-brand-color.test.ts`、`selector-theme.test.ts` 与 `tests/engine/color-framework.test.ts`。
 
 `controller-theme.ts` 从 ColorSystem 的当前运行时主题解析 tokens、背景定义和 Presentation 定义。`buildBackgroundView()` 解析背景资源；`buildPresentationView()` 将宿主、状态、图层、组件和资源校验为只读视图；`createUIContext()` 将这些视图提供给组件。组件使用稳定 `hostId`、`themeScope` 查询适用背景、形状、装饰和文字颜色。
 

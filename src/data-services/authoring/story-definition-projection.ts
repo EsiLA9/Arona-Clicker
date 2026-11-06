@@ -249,17 +249,22 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     return out;
   };
   const content = (v: unknown, path: string): Obj => {
-    const x = object(v, path, ['kind', 'text', 'speaker', 'image']) ?? {};
+    const x = object(v, path, ['kind', 'text', 'characterId', 'speaker', 'displayName', 'image']) ?? {};
     if (!enums(x.kind, ['talk', 'narration'])) fail(`${path}.kind`, '正文类型无效');
     const out: Obj = { kind: x.kind, text: string(x.text, `${path}.text`) };
     if (x.kind === 'talk') {
+      if (hasOwn(x, 'characterId')) {
+        const id = string(x.characterId, `${path}.characterId`, true);
+        ref('characters', id, `${path}.characterId`); out.characterId = id;
+      }
       if (hasOwn(x, 'speaker')) out.speaker = string(x.speaker, `${path}.speaker`);
+      if (hasOwn(x, 'displayName')) out.displayName = string(x.displayName, `${path}.displayName`);
       if (hasOwn(x, 'image')) {
         const image = string(x.image, `${path}.image`);
         if (parsePicId(image) && refs?.pics && !refs.pics.has(image)) fail(`${path}.image`, `图片引用不存在：${image}`);
         out.image = image;
       }
-    } else if (hasOwn(x, 'speaker') || hasOwn(x, 'image')) fail(path, '旁白不允许 speaker 或 image');
+    } else if (hasOwn(x, 'characterId') || hasOwn(x, 'speaker') || hasOwn(x, 'displayName') || hasOwn(x, 'image')) fail(path, '旁白不允许 characterId、speaker、displayName 或 image');
     return out;
   };
   const request = (v: unknown, path: string, card = false): Obj => {

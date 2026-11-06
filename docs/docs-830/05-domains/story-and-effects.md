@@ -38,6 +38,10 @@ Runtime 输出有稳定逻辑 ID、递增序号、时间戳与 historyId，正�
 
 Story Editor 的 Choice 绑定卡自动维护这组标准字段：把 Choice 后的节点拖到某个选项左侧卡片，会在该 option result 中追加 `localFlag set true`，并给目标节点设置同名 `requiresFlag`。每次目标节点使用独立的 `Story-choiceId-num` 名称；再次到达该 Choice 时，`sharedActions` 先清理本 Choice 的已绑定标记。编辑器可级联重命名标记，统一更新写入、移除和节点条件；Runtime 不需要专用绑定数据。
 
+内置内容与编辑器新建的多选 Choice 采用「条件 + 局部标记」作者规则：选项仅配置可行性 `condition` 和 `localFlag` 结果，共享动作负责清理旧分支标记；业务效果在后续带 `requiresFlag` 的 Operation 执行，goto / insert 则由受同一标记控制的顶层 Transfer 执行。已有持久 `setFlag` 仍由 Operation 写入持久状态，不与 Entry 局部标记混用。共同业务效果放在选择成功后的节点，不提前到 Choice 之前；每个分支的效果批次和转移保持原顺序。
+
+正式 Choice 合同仍接受旧包的结果动作与转移，运行时继续按原规则执行；本轮未收紧 Schema，也不自动改写外部内容或本地草稿。迁出的效果使用既有 Operation 等待点：到达时独立预检，失败会终止当前运行，先前已完成的独立 Operation 不自动回滚；不能将此模式理解成整个选项的一次原子事务。运行中旧游标与修改后的定义失配时，沿用现有显式失配与 Entry 重启路径，不补写旧快照。
+
 ## 地点续播与一层羁绊调用
 
 会话空间保留普通聊天历史，游标保留一次 Entry 的运行状态，屏幕根据 Story 起始上下文及移动节点选择场景。Init / Chara 根运行可以各自等待，正式子故事同时最多一个；等待本身不创建额外游标，也不全程禁止旅行。正式子与到场续播沿用通道隔离推进 / token，正文按投递时的场景进入 Init 或 Chara 历史；换场不清历史，Area 正文不回灌 Chara，根运行归属不随现场变化。只有重读使用私有输出。

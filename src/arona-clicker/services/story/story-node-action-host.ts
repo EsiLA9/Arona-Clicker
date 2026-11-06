@@ -230,7 +230,7 @@ function toOverlayEffect(command: StoryOverlayCommand, options?: StoryNodeAction
     value = {
       talklet: {
         kind: content.content.kind, text: content.content.text,
-        ...(content.content.kind === 'talk' ? { speaker: content.content.speaker, image: content.content.image } : {}),
+        ...(content.content.kind === 'talk' ? { speaker: content.content.speaker, characterId: content.content.characterId, displayName: content.content.displayName, image: content.content.image } : {}),
         ...(presentation?.side === undefined ? {} : { side: presentation.side }),
         ...(presentation?.align === undefined ? {} : { align: presentation.align }),
         ...(presentation?.avatar === undefined ? {} : { avatar: presentation.avatar }),
@@ -297,7 +297,7 @@ export function executeStoryPresentationEffect(options: Pick<StoryNodeActionHost
       } else if (value.talklet) {
         const talklet = value.talklet as typeof value.talklet & { kind?: string; side?: 'left' | 'right'; align?: 'left' | 'center' | 'right'; noAvatar?: boolean; showAvatar?: boolean };
         content = { kind: 'message', content: talklet.kind === 'narration' ? { kind: 'narration', text: talklet.text }
-          : { kind: 'talk', text: talklet.text, ...(talklet.speaker === undefined ? {} : { speaker: talklet.speaker }), ...(talklet.image === undefined ? {} : { image: talklet.image }) },
+          : { kind: 'talk', text: talklet.text, ...(talklet.speaker === undefined ? {} : { speaker: talklet.speaker }), ...(talklet.characterId === undefined ? {} : { characterId: talklet.characterId }), ...(talklet.displayName === undefined ? {} : { displayName: talklet.displayName }), ...(talklet.image === undefined ? {} : { image: talklet.image }) },
           presentation: { ...(talklet.side === undefined ? {} : { side: talklet.side }), ...(talklet.align === undefined ? {} : { align: talklet.align }),
             ...(talklet.avatar === undefined ? {} : { avatar: talklet.avatar }), ...(talklet.noAvatar ? { avatarMode: 'hide' as const } : talklet.showAvatar ? { avatarMode: 'show' as const } : {}) },
           ...(value.style === undefined ? {} : { style: value.style }) };

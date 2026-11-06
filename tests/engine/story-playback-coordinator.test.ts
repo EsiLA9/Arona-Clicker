@@ -20,6 +20,27 @@ describe('Runtime Story presentation has one advancement authority', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => { game?.dispose(); vi.useRealTimers(); });
 
+  it('retains character identity and the temporary name through typing, output and save/load', () => {
+    const identity = { characterId: baseDatapack.characters![0].id, displayName: '暂用名称' };
+    const g = setup([{ id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: 'one', ...identity }, pacing: { typing: 1 } }]);
+    g.story.startActiveStory(entryId);
+    expect(g.story.getPlaybackView().typing).toMatchObject(identity);
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    expect(g.story.getPlaybackView().typing).toMatchObject(identity);
+    vi.advanceTimersByTime(1200);
+    expect(g.story.getPlaybackView().entries.at(-1)).toMatchObject({ text: 'one', ...identity });
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    expect(g.story.getPlaybackView().entries.at(-1)).toMatchObject(identity);
+    expect(g.storyService.getCurrentStoryView()?.page).toMatchObject(identity);
+    g.registry.storyEntries.get(entryId)!.replayable = true;
+    const replay = g.story.replayStory(entryId);
+    expect(replay.success).toBe(true);
+    if (!replay.success) throw new Error('Replay failed');
+    expect(g.story.getReplayPlaybackView(replay.replayId!)?.typing).toMatchObject(identity);
+    vi.advanceTimersByTime(1200);
+    expect(g.story.getReplayPlaybackView(replay.replayId!)?.entries.at(-1)).toMatchObject(identity);
+  });
+
   it('delivers without a UI, waits for explicit continue, and queries never advance', () => {
     const g = setup([{ id: 'body', type: 'talklet', stageId: 'body', content: { kind: 'talk', text: 'one' } }]);
     g.story.startActiveStory(entryId);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
-import { appendNode, composer, createStoryEditorState, currentDraft, deleteNode, editNode, editNodeFlag, moveNode, newStory, renameStory, selectStory, storyDefinitionFromDraft, storyList, type StorySender } from '../../src/ui/story-editor/model';
+import { appendNode, composer, createStoryEditorState, currentDraft, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, newStory, renameStory, selectStory, storyDefinitionFromDraft, storyList, type StorySender } from '../../src/ui/story-editor/model';
 import { StoryDraftPersistence, STORY_EDITOR_STORAGE_KEY } from '../../src/ui/story-editor/persistence';
 
 const senders: StorySender[] = [{ id: 'narrator', label: '旁白' }, { id: 'teacher', label: '老师', speaker: '老师' }, { id: 'character:hoshino', label: '星野', speaker: '星野' }];
@@ -21,6 +21,36 @@ class MemoryStorage implements StorageAdapter {
 }
 
 describe('Story Editor authoring model and persistence', () => {
+  it('assigns readable per-type numbers and keeps IDs stable through edits, reordering and reload', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    draft.document.startContext = {type:'area',areaId:'base:area:schale_main'};
+    composer(state).text = '第一句'; const talk = appendNode(state,'text',senders)!;
+    const click = appendNode(state,'click',senders)!;
+    composer(state).text = '第二句'; const second = appendNode(state,'text',senders)!;
+    expect([talk.id,click.id,second.id]).toEqual(['talk-001','click-001','talk-002']);
+    expect(appendNode(state,'operation',senders)?.id).toBe('operation-001');
+    expect(appendNode(state,'transfer',senders)?.id).toBe('transfer-001');
+    expect(appendNode(state,'moveToArea',senders)?.id).toBe('move-area-001');
+    expect(appendNode(state,'moveToCharaspace',senders)?.id).toBe('move-chara-001');
+    state.selectedNodeId = second.id; editNode(state,'text','修改正文',senders); moveNode(state,-1);
+    expect(draft.document.nodes.find(node => node.id === second.id)).toMatchObject({content:{text:'修改正文'}});
+    const storage = new MemoryStorage(); expect(new StoryDraftPersistence(storage).save(state)).toBe(true);
+    const restored = createStoryEditorState(); new StoryDraftPersistence(storage).load(restored);
+    composer(restored).text = '第三句'; expect(appendNode(restored,'text',senders)?.id).toBe('talk-003');
+  });
+
+  it('skips occupied IDs and cached inputs, fills free numbers and continues beyond three digits', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    draft.document.nodes = [{id:'operation-001',type:'operation'},{id:'operation-003',type:'operation'}];
+    expect(appendNode(state,'operation',senders)?.id).toBe('operation-002');
+    draft.localFlagInputs = {'operation-004':{type:'number',text:'unfinished'}};
+    expect(appendNode(state,'operation',senders)?.id).toBe('operation-005');
+    draft.document.nodes = Array.from({length:999},(_,index) => ({id:`transfer-${String(index+1).padStart(3,'0')}`,type:'transfer' as const}));
+    expect(appendNode(state,'transfer',senders)?.id).toBe('transfer-1000');
+    for (const id of ['talk-001','click-002','operation-003','transfer-1000','move-area-001','move-chara-001',`node_${'a'.repeat(32)}`]) expect(isGeneratedStoryNodeId(id),id).toBe(true);
+    for (const id of ['talk-welcome','talk-001-copy-1','custom-001']) expect(isGeneratedStoryNodeId(id),id).toBe(false);
+  });
+
   it('retains a source composite local value through remove, draft reload, and switching back to set', () => {
     const state = createStoryEditorState();
     const draft = newStory(state);
@@ -119,7 +149,7 @@ describe('Story Editor authoring model and persistence', () => {
     expect(draft.document.nodes).toMatchObject([
       { type: 'talklet', content: { kind: 'narration' } },
       { type: 'talklet', content: { kind: 'talk', speaker: '老师' }, presentation: { side: 'right' } },
-      { type: 'talklet', content: { kind: 'talk', speaker: '星野' }, presentation: { side: 'left' } },
+      { type: 'talklet', content: { kind: 'talk', characterId: 'hoshino' }, presentation: { side: 'left' } },
     ]);
     expect(Object.values(draft.document.stages).every(stage => stage.advance === 'auto')).toBe(true);
     composer(state).text = ' \n ';

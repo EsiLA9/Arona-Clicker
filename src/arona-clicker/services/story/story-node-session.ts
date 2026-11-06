@@ -138,6 +138,8 @@ function talkletPage(node: StoryTalkletNode): Talklet {
     kind: content.kind,
     text: content.text,
     ...(content.kind === 'talk' && content.speaker !== undefined ? { speaker: content.speaker } : {}),
+    ...(content.kind === 'talk' && content.characterId !== undefined ? { characterId: content.characterId } : {}),
+    ...(content.kind === 'talk' && content.displayName !== undefined ? { displayName: content.displayName } : {}),
     ...(content.kind === 'talk' && content.image !== undefined ? { image: content.image } : {}),
     ...(presentation?.side === undefined ? {} : { side: presentation.side }),
     ...(presentation?.align === undefined ? {} : { align: presentation.align }),

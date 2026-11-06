@@ -4,9 +4,8 @@
    ============================================================ */
 
 .console-shell {
-/*    max-width: 1600px; */
    margin: 0 auto;
-   padding: 28px clamp(18px, 4vw, 64px) 20px;
+   padding: 22px clamp(18px, 3vw, 44px) 20px;
    display: flex;
    flex-direction: column;
    height: 100vh;
@@ -210,6 +209,7 @@
 
 .brand-lockup {
    gap: 12px;
+   color: var(--ink-on-canvas, #ffffff);
 }
 
 h1,

@@ -29,14 +29,18 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
       { id: 'question', type: 'talklet', stageId: 'briefing', content: { kind: 'talk', speaker: '阿罗娜', text: '先调查哪条路？' } },
       { id: 'confirm', type: 'click', stageId: 'briefing', interaction: { kind: 'button', text: '看完了' } },
       { id: 'route', type: 'click', stageId: 'decide', interaction: { kind: 'choice',
-        sharedActions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:time', amount: -1 }] }],
+        sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'route-mountain' }, { kind: 'localFlag', op: 'remove', name: 'route-river' }],
         options: [
           { id: 'mountain', text: '山路', condition: { type: 'AND', conditions: [
             { target: 'flag', key: 'has_tool', comparator: '==', value: 1 },
-          ] }, result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'mountain' }] }], transfer: { mode: 'goto', storyId: 'test:story:mountain' } } },
-          { id: 'river', text: '河路', result: { transfer: { mode: 'goto', storyId: 'test:story:river' } } },
+          ] }, result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route-mountain', value: true }] } },
+          { id: 'river', text: '河路', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route-river', value: true }] } },
         ],
       } },
+      { id: 'spend-time', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:time', amount: -1 }] } },
+      { id: 'remember-mountain', type: 'operation', requiresFlag: 'route-mountain', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'mountain' }] } },
+      { id: 'mountain', type: 'transfer', requiresFlag: 'route-mountain', transfer: { mode: 'goto', storyId: 'test:story:mountain' } },
+      { id: 'river', type: 'transfer', requiresFlag: 'route-river', transfer: { mode: 'goto', storyId: 'test:story:river' } },
     ],
   },
   s03WorkThenConfirm: { startContext: { type: 'area', areaId: 'base:area:schale_main' },
@@ -53,10 +57,11 @@ export const STORY_NODE_AUTHORING_EXAMPLES = {
     stages: { ask: { advance: 'input' }, next: { advance: 'auto' } },
     nodes: [
       { id: 'ask', type: 'talklet', stageId: 'ask', content: { kind: 'talk', text: '需要听一段说明吗？' } },
-      { id: 'decide', type: 'click', stageId: 'ask', interaction: { kind: 'choice', options: [
-        { id: 'yes', text: '需要', result: { transfer: { mode: 'insert', storyId: 'test:story:explanation' } } },
+      { id: 'decide', type: 'click', stageId: 'ask', interaction: { kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'listen-explanation' }], options: [
+        { id: 'yes', text: '需要', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'listen-explanation', value: true }] } },
         { id: 'no', text: '不需要' },
       ] } },
+      { id: 'explanation', type: 'transfer', requiresFlag: 'listen-explanation', transfer: { mode: 'insert', storyId: 'test:story:explanation' } },
       { id: 'hint', type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'next', value: true }] } },
       { id: 'next', type: 'talklet', stageId: 'next', content: { kind: 'narration', text: '进入下一阶段。' } },
     ],

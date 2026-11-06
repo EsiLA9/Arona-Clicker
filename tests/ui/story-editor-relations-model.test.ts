@@ -14,6 +14,20 @@ const card = (entryId: string) => ({request:{entryId,entryType:'active' as const
 const build = (stories: StoryDef[], entries: ActiveStoryEntry[] = []) => buildStoryRelations(createStoryEditorState(),new Map(stories.map(x=>[x.id,x])),new Map(entries.map(x=>[x.id,x])));
 
 describe('Story editor call relations', () => {
+  it('records deferred branch calls at their Operation and Transfer nodes', () => {
+    const relations = build([story('test:story:root',[
+      {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',sharedActions:[{kind:'localFlag',op:'remove',name:'route'}],options:[
+        {id:'go',text:'go',result:{actions:[{kind:'localFlag',op:'set',name:'route',value:true}]}},
+      ]}},
+      {id:'invite',type:'operation',requiresFlag:'route',action:request('test:activestory:next')},
+      {id:'next',type:'transfer',requiresFlag:'route',transfer:{mode:'insert',storyId:'test:story:next'}},
+    ])]);
+    expect(relations.calls.map(call=>({to:call.to,path:call.path}))).toEqual([
+      {to:{kind:'entry',id:'test:activestory:next'},path:'$.nodes[1].action.request.entryId'},
+      {to:{kind:'story',id:'test:story:next'},path:'$.nodes[2].transfer.storyId'},
+    ]);
+    expect(relations.calls.map(call=>call.label)).toEqual(['剧情入口请求 · 节点 invite','剧情转移 · 节点 next']);
+  });
   it('collects transfers and Entry calls from every executable node/action position', () => {
     const target = 'test:activestory:target', next = 'test:story:next';
     const overlay: StoryAction = {kind:'overlay',command:{command:'show',id:'invite',content:{kind:'entryCard',card:card(target)}}};

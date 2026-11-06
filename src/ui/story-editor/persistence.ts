@@ -36,7 +36,7 @@ function validDocument(value: unknown): boolean {
     if (!localId(node.stageId)) return false;
     // Incomplete payloads are legal drafts; only the shape of what is already entered is constrained here.
     if (node.type === 'talklet') return record(node.content) && ['talk', 'narration'].includes(String(node.content.kind)) && optionalString(node.content.text)
-      && optionalString(node.content.speaker) && optionalString(node.content.image) && validPresentation(node.presentation)
+      && optionalString(node.content.characterId) && optionalString(node.content.displayName) && optionalString(node.content.speaker) && optionalString(node.content.image) && validPresentation(node.presentation)
       && (node.pacing === undefined || record(node.pacing));
     if (node.type !== 'click' || !record(node.interaction)) return false;
     const interaction = node.interaction;
@@ -77,6 +77,7 @@ function validEditorState(value: unknown, document: StoryDraft['document']): val
   }
   return true;
 }
+const validFlagImports = (value: unknown): boolean => value === undefined || record(value) && Object.values(value).every(choice => typeof choice === 'boolean');
 export class StoryDraftPersistence {
   constructor(private readonly storage: StorageAdapter = new LocalStorageAdapter()) {}
 
@@ -105,12 +106,14 @@ export class StoryDraftPersistence {
         const document = cloneStory(draft.document) as StoryDraft['document'];
         removedLegacyReplies = stripLegacyStoryReplies(document) || removedLegacyReplies;
         if (!validFlagInputs(draft.localFlagInputs, document) || !validEditorState(draft.editorState, document)) throw new Error('编辑器分支输入草稿无效');
+        if (!validFlagImports(draft.flagImports)) throw new Error('Entry flag 获取选择无效');
         if (draft.authoring !== undefined) validateStoryAuthoringShape(draft.authoring as never, true);
         if (draft.structuredRows !== undefined && (!record(draft.structuredRows) || !Object.values(draft.structuredRows).every(rows => Array.isArray(rows) && rows.every(id=>typeof id==='string') && new Set(rows).size===rows.length))) throw new Error('结构化行身份无效');
         if (draft.structuredInputs !== undefined && (!record(draft.structuredInputs) || !Object.values(draft.structuredInputs).every(input => record(input) && typeof input.text === 'string' && (input.error === undefined || typeof input.error === 'string')))) throw new Error('结构化输入草稿无效');
         drafts.push({ draftId: draft.draftId, sourceId: draft.sourceId, document, savedAt: draft.savedAt, dirty: false, persisted: true,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: cloneStory(draft.localFlagInputs) }),
           ...(draft.editorState === undefined ? {} : { editorState: cloneStory(draft.editorState) }),
+          ...(draft.flagImports === undefined ? {} : { flagImports: cloneStory(draft.flagImports) as Record<string, boolean> }),
           ...(draft.authoring === undefined ? {} : { authoring: cloneStory(draft.authoring) as never }),
           ...(draft.structuredInputs === undefined ? {} : { structuredInputs: cloneStory(draft.structuredInputs) as never }),
           ...(draft.structuredRows === undefined ? {} : { structuredRows: cloneStory(draft.structuredRows) as Record<string,string[]> }) });
@@ -132,11 +135,12 @@ export class StoryDraftPersistence {
     const savedAt = Date.now();
     const drafts = state.drafts.filter(draft => draft.persisted || draft.dirty);
     try {
-      if (!drafts.every(draft => validDocument(draft.document) && validFlagInputs(draft.localFlagInputs, draft.document) && validEditorState(draft.editorState, draft.document))) throw new Error('草稿基本结构或节点身份无效');
+      if (!drafts.every(draft => validDocument(draft.document) && validFlagInputs(draft.localFlagInputs, draft.document) && validEditorState(draft.editorState, draft.document) && validFlagImports(draft.flagImports))) throw new Error('草稿基本结构或节点身份无效');
       this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: currentAuthoringDraft(state)?.draftId ?? null,
         drafts: drafts.map(draft => ({ draftId: draft.draftId, sourceId: draft.sourceId, document: draft.document, savedAt: draft.dirty ? savedAt : draft.savedAt,
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: draft.localFlagInputs }),
           ...(draft.editorState === undefined ? {} : { editorState: draft.editorState }),
+          ...(draft.flagImports === undefined ? {} : { flagImports: draft.flagImports }),
           ...(draft.authoring === undefined ? {} : { authoring: draft.authoring }),
           ...(draft.structuredInputs === undefined ? {} : { structuredInputs: draft.structuredInputs }),
           ...(draft.structuredRows === undefined ? {} : { structuredRows: draft.structuredRows }) })) }));

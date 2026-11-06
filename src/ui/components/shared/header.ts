@@ -158,6 +158,7 @@ function renderUserThemeSection(ctx: UIContext): string {
 }
 
 export interface HeaderRenderOptions {
+  editorTheme?: import('../../story-editor/theme').StoryEditorTheme;
   extraActions?: string;
   statusLabel?: string;
   statusSubline?: string;
@@ -209,9 +210,10 @@ export function renderHeaderButton(ctx: UIContext, options: HeaderButtonRenderOp
 
 export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}): string {
   const { view, game } = ctx;
+  const editor = options.editorTheme;
   const activeTheme = game.state.activeTheme ?? { kind: 'system' as const };
-  // 色板只展示已拥有的色彩组（未解锁的不渲染，避免"看得到用不了"）
-  const ownedGroups = game.colorSystem.ownedGroups(game.state);
+  // 游戏色板遵守拥有条件；作者界面可预览全部色组。
+  const ownedGroups = editor ? [...game.registry.colorGroups.values()] : game.colorSystem.ownedGroups(game.state);
   const customId = game.state.userTheme?.customThemeId;
   const customTheme = customId ? game.state.customThemes?.[customId] : undefined;
   const customSwatch = customTheme
@@ -222,15 +224,15 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
       ?? '#888'
     : undefined;
   const palette = `
-        <button class="theme-swatch default ${activeTheme.kind === 'system' ? 'active' : ''}" data-activate-group="" aria-pressed="${activeTheme.kind === 'system'}" title="使用当前场景主题">当前场景</button>
+        <button class="theme-swatch default ${(editor ? editor.selection === 'initial' : activeTheme.kind === 'system') ? 'active' : ''}" data-activate-group="" aria-pressed="${editor ? editor.selection === 'initial' : activeTheme.kind === 'system'}" title="${editor ? '恢复打开编辑器时的主题' : '使用当前场景主题'}">${editor ? '打开时主题' : '当前场景'}</button>
         ${ownedGroups.map(g => {
           const primary = game.colorSystem.themeSwatchColor({ colorGroupId: g.id }) ?? '#888';
-          const active = activeTheme.kind === 'color-group' && activeTheme.id === g.id ? 'active' : '';
+          const active = (editor ? editor.selection === 'color-group' && editor.groupId === g.id : activeTheme.kind === 'color-group' && activeTheme.id === g.id) ? 'active' : '';
           return `
-          <button class="theme-swatch group ${active}" data-activate-group="${g.id}" aria-pressed="${Boolean(active)}"
+          <button class="theme-swatch group ${active}" data-activate-group="${ctx.escapeHtml(g.id)}" aria-pressed="${Boolean(active)}"
             title="${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
         }).join('')}
-        ${customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}`;
+        ${editor ? `<button class="theme-swatch custom ${editor.selection === 'custom' ? 'active' : ''}" data-activate-custom-theme="story-editor" aria-pressed="${editor.selection === 'custom'}"${editor.custom ? '' : ' disabled'} title="应用编辑器自定义主题">编辑器自定义</button>` : customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}`;
   const className = ['topbar', options.className ?? ''].filter(Boolean).join(' ');
   const themeStyle = options.themeStyle ? ` style="${ctx.escapeHtml(options.themeStyle)}"` : '';
   const themeKey = options.themeKey ? ` data-selector-header-theme-key="${ctx.escapeHtml(options.themeKey)}"` : '';
@@ -247,13 +249,12 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
           ${renderHeaderButton(ctx, { id: 'theme-palette-btn', title: '切换界面主题色', ariaExpanded: false, content: '主题 <span>◑</span>' })}
           <div class="theme-float" data-theme-float>
             <div class="theme-float-head" data-theme-float-head>
-              <span>主题设置</span>
+              <span>${editor ? '编辑器主题' : '主题设置'}</span>
               <button class="theme-float-close" type="button" data-theme-float-close title="关闭">✕</button>
             </div>
             <div class="theme-float-body">
               <div class="theme-swatches">${palette}</div>
-              ${renderUserThemeSection(ctx)}
-              ${renderAreaDesignsSection(ctx)}
+              ${editor ? `<section class="theme-float-section"><small data-story-editor-theme-label>${ctx.escapeHtml(editor.label)}</small><button type="button" class="theme-editor-entry is-available" data-open-user-theme>编辑自定义主题 <span>↗</span></button></section>` : `${renderUserThemeSection(ctx)}${renderAreaDesignsSection(ctx)}`}
             </div>
           </div>
         </div>

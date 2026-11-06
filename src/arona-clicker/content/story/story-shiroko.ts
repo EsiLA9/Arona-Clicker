@@ -32,7 +32,7 @@ export const baseShirokoStories: StoryDef[] = [
   story('base:story:shiroko_drink', '白子 · 出发前的饮料')
     .startInArea('base:area:schale_main').stages({ main: { advance: 'input' } }).nodes([
       { id: 'arrival', type: 'talklet', stageId: 'main', content: { kind: 'narration', text: '夏莱主厅。白子把两瓶饮料并排放在地图旁边。' } },
-      { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', options: [
+      { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'shiroko-drink-coffee' }, { kind: 'localFlag', op: 'remove', name: 'shiroko-drink-juice' }], options: [
         { id: 'coffee', text: '来杯热咖啡。', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'shiroko-drink-coffee', value: true }] } },
         { id: 'juice', text: '选冰果汁吧。', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'shiroko-drink-juice', value: true }] } },
       ] } },
@@ -51,7 +51,7 @@ export const baseShirokoStories: StoryDef[] = [
   story('base:story:shiroko_rooftop', '白子 · 天台上的约定')
     .startInArea('base:area:schale_rooftop').stages({ main: { advance: 'input' } }).nodes([
       { id: 'arrival', type: 'talklet', stageId: 'main', content: { kind: 'narration', text: '夏莱天台。白子倚着栏杆，手里拿着相机和一张空白路线图。' } },
-      { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', options: [
+      { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'shiroko-rooftop-photo' }, { kind: 'localFlag', op: 'remove', name: 'shiroko-rooftop-route' }], options: [
         { id: 'photo', text: '先一起拍张合照。', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'shiroko-rooftop-photo', value: true }] } },
         { id: 'route', text: '一起记下下一次骑行的路线。', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'shiroko-rooftop-route', value: true }] } },
       ] } },

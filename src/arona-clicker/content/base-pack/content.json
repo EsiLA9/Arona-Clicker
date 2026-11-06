@@ -13893,6 +13893,18 @@
           "stageId": "p6",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "schale-welcome-p6-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "schale-welcome-p6-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -13900,14 +13912,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "welcome_choice",
-                          "value": "office"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "schale-welcome-p6-option1",
+                      "value": true
                     }
                   ]
                 }
@@ -13918,17 +13926,43 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "welcome_choice",
-                          "value": "production"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "schale-welcome-p6-option2",
+                      "value": true
                     }
                   ]
                 }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p6-option1-op",
+          "type": "operation",
+          "requiresFlag": "schale-welcome-p6-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "welcome_choice",
+                "value": "office"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p6-option2-op",
+          "type": "operation",
+          "requiresFlag": "schale-welcome-p6-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "welcome_choice",
+                "value": "production"
               }
             ]
           }
@@ -14987,6 +15021,18 @@
           "stageId": "p7",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "schale-theme-lite-p7-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "schale-theme-lite-p7-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -14994,20 +15040,12 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "theme_test_route",
-                          "value": "insert"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "schale-theme-lite-p7-option1",
+                      "value": true
                     }
-                  ],
-                  "transfer": {
-                    "mode": "insert",
-                    "storyId": "base:story:schale_theme_lite_insert"
-                  }
+                  ]
                 }
               },
               {
@@ -15016,23 +15054,63 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "theme_test_route",
-                          "value": "goto"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "schale-theme-lite-p7-option2",
+                      "value": true
                     }
-                  ],
-                  "transfer": {
-                    "mode": "goto",
-                    "storyId": "base:story:schale_theme_lite_finish"
-                  }
+                  ]
                 }
               }
             ]
+          }
+        },
+        {
+          "id": "p7-option1-op",
+          "type": "operation",
+          "requiresFlag": "schale-theme-lite-p7-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "theme_test_route",
+                "value": "insert"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p7-option2-op",
+          "type": "operation",
+          "requiresFlag": "schale-theme-lite-p7-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "theme_test_route",
+                "value": "goto"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p7-option1-transfer",
+          "type": "transfer",
+          "requiresFlag": "schale-theme-lite-p7-option1",
+          "transfer": {
+            "mode": "insert",
+            "storyId": "base:story:schale_theme_lite_insert"
+          }
+        },
+        {
+          "id": "p7-option2-transfer",
+          "type": "transfer",
+          "requiresFlag": "schale-theme-lite-p7-option2",
+          "transfer": {
+            "mode": "goto",
+            "storyId": "base:story:schale_theme_lite_finish"
           }
         },
         {
@@ -16021,6 +16099,18 @@
           "stageId": "p5",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "abydos-welcome-p5-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "abydos-welcome-p5-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -16028,14 +16118,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "abydos_choice",
-                          "value": "committee"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "abydos-welcome-p5-option1",
+                      "value": true
                     }
                   ]
                 }
@@ -16046,17 +16132,43 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "abydos_choice",
-                          "value": "pool"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "abydos-welcome-p5-option2",
+                      "value": true
                     }
                   ]
                 }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p5-option1-op",
+          "type": "operation",
+          "requiresFlag": "abydos-welcome-p5-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "abydos_choice",
+                "value": "committee"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p5-option2-op",
+          "type": "operation",
+          "requiresFlag": "abydos-welcome-p5-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "abydos_choice",
+                "value": "pool"
               }
             ]
           }
@@ -16719,6 +16831,18 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "millennium-welcome-p4-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "millennium-welcome-p4-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -16726,14 +16850,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "millennium_choice",
-                          "value": "yuuka"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "millennium-welcome-p4-option1",
+                      "value": true
                     }
                   ]
                 }
@@ -16744,17 +16864,43 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "millennium_choice",
-                          "value": "game"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "millennium-welcome-p4-option2",
+                      "value": true
                     }
                   ]
                 }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option1-op",
+          "type": "operation",
+          "requiresFlag": "millennium-welcome-p4-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "millennium_choice",
+                "value": "yuuka"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option2-op",
+          "type": "operation",
+          "requiresFlag": "millennium-welcome-p4-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "millennium_choice",
+                "value": "game"
               }
             ]
           }
@@ -16896,6 +17042,18 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "millennium-game-crisis-p4-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "millennium-game-crisis-p4-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -16903,20 +17061,12 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "game_crisis_route",
-                          "value": "debug"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "millennium-game-crisis-p4-option1",
+                      "value": true
                     }
-                  ],
-                  "transfer": {
-                    "mode": "goto",
-                    "storyId": "base:story:millennium_game_crisis_debug"
-                  }
+                  ]
                 }
               },
               {
@@ -16925,23 +17075,63 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "game_crisis_route",
-                          "value": "bribe"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "millennium-game-crisis-p4-option2",
+                      "value": true
                     }
-                  ],
-                  "transfer": {
-                    "mode": "goto",
-                    "storyId": "base:story:millennium_game_crisis_bribe"
-                  }
+                  ]
                 }
               }
             ]
+          }
+        },
+        {
+          "id": "p4-option1-op",
+          "type": "operation",
+          "requiresFlag": "millennium-game-crisis-p4-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "game_crisis_route",
+                "value": "debug"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option2-op",
+          "type": "operation",
+          "requiresFlag": "millennium-game-crisis-p4-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "game_crisis_route",
+                "value": "bribe"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option1-transfer",
+          "type": "transfer",
+          "requiresFlag": "millennium-game-crisis-p4-option1",
+          "transfer": {
+            "mode": "goto",
+            "storyId": "base:story:millennium_game_crisis_debug"
+          }
+        },
+        {
+          "id": "p4-option2-transfer",
+          "type": "transfer",
+          "requiresFlag": "millennium-game-crisis-p4-option2",
+          "transfer": {
+            "mode": "goto",
+            "storyId": "base:story:millennium_game_crisis_bribe"
           }
         }
       ],
@@ -18534,6 +18724,18 @@
           "stageId": "main",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "shiroko-drink-coffee"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "shiroko-drink-juice"
+              }
+            ],
             "options": [
               {
                 "id": "coffee",
@@ -18708,6 +18910,18 @@
           "stageId": "main",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "shiroko-rooftop-photo"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "shiroko-rooftop-route"
+              }
+            ],
             "options": [
               {
                 "id": "photo",
@@ -18883,6 +19097,28 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "hoshino-remembers"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "hoshino-new-memories"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "bond-hoshino-p4-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "bond-hoshino-p4-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -18890,14 +19126,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "bond_hoshino_choice",
-                          "value": "committee"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "bond-hoshino-p4-option1",
+                      "value": true
                     },
                     {
                       "kind": "localFlag",
@@ -18914,14 +19146,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "bond_hoshino_choice",
-                          "value": "forget"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "bond-hoshino-p4-option2",
+                      "value": true
                     },
                     {
                       "kind": "localFlag",
@@ -18931,6 +19159,36 @@
                     }
                   ]
                 }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option1-op",
+          "type": "operation",
+          "requiresFlag": "bond-hoshino-p4-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_hoshino_choice",
+                "value": "committee"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p4-option2-op",
+          "type": "operation",
+          "requiresFlag": "bond-hoshino-p4-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_hoshino_choice",
+                "value": "forget"
               }
             ]
           }
@@ -19075,6 +19333,18 @@
           "stageId": "p3",
           "interaction": {
             "kind": "choice",
+            "sharedActions": [
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "bond-hoshino-evening-p3-option1"
+              },
+              {
+                "kind": "localFlag",
+                "op": "remove",
+                "name": "bond-hoshino-evening-p3-option2"
+              }
+            ],
             "options": [
               {
                 "id": "option1",
@@ -19082,14 +19352,10 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "bond_evening_choice",
-                          "value": "memory"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "bond-hoshino-evening-p3-option1",
+                      "value": true
                     }
                   ]
                 }
@@ -19100,17 +19366,43 @@
                 "result": {
                   "actions": [
                     {
-                      "kind": "state",
-                      "effects": [
-                        {
-                          "op": "setFlag",
-                          "flagId": "bond_evening_choice",
-                          "value": "new"
-                        }
-                      ]
+                      "kind": "localFlag",
+                      "op": "set",
+                      "name": "bond-hoshino-evening-p3-option2",
+                      "value": true
                     }
                   ]
                 }
+              }
+            ]
+          }
+        },
+        {
+          "id": "p3-option1-op",
+          "type": "operation",
+          "requiresFlag": "bond-hoshino-evening-p3-option1",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_evening_choice",
+                "value": "memory"
+              }
+            ]
+          }
+        },
+        {
+          "id": "p3-option2-op",
+          "type": "operation",
+          "requiresFlag": "bond-hoshino-evening-p3-option2",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "setFlag",
+                "flagId": "bond_evening_choice",
+                "value": "new"
               }
             ]
           }

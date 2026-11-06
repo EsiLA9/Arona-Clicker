@@ -1,6 +1,16 @@
+import { currentRelatedFlagCatalog } from './flag-catalog-view';
+import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
+import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
+import { StoryNodeContextMenu } from './node-context-menu';
+import { openReferenceNavi, prepareReferenceNavi, referenceChoices, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
 import { ENTRY_FIELD_SEEDS } from './authoring-view';
-import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, type StoryEditorTarget, type StoryEditorVisit } from './model';
+import { buildStoryRelations } from './relations-model';
+import { buildStoryFlagCatalog, flagImportKey } from './flag-catalog';
+import { openLocalFlagNavi } from './local-flag-navi';
+import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
+import { StoryInlineTextEditor } from './inline-text';
+import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { valueAt, type ValuePath } from './structured-value';
 import type { StoryAuthoringPreview } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
@@ -12,6 +22,8 @@ import type { WorkspaceLocation, WorkspaceNavigationState } from '../workspace/w
 import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId } from './model';
 import { StoryDraftPersistence } from './persistence';
 import { createStoryEditorFrame, storySenders } from './view';
+import { StoryEditorTheme } from './theme';
+import { storyEditorSceneTarget } from './scene-view';
 import { patchEditorDOM } from './dom';
 import { addRow, editProperty, editStoryNodeBody, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
 import type { Discriminator, LiteralKind, PropertyPath } from './property-model';
@@ -98,6 +110,11 @@ export class StoryEditorController {
   private loaded = false;
   private disposed = false;
   private draggingNodeId: string | null = null;
+  private readonly inspectorScroll = new Map<string,number>();
+  private readonly inspectorTabs = new Map<string,StoryEditorState['storyInspectorTab']>();
+  private pendingInspectorScroll?: number;
+  private nodeClipboard?: StoryNodeClipboard;
+  private readonly nodeMenu = new StoryNodeContextMenu();
   private overlayDrag?: { pointerId: number; nodeId: string; path: PropertyPath; overlay: HTMLElement; canvas: HTMLElement; x: number; y: number };
   private returnState?: { location: WorkspaceLocation; navigation?: WorkspaceNavigationState; workspace: PanelState['workspace']; mapEntrySource: PanelState['mapEntrySource']; init: string | null };
   private revealNodeId: string | null = null;
@@ -108,8 +125,29 @@ export class StoryEditorController {
   private previewTimer?: ReturnType<typeof setInterval>;
   private previewSignature = '';
   private pendingVisit?: StoryEditorVisit;
-  constructor(private readonly ctrl: UIController, readonly persistence = new StoryDraftPersistence()) {}
+  private selectionNaviOpen = false;
+  private readonly requiredFlagDropdown: RequiredFlagDropdown;
+  private readonly inlineText: StoryInlineTextEditor;
+  constructor(private readonly ctrl: UIController, readonly persistence = new StoryDraftPersistence()) {
+    this.inlineText = new StoryInlineTextEditor(ctrl.root, ctrl.game, () => this.isOpen() ? currentDraft(this.state) : undefined,
+      () => this.state.storageBlocked, nodeId => {
+        if (nodeId !== this.state.selectedNodeId) this.closeThemeContentEdit();
+        this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
+        this.state.selectedNodeId = nodeId;
+      }, () => this.requestRefresh());
+    this.requiredFlagDropdown = new RequiredFlagDropdown(ctrl.root,
+      () => this.isOpen() ? JSON.stringify([this.state.target,this.state.selectedNodeId]) : '',
+      () => requiredFlagOptions(this.state,buildStoryRelations(this.state,ctrl.game.registry.stories,ctrl.game.registry.storyEntries)));
+  }
 
+  private inspectorScrollKey(): string { return JSON.stringify([this.state.target,this.state.storyInspectorTab]); }
+  private rememberInspectorScroll(): void {
+    if (this.state.target?.kind !== 'story' || this.state.inspectorView !== 'story' && currentNode(this.state)) return;
+    this.inspectorTabs.set(this.state.target.id,this.state.storyInspectorTab);
+    const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body');
+    if (body) this.inspectorScroll.set(this.inspectorScrollKey(),this.pendingInspectorScroll ?? body.scrollTop);
+  }
+  private restoreInspectorScroll(): void { this.pendingInspectorScroll = this.inspectorScroll.get(this.inspectorScrollKey()) ?? 0; }
   private storyKey(storyId: string): string | undefined {
     return this.state.drafts.find(draft => draft.document.id === storyId)?.draftId
       ?? (this.ctrl.game.registry.stories.has(storyId) ? `source:${storyId}` : undefined);
@@ -119,7 +157,7 @@ export class StoryEditorController {
     if (!target) return;
     return { target: { ...target }, selectedNodeId: this.state.selectedNodeId, insertionBeforeNodeId: this.state.insertionBeforeNodeId,
       centerScroll: this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body')?.scrollTop ?? 0,
-      rightScroll: this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body')?.scrollTop ?? 0 };
+      rightScroll: this.pendingInspectorScroll ?? this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body')?.scrollTop ?? 0 };
   }
   private rememberVisit(): void {
     const visit = this.captureVisit();
@@ -146,6 +184,9 @@ export class StoryEditorController {
   private browseTarget(target: StoryEditorTarget, historyIndex?: number): void {
     if (!this.hasTarget(target) || historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
     if (!this.save(false, false)) return;
+    this.nodeMenu.close(); this.closeSelectionNavi();
+    this.requiredFlagDropdown.close();
+    this.rememberInspectorScroll();
     this.rememberVisit();
     const visit = historyIndex === undefined
       ? [...this.state.visits].reverse().find(visit => visit.target.kind === target.kind && visit.target.id === target.id)
@@ -171,6 +212,9 @@ export class StoryEditorController {
       this.state.selectedNodeId = nodes.some(node => node.id === visit.selectedNodeId) ? visit.selectedNodeId : null;
       this.state.insertionBeforeNodeId = nodes.some(node => node.id === visit.insertionBeforeNodeId) ? visit.insertionBeforeNodeId : null;
     }
+    this.state.inspectorView = this.state.selectedNodeId ? 'node' : 'story';
+    if (target.kind === 'story') this.state.storyInspectorTab = this.inspectorTabs.get(target.id) ?? 'overview';
+    this.pendingInspectorScroll = undefined;
     if (historyIndex !== undefined) this.state.visitIndex = historyIndex;
     else this.pushVisit();
     this.pendingVisit = visit;
@@ -185,6 +229,9 @@ export class StoryEditorController {
 
   isOpen(): boolean { return !this.disposed && this.ctrl.panelState.workspaceNavigation?.current.kind === 'story-editor'; }
   dispose(): void {
+    this.inlineText.dispose();
+    this.requiredFlagDropdown.dispose();
+    this.nodeMenu.close(); this.closeSelectionNavi();
     this.closeAuthoringPreview();
     this.closeThemeContentEdit();
     this.save(false, false);
@@ -200,6 +247,9 @@ export class StoryEditorController {
     if (this.disposed) return;
     if (this.isOpen()) return;
     if (!this.loaded) { this.persistence.load(this.state); this.loaded = true; }
+    const initialTheme = this.ctrl.selectorPage.currentTheme() ?? this.ctrl.game.colorSystem.runtimeTheme();
+    if (this.state.uiTheme) this.state.uiTheme.setInitial(initialTheme);
+    else this.state.uiTheme = new StoryEditorTheme(this.ctrl.game, initialTheme);
     const panel = this.ctrl.panelState;
     this.returnState = { location: this.ctrl.workspaceLocation(), navigation: panel.workspaceNavigation, workspace: panel.workspace, mapEntrySource: panel.mapEntrySource, init: this.ctrl.game.state.activeInit };
     panel.storyEditor = this.state;
@@ -213,6 +263,7 @@ export class StoryEditorController {
       bind: root => this.bind(root) })) };
   }
   save(manual = false, refresh = true): boolean {
+    this.inlineText.finish();
     if (!this.loaded) return true;
     const draft = currentAuthoringDraft(this.state);
     if (manual && draft && !draft.persisted) draft.dirty = true;
@@ -245,6 +296,7 @@ export class StoryEditorController {
     this.closeAuthoringPreview();
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
+    if (saved) { this.nodeMenu.close(); this.closeSelectionNavi(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
     if (!saved) this.requestRefresh();
     return saved;
   }
@@ -258,6 +310,7 @@ export class StoryEditorController {
     this.returnState = undefined;
   }
   close(): void {
+    this.nodeMenu.close(); this.closeSelectionNavi();
     if (!this.isOpen() || !this.beforeLeave()) return;
     const panel = this.ctrl.panelState;
     const saved = this.returnState;
@@ -303,6 +356,8 @@ export class StoryEditorController {
     template.innerHTML = renderWorkspaceFrame(ctx, frame);
     const current = this.ctrl.root.querySelector<HTMLElement>('[data-workspace-frame="story-editor"]');
     const next = template.content.firstElementChild as HTMLElement;
+    this.inlineText.prepare(next);
+    prepareReferenceNavi(next);
     if (!current) {
       const page = this.ctrl.root.querySelector<HTMLElement>('.workspace-page-content');
       if (!page) return false;
@@ -310,7 +365,8 @@ export class StoryEditorController {
     } else {
       const oldBinding = current.querySelector<HTMLElement>('[data-column-binding]')?.dataset.columnBinding;
       const active = document.activeElement instanceof HTMLElement && current.contains(document.activeElement) ? document.activeElement : null;
-      patchEditorDOM(current, next, root => this.ctrl.popovers.dismissBeforeRootMutation(root));
+      patchEditorDOM(current, next, root => { this.nodeMenu.dismissBeforeMutation(root); this.ctrl.popovers.dismissBeforeRootMutation(root); });
+      this.nodeMenu.retainIfAnchored();
       this.ctrl.columns.adopt(this.ctrl.root, ctx, frame);
       if (oldBinding !== storyEditorTargetKey(this.state)) {
         for (const column of current.querySelectorAll<HTMLElement>('.story-editor-center, .story-editor-right')) {
@@ -326,6 +382,11 @@ export class StoryEditorController {
         if (body) body.scrollTop = this.pendingVisit[`${panel}Scroll`];
       }
       this.pendingVisit = undefined;
+    }
+    if (this.pendingInspectorScroll !== undefined) {
+      const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body');
+      if (body) body.scrollTop = this.pendingInspectorScroll;
+      this.pendingInspectorScroll = undefined;
     }
     if (this.revealNodeId) {
       const nodeId = this.revealNodeId;
@@ -343,6 +404,7 @@ export class StoryEditorController {
       this.pendingFocus = undefined;
       this.focusIssueField(target);
     }
+    this.requiredFlagDropdown.refresh();
     return true;
   }
   private focusIssueField(raw: string | null): void {
@@ -352,19 +414,76 @@ export class StoryEditorController {
     }
   }
   bind(root: HTMLElement): () => void {
+    this.inlineText.prepare(root);
+    prepareReferenceNavi(root);
     const select = (event: Event): void => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target)) return;
       if (event.type === 'contextmenu') event.preventDefault();
+      this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
       const selected=target.dataset.editorNode??null;if(selected!==this.state.selectedNodeId)this.closeThemeContentEdit();this.state.selectedNodeId = selected;
       this.requestRefresh();
     };
+    const contextMenu = (event: MouseEvent): void => {
+      const element = event.target instanceof Element ? event.target : null;
+      if (!element || element.closest('input, textarea, select, [contenteditable]')) return;
+      const gap = element.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end]');
+      const node = element.closest<HTMLElement>('[data-editor-node]');
+      const anchor = gap ?? node;
+      const draft = currentDraft(this.state), targetId = this.state.target?.id;
+      if (!anchor || !root.contains(anchor) || !draft || this.state.target?.kind !== 'story') return;
+      event.preventDefault();
+      const live = () => this.isOpen() && anchor.isConnected && currentDraft(this.state) === draft && this.state.target?.kind === 'story' && this.state.target.id === targetId;
+      if (gap) {
+        const before = gap.hasAttribute('data-story-insertion-end') ? null : gap.dataset.storyInsertionBefore!;
+        if (!setInsertionPoint(this.state,before)) return;
+        this.requestRefresh();
+        this.nodeMenu.open(anchor,event.clientX,event.clientY,'粘贴',!this.nodeClipboard || this.state.storageBlocked,() => {
+          if (!live() || !this.nodeClipboard) return;
+          const pasted = pasteStoryNode(this.state,this.nodeClipboard,before);
+          if (!pasted) return;
+          this.state.inspectorView = 'node'; this.state.error = null; this.state.notice = `已粘贴节点 ${pasted.id}`; this.requestRefresh();
+        });
+      } else {
+        select(event);
+        const nodeId = node!.dataset.editorNode!;
+        this.nodeMenu.open(anchor,event.clientX,event.clientY,'复制',false,() => {
+          if (!live()) return;
+          const copied = copyStoryNode(draft,nodeId);
+          if (!copied) return;
+          this.nodeClipboard = copied; this.state.notice = `已复制节点 ${nodeId}`; this.requestRefresh();
+        });
+      }
+    };
     const click = (event: Event): void => {
+      const referenceNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-reference-navi]') : null;
+      if (referenceNavi && root.contains(referenceNavi)) {
+        event.preventDefault();
+        const field = referenceNavi.closest('[data-reference-control]')?.querySelector<ReferenceField>('[data-story-reference]');
+        if (!referenceNavi.disabled && field) this.openContentNavi(field);
+        return;
+      }
+      const flagNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-local-flag-navi]') : null;
+      if (flagNavi && root.contains(flagNavi)) {
+        event.preventDefault();
+        const input = flagNavi.closest('label')?.querySelector<HTMLInputElement>('input');
+        if (!flagNavi.disabled && input && !input.disabled && !input.readOnly) this.openFlagNavi(input,flagNavi.hasAttribute('data-local-flag-internal'));
+        return;
+      }
+      const flagImport = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-story-flag-import]') : null;
+      if (flagImport && root.contains(flagImport)) {
+        if (!flagImport.disabled) this.confirmFlagImport(flagImport.dataset.storyFlagImport ?? '');
+        return;
+      }
       const storyLink = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-story-target]') : null;
       if (storyLink && root.contains(storyLink)) {
         if (!storyLink.disabled) {
           const key = this.storyKey(storyLink.dataset.editorStoryTarget ?? '');
-          if (key) this.browseStory(key);
+          if (key) {
+            this.browseStory(key);
+            const nodeId = storyLink.dataset.storyFlagNode;
+            if (nodeId && currentDraft(this.state)?.document.nodes.some(node => node.id === nodeId)) { this.state.inspectorView = 'node'; this.state.selectedNodeId = nodeId; this.revealNodeId = nodeId; }
+          }
           this.requestRefresh();
         }
         return;
@@ -406,7 +525,7 @@ export class StoryEditorController {
       }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
         const beforeNodeId = element.hasAttribute('data-story-insertion-end') ? null : element.dataset.storyInsertionBefore ?? null;
@@ -417,7 +536,11 @@ export class StoryEditorController {
       const sender = element.dataset.editorSender;
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
       const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
-      if (element.dataset.storyRenameNodeId) this.openNodeIdPrompt(element.dataset.storyRenameNodeId, element.dataset.storyRenameNodeId);
+      const inspectorTab = element.dataset.columnAction?.startsWith('story-editor-inspector-tab:') ? element.dataset.columnAction.slice('story-editor-inspector-tab:'.length) : undefined;
+      if (inspectorTab && ['overview','relations','flags','tools'].includes(inspectorTab)) {
+        this.rememberInspectorScroll(); this.state.inspectorView = 'story';
+        this.state.storyInspectorTab = inspectorTab as typeof this.state.storyInspectorTab; this.restoreInspectorScroll();
+      } else if (element.dataset.storyRenameNodeId) this.openNodeIdPrompt(element.dataset.storyRenameNodeId, element.dataset.storyRenameNodeId);
       else if (element.hasAttribute('data-story-rename-option-id')) this.openChoiceOptionIdPrompt(element);
       else if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(nodeTypeTab)) {
         const draft = currentDraft(this.state);
@@ -520,6 +643,15 @@ export class StoryEditorController {
       target.classList.add('is-dragging');
     };
     const dragOver = (event: DragEvent): void => {
+      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
+      if (flagRow && root.contains(flagRow)) {
+        const draft = currentDraft(this.state), nodeId = this.draggingNodeId;
+        if (!draft || this.state.target?.kind !== 'story' || this.state.storageBlocked || !nodeId || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
+        for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
+        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.ctrl.game),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,nodeId) : {ok:false};
+        flagRow.classList.toggle('is-drop-target',plan.ok); flagRow.classList.toggle('is-drop-invalid',!plan.ok);
+        event.preventDefault(); event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none'; return;
+      }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
       const nodeId = this.draggingNodeId;
@@ -555,12 +687,25 @@ export class StoryEditorController {
       highlightStoryDropAnchor(flow, anchor);
     };
     const dragLeave = (event: DragEvent): void => {
+      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
+      if (flagRow && !(event.relatedTarget instanceof Node && flagRow.contains(event.relatedTarget))) flagRow.classList.remove('is-drop-target','is-drop-invalid');
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       if (!flow || event.relatedTarget instanceof Node && flow.contains(event.relatedTarget)) return;
       clearStoryFlagDropStates(flow);
       highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
     };
     const drop = (event: DragEvent): void => {
+      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
+      if (flagRow && root.contains(flagRow)) {
+        const draft = currentDraft(this.state), item = readStoryDragItem(event);
+        if (!draft || this.state.target?.kind !== 'story' || this.state.storageBlocked || !item || item.draftId !== draft.draftId) return;
+        event.preventDefault();
+        const result = flagRow.dataset.storyFlagKind === 'local' ? bindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.ctrl.game),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false,reason:'全局标记不能作为节点的局部执行条件。'};
+        this.state.error = result.ok ? null : result.reason;
+        this.state.inspectorView = 'story'; this.state.storyInspectorTab = 'flags';
+        for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
+        this.requestRefresh(); return;
+      }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
       const item = readStoryDragItem(event);
@@ -599,6 +744,7 @@ export class StoryEditorController {
       highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
     };
     const dragEnd = (event: DragEvent): void => {
+      for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       target?.classList.remove('is-dragging');
       this.draggingNodeId = null;
@@ -639,11 +785,26 @@ export class StoryEditorController {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target) || event.target !== target) return;
       event.preventDefault();
+      this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
       const selected=target.dataset.editorNode??null;if(selected!==this.state.selectedNodeId)this.closeThemeContentEdit();this.state.selectedNodeId = selected;
       this.requestRefresh();
     };
+    const doubleClick = (event: MouseEvent): void => {
+      const card = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-scene-card') : null;
+      const draft = currentDraft(this.state);
+      if (!card || !root.contains(card) || !draft) return;
+      const node = draft.document.nodes.find(node => node.id === card.closest<HTMLElement>('[data-editor-node]')?.dataset.editorNode);
+      const scene = card.hasAttribute('data-editor-start-context') ? draft.document.startContext
+        : node?.type === 'moveToArea' ? { type: 'area' as const, areaId: node.areaId ?? '' }
+          : node?.type === 'moveToCharaspace' ? { type: 'chara' as const, characterId: node.characterId ?? '' } : undefined;
+      const target = storyEditorSceneTarget(createUIContext(this.ctrl.game), scene);
+      if (!target) return;
+      this.state.uiTheme?.selectDefinition(target.theme ?? {}, target.name);
+      this.ctrl.refreshTheme();
+    };
+    root.addEventListener('dblclick', doubleClick);
     root.addEventListener('click', click);
-    root.addEventListener('contextmenu', select);
+    root.addEventListener('contextmenu', contextMenu);
     root.addEventListener('input', input);
     root.addEventListener('change', input);
     root.addEventListener('dragstart', dragStart);
@@ -657,7 +818,9 @@ export class StoryEditorController {
     root.addEventListener('pointercancel', overlayPointerEnd);
     root.addEventListener('keydown', nodeKeydown);
     return () => {
-      root.removeEventListener('click', click); root.removeEventListener('contextmenu', select);
+      root.removeEventListener('dblclick', doubleClick);
+      root.removeEventListener('click', click); root.removeEventListener('contextmenu', contextMenu);
+      this.nodeMenu.close();
       root.removeEventListener('input', input); root.removeEventListener('change', input);
       root.removeEventListener('dragstart', dragStart); root.removeEventListener('dragover', dragOver);
       root.removeEventListener('dragleave', dragLeave); root.removeEventListener('drop', drop); root.removeEventListener('dragend', dragEnd);
@@ -729,6 +892,7 @@ export class StoryEditorController {
   }
   private closeThemeContentEdit(): void {
     const edit=this.state.themeContentEdit;if(!edit)return;this.ctrl.commands.themeContentEditor?.cancel(edit.session.sessionId);
+    this.state.uiTheme?.previewContent();
     this.state.themeContentEdit=undefined; this.ctrl.refreshTheme();
   }
   private themeContentNumbersValid(value:unknown,path:string[]=[]):string|undefined {
@@ -761,7 +925,8 @@ export class StoryEditorController {
       const result=action==='preview'?editor?.preview(edit.session.sessionId,edit.draft):editor?.save(edit.session.sessionId,edit.draft);
       if(!result){edit.error='主题内容编辑服务不可用。';return;}
       if(!result.ok){edit.error=result.message;return;}
-      if(action==='preview'){edit.previewing=true;edit.error=undefined;this.ctrl.refreshTheme();return;}
+      if(action==='preview'){edit.previewing=true;edit.error=undefined;this.state.uiTheme?.previewContent(this.ctrl.game.colorSystem.runtimeTheme());this.ctrl.refreshTheme();return;}
+      this.state.uiTheme?.previewContent();
       this.state.themeContentEdit=undefined;this.state.notice='主题定义已保存到所选编辑态数据包。';this.ctrl.refreshTheme();return;
     }
     const path=this.parsePropertyPath(target.dataset.themeContentPath);if(!path)return;
@@ -913,6 +1078,7 @@ export class StoryEditorController {
   private editStoryProperty(target: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); const path=this.parsePropertyPath(target.dataset.storyPropertyPath);
     if(!draft||!node||!path)return;
+    if (path[path.length - 1] === 'displayName' && !target.value.trim()) { removeProperty(draft, node.id, path); return; }
     if(target instanceof HTMLSelectElement) {
       // An empty enumeration choice means "keep the runtime default": delete the field instead of writing ''.
       if(!target.value) { removeProperty(draft,node.id,path); return; }
@@ -943,7 +1109,9 @@ export class StoryEditorController {
     if(!action||!rowPath)return;
     if(action==='add') {
       if(!Array.isArray(readProperty(draft,node.id,rowPath)))editProperty(draft,node.id,rowPath,[]);
-      const row=rowPath.at(-1)==='options'?{id:`option_${crypto.randomUUID().replace(/-/g,'')}`,text:''}:{};
+      const interaction=node.type==='click'&&node.interaction.kind==='choice';
+      const choiceActions=interaction&&(JSON.stringify(rowPath)==='["interaction","sharedActions"]'||rowPath.length===5&&rowPath[0]==='interaction'&&rowPath[1]==='options'&&rowPath[3]==='result'&&rowPath[4]==='actions');
+      const row=rowPath.at(-1)==='options'?{id:`option_${crypto.randomUUID().replace(/-/g,'')}`,text:''}:choiceActions?{kind:'localFlag',op:'set',name:'',value:true}:{};
       addRow(draft,node.id,rowPath,row); return;
     }
     const rowId=element.dataset.storyRowId;
@@ -958,8 +1126,88 @@ export class StoryEditorController {
     const parsed=splitIssuePath(issuePath);
     if(!parsed)return;
     const node=draft.document.nodes[parsed.index]; if(!node)return;
+    this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
     this.state.selectedNodeId=node.id;
     this.pendingFocus=parsed.path.length?JSON.stringify(parsed.path):null;
+  }
+  private closeSelectionNavi(): void { if (this.selectionNaviOpen) this.ctrl.modal.close(); }
+  private openContentNavi(field: ReferenceField): void {
+    const target = this.state.target, nodeId = this.state.selectedNodeId;
+    const live = () => this.isOpen() && field.isConnected && !field.disabled
+      && !(field instanceof HTMLInputElement && field.readOnly) && !this.state.storageBlocked
+      && this.state.target?.kind === target?.kind && this.state.target?.id === target?.id && this.state.selectedNodeId === nodeId;
+    if (!target || !live()) return;
+    this.requiredFlagDropdown.close(); this.selectionNaviOpen = true;
+    openReferenceNavi(this.ctrl.modal, createUIContext(this.ctrl.game), field, {
+      close: () => { this.selectionNaviOpen = false; if (field.isConnected) field.focus({ preventScroll: true }); },
+      select: value => {
+        if (!live()) { this.ctrl.modal.close(); return; }
+        if (!referenceChoices(field).some(row => row.value === value && !row.disabled)) return;
+        this.ctrl.modal.close(); field.value = value;
+        field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+      },
+      navigate: source => {
+        if (!live()) { this.ctrl.modal.close(); return; }
+        this.ctrl.modal.close(); this.browseTarget(source); this.requestRefresh();
+      },
+    });
+  }
+  private openFlagNavi(input: HTMLInputElement, includeInternal: boolean): void {
+    this.requiredFlagDropdown.close();
+    const target = this.state.target;
+    if (!target || this.state.storageBlocked) return;
+    const nodeId = this.state.selectedNodeId;
+    const catalog = () => buildStoryFlagCatalog(this.state,buildStoryRelations(this.state,this.ctrl.game.registry.stories,this.ctrl.game.registry.storyEntries),target);
+    const live = () => this.isOpen() && input.isConnected && !input.disabled && !input.readOnly && !this.state.storageBlocked
+      && this.state.target?.kind === target.kind && this.state.target.id === target.id && this.state.selectedNodeId === nodeId;
+    this.selectionNaviOpen = true;
+    openLocalFlagNavi(this.ctrl.modal,createUIContext(this.ctrl.game),catalog(),{
+      current:input.value,includeInternal,
+      close:()=>{ this.selectionNaviOpen=false; if (input.isConnected) input.focus({preventScroll:true}); },
+      select:(name,scope)=>{
+        if (!live()) { this.ctrl.modal.close(); return; }
+        if (!catalog().uses.some(use=>use.kind==='local' && use.name===name && use.scope===scope && (includeInternal || use.available))) return;
+        this.ctrl.modal.close();
+        input.value = name;
+        if (input.dataset.editorField==='local-flag-name') {
+          // Selecting an existing writer name is a field assignment, not a cascading rename.
+          editNodeFlag(this.state,'local-flag-name',name); this.requestRefresh();
+        } else input.dispatchEvent(new Event('input',{bubbles:true}));
+      },
+      navigate:(source,sourceNode)=>{
+        this.ctrl.modal.close(); this.browseTarget(source);
+        if (source.kind==='story' && currentDraft(this.state)?.document.id===source.id && sourceNode && currentDraft(this.state)!.document.nodes.some(node=>node.id===sourceNode)) {
+          this.state.inspectorView='node'; this.state.selectedNodeId=sourceNode; this.revealNodeId=sourceNode;
+        }
+        this.requestRefresh();
+      },
+    });
+  }
+  private confirmFlagImport(key: string): void {
+    const owner = currentDraft(this.state);
+    if (!owner || this.state.storageBlocked) return;
+    const relations = buildStoryRelations(this.state, this.ctrl.game.registry.stories, this.ctrl.game.registry.storyEntries);
+    const boundary = buildStoryFlagCatalog(this.state, relations, { kind: 'story', id: owner.document.id },true).boundaries.find(item => item.key === key);
+    if (!boundary || boundary.missing) return;
+    const entry = relations.entries.get(boundary.call.to.id)!;
+    const name = entry.openingTitle || entry.id;
+    this.ctrl.modal.open({ title: '获取 Entry 的 flag 信息', body: `<p>是否将“${createUIContext(this.ctrl.game).escapeHtml(name)}”涉及的 flag 纳入当前故事的清单？内部局部标记仍属于该 Entry，不会自动添加到回传白名单。</p>`,
+      footer: '<button type="button" class="mini-action" data-modal-action="flag-import-no">不获取</button><button type="button" class="mini-action" data-modal-action="flag-import-yes">获取信息</button>',
+      onAction: action => {
+        if (!['flag-import-no', 'flag-import-yes'].includes(action) || currentDraft(this.state) !== owner) return;
+        // Materialize the source draft so action-row identities survive edits and reloads.
+        const previousTarget = this.state.target;
+        const previousNode = this.state.selectedNodeId;
+        const previousGap = this.state.insertionBeforeNodeId;
+        if (boundary.call.from.kind === 'story' && !this.state.drafts.some(draft => draft.document.id === boundary.call.from.id)) selectStory(this.state, `source:${boundary.call.from.id}`, this.ctrl.game.registry.stories);
+        this.state.target = previousTarget; this.state.selectedNodeId = previousNode; this.state.insertionBeforeNodeId = previousGap;
+        const stableKey = flagImportKey(this.state, relations, boundary.call);
+        owner.flagImports ??= {};
+        owner.flagImports[stableKey] = action === 'flag-import-yes'; owner.dirty = true;
+        const source = this.state.drafts.find(draft => draft.document.id === boundary.call.from.id);
+        if (source) source.dirty = true;
+        this.save(false, false); this.ctrl.modal.close(); this.requestRefresh();
+      } });
   }
   private action(action: string): void {
     if (action === 'history-back' || action === 'history-forward') { this.browseHistory(action === 'history-back' ? -1 : 1); return; }
@@ -968,15 +1216,15 @@ export class StoryEditorController {
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
     if (action === 'new') {
-      if (this.save(false, false)) { this.rememberVisit(); this.closeAuthoringPreview();this.closeThemeContentEdit(); newStory(this.state); this.pushVisit(); }
+      if (this.save(false, false)) { this.rememberVisit(); this.closeAuthoringPreview();this.closeThemeContentEdit(); newStory(this.state); this.state.inspectorView=undefined; this.state.storyInspectorTab='overview'; this.pushVisit(); }
     } else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') this.state.sidebarMode = 'senders';
-    else if (action === 'info' || action === 'rename') { this.closeThemeContentEdit();this.state.selectedNodeId = null; this.focusName = action === 'rename'; }
+    else if (action === 'info' || action === 'rename') { this.closeThemeContentEdit();this.rememberInspectorScroll(); this.state.selectedNodeId = null; this.state.inspectorView = 'story'; if (action === 'rename') this.state.storyInspectorTab = 'overview'; this.restoreInspectorScroll(); this.focusName = action === 'rename'; }
     else if (action === 'delete-node') deleteNode(this.state);
     else if (action === 'up' || action === 'down') moveNode(this.state, action === 'up' ? -1 : 1);
     else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer' || action === 'moveToArea' || action === 'moveToCharaspace') {
       const added = appendNode(this.state, action === 'send' ? 'text' : action, storySenders(createUIContext(this.ctrl.game)));
-      if (added) this.revealNodeId = added.id;
+      if (added) { this.state.inspectorView = 'node'; this.revealNodeId = added.id; }
     } else if (action === 'delete-draft') this.confirmDelete();
   }
   private confirmDelete(): void {

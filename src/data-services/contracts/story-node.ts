@@ -115,7 +115,9 @@ export type StoryContent = StoryTalkContent | StoryNarrationContent;
 export interface StoryTalkContent {
   /** 内容类型，固定为角色对话。 */ readonly kind: 'talk';
   /** 正文文字。 */ readonly text: string;
-  /** 可选说话人显示名。 */ readonly speaker?: string;
+  /** 默认发出方角色；名称与头像来自该角色。@ref characters */ readonly characterId?: string;
+  /** 旧内容的发出方名称；没有角色引用时保留旧头像匹配方式。 */ readonly speaker?: string;
+  /** 临时显示名；只覆盖名称，不改变角色头像。 */ readonly displayName?: string;
   /** 可选对话图片。 */ readonly image?: string;
 }
 

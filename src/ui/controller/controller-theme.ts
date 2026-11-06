@@ -6,7 +6,7 @@
 // ============================================================
 
 import { THEME_NODES, buildThemeTree, buildThemeVars, heroGradient, type ThemeTree, type ThemeVarName } from '../presentation/theme-tree';
-import { rgbTriplet } from '../../engine/core/color';
+import { INK_ON_DARK, rgbTriplet } from '../../engine/core/color';
 import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from '../presentation/background-service';
 import type { ResolvedTheme } from '../../engine/core/theme-runtime';
@@ -55,6 +55,7 @@ export function restoreThemeFloat(ctrl: UIController): void {
  * Init 主题只投影到外部 Init 选择页；通讯录学生对话会临时完整替代普通界面选择。
  */
 export function syncRuntimeTheme(ctrl: UIController): void {
+  if (ctrl.storyEditor.isOpen()) return;
   const channel = ctrl.panelState.storyReplay;
   ctrl.game.storyPresentation.activate(channel?.owner === ctrl.panelState.conversationVariantId && !channel.completed
     ? channel.replayId ?? channel.owner : ctrl.panelState.conversationVariantId);
@@ -95,7 +96,7 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const style = document.documentElement.style;
   clearInjectedThemeVars(style);
   if (syncRuntime) syncRuntimeTheme(ctrl);
-  const resolved = ctrl.game.colorSystem.runtimeTheme();
+  const resolved = uiTheme(ctrl);
   const tokens = resolved.tokens;
   // 引擎强制设色层：合并后的 token 注入为 --ac-*
   for (const [key, value] of Object.entries(tokens)) {
@@ -111,10 +112,6 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   const palette = resolved.palette.length > 0 ? resolved.palette : [tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY];
   // 画布文字色按当前主题自身背景图层的合成色判定，而非只看 tokens.bg。
   const ink = buildBackgroundView(resolved.background, ctrl.game.pics, tokens, resolved.systemColorLayerIgnored, palette, rootThemeVars(resolved)).ink;
-  if (ink) {
-    style.setProperty('--ink-on-canvas', ink.text);
-    style.setProperty('--muted-on-canvas', `color-mix(in srgb, ${ink.text} 58%, transparent)`);
-  }
   style.setProperty('--theme-palette-1', palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   style.setProperty('--theme-palette-2', palette[1] ?? palette[0] ?? tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY);
   const nodeOverrides = new Map(Object.entries(resolved.nodeOverrides) as [import('../presentation/theme-palette').ThemeNodeName, string][]);
@@ -133,12 +130,32 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   for (const [key, value] of Object.entries(semantic)) style.setProperty(key, value);
   const rootNodes = resolveThemeNodes({ colors: palette }, tokens, nodeOverrides);
   for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(rootNodes))) style.setProperty(key, value);
+  const canvasInk = ink?.text ?? INK_ON_DARK;
+  style.setProperty('--ink-on-canvas', canvasInk);
+  style.setProperty('--muted-on-canvas', `color-mix(in srgb, ${canvasInk} 58%, transparent)`);
   applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
   // area-hero 横幅渐变（跟随主题 primary 的光晕）
   style.setProperty('--hero-gradient', heroGradient(tokens['primary'] ?? SYSTEM_DEFAULT_PRIMARY, tokens));
   // 主题变量重算后同步表现目标状态与文字颜色模式，避免状态属性滞留在默认态。
   refreshPresentationHostElements(ctrl);
   refreshBackgroundElements(ctrl);
+  const editor = ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme : undefined;
+  if (editor) {
+    const label = ctrl.root.querySelector('[data-story-editor-theme-label]');
+    if (label) label.textContent = editor.label;
+    ctrl.root.querySelectorAll<HTMLButtonElement>('[data-activate-group], [data-activate-custom-theme]').forEach(button => {
+      const custom = button.hasAttribute('data-activate-custom-theme');
+      const id = button.dataset.activateGroup;
+      const active = custom ? editor.selection === 'custom' : id ? editor.selection === 'color-group' && editor.groupId === id : editor.selection === 'initial';
+      button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
+      if (custom) button.disabled = !editor.custom;
+    });
+  }
+}
+
+/** UI-only theme selection; the gameplay theme remains owned by ColorSystem. */
+export function uiTheme(ctrl: UIController): ResolvedTheme {
+  return (ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme?.resolve() : undefined) ?? ctrl.game.colorSystem.runtimeTheme();
 }
 
 function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, palette: string[], rootOverrides: ReadonlyMap<import('../presentation/theme-palette').ThemeNodeName, string>, scopeOverrides: Record<string, Partial<Record<import('../presentation/theme-palette').ThemeNodeName, string>>>, presentation: import('../../engine/types/theme').PresentationDef): void {
@@ -180,7 +197,7 @@ export function rootThemeVars(resolved: ResolvedTheme): ThemeTree {
 }
 
 export function backgroundView(ctrl: UIController) {
-  const theme = ctrl.game.colorSystem.runtimeTheme();
+  const theme = uiTheme(ctrl);
   return buildBackgroundView(
     theme.background,
     ctrl.game.pics,
@@ -192,7 +209,7 @@ export function backgroundView(ctrl: UIController) {
 }
 
 export function presentationView(ctrl: UIController) {
-  const theme = ctrl.game.colorSystem.runtimeTheme();
+  const theme = uiTheme(ctrl);
   return buildPresentationView(theme.presentation, ctrl.game.pics, {
     evaluateCondition: condition => ctrl.game.conditionSystem.evaluate(condition, ctrl.game.state),
   });

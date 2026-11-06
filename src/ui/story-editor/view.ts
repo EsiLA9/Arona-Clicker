@@ -1,6 +1,9 @@
-import { renderStoryAuthoringFields, renderStoryEntryFields } from './authoring-view';
+import { renderStoryAuthoringEntryRelations, renderStoryAuthoringTools, renderStoryEntryFields } from './authoring-view';
 import { renderStoryTransfer } from './transfer-view';
+import { renderStoryEditorTarget, storyEditorTargetColor } from './target-view';
+import { renderStoryEditorScene } from './scene-view';
 import { renderStoryRelations } from './relations-view';
+import { renderStoryFlagCatalog } from './flag-catalog-view';
 import type { UIContext } from '../runtime/context';
 import { renderChatEntry, renderStoryClickPreview } from '../components/story/story';
 import { renderWorkspaceFrame, type WorkspaceColumnSpec, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
@@ -150,6 +153,7 @@ function renderOperationPreview(ctx: UIContext, action: StoryAction | undefined)
 export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: StoryDraftNode): string {
   const draft = currentDraft(state)!;
   let body: string;
+  let entryTarget = '';
   if (node.type === 'talklet') {
     const talklet = node as Partial<Extract<StoryDraftNode, { type: 'talklet' }>>;
     const content = talklet.content;
@@ -158,7 +162,7 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     } else {
       // Drafts may hold an incomplete payload; the preview must not invent data.
       body = renderChatEntry(ctx, { kind: content.kind, text: content.text ?? '',
-        ...(content.kind === 'talk' ? { speaker: content.speaker, image: content.image } : {}),
+        ...(content.kind === 'talk' ? { speaker: content.speaker, characterId: content.characterId, displayName: content.displayName, image: content.image } : {}),
         side: node.presentation?.side, align: node.presentation?.align, avatar: node.presentation?.avatar,
         noAvatar: node.presentation?.avatarMode === 'hide', showAvatar: node.presentation?.avatarMode === 'show',
       }, { instanceKey: `${draft.draftId}/${node.id}` });
@@ -168,8 +172,12 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     const legacyTargets = [...new Set([...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].flatMap(entry => entry.kizuna ? [entry.kizuna.entryId] : []))];
     const targetId = click.interaction?.kind === 'entryCard' ? click.interaction.card?.request?.entryId ?? ''
       : click.interaction?.kind === 'kizunaCard' ? legacyTargets.length === 1 ? legacyTargets[0] : '' : undefined;
+    if (targetId !== undefined) {
+      const entry = storyEntries(state, ctx.game.registry.storyEntries).get(targetId);
+      const label = entry ? entryName(ctx, state, entry) : targetId || '未配置 Entry';
+      entryTarget = renderStoryEditorTarget(ctx, 'entry', targetId, label, Boolean(entry));
+    }
     body = renderStoryClickPreview(ctx, click.interaction, {
-      ...(targetId === undefined ? {} : { entryTarget: { id: targetId, available: storyEntries(state,ctx.game.registry.storyEntries).has(targetId) } }),
       ...(click.interaction?.kind === 'choice' ? {
       choiceOptionAddon: (option, index) => {
         const transfer = click.interaction?.kind === 'choice' ? click.interaction.options[index]?.result?.transfer : undefined;
@@ -183,25 +191,20 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     else if (node.type === 'transfer') {
       body = renderStoryTransfer(ctx, state, node.transfer);
     } else {
-      const target = node.type === 'moveToArea' ? node.areaId : node.characterId;
-      body = `<div class="story-editor-action-node"><span>${node.type === 'moveToArea' ? '移动到 Area' : '移动到 Chara'}</span><strong>${ctx.escapeHtml(target || '尚未选择目标')}</strong></div>`;
+      body = renderStoryEditorScene(ctx, node.type === 'moveToArea'
+        ? { type: 'area', areaId: node.areaId ?? '' }
+        : { type: 'chara', characterId: node.characterId ?? '' });
     }
   }
-  const flagRecord = node.requiresFlag ? `<code class="story-editor-flag-reader-record" data-story-drop-target="story-flag-reader" data-story-flag-name="${ctx.escapeHtml(node.requiresFlag)}" style="--story-editor-choice-flag-color:${choiceFlagColor(node.requiresFlag)}" title="拖动节点到此记录上，以使用局部标记「${ctx.escapeHtml(node.requiresFlag)}」" aria-label="局部标记 ${ctx.escapeHtml(node.requiresFlag)}；可将其他节点拖到此处">${ctx.escapeHtml(node.requiresFlag)}</code>` : '';
-  return `<div class="story-editor-node${state.selectedNodeId === node.id ? ' is-selected' : ''}" data-editor-key="node:${ctx.escapeHtml(node.id)}" data-editor-node="${ctx.escapeHtml(node.id)}" data-story-drop-target="story-node" role="button" tabindex="0" draggable="${state.storageBlocked ? 'false' : 'true'}" aria-label="选择或拖动 ${ctx.escapeHtml(node.type)} 节点" aria-pressed="${state.selectedNodeId === node.id}"><div class="story-editor-node-content${flagRecord ? ' has-flag' : ''}">${flagRecord}${body}</div></div>`;
+  const flagRecord = node.requiresFlag ? `<code class="story-editor-flag-reader-record" data-story-drop-target="story-flag-reader" data-story-flag-name="${ctx.escapeHtml(node.requiresFlag)}" style="--story-editor-choice-flag-color:${storyEditorTargetColor(node.requiresFlag)}" title="拖动节点到此记录上，以使用局部标记「${ctx.escapeHtml(node.requiresFlag)}」" aria-label="局部标记 ${ctx.escapeHtml(node.requiresFlag)}；可将其他节点拖到此处">${ctx.escapeHtml(node.requiresFlag)}</code>` : '';
+  return `<div class="story-editor-node${state.selectedNodeId === node.id ? ' is-selected' : ''}" data-editor-key="node:${ctx.escapeHtml(node.id)}" data-editor-node="${ctx.escapeHtml(node.id)}" data-story-drop-target="story-node" role="button" tabindex="0" draggable="${state.storageBlocked ? 'false' : 'true'}" aria-label="选择或拖动 ${ctx.escapeHtml(node.type)} 节点" aria-pressed="${state.selectedNodeId === node.id}"><div class="story-editor-node-content${flagRecord ? ' has-flag' : ''}${entryTarget ? ' has-target-card' : ''}">${flagRecord}${body}${entryTarget}</div></div>`;
 }
 function renderChoiceOptionFlagCard(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, choiceNodeId: string, optionIndex: number, optionId: string): string {
   const bindings = choiceOptionFlagBindings(draft, choiceNodeId, optionIndex, optionId);
-  const groups = bindings.map(binding => `<code class="story-editor-choice-flag-binding" style="--story-editor-choice-flag-color:${choiceFlagColor(binding.flagName)}" title="${ctx.escapeHtml(binding.flagName)}">${ctx.escapeHtml(binding.flagName)}</code>`).join('');
+  const groups = bindings.map(binding => `<code class="story-editor-choice-flag-binding" style="--story-editor-choice-flag-color:${storyEditorTargetColor(binding.flagName)}" title="${ctx.escapeHtml(binding.flagName)}">${ctx.escapeHtml(binding.flagName)}</code>`).join('');
   return `<div class="story-editor-choice-flag-card${bindings.length ? ' has-bindings' : ''}" data-story-drop-target="choice-flag" data-story-choice-node="${ctx.escapeHtml(choiceNodeId)}" data-story-option-index="${optionIndex}" data-story-option-id="${ctx.escapeHtml(optionId)}" aria-label="${bindings.length ? `局部标记绑定 ${bindings.length} 项` : '拖动节点到此处添加局部标记绑定'}"${state.storageBlocked ? ' aria-disabled="true"' : ''}>
     ${groups || '<strong>局部标记</strong><span class="story-editor-choice-flag-empty">拖入节点</span>'}
   </div>`;
-}
-function choiceFlagColor(flagName: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < flagName.length; index++) hash = Math.imul(hash ^ flagName.charCodeAt(index), 16777619);
-  const hue = (hash >>> 0) % 360;
-  return `hsl(${hue} 46% 27%)`;
 }
 function renderInsertionPoint(ctx: UIContext, state: StoryEditorState, beforeNodeId: string | null): string {
   const key = beforeNodeId === null ? 'insertion:end' : `insertion:before:${beforeNodeId}`;
@@ -210,22 +213,40 @@ function renderInsertionPoint(ctx: UIContext, state: StoryEditorState, beforeNod
   const label = beforeNodeId === null ? '在 Story 末尾插入' : '在此节点之前插入';
   return `<button type="button" class="story-editor-insertion-point${active ? ' is-active' : ''}" data-editor-key="${ctx.escapeHtml(key)}" data-story-drop-target="insertion-point" ${anchor} aria-label="${label}" title="${label}"${state.storageBlocked ? ' disabled' : ''}><span aria-hidden="true"></span></button>`;
 }
-function inspector(ctx: UIContext, state: StoryEditorState): string {
-  const draft = currentDraft(state);
-  if (!draft) return empty('新建或选择一个 Story 开始编辑。');
-  const node = currentNode(state);
-  const startContext = draft.document.startContext;
+function renderStoryInspector(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
   const e = ctx.escapeHtml;
+  const startContext = draft.document.startContext;
   const readOnly = state.storageBlocked ? ' readonly' : '';
-  if (!node) return `<div class="story-editor-fields" data-editor-key="document:${e(draft.draftId)}">
+  const tabs = renderTabs(ctx, 'right', [
+    { id: 'overview', label: '概述', action: 'story-editor-inspector-tab:overview' },
+    { id: 'relations', label: '关系', action: 'story-editor-inspector-tab:relations' },
+    { id: 'flags', label: 'Flag表', action: 'story-editor-inspector-tab:flags' },
+    { id: 'tools', label: '其他工具包', action: 'story-editor-inspector-tab:tools' },
+  ], state.storyInspectorTab, 'Story 属性');
+  const panel = (tab: StoryEditorState['storyInspectorTab'], content: string): string =>
+    `<section class="story-editor-inspector-page" data-editor-key="story-inspector-panel:${tab}" data-story-inspector-panel="${tab}" role="tabpanel"${state.storyInspectorTab === tab ? '' : ' hidden'}>${content}</section>`;
+  const overview = `<div class="story-editor-fields" data-editor-key="document:${e(draft.draftId)}">
     <label>名称<input data-editor-key="name" data-editor-field="name" value="${e(draft.document.name)}"${readOnly}></label>
     <label>起始对话空间<select data-editor-field="story-context-type"${state.storageBlocked ? ' disabled' : ''}><option value="area"${startContext?.type !== 'chara' ? ' selected' : ''}>Area / 通用聊天</option><option value="chara"${startContext?.type === 'chara' ? ' selected' : ''}>Chara / 通讯录</option></select></label>
     ${startContext?.type === 'chara'
-      ? `<label>起始角色<select data-editor-field="story-context-character"${state.storageBlocked ? ' disabled' : ''}><option value="">选择角色</option>${[...ctx.game.registry.characterVariants.values()].map(item => `<option value="${e(item.id)}"${startContext.characterId === item.id ? ' selected' : ''}>${e(item.displayName)} · ${e(item.id)}</option>`).join('')}</select></label>`
-      : `<label>起始区域<select data-editor-field="story-context-area"${state.storageBlocked ? ' disabled' : ''}><option value="">选择 Area</option>${[...ctx.game.registry.areas.values()].map(item => `<option value="${e(item.id)}"${startContext?.type === 'area' && startContext.areaId === item.id ? ' selected' : ''}>${e(item.name)} · ${e(item.id)}</option>`).join('')}</select></label>`}
+      ? `<label>起始角色<select data-story-reference="variant" data-editor-key="story-context-character" data-editor-field="story-context-character"${state.storageBlocked ? ' disabled' : ''}><option value="">选择角色</option>${[...ctx.game.registry.characterVariants.values()].map(item => `<option value="${e(item.id)}"${startContext.characterId === item.id ? ' selected' : ''}>${e(item.displayName)} · ${e(item.id)}</option>`).join('')}</select></label>`
+      : `<label>起始区域<select data-story-reference="area" data-editor-key="story-context-area" data-editor-field="story-context-area"${state.storageBlocked ? ' disabled' : ''}><option value="">选择 Area</option>${[...ctx.game.registry.areas.values()].map(item => `<option value="${e(item.id)}"${startContext?.type === 'area' && startContext.areaId === item.id ? ' selected' : ''}>${e(item.name)} · ${e(item.id)}</option>`).join('')}</select></label>`}
     <label>Story ID<code>${e(draft.document.id)}</code></label>
     <label>来源<span>${e(draft.sourceId ?? '本地新建')}</span></label>
-    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p>${renderStoryRelations(ctx,state)}${renderStoryAuthoringFields(ctx,state,draft)}</div>`;
+    <p class="story-editor-hint">草稿保存在本机；保存到运行内容会立即生效，仅当前运行有效。</p></div>`;
+  return `<div class="story-editor-story-inspector" data-editor-key="story-inspector:${e(draft.draftId)}"><div data-story-inspector-tabs>${tabs}</div>
+    ${panel('overview', overview)}
+    ${panel('relations', `${renderStoryRelations(ctx,state)}${renderStoryAuthoringEntryRelations(ctx,state,draft)}`)}
+    ${panel('flags', renderStoryFlagCatalog(ctx,state))}
+    ${panel('tools', renderStoryAuthoringTools(ctx,state,draft))}
+  </div>`;
+}
+function inspector(ctx: UIContext, state: StoryEditorState): string {
+  const draft = currentDraft(state);
+  if (!draft) return empty('新建或选择一个 Story 开始编辑。');
+  const node = state.inspectorView !== 'story' ? currentNode(state) : undefined;
+  const e = ctx.escapeHtml;
+  if (!node) return renderStoryInspector(ctx,state,draft);
   const index = draft.document.nodes.findIndex(item => item.id === node.id);
   const properties = renderStoryNodeProperties(ctx, state, draft, node, index);
   return `<div data-editor-key="inspector:${e(node.id)}">${properties}</div>`;
@@ -292,7 +313,7 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
     : `<p class="story-editor-empty">从下方发送第一条正文，或添加一个节点。</p>${renderInsertionPoint(ctx, state, null)}`;
   return { ...baseColumn(ctx, state, 'story-editor-flow', 'center', draft?.document.name || '编辑'),
     header: editorHistoryHeader(ctx, state, draft?.document.name || '编辑'),
-    content: `${renderSelectedOverlayCanvases(ctx,state)}<div class="story-editor-flow" data-editor-key="flow">${flow}</div>`,
+    content: `${renderSelectedOverlayCanvases(ctx,state)}<div class="story-editor-flow" data-editor-key="flow">${draft ? renderStoryEditorScene(ctx, draft.document.startContext, true) : ''}${flow}</div>`,
   footer: `<div class="story-editor-composer" data-editor-key="composer"><div class="story-editor-actions">${button('info', 'Story 信息', !draft)}${button('save', '保存草稿', !editable)}${button('save-to-runtime', '保存到运行内容', !editable)}${button('restore-source', '读取本地/系统数据', !editable, true)}<span data-editor-status>${draft?.dirty ? '未保存' : draft?.persisted ? '已保存' : draft ? '已注册' : ''}</span></div>
       <p class="story-editor-hint" data-editor-key="save-notice" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p>
       <p class="story-editor-error" role="status"${state.error ? '' : ' hidden'}>${ctx.escapeHtml(state.error ?? '')}</p>
@@ -309,7 +330,7 @@ export function createStoryEditorFlowColumn(ctx: UIContext, state: StoryEditorSt
 }
 export function createStoryEditorInspectorColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
   return { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', '属性'),
-    header: renderWorkspaceTitlebar(ctx, 'right', '属性', currentNode(state) ? 'data-column-back' : undefined),
+    header: renderWorkspaceTitlebar(ctx, 'right', '属性', state.inspectorView !== 'story' && currentNode(state) ? 'data-column-back' : undefined),
     content: `<div data-editor-key="inspector">${inspector(ctx, state)}</div>` };
 }
 export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState): WorkspaceFrameSpec {
@@ -321,7 +342,7 @@ export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState):
       header: editorHistoryHeader(ctx, state, name),
       content: `<div data-editor-key="entry-page" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}"><p class="story-editor-hint">${ctx.escapeHtml(state.target.id)}</p>${entry ? renderStoryEntryFields(ctx,state) : empty('该 Entry 已不存在。')}<p class="story-editor-hint" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p><p class="story-editor-error" role="status"${state.error ? '' : ' hidden'}>${ctx.escapeHtml(state.error ?? '')}</p></div>` },
     { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', 'Entry 属性'),
-      content: `<div data-editor-key="entry-inspector" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${renderStoryRelations(ctx,state)}</div>` });
+      content: `<div data-editor-key="entry-inspector" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${renderStoryRelations(ctx,state)}${renderStoryFlagCatalog(ctx,state)}</div>` });
   } else columns.push(createStoryEditorFlowColumn(ctx, state), createStoryEditorInspectorColumn(ctx, state));
   return { id: 'story-editor', updates: 'external', columns };
 }

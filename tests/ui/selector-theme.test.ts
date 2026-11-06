@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
+import { INK_ON_DARK, INK_ON_LIGHT } from '../../src/engine/core/color';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { createUIContext } from '../../src/ui/runtime/context';
 import {
@@ -27,10 +28,22 @@ describe('选择页动态主题投影', () => {
 
   function freshGame(): GameInstance {
     const game = new GameInstance();
-    game.init([baseDatapack]);
+    game.init([structuredClone(baseDatapack)]);
     games.push(game);
     return game;
   }
+
+  it('keeps topbar canvas text matched to the projected background, including missing content', () => {
+    const game = freshGame();
+    const init = game.world.inits.get(MILLENNIUM)!;
+    for (const [color, semantic, expected] of [['#101828', '#ffffff', INK_ON_DARK], ['#ffffff', '#101828', INK_ON_LIGHT], [undefined, '#ffffff', INK_ON_DARK]] as const) {
+      init.theme = { tokens: { bg: semantic, bgAlt: semantic }, systemColorLayerIgnored: true,
+        background: color ? [{ kind: 'solid', value: color }] : [] };
+      const projection = projectSelectorTheme(createUIContext(game), 'init', MILLENNIUM);
+      expect(projection.tree['--ink-on-canvas']).toBe(expected);
+      expect(projection.inlineStyle).toContain(`--ink-on-canvas:${expected}`);
+    }
+  });
 
   it('Init 声明主题与背景状态变体进入选择页投影', () => {
     const game = freshGame();

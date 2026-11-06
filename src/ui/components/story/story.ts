@@ -1,4 +1,5 @@
 import type { StoryView } from '../../../arona-clicker/contracts/runtime/results';
+import type { GameReadModel } from '../../../arona-clicker/contracts/runtime/runtime';
 import { UIContext } from '../../runtime/context';
 import { renderAvatarSvg } from '../../presentation/avatar-renderer';
 import { renderPresentationHostBackground } from '../../presentation/presentation-service';
@@ -37,6 +38,8 @@ export interface ChatEntry {
   id: number;
   kind: 'talk' | 'narration' | 'system' | 'reward' | 'typing';
   speaker?: string;
+  characterId?: string;
+  displayName?: string;
   text: string;
   storyType?: 'active' | 'passive';
   /** 是否为玩家（老师）发出的消息。 */
@@ -97,36 +100,42 @@ export interface ChatTextEntry {
   timestamp: number;
 }
 
-/**
- * 圆形头像：优先级 = talklet 图片 > 说话人 ColorGroup 抽象头像 > 首字母圆形占位。
- * 图片加载失败回退首字母占位。
- */
-function renderAvatar(ctx: UIContext, avatar: string | undefined, speaker: string | undefined): string {
-  const initial = ctx.escapeHtml((speaker?.trim() || '?').charAt(0).toUpperCase());
+/** 临时显示名不参与角色匹配，兼容旧 speaker 内容。 */
+export function resolveStorySpeaker(game: GameReadModel, entry: { characterId?: string; speaker?: string; displayName?: string; side?: string; isPlayer?: boolean }) {
+  const variants = [...game.registry.characterVariants.values()];
+  const legacy = entry.characterId === undefined ? variants.find(v => v.displayName === entry.speaker || v.name === entry.speaker || v.id === entry.speaker) : undefined;
+  const character = entry.characterId === undefined
+    ? game.registry.characters.get(legacy?.proto ?? '') ?? [...game.registry.characters.values()].find(c => c.displayName === entry.speaker || c.id === entry.speaker)
+    : game.registry.characters.get(entry.characterId);
+  const candidates = variants.filter(v => v.proto === character?.id);
+  const variant = entry.characterId === undefined && legacy ? legacy : candidates.find(v => v.isDefault) ?? candidates[0];
+  const baseName = character?.displayName || variant?.displayName || entry.characterId || (entry.side === 'right' || entry.isPlayer ? '老师' : entry.speaker?.trim() || 'SYSTEM');
+  return { characterId: character?.id, variant, baseName, name: entry.displayName?.trim() ? entry.displayName : entry.speaker?.trim() ? entry.speaker : baseName };
+}
+
+function renderAvatar(ctx: UIContext, avatar: string | undefined, identity: ReturnType<typeof resolveStorySpeaker>): string {
+  const initial = ctx.escapeHtml((identity.baseName || '?').charAt(0).toUpperCase());
   const fallback = `<span class="chat-avatar-fallback">${initial}</span>`;
-  // avatar 可为直连 URL 或 `mod:type(pic):id` 三段式图片索引；解析失败回退首字母占位
+  // 显式图片优先；引用无法解析时继续使用角色默认头像。
   const src = avatar ? ctx.game.pics.urlOf(avatar) : undefined;
   if (src) {
     return `<span class="chat-avatar"><img src="${ctx.escapeHtml(src)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
   }
-  // 说话人匹配角色差分（displayName / name / id）→ 装备的 ColorGroup > 差分声明的 colorGroupId
-  const speakerId = speaker?.trim();
-  if (speakerId) {
-    const variant = ctx.game.rosterSystem.getAllVariants().find(
-      v => v.displayName === speakerId || v.name === speakerId || v.id === speakerId,
-    );
-    if (variant) {
-      const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)?.colorEquipment;
-      const group = equip
-        ? ctx.game.colorEquipmentSystem.groupOf(equip)
-        : (variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined);
-      const colors = equip
-        ? ctx.game.colorEquipmentSystem.avatarColors(equip)
-        : (variant.colorGroupId ? ctx.game.colorEquipmentSystem.avatarColorsForGroup(variant.colorGroupId) : []);
-      if (group && colors.length) {
-        return `<span class="chat-avatar">${renderAvatarSvg(group.compositionType, colors, 40)}</span>`;
-      }
+  // 角色身份决定默认头像；临时显示名不参与匹配。
+  const variant = identity.variant;
+  if (variant) {
+    const equip = ctx.game.rosterSystem.getOwned(ctx.game.state, variant.id)?.colorEquipment;
+    const group = equip
+      ? ctx.game.colorEquipmentSystem.groupOf(equip)
+      : (variant.colorGroupId ? ctx.game.registry.colorGroups.get(variant.colorGroupId) : undefined);
+    const colors = equip
+      ? ctx.game.colorEquipmentSystem.avatarColors(equip)
+      : (variant.colorGroupId ? ctx.game.colorEquipmentSystem.avatarColorsForGroup(variant.colorGroupId) : []);
+    if (group && colors.length) {
+      return `<span class="chat-avatar">${renderAvatarSvg(group.compositionType, colors, 40)}</span>`;
     }
+    const defaultSrc = variant.avatar ? ctx.game.pics.urlOf(variant.avatar) : undefined;
+    if (defaultSrc) return `<span class="chat-avatar"><img src="${ctx.escapeHtml(defaultSrc)}" alt="${initial}" loading="lazy" onerror="this.remove()">${fallback}</span>`;
   }
   return `<span class="chat-avatar">${fallback}</span>`;
 }
@@ -188,7 +197,8 @@ function renderBubbleContent(ctx: UIContext, entry: FlowContent): string {
  *  hideIdentity（§4 连发分组）：同人连发中非首条不渲染头像与名称，以不可见头像占位保持气泡缩进对齐。 */
 export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
   const { instanceKey, hideIdentity = false, inlineStyle } = options;
-  const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
+  const identity = resolveStorySpeaker(ctx.game, entry);
+  const name = ctx.escapeHtml(identity.name);
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : '';
   // 聊天流发送图片：pic ref / 直连 URL 经 getPicUrl 解析；解析失败则整图不渲染
@@ -206,7 +216,7 @@ export function renderTalk(ctx: UIContext, entry: FlowContent, options: RenderCh
     ? ''
     : hideIdentity
       ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
-      : renderAvatar(ctx, entry.avatar, entry.speaker);
+      : renderAvatar(ctx, entry.avatar, identity);
   return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}"${entryAttributes(ctx, entry, instanceKey)}>${avatar}${main}</div>`;
 }
 
@@ -242,11 +252,12 @@ function renderChoiceCard(
         : ` data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''}`;
       let indicator = preview || available ? '<span class="choice-option-arrow">↗</span>' : '<small class="choice-option-locked">LOCKED</small>';
       if (completed) indicator = choice.id === selectedOptionId ? '<small class="choice-option-locked">已选择</small>' : '';
+      const tag = preview ? 'div' : 'button';
       const button = `
-      <button class="choice-option"${bindings} ${completed || preview || !available ? 'disabled' : ''}>
+      <${tag} class="choice-option"${bindings} ${!preview && (completed || !available) ? 'disabled' : ''}>
         <span class="choice-option-text">${ctx.escapeHtml(choice.text)}</span>
         ${indicator}
-      </button>`;
+      </${tag}>`;
       return optionAddon && preview
         ? `<div class="choice-option-row">${optionAddon({ id: choice.id ?? String(index), text: choice.text }, index)}${button}</div>`
         : button;
@@ -262,17 +273,16 @@ function renderChoiceCard(
 export interface StoryClickPreviewOptions {
   /** Editor-only decoration placed beside each Choice option; Runtime rendering does not use it. */
   readonly choiceOptionAddon?: (option: { id: string; text: string }, index: number) => string;
-  readonly entryTarget?: { readonly id: string; readonly available: boolean };
 }
 
-/** Author preview; optional Entry navigation only opens its editor page. */
+/** Author preview; navigation decorations belong to the editor node. */
 export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickInteraction | undefined, previewOptions: StoryClickPreviewOptions = {}): string {
   if (!interaction) return '<div class="story-editor-action-node"><span>Click</span><strong>未配置交互</strong></div>';
   if (interaction.kind === 'button') {
     const label = (interaction.text ?? '').trim() || '点击';
     const multiStep = Boolean(interaction.press);
     const indicator = multiStep ? '<span class="send-work-count">多段</span>' : '';
-    return `<div class="chat-current story-editor-click-preview"><button type="button" class="send-button send-player" disabled aria-label="${ctx.escapeHtml(label)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(label)}</span>${indicator}<span class="send-arrow" aria-hidden="true">↗</span></span></button></div>`;
+    return `<div class="chat-current story-editor-click-preview"><div class="send-button send-player" aria-label="${ctx.escapeHtml(label)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(label)}</span>${indicator}<span class="send-arrow" aria-hidden="true">↗</span></span></div></div>`;
   }
   if (interaction.kind === 'choice') {
     const options = (interaction.options ?? []).map((option, index) => ({ id: option.id ?? String(index), text: option.text ?? '' }));
@@ -284,21 +294,22 @@ export function renderStoryClickPreview(ctx: UIContext, interaction: StoryClickI
   if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue') return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: '', title: '羁绊剧情', buttonText: interaction.buttonText?.trim() || (interaction.kind === 'kizunaCard' ? '进入羁绊剧情'
       : `前往${ctx.game.registry.areas.get(interaction.areaId)?.name ?? interaction.areaId}接续故事`),
-  }, undefined, true, previewOptions.entryTarget ? !previewOptions.entryTarget.available : false, previewOptions.entryTarget?.id)}</div>`;
+  }, undefined, true)}</div>`;
   const card = interaction.card;
   return `<div class="chat-current story-editor-click-preview">${renderKizunaCard(ctx, {
     storyId: card?.request?.entryId ?? '',
     title: card?.title,
     buttonText: card?.buttonText?.trim() || '进入羁绊剧情',
     align: card?.align ?? 'left',
-  }, undefined, true, previewOptions.entryTarget ? !previewOptions.entryTarget.available : false, previewOptions.entryTarget?.id)}</div>`;
+  }, undefined, true)}</div>`;
 }
 
 /** "正在输入"气泡：复用 talk 气泡骨架（头像/名字/侧向），正文为 send-dots 节奏点（§4 页级打字提示）。
  *  hideIdentity（连发分组接续）：不渲染头像与名称，仅显示气泡内节奏点。 */
 function renderTyping(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
   const { instanceKey, hideIdentity = false } = options;
-  const name = ctx.escapeHtml(entry.speaker ?? 'SYSTEM');
+  const identity = resolveStorySpeaker(ctx.game, entry);
+  const name = ctx.escapeHtml(identity.name);
   const isRight = (entry.side ?? (entry.isPlayer ? 'right' : 'left')) === 'right';
   const bubble = `<div class="chat-bubble presentation-host-target chat-bubble-${isRight ? 'player' : 'npc'}${hideIdentity ? ' chat-bubble-continued' : ''}" data-theme-host-id="bubble" data-theme-text-mode="${ctx.textColorModeForHost?.('bubble') ?? 'auto'}">${renderPresentationHostBackground(ctx, 'bubble')}<span class="send-dots presentation-host-content" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
   const nameLine = hideIdentity ? '' : `<div class="chat-name">${name}</div>`;
@@ -307,7 +318,7 @@ function renderTyping(ctx: UIContext, entry: FlowContent, options: RenderChatEnt
     ? ''
     : hideIdentity
       ? '<span class="chat-avatar chat-avatar-ghost" aria-hidden="true"></span>'
-      : renderAvatar(ctx, entry.avatar, entry.speaker);
+      : renderAvatar(ctx, entry.avatar, identity);
   return `<div class="chat-talk chat-talk-${isRight ? 'player' : 'npc'}"${entryAttributes(ctx, entry, instanceKey)}>${avatar}${main}</div>`;
 }
 
@@ -319,6 +330,8 @@ function sameChainGroup(a: ChatEntry | undefined, b: ChatEntry): boolean {
   if (b.kind !== 'talk' && b.kind !== 'typing') return false;
   const sideOf = (e: ChatEntry) => e.side ?? (e.isPlayer ? 'right' : 'left');
   return (a.speaker ?? '') === (b.speaker ?? '')
+    && (a.characterId ?? '') === (b.characterId ?? '')
+    && (a.displayName ?? '') === (b.displayName ?? '')
     && (a.avatar ?? '') === (b.avatar ?? '')
     && sideOf(a) === sideOf(b)
     && !!a.isPlayer === !!b.isPlayer
@@ -548,6 +561,8 @@ function renderOverlayTalklet(ctx: UIContext, tl: import('../../../data-services
   return renderTalk(ctx, {
     kind: 'talk',
     speaker: tl.speaker,
+    characterId: tl.characterId,
+    displayName: tl.displayName,
     text: tl.text,
     avatar: tl.avatar,
     image: tl.image,
@@ -563,16 +578,13 @@ function renderKizunaCard(
   token?: string,
   preview = false,
   disabled = false,
-  editorEntryId?: string,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText?.trim() || '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
-  const tag = editorEntryId === undefined ? 'div' : 'button';
-  const editorAttributes = editorEntryId === undefined ? '' : ` type="button" data-editor-entry-target="${ctx.escapeHtml(editorEntryId)}"${disabled ? ' disabled title="Entry 不存在或尚未配置"' : ''}`;
   return `
-    <${tag} class="kizuna-card${alignCls}${editorEntryId === undefined ? '' : ' story-editor-entry-card'}"${editorAttributes}${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
+    <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">
@@ -588,5 +600,5 @@ function renderKizunaCard(
           </div>
         </div>
       </div>
-    </${tag}>`;
+    </div>`;
 }

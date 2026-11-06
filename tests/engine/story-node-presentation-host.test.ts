@@ -93,7 +93,7 @@ describe('StoryNodePresentationHost', () => {
     const current = source('run-a');
     const actions: StoryAction[] = [
       { kind: 'overlay', command: { command: 'show', id: 'tip', x: 0.2, y: 0.7, content: { kind: 'text', text: 'Hint', template: 'note' } } },
-      { kind: 'overlay', command: { command: 'show', id: 'message', content: { kind: 'message', content: { kind: 'talk', speaker: 'A', text: 'Hello', image: 'a.png' }, presentation: { side: 'left', avatarMode: 'hide' } } } },
+      { kind: 'overlay', command: { command: 'show', id: 'message', content: { kind: 'message', content: { kind: 'talk', characterId: 'test:character:a', speaker: 'A', displayName: 'Alias A', text: 'Hello', image: 'a.png' }, presentation: { side: 'left', avatarMode: 'hide' } } } },
       { kind: 'overlay', command: { command: 'show', id: 'invite', content: { kind: 'entryCard', card: {
         request: { entryId: 'test:activestory:target', entryType: 'active', owner: null, intent: 'card' },
         title: 'Invitation', buttonText: 'Enter', align: 'right',
@@ -105,7 +105,7 @@ describe('StoryNodePresentationHost', () => {
 
     expect(events.filter(event => event.type === 'chatTextShown')).toEqual([
       expect.objectContaining({ type: 'chatTextShown', id: 'tip', owner: current.owner, runId: 'run-a', text: 'Hint', x: 0.2, y: 0.7, kind: 'note' }),
-      expect.objectContaining({ type: 'chatTextShown', id: 'message', owner: current.owner, runId: 'run-a', talklet: expect.objectContaining({ text: 'Hello', speaker: 'A', image: 'a.png', side: 'left', noAvatar: true }) }),
+      expect.objectContaining({ type: 'chatTextShown', id: 'message', owner: current.owner, runId: 'run-a', talklet: expect.objectContaining({ text: 'Hello', characterId: 'test:character:a', speaker: 'A', displayName: 'Alias A', image: 'a.png', side: 'left', noAvatar: true }) }),
       expect.objectContaining({
         type: 'chatTextShown', id: 'invite', owner: current.owner, runId: 'run-a', kind: 'kizuna',
         cardRequest: { entryId: 'test:activestory:target', entryType: 'active', owner: null, intent: 'card' },
@@ -113,6 +113,7 @@ describe('StoryNodePresentationHost', () => {
       }),
     ]);
     expect(events).toContainEqual(expect.objectContaining({ type: 'openingTitleShown', owner: current.owner, runId: 'run-a', title: 'Entry opening title' }));
+    expect(() => presentation.validateSnapshot(current, JSON.parse(JSON.stringify(presentation.save(current))))).not.toThrow();
   });
 
   test('scopes themes and story entity overrides to their run and emits one terminal event', () => {

@@ -1,4 +1,6 @@
 import type { UIContext } from '../runtime/context';
+import { currentStoryFlagCatalog } from './flag-catalog-view';
+import { storyFlagNames } from './flag-catalog';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts/runtime/runtime';
 import { currentAuthoringDraft, storyEntries, type StoryDraft, type StoryEditorState } from './model';
 import { valueAt, renderStructuredValue } from './structured-value';
@@ -20,9 +22,12 @@ export const ENTRY_FIELD_SEEDS: Record<string, { label: string; value: unknown }
   tags: { label: '标签', value: [] }, extra: { label: '扩展数据', value: { t: 'dict', v: {} } },
 };
 function authoringValueRenderer(ctx: UIContext, state: StoryEditorState, draft: StoryDraft) {
+  const flags = currentStoryFlagCatalog(ctx,state);
+  const globalFlags = storyFlagNames(flags,'global').map(name=>({value:name,label:name}));
+  const localFlags = [...new Set(flags.uses.filter(use=>use.kind==='local').map(use=>use.name))].map(name=>({value:name,label:name}));
   const entryRefs = [...storyEntries(state,ctx.game.registry.storyEntries).values()].filter(x=>typeof x.id==='string'&&Boolean(x.id)).map(x=>({value:x.id,label:String(x.openingTitle ?? x.id)}));
   const storyRefs = [...ctx.game.registry.stories.values(), ...state.drafts.map(x=>x.document)].map(x=>({value:x.id,label:x.name}));
-  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,state.storageBlocked,0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs});
+  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,state.storageBlocked,0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs,flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags});
 }
 function renderAuthoringRow(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools', index: number): string {
   const row = draft.authoring![table][index];
@@ -41,15 +46,20 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
     <h3>被动池</h3><p class="story-editor-hint">同一 Story 的 Entry 共用以下被动池配置。</p><button type="button" class="mini-action" data-authoring-add="passivePools"${locked}>新增被动池</button>${draft.authoring!.passivePools.map((_,poolIndex) => renderAuthoringRow(ctx,state,draft,'passivePools',poolIndex)).join('')}
     <div class="story-editor-actions"><button type="button" class="mini-action" data-editor-action="save"${locked}>保存草稿</button><button type="button" class="mini-action" data-authoring-action="check"${locked}>校验作者内容</button><button type="button" class="mini-action" data-authoring-action="apply"${locked}>应用 Story 与关联内容</button></div></section>`;
 }
-export function renderStoryAuthoringFields(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
+export function renderStoryAuthoringEntryRelations(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
+  const e = ctx.escapeHtml;
+  const related = draft.authoring;
+  const tables = [['activeStories','主动 Entry'],['passiveStories','被动 Entry']] as const;
+  const rows = tables.map(([table,label]) => `<h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${table}" data-editor-key="authoring-add:${table}"${state.storageBlocked ? ' disabled' : ''}>新增${label}</button>${(related?.[table] ?? []).map(row => `<button type="button" class="mini-action" data-editor-key="entry:${table}:${e(row.id)}" data-editor-entry-target="${e(row.id)}">${e(row.id)}</button>`).join('')}`).join('');
+  return `<section class="story-editor-authoring" data-editor-key="story-authoring-relations:${e(draft.draftId)}"><h3>关联 Entry</h3><p class="story-editor-hint">创建 Entry，或选择现有 Entry 继续编辑。</p>${rows}</section>`;
+}
+export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
   const e = ctx.escapeHtml; const locked = state.storageBlocked ? ' disabled' : '';
   const value = authoringValueRenderer(ctx,state,draft);
   const catalog = (ctx.game as typeof ctx.game & Partial<PackCatalogReadModel>).getPackCatalog?.();
   const targets = (catalog?.entries ?? []).filter(x => x.editingMode === 'editing');
   const related = draft.authoring;
   const entries = [...(related?.activeStories ?? []), ...(related?.passiveStories ?? [])];
-  const tables = [['activeStories','主动 Entry'],['passiveStories','被动 Entry']] as const;
-  const rows = tables.map(([table,label]) => `<h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${table}"${locked}>新增${label}</button>${(related?.[table] ?? []).map(row => `<button type="button" class="mini-action" data-editor-entry-target="${e(row.id)}">${e(row.id)}</button>`).join('')}`).join('');
   const preview = state.preview;
   const phaseLabels: Record<string,string> = {idle:'播放结束',typing:'正在输入',thinking:'正在思考',operation:'正在呈现效果',banner:'开幕标题',continue:'等待继续',input:'等待输入',finishing:'正在收尾',failed:'播放失败'};
   const projection = preview?.projection;
@@ -65,7 +75,6 @@ export function renderStoryAuthoringFields(ctx: UIContext, state: StoryEditorSta
   return `<section class="story-editor-authoring" data-editor-key="story-authoring:${e(draft.draftId)}">
     <h3>文档身份</h3><label class="story-editor-property">新 Story ID<input data-editor-key="copy-story-id" data-authoring-copy-id value="${e(state.copyStoryId ?? '')}" placeholder="mod:story:name"${locked}></label><button type="button" class="mini-action" data-authoring-copy${locked}>另存为新身份</button><p class="story-editor-hint">新副本保留正文，入口由你重新配置；原 Story 与外部引用保留。</p>
     <h3>文档扩展</h3>${value('$document',['extra'],draft.document.extra,'Story Extra')}
-    <h3>关联内容</h3><p class="story-editor-hint">Entry 决定故事如何触发，点击入口前往 Entry 页面配置。</p>${rows}
     <h3>检查、试播与保存</h3><button type="button" class="mini-action" data-authoring-action="check"${locked}>校验作者内容</button><button type="button" class="mini-action" data-authoring-action="apply"${locked}>应用 Story 与关联内容</button>
     <label class="story-editor-property">试播 Entry<select data-authoring-preview-entry${locked}><option value="">${entries.length ? '选择入口' : '先新增或选择关联 Entry'}</option>${entries.map(entry=>`<option value="${e(String(entry.id ?? ''))}"${entry.id===state.previewEntryId?' selected':''}>${e(String(entry.openingTitle || entry.id || ''))}</option>`).join('')}</select></label>
     <button type="button" class="mini-action" data-authoring-action="preview"${locked}>隔离试播</button><p class="story-editor-hint">试播使用独立实例与重读规则，验证输入、分支与父子串联；不结算持久奖励，移动与演出仅影响隔离实例。关闭后释放演出。</p>

@@ -11,6 +11,16 @@ const collect = (definitionKind: string, value: unknown, entries: readonly Refer
 const atPath = (requests: ReturnType<typeof collect>, path: string) => requests.find(request => request.path === path);
 
 describe('collectDefinitionReferences', () => {
+  it('treats Talklet character identity as a reference while leaving display names and Extra untouched', () => {
+    const content = { kind: 'talk', characterId: 'arona', displayName: '任意名字', text: 'Hello' };
+    const requests = collect('stories', { nodes: [
+      { type: 'talklet', content },
+      { type: 'operation', action: { kind: 'overlay', command: { command: 'show', content: { kind: 'message', content } } } },
+    ], extra: { content } });
+    expect(atPath(requests, '$.nodes[0].content.characterId')).toMatchObject({ value: 'arona', targetKinds: ['characters'] });
+    expect(atPath(requests, '$.nodes[1].action.command.content.content.characterId')).toMatchObject({ value: 'arona', targetKinds: ['characters'] });
+    expect(requests.some(request => request.path.includes('displayName') || request.path.startsWith('$.extra'))).toBe(false);
+  });
   it('uses exact world and payment fields, preserves array paths, and ignores copy', () => {
     const requests = collect('spots', {
       areaId: 'world:area:office',

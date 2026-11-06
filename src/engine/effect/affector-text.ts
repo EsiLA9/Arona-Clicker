@@ -144,8 +144,8 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'showChatText': {
       const value = effect.value;
       if (typeof value === 'object' && value !== null && !Array.isArray(value) && 'talklet' in value && value.talklet && typeof value.talklet === 'object') {
-        const talklet = value.talklet as { speaker?: unknown; text?: unknown };
-        return `演出对话「${String(talklet.speaker ?? '')}：${String(talklet.text ?? '')}」@${target}`;
+        const talklet = value.talklet as { characterId?: unknown; speaker?: unknown; displayName?: unknown; text?: unknown };
+        return `演出对话「${String(talklet.displayName ?? talklet.speaker ?? talklet.characterId ?? '')}：${String(talklet.text ?? '')}」@${target}`;
       }
       return `演出文本「${valueText}」@${target}`;
     }

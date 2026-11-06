@@ -107,6 +107,8 @@ export interface FlowMapLocations {
 export interface FlowContent {
   readonly kind: FlowEntryKind;
   readonly speaker?: string;
+  readonly characterId?: string;
+  readonly displayName?: string;
   readonly text: string;
   readonly choice?: ChatEntry['choice'];
   /** 正文标题等级：`text` 作为标题呈现（Map 的地点／遭遇／结果标题）。 */
@@ -292,6 +294,8 @@ export function flowEntryFromTalklet(delivery: FlowTalkletDelivery): FlowEntry |
     ...(talklet.repeatPolicy === undefined ? {} : { repeatPolicy: talklet.repeatPolicy }),
     kind,
     ...(talklet.speaker === undefined ? {} : { speaker: talklet.speaker }),
+    ...(talklet.characterId === undefined ? {} : { characterId: talklet.characterId }),
+    ...(talklet.displayName === undefined ? {} : { displayName: talklet.displayName }),
     text: talklet.text,
     ...(talklet.align === undefined ? {} : { align: talklet.align }),
     ...(talklet.avatar === undefined ? {} : { avatar: talklet.avatar }),
@@ -309,6 +313,8 @@ export function chatEntryToFlowContent(entry: ChatEntry): FlowContent {
   return {
     kind: entry.kind,
     ...(entry.speaker === undefined ? {} : { speaker: entry.speaker }),
+    ...(entry.characterId === undefined ? {} : { characterId: entry.characterId }),
+    ...(entry.displayName === undefined ? {} : { displayName: entry.displayName }),
     text: entry.text,
     ...(entry.choice === undefined ? {} : { choice: entry.choice }),
     ...(entry.isPlayer === undefined ? {} : { isPlayer: entry.isPlayer }),

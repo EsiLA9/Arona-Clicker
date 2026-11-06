@@ -6,7 +6,7 @@ import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode
 import { isStoryLocalFlagAction, validStoryFlagName } from '../../data-services/validation/story-run-flags';
 import { localFlagAction, localFlagInput, parseLocalFlagInput, type LocalFlagInputs, type LocalFlagInput } from './flag-fields';
 import { projectStoryDefinition, stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
-import { applyLiteralKinds, clearNodeEditorState, hasActiveStructuredErrors, editProperty as editStoryProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
+import { applyLiteralKinds, clearNodeEditorState, hasActiveStructuredErrors, editProperty as editStoryProperty, removeProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
 
 export type StoryDraftNode = Exclude<StoryNode, StoryOperationNode | StoryTransferNode | StoryMoveToAreaNode | StoryMoveToCharaspaceNode>
   | (Omit<StoryOperationNode, 'action'> & { action?: StoryOperationNode['action'] })
@@ -46,6 +46,8 @@ export interface StoryDraft {
   authoring?: StoryAuthoringPatch;
   structuredInputs?: StructuredInputs;
   structuredRows?: Record<string,string[]>;
+  /** Per-call Entry flag information choices; never part of authored runtime content. */
+  flagImports?: Record<string, boolean>;
 }
 export interface StoryComposer { sender: string; text: string }
 export type StoryEditorTarget = { kind: 'story'; id: string } | { kind: 'entry'; id: string };
@@ -57,11 +59,14 @@ export interface StoryEditorVisit {
   rightScroll: number;
 }
 export interface StoryEditorState {
+  uiTheme?: import('./theme').StoryEditorTheme;
   visits: StoryEditorVisit[];
   visitIndex: number;
   drafts: StoryDraft[];
   target: StoryEditorTarget | null;
   selectedNodeId: string | null;
+  inspectorView?: 'story' | 'node';
+  storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
   /** Transient gap anchor before a node; null means the end of the current Story. */
   insertionBeforeNodeId: string | null;
   sidebarMode: 'stories' | 'entries' | 'senders';
@@ -88,7 +93,7 @@ export const cloneStory = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const identity = (prefix: string): string => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 export function createStoryEditorState(): StoryEditorState {
-  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, insertionBeforeNodeId: null, sidebarMode: 'stories', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
+  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, storyInspectorTab: 'overview', insertionBeforeNodeId: null, sidebarMode: 'stories', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
@@ -260,7 +265,7 @@ export function setInsertionPoint(state: StoryEditorState, beforeNodeId: string 
   state.insertionBeforeNodeId = beforeNodeId;
   return true;
 }
-function insertAtCurrentPoint(state: StoryEditorState, draft: StoryDraft, node: StoryDraftNode): boolean {
+export function insertAtCurrentPoint(state: StoryEditorState, draft: StoryDraft, node: StoryDraftNode): boolean {
   const nodes = [...draft.document.nodes];
   let insertionIndex = state.insertionBeforeNodeId === null ? nodes.length : nodes.findIndex(item => item.id === state.insertionBeforeNodeId);
   if (insertionIndex < 0) { insertionIndex = nodes.length; state.insertionBeforeNodeId = null; }
@@ -270,11 +275,27 @@ function insertAtCurrentPoint(state: StoryEditorState, draft: StoryDraft, node: 
   state.selectedNodeId = node.id;
   return true;
 }
+const nodeIdPrefixes = { text: 'talk', click: 'click', operation: 'operation', transfer: 'transfer', moveToArea: 'move-area', moveToCharaspace: 'move-chara' } as const;
+export function storyNodeIdsInUse(draft: StoryDraft): Set<string> {
+  const used = new Set(draft.document.nodes.map(node => node.id));
+  const editor = draft.editorState;
+  for (const bucket of [editor?.branches,editor?.optionals,editor?.optionalPaths,editor?.optionalBranches,editor?.rows,editor?.rawInputs,editor?.literalKinds,draft.structuredInputs]) {
+    for (const key of Object.keys(bucket ?? {})) used.add(key.split('|')[0]);
+  }
+  for (const id of Object.keys(draft.localFlagInputs ?? {})) used.add(id);
+  return used;
+}
+function nextStoryNodeId(draft: StoryDraft, kind: keyof typeof nodeIdPrefixes): string {
+  const used = storyNodeIdsInUse(draft), prefix = nodeIdPrefixes[kind];
+  let index = 1;
+  while (used.has(`${prefix}-${String(index).padStart(3,'0')}`)) index++;
+  return `${prefix}-${String(index).padStart(3,'0')}`;
+}
 export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'operation' | 'transfer' | 'moveToArea' | 'moveToCharaspace', senders: readonly StorySender[]): StoryDraftNode | undefined {
   const draft = currentDraft(state);
   if (!draft) return;
   const input = composer(state);
-  const id = identity('node');
+  const id = nextStoryNodeId(draft,kind);
   const stageId = identity('stage');
   let node: StoryDraftNode;
   if (kind === 'text') {
@@ -282,7 +303,7 @@ export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'op
     const sender = senders.find(item => item.id === input.sender);
     if (!sender) return;
     node = { id, type: 'talklet', stageId, content: sender.id === 'narrator' ? { kind: 'narration', text: input.text }
-      : { kind: 'talk', speaker: sender.speaker, text: input.text }, ...(sender.id === 'narrator' ? {} : { presentation: { side: sender.id === 'teacher' ? 'right' : 'left' } }) };
+      : { kind: 'talk', ...(sender.id.startsWith('character:') ? { characterId: sender.id.slice('character:'.length) } : { speaker: sender.speaker }), text: input.text }, ...(sender.id === 'narrator' ? {} : { presentation: { side: sender.id === 'teacher' ? 'right' : 'left' } }) };
     input.text = '';
   } else if (kind === 'click') node = { id, type: 'click', stageId, interaction: { kind: 'button', text: '' } };
   else node = { id, type: kind };
@@ -295,6 +316,8 @@ export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'op
 }
 export function senderForNode(node: StoryTalkletNode, senders: readonly StorySender[]): string {
   if (node.content.kind === 'narration') return 'narrator';
+  const characterId = node.content.characterId;
+  if (characterId !== undefined) return senders.find(sender => sender.id === `character:${characterId}`)?.id ?? 'original';
   if (node.presentation?.side === 'right' && node.content.speaker === '老师') return 'teacher';
   const speaker = node.content.speaker;
   return senders.find(sender => sender.id !== 'teacher' && sender.speaker === speaker && node.presentation?.side !== 'right')?.id ?? 'original';
@@ -316,7 +339,14 @@ export function editNode(state: StoryEditorState, field: 'text' | 'sender', valu
       if (!selectDiscriminant(draft, node.id, ['content'], 'kind', sender.id === 'narrator' ? 'narration' : 'talk')) return false;
       if (readStoryProperty(draft, node.id, ['content', 'text']) === undefined) editStoryProperty(draft, node.id, ['content', 'text'], oldText);
       if (sender.id !== 'narrator') {
-        editStoryProperty(draft, node.id, ['content', 'speaker'], sender.speaker ?? '');
+        removeProperty(draft, node.id, ['content', 'displayName']);
+        if (sender.id.startsWith('character:')) {
+          editStoryProperty(draft, node.id, ['content', 'characterId'], sender.id.slice('character:'.length));
+          removeProperty(draft, node.id, ['content', 'speaker']);
+        } else {
+          removeProperty(draft, node.id, ['content', 'characterId']);
+          editStoryProperty(draft, node.id, ['content', 'speaker'], sender.speaker ?? '');
+        }
         editStoryProperty(draft, node.id, ['presentation', 'side'], sender.id === 'teacher' ? 'right' : 'left');
       }
       const active = currentNode(state);
@@ -416,8 +446,8 @@ export function choiceOptionFlagBindings(draft: StoryDraft, choiceNodeId: string
   if (click?.type !== 'click' || click.interaction.kind !== 'choice') return [];
   const option = click.interaction.options?.[optionIndex];
   if (!option || option.id !== optionId) return [];
-  const actions = option.result?.actions ?? [];
-  const names = [...new Set(actions.filter(action => action.kind === 'localFlag' && action.op === 'set').map(action => action.name))];
+  const actions: unknown = option.result?.actions;
+  const names = [...new Set((Array.isArray(actions) ? actions : []).filter(mutableRecord).filter(action => action.kind === 'localFlag' && action.op === 'set' && typeof action.name === 'string').map(action => action.name as string))];
   return names.flatMap(flagName => {
     const nodeIds = draft.document.nodes.filter(node => node.requiresFlag === flagName).map(node => node.id);
     return nodeIds.length ? [{ flagName, nodeIds }] : [];
@@ -612,7 +642,9 @@ export function renameStoryChoiceOptionId(draft: StoryDraft, nodeId: string, opt
   draft.dirty = true;
   return true;
 }
-export function isGeneratedStoryNodeId(nodeId: string): boolean { return /^node_[0-9a-f]{32}$/.test(nodeId); }
+export function isGeneratedStoryNodeId(nodeId: string): boolean {
+  return /^node_[0-9a-f]{32}$/.test(nodeId) || Object.values(nodeIdPrefixes).some(prefix => nodeId.startsWith(`${prefix}-`) && /^\d{3,}$/.test(nodeId.slice(prefix.length+1)));
+}
 export function suggestStoryNodeId(draft: StoryDraft, nodeId: string, optionId: string): string {
   const node = draft.document.nodes.find(item => item.id === nodeId);
   if (!node) return '';

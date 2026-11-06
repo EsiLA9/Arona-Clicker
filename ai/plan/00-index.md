@@ -6,7 +6,6 @@
 
 | Task | 状态 | 当前进度或下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0357-story-choice-flags-and-deferred-operations]] | 待施工 | Choice 收敛为条件与局部 flags，效果迁至后续 Operation；先盘点内置内容、转移与持久 flag 消费者，合同收紧及旧内容处理待裁定 |
 | [[ai/plan/task-0355-story-editor-theme-position-and-flow-tools]] | 实现与自动化验证完成 | 主题专用设置、六点定位预设、信息流 / 控制流影响说明与隔离表现预览已接入；原全量失败项已逐类处理，最终 371 文件 / 3689 项通过；待桌面鼠标验收 |
 | [[ai/plan/task-0354-story-editor-authoring-api]] | 代码 / 自动化施工完成 | 作者 API、结构值、Entry / 投放、隔离试播与包保存已接入；新增 16 项通过，待桌面手动验收 |
 | [[ai/plan/task-0353-story-editor-remaining-gaps]] | 调查完成，已转入 0354 | 保留调查时缺口快照；施工与验收见 0354 |
@@ -26,6 +25,8 @@
 创建或分派 Task 时添加其链接；关键进展、受阻或完成时更新本表。表格用于快速定位，详细文件、结果和验证以 Task 正文为准。完成或归档后从活动列表移除，保留其他调查报告和资料。
 
 ## 最近完成
+
+- Task 0357（已投入 [[ai/archive/README|压缩归档]]）：三个 Luna 交付已整合；9 个内置 Choice 收敛为条件 / 局部 flags，14 个持久效果分支与 4 个转移移至受控 Operation / Transfer，编辑器保留旧字段诊断与导航。整合唯一兼容失败已修复，最终 6 文件 / 80 项复验通过；机制见 [[story-and-effects]]、[[runtime-editor-and-project-checks]]。未做浏览器实操，全局类型检查仍有原型测试的 8 处既有错误。
 
 - [[ai/plan/task-0351-story-continuation-implementation]]：0350 的地点续播、直接 / Area 赴约单层子调用、局部结果回传、存档和回放隔离已实施；定向 82 项通过，全量无新增失败（既有失败由 71 降至 44）；浏览器人工验收未运行。
 

@@ -143,6 +143,11 @@
    font-weight: 700;
 }
 
+/* 透明图片也须隐藏占位；加载失败移除 img 后自动恢复。 */
+.chat-avatar > img + .chat-avatar-fallback {
+   display: none;
+}
+
 /* 连发分组占位（§4）：同人连发非首条不渲染头像/名称，以同尺寸不可见头像占位，
    保持后续气泡与组内首条气泡的缩进对齐（窄屏 avatar 缩放时随 .chat-avatar 同步）。 */
 .chat-avatar-ghost {

@@ -6,7 +6,7 @@ import { defaultDatapack } from '../../src/arona-clicker/content';
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { UIController } from '../../src/ui/controller/controller';
 import { currentDraft } from '../../src/ui/story-editor/model';
-import { editProperty } from '../../src/ui/story-editor/property-model';
+import { editProperty, rowIdAt } from '../../src/ui/story-editor/property-model';
 import { STORY_EDITOR_STORAGE_KEY } from '../../src/ui/story-editor/persistence';
 import '../../src/ui/runtime/service-definitions';
 
@@ -111,7 +111,7 @@ describe('Story Editor property panel', () => {
 
     selectBranch(['content'], 'kind', 'talk');
     expect(node()).toMatchObject({ type: 'talklet', content: { kind: 'talk' } });
-    setProperty(['content', 'speaker'], '自定义发出方');
+    setProperty(['content', 'displayName'], '自定义发出方');
     setProperty(['content', 'image'], pic);
     toggleOptional(['pacing'], true);
     setProperty(['pacing', 'typing'], '2');
@@ -128,9 +128,10 @@ describe('Story Editor property panel', () => {
     expect(ctrl.storyEditor.state.error).toBeNull();
     expect((stored().nodes as Obj[])[0]).toMatchObject({ content: { kind: 'narration', text: '原始旁白' } });
     expect(((stored().nodes as Obj[])[0].content as Obj)).not.toHaveProperty('speaker');
+    expect(((stored().nodes as Obj[])[0].content as Obj)).not.toHaveProperty('displayName');
 
     selectBranch(['content'], 'kind', 'talk');
-    expect(node().content).toMatchObject({ speaker: '自定义发出方', image: pic });
+    expect(node().content).toMatchObject({ displayName: '自定义发出方', image: pic });
     expect(node().pacing).toEqual({ typing: '2' });
   });
 
@@ -206,6 +207,73 @@ describe('Story Editor property panel', () => {
     expect(currentDraft(ctrl.storyEditor.state)?.document).toEqual(document);
     q('[data-editor-node]').click(); ctrl.flushUIUpdates();
     expect(property(['interaction', 'card', 'request', 'entryId'])).toBeTruthy();
+  });
+
+  it('keeps legacy Choice effects visible and removable while new actions stay local flags', () => {
+    open(); click('new'); click('click');
+    const clickNode=node();
+    clickNode.interaction={kind:'choice',sharedActions:[{kind:'travel',areaId:'base:area:schale_main'},{kind:'localFlag',op:'set',name:'kept',value:true}],options:[{id:'legacy',text:'旧选项',condition:{target:'alwaysTrue',comparator:'==',value:1},result:{actions:[{kind:'state',effects:[{op:'setFlag',flagId:'legacy',value:true}]}],transfer:{mode:'goto',storyId:'legacy:target'}}}]};
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    expect(root.textContent).toContain('旧 Choice 动作');
+    expect(root.textContent).toContain('base:area:schale_main');
+    expect(root.textContent).toContain('旧 Choice 转移');
+    expect(hasProperty(['interaction','options',0,'condition','target'])).toBe(true);
+    const actionRows=['interaction','sharedActions'] as const;const nodeId=String(clickNode.id);
+    const flagRowId=rowIdAt(draft(),nodeId,actionRows,1);
+    const flagValueType=[...root.querySelectorAll<HTMLSelectElement>('[data-value-type]')].find(item=>item.dataset.valuePath===json([...actionRows,1,'value']));
+    expect(flagValueType).toBeTruthy();flagValueType!.value='number';flagValueType!.dispatchEvent(new Event('change',{bubbles:true}));ctrl.flushUIUpdates();
+    const rawNumber=[...root.querySelectorAll<HTMLInputElement>('[data-value-input="number"]')].find(item=>item.dataset.valuePath===json([...actionRows,1,'value']));
+    expect(rawNumber).toBeTruthy();rawNumber!.value='-';rawNumber!.dispatchEvent(new Event('input',{bubbles:true}));ctrl.flushUIUpdates();
+    const kinds=[...root.querySelectorAll<HTMLSelectElement>('[data-story-branch-path]')].find(item=>item.dataset.storyBranchPath===json(['interaction','sharedActions',1])&&item.dataset.storyBranchField==='kind');
+    expect(kinds).toBeTruthy();
+    expect([...kinds!.options].map(option=>option.value)).toEqual(['localFlag']);
+    rowAction('remove',actionRows);
+    expect(rowIdAt(draft(),nodeId,actionRows,0)).toBe(flagRowId);
+    expect([...root.querySelectorAll<HTMLInputElement>('[data-value-input="number"]')].find(item=>item.dataset.valuePath===json([...actionRows,0,'value']))?.value).toBe('-');
+    expect((node().interaction as Obj).sharedActions).toMatchObject([{kind:'localFlag',op:'set',name:'kept'}]);
+    expect(((((node().interaction as Obj).options as Obj[])[0].result) as Obj).transfer).toEqual({mode:'goto',storyId:'legacy:target'});
+    click('save');
+    const saved=structuredClone(draft().document);
+    ctrl.destroy();ctrl=new UIController(game,root);ctrl.storyEditor.open();
+    expect(currentDraft(ctrl.storyEditor.state)?.document).toEqual(saved);
+    q<HTMLElement>('[data-editor-node]').click();ctrl.flushUIUpdates();
+    expect(root.textContent).toContain('旧 Choice 转移');
+  });
+
+  it('creates only local flags for Choice and still creates state actions and transfers for Button', () => {
+    open();click('new');click('click');selectBranch(['interaction'],'kind','choice');
+    rowAction('add',['interaction','sharedActions']);
+    expect((node().interaction as Obj).sharedActions).toEqual([{kind:'localFlag',op:'set',name:'',value:true}]);
+    rowAction('add',['interaction','options']);
+    const addCondition=[...root.querySelectorAll<HTMLButtonElement>('[data-story-init-condition]')].find(button=>button.dataset.storyPath===json(['interaction','options',0,'condition']));
+    expect(addCondition).toBeTruthy();addCondition!.click();ctrl.flushUIUpdates();
+    rowAction('add',['interaction','options',0,'result','actions']);
+    expect(((((node().interaction as Obj).options as Obj[])[0].result as Obj).actions as Obj[])[0]).toMatchObject({kind:'localFlag',op:'set'});
+    const optionKind=[...root.querySelectorAll<HTMLSelectElement>('[data-story-branch-path]')].find(item=>item.dataset.storyBranchPath===json(['interaction','options',0,'result','actions',0])&&item.dataset.storyBranchField==='kind');
+    expect(optionKind).toBeTruthy();expect([...optionKind!.options].map(option=>option.value)).toEqual(['localFlag']);
+    expect(hasProperty(['interaction','options',0,'condition','type'])).toBe(true);
+
+    click('new');click('click');
+    const initResult=[...root.querySelectorAll<HTMLButtonElement>('[data-story-init-object]')].find(item=>item.dataset.storyPath===json(['interaction','result']));
+    expect(initResult).toBeTruthy();initResult!.click();ctrl.flushUIUpdates();
+    toggleOptional(['interaction','result','actions']);rowAction('add',['interaction','result','actions']);
+    const actionKind=[...root.querySelectorAll<HTMLSelectElement>('[data-story-branch-path]')].find(item=>item.dataset.storyBranchPath===json(['interaction','result','actions',0])&&item.dataset.storyBranchField==='kind');
+    expect(actionKind).toBeTruthy();expect([...actionKind!.options].some(option=>option.value==='state')).toBe(true);
+    selectBranch(['interaction','result','actions',0],'kind','state');
+    toggleOptional(['interaction','result','transfer']);
+    selectBranch(['interaction','result','transfer'],'mode','goto');
+    expect(node().interaction).toMatchObject({kind:'button',result:{actions:[{kind:'state'}],transfer:{mode:'goto'}}});
+  });
+
+  it('diagnoses malformed legacy Choice result and action values without hiding their source', () => {
+    open();click('new');click('click');
+    node().interaction={kind:'choice',options:[{id:'null',text:'null result',result:null},{id:'actions',text:'bad actions',result:{actions:'legacy raw value'}},{id:'array',text:'array result',result:[]}]} as unknown as Obj;
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    expect(root.textContent).toContain('旧 Choice 结果结构无效');
+    expect(root.textContent).toContain('旧动作字段结构无效');
+    expect(root.textContent).toContain('legacy raw value');
+    expect(root.textContent).toContain('[]');
+    expect(root.querySelectorAll('[data-story-remove-readonly]').length).toBeGreaterThanOrEqual(3);
   });
 
   it('edits state effects, coerces numeric text, reorders rows by identity and keeps travel fields separate', () => {

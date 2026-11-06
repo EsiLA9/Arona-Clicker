@@ -226,6 +226,8 @@
 }
 
 .selector-graph-canvas {
+   /* Resolve scene contrast before each node introduces its own theme variables. */
+   color: var(--ink-on-canvas, var(--ink));
    position: absolute;
    inset: 0;
    display: block;
@@ -445,14 +447,11 @@
 }
 
 .selector-node-label {
-   fill: var(--ink-on-canvas, var(--ink));
+   fill: currentColor;
    font-family: Manrope, '方正兰亭圆简体_中', sans-serif;
    font-size: 12px;
    font-weight: 600;
-   paint-order: stroke;
-   stroke: var(--theme-node-bg, #f8fbff);
-   stroke-width: 3px;
-   stroke-linejoin: round;
+   stroke: none;
    pointer-events: none;
    user-select: none;
 }
@@ -528,14 +527,6 @@
 
 .selector-node.is-fog .selector-node-icon {
    display: none;
-}
-
-.selector-node.is-fog .selector-node-label {
-   fill: var(--muted-on-canvas, var(--muted));
-}
-
-.selector-node.is-selected .selector-node-label {
-   fill: var(--theme-node-primary, var(--cyan));
 }
 
 .selector-node:hover .selector-node-body {

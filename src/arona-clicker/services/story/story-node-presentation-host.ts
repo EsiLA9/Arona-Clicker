@@ -143,6 +143,8 @@ function storyContentTalklet(content: StoryContent, presentation?: StoryPresenta
     kind: content.kind,
     text: content.text,
     ...(content.kind === 'talk' && content.speaker !== undefined ? { speaker: content.speaker } : {}),
+    ...(content.kind === 'talk' && content.characterId !== undefined ? { characterId: content.characterId } : {}),
+    ...(content.kind === 'talk' && content.displayName !== undefined ? { displayName: content.displayName } : {}),
     ...(content.kind === 'talk' && content.image !== undefined ? { image: content.image } : {}),
     ...(presentation?.side === undefined ? {} : { side: presentation.side }),
     ...(presentation?.align === undefined ? {} : { align: presentation.align }),
@@ -203,7 +205,7 @@ const SNAPSHOT_KEYS = new Set(['ephemeralTheme', 'entities', 'overlays']);
 const THEME_KEYS = new Set(['colorGroupId', 'palette', 'tokens', 'nodes', 'background', 'scope']);
 const BACKGROUND_KEYS = new Set(['id', 'kind', 'value', 'opacity', 'position', 'size', 'repeat', 'blendMode', 'attachment', 'scale', 'rotation', 'enabled']);
 const CHAT_VALUE_KEYS = new Set(['text', 'talklet', 'x', 'y', 'align', 'kind', 'style', 'title', 'buttonText', 'targetStoryId']);
-const TALKLET_KEYS = new Set(['kind', 'text', 'speaker', 'avatar', 'image', 'align', 'side', 'noAvatar', 'showAvatar', 'kizuna']);
+const TALKLET_KEYS = new Set(['kind', 'text', 'speaker', 'characterId', 'displayName', 'avatar', 'image', 'align', 'side', 'noAvatar', 'showAvatar', 'kizuna']);
 const KIZUNA_KEYS = new Set(['storyId', 'title', 'buttonText', 'align']);
 const CHAT_STYLE_KEYS = new Set(['font', 'fontSize', 'color', 'background', 'backgroundColor']);
 const CARD_REQUEST_KEYS = new Set(['entryId', 'entryType', 'owner', 'intent']);
@@ -273,7 +275,7 @@ function styleIsValid(value: unknown): boolean {
 function talkletIsValid(value: unknown): value is EngineTalklet {
   if (!isRecord(value) || !hasOnlyKeys(value, TALKLET_KEYS) || typeof value.text !== 'string') return false;
   if (value.kind !== undefined && (typeof value.kind !== 'string' || !talkletKinds.has(value.kind))) return false;
-  for (const key of ['speaker', 'avatar', 'image'] as const) {
+  for (const key of ['speaker', 'characterId', 'displayName', 'avatar', 'image'] as const) {
     if (value[key] !== undefined && typeof value[key] !== 'string') return false;
   }
   if (value.align !== undefined && !alignments.has(String(value.align))) return false;

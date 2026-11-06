@@ -76,8 +76,10 @@ describe('色彩框架：两套判定契约', () => {
     expect(readableOnColor('#3d83f2')).toBe(INK_ON_DARK);
     expect(readableOnColor('#3b82f6')).toBe(INK_ON_DARK);
     expect(readableOnColor('#f5f9ff')).toBe(INK_ON_LIGHT);
-    // 不可解析 → 按亮底处理（浅底深字比深底黑字安全）
-    expect(readableOnColor('color-mix(in srgb, red 40%, transparent)')).toBe(INK_ON_LIGHT);
+    // 无法判定背景时默认使用浅色文字。
+    expect(readableOnColor('color-mix(in srgb, red 40%, transparent)')).toBe(INK_ON_DARK);
+    expect(readableOnColor('var(--missing-background)')).toBe(INK_ON_DARK);
+    expect(readableOnColor('')).toBe(INK_ON_DARK);
   });
 
   test('CF-06 契约差异被固化：主题面判浅底的颜色，背景契约仍可能给白字', () => {

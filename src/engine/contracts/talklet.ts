@@ -4,6 +4,8 @@ export interface EngineTalklet {
   readonly [key: string]: unknown;
   text: string;
   speaker?: string;
+  characterId?: string;
+  displayName?: string;
   avatar?: string;
   image?: string;
 }

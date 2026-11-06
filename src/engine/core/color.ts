@@ -412,11 +412,11 @@ export function themeSurfaceInk(source: ColorSource, lookup?: VarLookup): string
 
 /**
  * 契约 2：该背景上的文字色。
- * 底暗 → 白，底亮 → 深；不可解析时按亮底处理（浅底深字比深底黑字安全）。
+ * 底暗 → 白，底亮 → 深；不可解析时默认浅色文字。
  */
 export function readableOnColor(source: ColorSource, lookup?: VarLookup): string {
   const color = toRgba(source, lookup);
-  if (!color) return INK_ON_LIGHT;
+  if (!color) return INK_ON_DARK;
   return relativeLuminance(color) > TEXT_ON_LIGHT_THRESHOLD ? INK_ON_LIGHT : INK_ON_DARK;
 }
 

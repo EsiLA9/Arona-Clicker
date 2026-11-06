@@ -68,9 +68,9 @@ export function documentFingerprints(documents: ReadonlyMap<string, StoryNodeDoc
 
 function checkContent(value: unknown): asserts value is StoryOutputContent {
   if (!record(value) || !['talk', 'narration', 'reward', 'travel'].includes(String(value.kind)) || typeof value.text !== 'string') return fail('OutputContent');
-  const allowed = new Set(['kind', 'text', 'speaker', 'avatar', 'image', 'side', 'align', 'noAvatar', 'showAvatar', 'storyType', 'storyPageKey', 'choice']);
+  const allowed = new Set(['kind', 'text', 'speaker', 'characterId', 'displayName', 'avatar', 'image', 'side', 'align', 'noAvatar', 'showAvatar', 'storyType', 'storyPageKey', 'choice']);
   if (Object.keys(value).some(key => !allowed.has(key))) return fail('OutputContentKeys');
-  for (const key of ['speaker', 'avatar', 'image', 'storyPageKey']) if (value[key] !== undefined && typeof value[key] !== 'string') return fail('OutputContent');
+  for (const key of ['speaker', 'characterId', 'displayName', 'avatar', 'image', 'storyPageKey']) if (value[key] !== undefined && typeof value[key] !== 'string') return fail('OutputContent');
   for (const key of ['noAvatar', 'showAvatar']) if (value[key] !== undefined && typeof value[key] !== 'boolean') return fail('OutputContent');
   if (value.side !== undefined && !['left', 'right'].includes(String(value.side))
     || value.align !== undefined && !['left', 'center', 'right'].includes(String(value.align))

@@ -8,10 +8,10 @@
 
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import type { BackgroundLayerDef, ThemeDef, ThemeNodeName } from '../../engine/types/theme';
-import { composeThemeBackground } from '../../engine/core/theme-runtime';
+import { composeThemeBackground, type ResolvedTheme } from '../../engine/core/theme-runtime';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import { deriveThemeTokens, entityKeyOf } from '../../arona-clicker/services/progression/color-system';
-import { rgbTriplet } from '../../engine/core/color';
+import { INK_ON_DARK, rgbTriplet } from '../../engine/core/color';
 import { getEnhancementReveal } from '../components/tooltip/tooltip-reveal';
 import { createUIContext, type UIContext } from '../runtime/context';
 import { buildBackgroundView, renderBackground, type BackgroundView } from './background-service';
@@ -39,6 +39,7 @@ export interface SelectorBackgroundContext {
 
 export interface SelectorThemeProjection {
   context: SelectorBackgroundContext;
+  resolvedTheme: ResolvedTheme;
   theme?: ThemeDef;
   tree: ThemeTree;
   inlineStyle: string;
@@ -202,8 +203,8 @@ function backgroundLayers(theme: ThemeDef | undefined, variantId: SelectorVarian
 }
 
 /** 与 RuntimeThemeManager 相同的“有 id 替换、匿名追加”合并规则。 */
-export function mergeSelectorBackgrounds(...views: readonly BackgroundView[]): BackgroundView {
-  const layers: BackgroundView['layers'][number][] = [];
+export function mergeSelectorBackgrounds<T extends { id?: string }>(...views: readonly { layers: readonly T[] }[]): { layers: T[] } {
+  const layers: T[] = [];
   const byId = new Map<string, number>();
   for (const view of views) {
     for (const layer of view.layers) {
@@ -325,15 +326,27 @@ export function projectSelectorTheme(ctx: UIContext, kind: SelectorNodeKind, foc
     currentAreaId,
     transitionKey,
   };
+  const background = withScopeVars({
+    layers: composeThemeBackground(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground).layers),
+    systemColorLayerIgnored,
+  }, tree);
+  const canvasInk = background.ink?.text ?? INK_ON_DARK;
+  tree['--ink-on-canvas'] = canvasInk;
+  tree['--muted-on-canvas'] = `color-mix(in srgb, ${canvasInk} 58%, transparent)`;
   return {
     context,
+    resolvedTheme: {
+      ...runtime, tokens, palette, nodeOverrides: Object.fromEntries(nodeOverrides),
+      background: composeThemeBackground(mergeSelectorBackgrounds(
+        { layers: runtime.background }, { layers: focusDefs }, { layers: areaDefs },
+      ).layers),
+      systemColorLayerIgnored,
+      presentation: presentation === focusPresentation ? selected.theme?.presentation ?? {} : runtime.presentation,
+    },
     theme: selected.theme,
     tree,
     inlineStyle: localTreeStyle(tree),
-    background: withScopeVars({
-      layers: composeThemeBackground(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground).layers),
-      systemColorLayerIgnored,
-    }, tree),
+    background,
     presentation,
   };
 }

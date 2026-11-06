@@ -126,7 +126,7 @@ export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: Pa
   const rendered = renderWorkspaceBody(ctx, route, state);
   return `
     <main class="console-shell">
-      ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state) })}
+      ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state), editorTheme: route.kind === 'story-editor' ? state.storyEditor?.uiTheme : undefined })}
       <div class="workspace-page-content">${rendered.body}</div>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${rendered.footerNote}</span></footer>
     </main>`;

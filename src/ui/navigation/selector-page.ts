@@ -148,6 +148,11 @@ export class SelectorPage {
   get selectedNode(): SelectorSelection | null { return this.selection; }
   get previewedInitId(): string | null { return this.overviewInitId; }
 
+  /** 当前星图的完整主题快照，供从此处打开的编辑界面沿用。 */
+  currentTheme() {
+    return this.host.root.querySelector('.selector-shell') ? this.focusedProjection().resolvedTheme : undefined;
+  }
+
   /** Runtime 编辑器 Apply 重建选择页后恢复用户原先聚焦的 Init。 */
   restoreInitSelection(initId: string | null): void {
     if (initId && this.host.game.registry.inits.has(initId)) {
@@ -694,8 +699,7 @@ export class SelectorPage {
     });
   }
 
-  /** 把当前选中节点的局部主题投影到页面宿主、画布与工作台；节点自身保留局部主题。 */
-  private syncFocusedTheme(animate: boolean): void {
+  private focusedProjection() {
     const baseContext = this.host.selectorContext();
     // 概览只展示 Init 背景，不叠加已保存位置的 Area 表现。
     const context = this.overviewInitId
@@ -703,7 +707,14 @@ export class SelectorPage {
       : baseContext;
     const kind = this.selection?.kind ?? 'init';
     const focusedId = this.selection?.entityId ?? null;
-    const projection = projectSelectorTheme(context, kind, focusedId);
+    return projectSelectorTheme(context, kind, focusedId);
+  }
+
+  /** 把当前选中节点的局部主题投影到页面宿主、画布与工作台；节点自身保留局部主题。 */
+  private syncFocusedTheme(animate: boolean): void {
+    const projection = this.focusedProjection();
+    const context = this.host.selectorContext();
+    const kind = projection.context.kind;
     const { root } = this.host;
     const shell = root.querySelector<HTMLElement>('.selector-shell');
     if (shell) applyThemeTree(shell, projection.tree);

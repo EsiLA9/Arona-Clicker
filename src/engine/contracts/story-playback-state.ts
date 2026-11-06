@@ -6,6 +6,8 @@ export interface StoryOutputContent {
   readonly kind: 'talk' | 'narration' | 'reward' | 'travel';
   readonly text: string;
   readonly speaker?: string;
+  readonly characterId?: string;
+  readonly displayName?: string;
   readonly avatar?: string;
   readonly image?: string;
   readonly side?: 'left' | 'right';

@@ -736,7 +736,7 @@ const storiesTable = (): TableSchema => ({
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
     a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '节点（四类原语）', { required: true,
-      description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Operation/结果动作支持 kind:localFlag、op:set/remove、name；set 另带 JSON value。建议名称 StoryName-flagid，不强制。' }),
+      description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Talklet content.characterId 引用 characters，content.displayName 仅覆盖显示名称；presentation.avatar 另行覆盖头像。Operation/结果动作支持 kind:localFlag、op:set/remove、name；set 另带 JSON value。建议名称 StoryName-flagid，不强制。' }),
     {
       key: 'stages',
       label: '呈现阶段模式',

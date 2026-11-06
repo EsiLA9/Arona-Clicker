@@ -13,6 +13,10 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {
       const groupId = button.dataset.activateGroup || null;
+      if (ctrl.storyEditor.isOpen()) {
+        if (ctrl.storyEditor.state.uiTheme?.selectGroup(groupId)) ctrl.refreshTheme();
+        return;
+      }
       if (!ctrl.commands.activateTheme(groupId)) {
         ctrl.toast.show('该色彩组尚未解锁', 'error');
         return;
@@ -24,6 +28,10 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLButtonElement>('[data-activate-custom-theme]').forEach(button => {
     button.addEventListener('click', () => {
       const customThemeId = button.dataset.activateCustomTheme;
+      if (ctrl.storyEditor.isOpen()) {
+        if (ctrl.storyEditor.state.uiTheme?.selectCustom()) ctrl.refreshTheme();
+        return;
+      }
       if (!customThemeId || !ctrl.commands.activateCustomTheme(customThemeId)) {
         ctrl.toast.show('用户自定义主题不可用', 'error');
         return;
