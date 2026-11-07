@@ -49,8 +49,8 @@ export function applyCompletionReward(ctx: StoryRewardsContext, entry: StoryEntr
 }
 
 /** Passive cooldown is rooted in the source Entry and any containing pool declaration. */
-export function recordPassiveCooldown(ctx: StoryRewardsContext, entry: PassiveStoryEntry): void {
-  if (!entry.cooldownFrames) return;
+export function recordPassiveCooldown(ctx: StoryRewardsContext, entry: StoryEntryDef): void {
+  if (!('cooldownFrames' in entry.activation ? entry.activation.cooldownFrames : undefined)) return;
   const state = ctx.getState();
   const cooldowns = { ...(state.passiveCooldowns ?? {}) };
   cooldowns[entry.id] = state.totalFrames;
@@ -61,6 +61,6 @@ export function recordPassiveCooldown(ctx: StoryRewardsContext, entry: PassiveSt
 }
 
 /** A source passive Entry may block its owning student's conversation after completion. */
-export function maybeBlockConversation(ctx: StoryRewardsContext, entry: PassiveStoryEntry): void {
+export function maybeBlockConversation(ctx: StoryRewardsContext, entry: StoryEntryDef): void {
   if (entry.owner && entry.block) ctx.mutations.setStudentBlock(entry.owner, entry.id);
 }

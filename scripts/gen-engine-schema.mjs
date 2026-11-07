@@ -193,11 +193,11 @@ function describeGameplayMapSchema(typeNode, decl, active = new Set(), depth = 0
       return { type: 'array', item: describeGameplayMapSchema(typeNode.typeArguments[0], decl, active, depth + 1) };
     }
     const declaration = decl.get(name);
-    if (!/^Gameplay(?:Map|Encounter)/.test(name) || !declaration) return { type: 'reference', name };
+    if (!/^(?:Gameplay(?:Map|Encounter)|Story|ActiveStory|RandomStory|AffectionStory|PassiveStory)/.test(name) || !declaration) return { type: 'reference', name };
     if (active.has(name)) return { type: 'recursive', name };
     active.add(name);
     const schema = declaration.kind === 'interface'
-      ? { type: 'object', fields: describeGameplayMapFields(declaration.node.members, decl, active, depth + 1) }
+      ? { type: 'object', fields: describeGameplayMapFields(interfaceMembers(declaration.node, decl), decl, active, depth + 1) }
       : describeGameplayMapSchema(declaration.node.type, decl, active, depth + 1);
     active.delete(name);
     return { ...schema, sourceType: name };
@@ -220,6 +220,7 @@ function describeGameplayMapFields(members, decl, active, depth) {
 function describeInterface(node, decl, depth, ctx) {
   const fields = [];
   for (const member of interfaceMembers(node, decl)) {
+    if (member.type?.kind === ts.SyntaxKind.NeverKeyword) continue;
     if (!ts.isPropertySignature(member)) continue;
     const key = member.name.getText();
     const required = !member.questionToken;
@@ -350,12 +351,14 @@ export function parseEngineSchema({ dir = TYPES_DIR, contractDir = CONTRACTS_DIR
 
   // defs：defMap 中每个实体的字段定义（+ 关键子结构一并产出供参考/覆盖）
   const defs = {};
-  const needed = new Set(Object.values(defMap).map((v) => v.type));
+  const needed = new Set([...Object.values(defMap).map((v) => v.type), 'StoryChoiceInteraction', 'StoryChoiceOption', 'StoryNodePerformance', 'StoryTalkletNode', 'StoryClickNode', 'RandomStoryEntry', 'AffectionStoryEntry', 'ActiveStoryActivation', 'RandomStoryActivation', 'AffectionStoryActivation']);
   for (const name of needed) {
     const d = decl.get(name);
     if (d?.kind === 'interface') {
-      const attachGameplayMapSchema = name === 'GameplayMapDef';
+      const attachGameplayMapSchema = name === 'GameplayMapDef' || /Story(?:Entry|Activation)$/.test(name);
       defs[name] = { fields: describeInterface(d.node, decl, 0, attachGameplayMapSchema ? { attachGameplayMapSchema: true } : {}) };
+    } else if (d?.kind === 'typeAlias' && name === 'PassiveStoryEntry') {
+      defs[name] = { fields: describeInterface(decl.get('RandomStoryEntry').node,decl,0,{attachGameplayMapSchema:true}), authoringSchema: describeGameplayMapSchema(d.node.type,decl) };
     } else if (d?.kind === 'enum') {
       defs[name] = { enum: d.node.members.map((m) => m.name.getText()) };
     } else {

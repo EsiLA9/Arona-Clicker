@@ -97,7 +97,7 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(game.getView().currentStory).toBeNull();
   });
 
-  test('分歧点守卫：未真读分支时拒绝进入，已读分支放行', () => {
+  test('分歧点守卫：独立 Transfer 拒绝未读分支，失败后新重播可选择已读路线', () => {
     game.init([baseDatapack, desertPack]);
     finishWelcome(game);
 
@@ -112,17 +112,18 @@ describe('重阅读与分歧点准入守卫', () => {
     if (!replay.success || !replay.replayId) return;
     const replayId = replay.replayId;
     const choice = advanceToChoice(game, replayId);
+    const before = { flags: structuredClone(game.state.flags), resources: structuredClone(game.state.resources), storyLog: structuredClone(game.state.storyLog) };
     const blocked = choose(game, replayId, choice, 0);
-    expect(blocked).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    if ('denialMessage' in blocked) {
-      expect(blocked.denialMessage).toBe('你还没有真正走过突击路线，无法进入该分歧。');
-    }
-    // 页面未推进、效果未应用：仍停在选项页
-    expect(game.story.getReplayStoryView(replayId)).toMatchObject({ storyDefId: 'test:story:desert_intro', nodeId: choice.nodeId, token: choice.token });
+    expect(blocked).toMatchObject({ success: false, error: 'PlaybackFailed', detail: 'BranchGuardDenied' });
+    expect(game.story.getReplayPlaybackView(replayId)?.phase).toBe('failed');
+    expect({ flags: game.state.flags, resources: game.state.resources, storyLog: game.state.storyLog }).toEqual(before);
 
-    // 改选"迂回谈判"（已真读）→ 放行
-    expect(choose(game, replayId, choice, 1)).toMatchObject({ success: true, finished: false });
-    expect(game.story.getReplayStoryView(replayId)?.storyDefId).toBe('test:story:desert_negotiate');
+    // 失败的 Choice 已被接受；重新开始后选择已读的谈判路线。
+    const nextReplay = game.story.replayStory('test:story:desert_mission');
+    expect(nextReplay.success).toBe(true);
+    if (!nextReplay.success || !nextReplay.replayId) return;
+    expect(choose(game, nextReplay.replayId, advanceToChoice(game, nextReplay.replayId), 1)).toMatchObject({ success: true, finished: false });
+    expect(game.story.getReplayStoryView(nextReplay.replayId)?.storyDefId).toBe('test:story:desert_negotiate');
   });
 
   test('分歧点守卫：先真读分支后，重阅读可正常进入', () => {
@@ -175,7 +176,7 @@ describe('重阅读与分歧点准入守卫', () => {
     game.init([baseDatapack, desertPack]);
     finishWelcome(game);
 
-    // 首次走谈判（未读突击）→ 重阅读选突击被拒
+    // 首次走谈判（未读突击）→ 重阅读选突击后由独立Transfer拒绝
     game.story.startActiveStory('test:story:desert_mission');
     finishStory(game, 1);
     const firstReplay = game.story.replayStory('test:story:desert_mission');
@@ -183,10 +184,13 @@ describe('重阅读与分歧点准入守卫', () => {
     if (!firstReplay.success || !firstReplay.replayId) return;
     const firstReplayId = firstReplay.replayId;
     const firstChoice = advanceToChoice(game, firstReplayId);
-    expect(choose(game, firstReplayId, firstChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    // 改走谈判完成本次重阅读（真实读完谈判分支）
-    expect(choose(game, firstReplayId, firstChoice, 1)).toMatchObject({ success: true, finished: false });
-    finishReplay(game, firstReplayId, 1);
+    expect(choose(game, firstReplayId, firstChoice, 0)).toMatchObject({ success: false, error: 'PlaybackFailed', detail: 'BranchGuardDenied' });
+    // 显式开启新重播并走谈判完成链，真实阅读记录已累积。
+    const negotiateReplay = game.story.replayStory('test:story:desert_mission');
+    expect(negotiateReplay.success).toBe(true);
+    if (!negotiateReplay.success || !negotiateReplay.replayId) return;
+    expect(choose(game, negotiateReplay.replayId, advanceToChoice(game, negotiateReplay.replayId), 1)).toMatchObject({ success: true, finished: false });
+    finishReplay(game, negotiateReplay.replayId, 1);
 
     // 第二次重阅读：走谈判分支时经过的 negotiate 已完整读过，仍放行；
     // 突击分支从未被真实阅读 → 仍被拒
@@ -194,7 +198,11 @@ describe('重阅读与分歧点准入守卫', () => {
     expect(secondReplay.success).toBe(true);
     if (!secondReplay.success || !secondReplay.replayId) return;
     const secondChoice = advanceToChoice(game, secondReplay.replayId);
-    expect(choose(game, secondReplay.replayId, secondChoice, 0)).toMatchObject({ success: false, error: 'BranchGuardDenied' });
-    expect(choose(game, secondReplay.replayId, secondChoice, 1)).toMatchObject({ success: true, finished: false });
+    expect(choose(game, secondReplay.replayId, secondChoice, 0)).toMatchObject({ success: false, error: 'PlaybackFailed', detail: 'BranchGuardDenied' });
+    const finalReplay = game.story.replayStory('test:story:desert_mission');
+    expect(finalReplay.success).toBe(true);
+    if (!finalReplay.success || !finalReplay.replayId) return;
+    expect(choose(game, finalReplay.replayId, advanceToChoice(game, finalReplay.replayId), 1)).toMatchObject({ success: true, finished: false });
+    finishReplay(game, finalReplay.replayId, 1);
   });
 });

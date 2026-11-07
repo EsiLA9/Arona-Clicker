@@ -196,7 +196,7 @@ describe('Gameplay B Ability / Item source transactions', () => {
     run = commands.issueMapPlayerCommand(run.runId, commandOption.characterId, commandOption.action.actionId, token(run));
     run = commands.setMapAbilityDraft(run.runId, ABILITY_ID, { kind: 'enemy', enemyId: ENEMY_ID }, token(run));
     expect(game.mapRun.getWorkspaceView(run.runId)).toMatchObject({
-      kind: 'active',
+      kind: 'active' as const,
       actionPreview: { commitPreview: { canCommit: true, playerCostRequired: 2 } },
       sourcePreview: { abilityOptions: expect.arrayContaining([
         expect.objectContaining({ actionId: ABILITY_ID, canPayPlayerCost: true, selected: true }),
@@ -220,7 +220,7 @@ describe('Gameplay B Ability / Item source transactions', () => {
     const beforeState = structuredClone(underfunded.state);
     const beforeStats = underfunded.statsService.getSnapshot();
     expect(underfunded.mapRun.getWorkspaceView(shortRun.runId)).toMatchObject({
-      kind: 'active', actionPreview: { commitPreview: { canCommit: false, playerCostRequired: null } },
+      kind: 'active' as const, actionPreview: { commitPreview: { canCommit: false, playerCostRequired: null } },
     });
     expect(() => underfundedCommands.commitMapEncounterRound(command(shortRun, 'ability-command-underfunded'))).toThrow(MapRunError);
     expect(underfunded.mapRun.getSnapshot()).toEqual(before);

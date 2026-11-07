@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -23,7 +24,7 @@ describe('Story editor inline text', () => {
   beforeEach(() => {
     localStorage.clear(); document.body.innerHTML = '<div id="app"></div>'; root = document.querySelector('#app')!;
     game = new GameInstance(); game.init([structuredClone(baseDatapack)]); ctrl = new UIController(game, root);
-    ctrl.render(); ctrl.storyEditor.open(); find<HTMLButtonElement>('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    ctrl.render(); ctrl.storyEditor.open(); createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     draft = currentDraft(ctrl.storyEditor.state)!;
     draft.document = { ...draft.document, startContext: { type: 'area', areaId: [...game.registry.areas.keys()][0] }, nodes: [
       { id: 'talk', type: 'talklet', stageId: 'one', content: { kind: 'talk', speaker: '老师', text: '原对话' } },

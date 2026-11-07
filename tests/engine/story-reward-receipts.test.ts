@@ -8,10 +8,10 @@ import { StateMutationService } from '../../src/arona-clicker/state/state-mutati
 import { ConditionSystem } from '../../src/engine/expression/condition-system';
 import { createDefaultState } from '../../src/arona-clicker/state/state-factory';
 
-const entry: ActiveStoryEntry = { id: 'entry:test', storyId: 'story:test', type: 'active', availableInits: [],
+const entry: ActiveStoryEntry = { id: 'entry:test', storyId: 'story:test', availableInits: [],
   triggerCondition: { type: 'AND', conditions: [] }, completionReward: { first: [
     { op: 'addResource', target: 'credit', value: 5 }, { op: 'addItem', target: 'ticket', value: 2 },
-  ] } };
+  ] }, activation: { kind: 'active' as const } };
 
 function setup() {
   const state = createDefaultState();

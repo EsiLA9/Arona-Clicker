@@ -30,7 +30,7 @@ import type { PaymentOptionDef } from '../contracts/cost';
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 import type { GameplayMapDef } from '../contracts/gameplay-map';
 import type { AreaMapDef } from '../contracts/area-map';
-import { validateAreaMapReferences } from './area-map-validation';
+import { validateAreaMapReferences, validateAreaMapShapes } from './area-map-validation';
 import { prepareStoryDefinition } from './registry-story-mutation';
 import { validateStoryContinuations } from '../validation/story-continuations';
 import { stripLegacyStoryReplies } from '../authoring/story-definition-projection';
@@ -57,6 +57,9 @@ import { parsePicId } from '../contracts/pic';
 import { parseEntityId } from '../../engine/core/entity-id';
 import type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
 import type {
+  RegistryAreaMapMutation,
+  RegistryAreaMapMutationBatchReceipt,
+  RegistryAreaMapMutationReceipt,
   RegistryAreaMutation,
   RegistryAreaMutationReceipt,
   RegistryInitMutation,
@@ -66,6 +69,9 @@ import type {
 export { RegistryError };
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry-spot-mutation';
 export type {
+  RegistryAreaMapMutation,
+  RegistryAreaMapMutationBatchReceipt,
+  RegistryAreaMapMutationReceipt,
   RegistryAreaMutation,
   RegistryAreaMutationReceipt,
   RegistryInitMutation,
@@ -94,6 +100,7 @@ export class Registry {
   private _spots: Map<string, SpotDef> = new Map();
   private _maps: Map<string, GameplayMapDef> = new Map();
   private _areaMaps = new Map<string, AreaMapDef>();
+  private _areaMapSourceModNames = new Map<string, string>();
   private _suspendedSpots = new Map<string, { spot: SpotDef; ownerModName: string }>();
   private _initSourceModNames = new Map<string, string>();
   private _areaSourceModNames = new Map<string, string>();
@@ -389,9 +396,12 @@ export class Registry {
       {
         table: 'areaMaps',
         merge: dp => {
-          for (const map of dp.areaMaps ?? []) this._areaMaps.set(map.id, map);
+          for (const map of dp.areaMaps ?? []) {
+            this._areaMaps.set(map.id, map);
+            this._areaMapSourceModNames.set(map.id, this.currentPackModName);
+          }
         },
-        clear: () => { this._areaMaps.clear(); },
+        clear: () => { this._areaMaps.clear(); this._areaMapSourceModNames.clear(); },
       },
       {
         table: 'operationEvents',
@@ -785,6 +795,78 @@ export class Registry {
       },
     };
   }
+
+  /** AreaMap 局部 CRUD；所有最终引用在替换后复核，失败时原子还原。 */
+  applyAreaMapMutation(mutation: RegistryAreaMapMutation): RegistryAreaMapMutationReceipt {
+    const areaMapId = mutation.operation === 'delete' ? mutation.areaMapId : mutation.areaMap.id;
+    const receipt = this.applyAreaMapMutations([mutation]);
+    const change = receipt.changes[0];
+    return {
+      operation: mutation.operation, ownerModName: mutation.ownerModName, areaMapId,
+      previousAreaMap: change.previousAreaMap, currentAreaMap: change.currentAreaMap,
+      rollback: () => receipt.rollback(),
+    };
+  }
+
+  /** Multi-map commit allows mutually linked maps to be created or replaced atomically. */
+  applyAreaMapMutations(mutations: readonly RegistryAreaMapMutation[]): RegistryAreaMapMutationBatchReceipt {
+    const ids = new Set<string>();
+    const changes = mutations.map(mutation => {
+      const areaMapId = mutation.operation === 'delete' ? mutation.areaMapId : mutation.areaMap.id;
+      this.validateWorldId(areaMapId, 'area-map', mutation.ownerModName, 'AreaMap');
+      if (ids.has(areaMapId)) throw new RegistryError(`AreaMap batch 中 ID 重复：${areaMapId}`);
+      ids.add(areaMapId);
+      const previousAreaMap = this._areaMaps.get(areaMapId);
+      const previousOwner = this._areaMapSourceModNames.get(areaMapId);
+      if (previousAreaMap && previousOwner !== undefined && previousOwner !== mutation.ownerModName) {
+        throw new RegistryError(`AreaMap "${areaMapId}" 属于 Mod "${previousOwner}"，不能由 Mod "${mutation.ownerModName}" 修改`);
+      }
+      if (mutation.operation === 'create' && previousAreaMap) throw new RegistryError(`AreaMap "${areaMapId}" 已存在；局部变更应使用 replace`);
+      if (mutation.operation !== 'create' && !previousAreaMap) throw new RegistryError(`AreaMap "${areaMapId}" 不存在`);
+      if (mutation.operation !== 'delete') validateAreaMapShapes([mutation.areaMap], message => { throw new RegistryError(message); });
+      return {
+        operation: mutation.operation, ownerModName: mutation.ownerModName, areaMapId,
+        previousAreaMap, previousOwner,
+        currentAreaMap: mutation.operation === 'delete' ? undefined : mutation.areaMap,
+      };
+    });
+    const restore = (usePrevious: boolean): void => {
+      for (const change of changes) {
+        const value = usePrevious ? change.previousAreaMap : change.currentAreaMap;
+        const owner = usePrevious ? change.previousOwner : change.currentAreaMap ? change.ownerModName : undefined;
+        if (value) this._areaMaps.set(change.areaMapId, value);
+        else this._areaMaps.delete(change.areaMapId);
+        if (owner !== undefined) this._areaMapSourceModNames.set(change.areaMapId, owner);
+        else this._areaMapSourceModNames.delete(change.areaMapId);
+      }
+    };
+    for (const change of changes) {
+      if (change.currentAreaMap) {
+        this._areaMaps.set(change.areaMapId, change.currentAreaMap);
+        this._areaMapSourceModNames.set(change.areaMapId, change.ownerModName);
+      } else {
+        this._areaMaps.delete(change.areaMapId);
+        this._areaMapSourceModNames.delete(change.areaMapId);
+      }
+    }
+    try { this.validateAreaMapRefs(); }
+    catch (error) { restore(true); throw error; }
+    let rolledBack = false;
+    return {
+      areaMapIds: changes.map(change => change.areaMapId),
+      changes: changes.map(({ operation, ownerModName, areaMapId, previousAreaMap, currentAreaMap }) => ({ operation, ownerModName, areaMapId, previousAreaMap, currentAreaMap })),
+      rollback: () => {
+        if (rolledBack) return;
+        for (const change of changes) if (this._areaMaps.get(change.areaMapId) !== change.currentAreaMap) {
+          throw new RegistryError(`AreaMap "${change.areaMapId}" 当前状态与 receipt 不一致，不能安全回滚`);
+        }
+        restore(true);
+        try { this.validateAreaMapRefs(); }
+        catch (error) { restore(false); throw error; }
+        rolledBack = true;
+      },
+    };
+  }
   get enhancements(): ReadonlyMap<string, EnhancementDef> { return this._enhancements; }
   get stories(): ReadonlyMap<string, StoryDef> { return this._stories; }
   private storyDefinitionReferences(stories: ReadonlyMap<string, StoryDef> = this.stories, storyEntries = this.storyEntries) {
@@ -802,7 +884,7 @@ export class Registry {
     collectPresentationOptions('enhancement', this.enhancements);
     collectPresentationOptions('variant', this.characterVariants);
     return {
-      stories, areas: this.areas, spots: this.spots, enhancements: this.enhancements,
+      stories, areas: this.areas, areaMaps: this.areaMaps, spots: this.spots, enhancements: this.enhancements,
       items: this.items, inits: this.inits, characterVariants: this.characterVariants, characters: this.characters,
       storyEntries, colorGroups: this.colorGroups, entityPresentationOptions,
       pics: this.pics, funclets: this.funcletDefs, resources: this.resourceDisplays,
@@ -830,7 +912,7 @@ export class Registry {
       for (const init of this.inits.values()) if (init.startStoryId && !stories.has(init.startStoryId) && !entries.has(init.startStoryId)) throw new Error(`Init 起始故事不存在：${init.startStoryId}`);
     }
     this.validate({ name: 'Story authoring', version: '1', inits: [], areas: [], spots: [], enhancements: [],
-      items: [], characters: [], funcletDefs: [], stories: [...stories.values()], activeStories: active, passiveStories: passive, passivePools: pools });
+      items: [], characters: [], characterVariants: [...this.characterVariants.values()], funcletDefs: [], stories: [...stories.values()], activeStories: active, passiveStories: passive, passivePools: pools });
     const poolMap = new Map(pools.map(x => [x.id, x]));
     const walk = (id: string, path: Set<string>): void => {
       if (path.has(id)) throw new Error(`被动池不能循环引用：${id}`);
@@ -1235,7 +1317,7 @@ export class Registry {
     return out;
   }
 
-  private validateWorldId(id: string, expectedType: 'init' | 'area', ownerModName: string, label: string): void {
+  private validateWorldId(id: string, expectedType: 'init' | 'area' | 'area-map', ownerModName: string, label: string): void {
     if (!/^[a-z0-9-]+$/.test(ownerModName)) {
       throw new RegistryError(`${label} owner Mod "${ownerModName}" 格式无效`);
     }
@@ -1453,6 +1535,7 @@ export class Registry {
       initIds: new Set(this._inits.keys()),
       areaIds: new Set(this._areas.keys()),
       storyEntryIds: new Set(this.storyEntries.keys()),
+      storyEntries: this.storyEntries, passivePools: this.passivePools, characterVariantIds: new Set(this.characterVariants.keys()), storyIds: new Set(this.stories.keys()),
       milestoneIds: new Set(this._milestones.keys()),
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,
@@ -1484,6 +1567,7 @@ export class Registry {
       initIds: new Set(this._inits.keys()),
       areaIds: new Set(this._areas.keys()),
       storyEntryIds: new Set(this.storyEntries.keys()),
+      storyEntries: this.storyEntries, passivePools: this.passivePools, characterVariantIds: new Set(this.characterVariants.keys()), storyIds: new Set(this.stories.keys()),
       milestoneIds: new Set(this._milestones.keys()),
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,

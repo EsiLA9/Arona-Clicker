@@ -131,6 +131,23 @@ describe('WorkspaceFrame', () => {
     expect(embedded.querySelector('[data-theme-host-id]')).not.toBeNull();
   });
 
+  it('固定 bodyOverlay 与滚动正文共享 viewport，避开固定标题和页脚', () => {
+    const game = new GameInstance(); game.init([baseDatapack]);
+    const root = document.createElement('div');
+    root.innerHTML = renderWorkspaceFrame(createUIContext(game), { id: 'body-overlay', columns: [{
+      key: 'main', hostId: 'centerPanel', header: '<h2>标题</h2>', footer: '<button>页脚</button>',
+      content: '<div data-flow>流</div>', bodyOverlay: '<div data-overlay>定位内容</div>',
+    }] });
+    const viewport = root.querySelector('.workspace-column__viewport')!;
+    const body = root.querySelector('.workspace-column__body')!;
+    expect(viewport.children).toHaveLength(2);
+    expect(viewport.firstElementChild).toBe(body);
+    expect(viewport.lastElementChild).toBe(root.querySelector('[data-overlay]'));
+    expect(body.contains(root.querySelector('[data-flow]'))).toBe(true);
+    expect(body.contains(root.querySelector('[data-overlay]'))).toBe(false);
+    expect(viewport.querySelector('.workspace-column__header, .workspace-column__footer')).toBeNull();
+  });
+
   it('Panel Tabs/Header/Body 组合保持同一列宿主且不引入额外外框', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);

@@ -1,4 +1,5 @@
 import type { Datapack } from '../contracts/datapack';
+import { migrateLegacyStoryEntries } from '../authoring/story-entry-migration';
 import type { AffectionConfigDef } from '../contracts/affection-config';
 import type { CharacterData } from '../contracts/character-data';
 import type { DropTableDef } from '../contracts/drop-table';
@@ -74,6 +75,8 @@ export function parseFragment(path: string, content: string): DatapackFragment {
     throw new FragmentParseError('顶层是数组，无法推断所属字段。请改写为对象分片，例如 {"spots": [...]}，或完整 Datapack 对象。', path);
   }
   if (raw === null || typeof raw !== 'object') throw new FragmentParseError('顶层既非对象也非数组，无法构造成 Datapack。', path);
+  try { migrateLegacyStoryEntries(raw); }
+  catch (error) { throw new FragmentParseError(`Entry 迁移失败：${error instanceof Error ? error.message : String(error)}`, path); }
   const fragment: DatapackFragment = { lists: {}, singletons: {} };
   let recognized = false;
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {

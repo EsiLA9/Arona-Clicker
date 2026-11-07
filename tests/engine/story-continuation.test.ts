@@ -26,8 +26,8 @@ function finishChannel(g: GameInstance, channel: string) {
 function setup(atArea = false, nodes?: StoryDef['nodes'], entryCard = false) {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
-    { id: parent, storyId: 'test:story:parent', type: 'passive', repeatable: false, replayable: true, weight: 1, owner: 'Hoshino', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, ...(!entryCard && !nodes ? { kizuna: { entryId: child, returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } } : {}) },
-    { id: child, storyId: 'test:story:child', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+    { id: parent, storyId: 'test:story:parent', replayable: true, owner: 'Hoshino', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, ...(!entryCard && !nodes ? { kizuna: { entryId: child, returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } } : {}), activation: { kind: 'random' as const, weight: 1, repeatable: false } },
+    { id: child, storyId: 'test:story:child', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
   ], [
     { id: 'test:story:parent', name: 'parent', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: nodes ?? [entryCard ? { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'entryCard', card: { request: { entryId: child, entryType: 'active', owner: null, intent: 'card' }, continuation: { returnFlags: ['chosen'], ...(atArea ? { areaId: area } : {}) } } } } : { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } }, talk('tail', 'chosen')] },
     { id: 'test:story:child', name: 'child', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: [
@@ -84,7 +84,8 @@ describe('bounded story continuations', () => {
     const destination = 'base:area:schale_main';
     const g = setup(false, [
       { id: 'wait', type: 'click', stageId: 's', interaction: { kind: 'areaContinue', areaId: area } },
-      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回夏莱主厅', result: { actions: [{ kind: 'travel', areaId: destination }] } } },
+      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回夏莱主厅' } },
+  { id: "travel-effect-1", type: 'operation', action: { kind: 'travel', areaId: destination } },
       talk('tail'),
     ]);
     expect(g.story.startStory(parent, 'passive', 'Hoshino').success).toBe(true);
@@ -306,6 +307,42 @@ describe('bounded story continuations', () => {
     g.story.continueReplayStory(channel, g.story.getReplayPlaybackView(channel)!.token!);
     expect(g.story.getReplayStoryView(start.replayId!)!.nodeId).toBe('tail');
     expect(g.state.resources['base:resource:credit'] ?? 0).toBe(before);
+  });
+  it('rejects a returned child flag that is also owned by a parent Choice', () => {
+    const g = setup();
+    const entries = [...g.registry.storyEntries.values()];
+    const documents = [...g.registry.stories.values()].map(document => document.id === 'test:story:parent'
+      ? { ...document, nodes: [
+        { id: 'choose', type: 'click' as const, stageId: 's', interaction: { kind: 'choice' as const, options: [{ id: 'parent', text: 'Parent', marks: ['chosen'] }] } },
+        { id: 'card', type: 'click' as const, stageId: 's', interaction: { kind: 'kizunaCard' as const } },
+        talk('tail'),
+      ] }
+      : document.id === 'test:story:child' ? { ...document, nodes: [
+        { id: 'choose-child', type: 'click' as const, stageId: 's', interaction: { kind: 'choice' as const, options: [{ id: 'child', text: 'Child', marks: ['chosen'] }] } },
+      ] } : document);
+    expect(() => validateStoryContinuations(entries, documents, new Set(g.registry.areas.keys()))).toThrow('ChoiceMarkReturned:chosen');
+  });
+  it('finds a continuation card and returned Choice mark reached through a parent Transfer', () => {
+    const cardStoryId = 'test:story:card_after_transfer';
+    const g = setup();
+    const entries = [...g.registry.storyEntries.values()].map(entry => entry.id === parent ? { ...entry, kizuna: undefined } : entry);
+    const documents = [...g.registry.stories.values()].map(document => document.id === 'test:story:parent' ? {
+      ...document,
+      nodes: [
+        { id: 'choose', type: 'click' as const, stageId: 's', interaction: { kind: 'choice' as const, options: [{ id: 'parent', text: 'Parent', marks: ['chosen'] }] } },
+        { id: 'to-card', type: 'transfer' as const, transfer: { mode: 'goto' as const, storyId: cardStoryId } },
+      ],
+    } : document.id === 'test:story:child' ? {
+      ...document,
+      nodes: [{ id: 'choose-child', type: 'click' as const, stageId: 's', interaction: { kind: 'choice' as const, options: [{ id: 'child', text: 'Child', marks: ['chosen'] }] } }],
+    } : document);
+    documents.push({
+      id: cardStoryId, name: 'Continuation card', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } },
+      nodes: [{ id: 'card', type: 'click', stageId: 's', interaction: { kind: 'entryCard', card: {
+        request: { entryId: child, entryType: 'active', owner: null, intent: 'card' }, continuation: { returnFlags: ['chosen'] },
+      } } }],
+    });
+    expect(() => validateStoryContinuations(entries, documents, new Set(g.registry.areas.keys()))).toThrow('ChoiceMarkReturned:chosen');
   });
   it('rejects a nested card hidden behind an insert before starting playback', () => {
     const g = setup();

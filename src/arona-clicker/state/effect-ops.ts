@@ -1,6 +1,7 @@
 import type { Effect, ExtraValue, ValueExpression } from '../../engine/types';
 import type { ChatTextEffectValue } from '../../engine/contracts/chat-presentation';
 import type { EntityPresentationEffectValue, ThemeEffectValue } from '../../engine/types/expression';
+import type { WorldInformationTargetRef } from '../../engine/contracts/world-information';
 import { assertValidExtra, extraFromJson } from '../../engine/extra/index';
 import type { EffectMutationPort } from '../contracts/runtime/effect-mutation';
 
@@ -18,8 +19,10 @@ export function applyEffect(this: EffectMutationPort, effect: Effect): void {
     case 'addEnhancement': this.addEnhancement(String(effect.value)); break;
     case 'addItem': this.addItem(effect.target, Number(effect.value)); break;
     case 'unlockInit': this.unlockInit(String(effect.value)); break;
+    case 'acquireAreaMap': this.acquireAreaMap(effect.target); break;
+    case 'revealInformation': this.grantInformationTarget(effect.value as import('../../engine/contracts/world-information').WorldInformationTargetRef); break;
     case 'setFlag': this.setFlag(effect.target, String(effect.value)); break;
-    case 'setExtra': this.setExtra(effect.target, toExtraValue(effect.value)); break;
+    case 'setExtra': this.setExtra(effect.target, toExtraValue(effect.value as Exclude<Effect['value'], WorldInformationTargetRef>)); break;
     case 'addExtra': this.addExtra(effect.target, Number(effect.value)); break;
     case 'removeExtra': this.removeExtra(effect.target); break;
     case 'loot':

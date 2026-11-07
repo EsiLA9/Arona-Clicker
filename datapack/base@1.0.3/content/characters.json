@@ -1,0 +1,76 @@
+{
+  "characters": [
+    {
+      "id": "arona",
+      "name": "阿罗娜",
+      "displayName": "阿罗娜",
+      "school": "夏莱",
+      "rarity": "super_rare",
+      "description": "什亭之匣的系统管理员AI，有些冒失但很关心老师。"
+    },
+    {
+      "id": "shiroko",
+      "name": "白子",
+      "displayName": "砂狼白子",
+      "school": "阿比多斯",
+      "rarity": "super_rare",
+      "description": "总是戴着面具的静默运动少女，痴迷于抢劫银行。"
+    },
+    {
+      "id": "hoshino",
+      "name": "星野",
+      "displayName": "小鸟游星野",
+      "school": "阿比多斯",
+      "rarity": "rare",
+      "description": "慵懒散漫的三年级前辈，但实力深不可测。"
+    },
+    {
+      "id": "serika",
+      "name": "芹香",
+      "displayName": "黑见芹香",
+      "school": "阿比多斯",
+      "rarity": "common",
+      "description": "勤勉努力的后辈，在便利店打工以偿还债务。"
+    },
+    {
+      "id": "yuuka",
+      "name": "优香",
+      "displayName": "早濑优香",
+      "school": "千禧年",
+      "rarity": "rare",
+      "description": "千禧年学生会的财务，精于计算，讨厌浪费。"
+    },
+    {
+      "id": "mika",
+      "name": "未花",
+      "displayName": "聖園未花",
+      "school": "崔妮蒂",
+      "rarity": "super_rare",
+      "description": "崔妮蒂茶会领袖，天真烂漫但行事偏激的公主。"
+    },
+    {
+      "id": "iori",
+      "name": "伊织",
+      "displayName": "銀剣伊织",
+      "school": "盖赫纳",
+      "rarity": "rare",
+      "description": "万魔殿的冷静辅佐官，枪术名手，行事风格果断。"
+    },
+    {
+      "id": "miyako",
+      "name": "都子",
+      "displayName": "空井都子",
+      "school": "SRT",
+      "rarity": "common",
+      "description": "RABBIT小队的队长，冷静沉着的战术指挥。"
+    },
+    {
+      "id": "saori",
+      "name": "纱织",
+      "displayName": "錠前纱织",
+      "school": "阿里乌斯",
+      "rarity": "super_rare",
+      "description": "阿里乌斯小队队长，忠诚而强大的战斗专家。"
+    }
+  ]
+}

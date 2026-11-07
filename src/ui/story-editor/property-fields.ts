@@ -13,6 +13,8 @@ import { localFlagInput } from './flag-fields';
 import { isOptionalEnabled, literalKindAt, propertyKey, readStoryNodeBody, rowIdAt } from './property-model';
 import { storyReferenceOptions, type StoryReferenceKind } from './property-options';
 import { renderChatTexts, resolveStorySpeaker, type ChatTextEntry } from '../components/story/story';
+import { renderChatEntry, renderStoryClickPreview, renderStoryClickAppearance, renderStoryNodePlacement } from '../components/story/story';
+import { projectStoryContent } from '../../data-services/authoring/story-content-display';
 
 type Path = readonly (string | number)[];
 type Obj = Record<string, unknown>;
@@ -48,7 +50,7 @@ const choices = (ctx: UIContext, values: readonly [string, string][], current: u
 function labelledChoices(ctx: UIContext, label: string, values: readonly [string,string][], current: unknown, path: Path, state: StoryEditorState, allowDefault = false): string {
   return `<label class="story-editor-property">${esc(ctx,label)}${choices(ctx,values,current,path,state,allowDefault)}</label>`;
 }
-function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state: StoryEditorState, kind: 'text' | 'textarea' | 'number' | 'boolean' | 'ref' | 'image' = 'text', ref?: StoryReferenceKind, hint?: string, flagKind?: 'local' | 'global'): string {
+function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state: StoryEditorState, kind: 'text' | 'textarea' | 'number' | 'boolean' | 'ref' | 'image' = 'text', ref?: StoryReferenceKind, hint?: string, flagKind?: 'local' | 'global', omitEmpty = false): string {
   const p = pathText(path); const current = value == null ? '' : String(value);
   let control: string;
   if (kind === 'boolean') control = `<select data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, p)}"${disabled(state)}><option value="false"${value === false ? ' selected' : ''}>false</option><option value="true"${value === true ? ' selected' : ''}>true</option></select>`;
@@ -59,10 +61,11 @@ function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state
   } else if (kind === 'image') { const listId=`story-image-options-${p.replace(/[^a-zA-Z0-9_-]/g,'-')}`; control = `<input data-story-reference="image" list="${listId}" data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, p)}" value="${esc(ctx,current)}"${readOnly(state)}><datalist id="${listId}">${storyReferenceOptions(ctx,'image').map(option=>`<option value="${esc(ctx,option.value)}" label="${esc(ctx,option.label)}"></option>`).join('')}</datalist>`; }
   else if (kind === 'textarea') control = `<textarea rows="3" data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, p)}"${readOnly(state)}>${esc(ctx, current)}</textarea>`;
   else control = `<input data-editor-key="${esc(ctx, key(path))}" data-story-property-path="${esc(ctx, p)}" value="${esc(ctx, current)}"${kind === 'number' ? ' inputmode="decimal"' : ''}${readOnly(state)}>`;
+  if (omitEmpty) control = control.replace('data-story-property-path=', 'data-story-omit-empty="true" data-story-property-path=');
   flagKind ??= path.at(-1) === 'requiresFlag' || label === '局部标记名称' ? 'local' : path.at(-1) === 'flagId' ? 'global' : undefined;
   if (flagKind === 'global') control = control.replace('<input ', '<input data-story-reference="globalFlag" ');
   if (flagKind) control = control.replace('<input ', `<input list="story-editor-${flagKind}-flags" `);
-  if (flagKind === 'local') control = path.at(-1) === 'requiresFlag' ? renderRequiredFlagControl(ctx,state,control) : `<span class="story-editor-flag-control">${control}${renderLocalFlagNaviButton(state.storageBlocked)}</span>`;
+  if (flagKind === 'local') control = path.length === 1 && path.at(-1) === 'requiresFlag' ? renderRequiredFlagControl(ctx,state,control) : `<span class="story-editor-flag-control">${control}${renderLocalFlagNaviButton(state.storageBlocked)}</span>`;
   const pathId = JSON.stringify(path); const legacy = pathId === '[\"requiresFlag\"]' ? 'requires-flag' : pathId === '[\"content\",\"text\"]' || pathId === '[\"interaction\",\"text\"]' ? 'text' : '';
   if (legacy) control = control.replace('<input ', `<input data-editor-field=\"${legacy}\" `).replace('<textarea ', `<textarea data-editor-field=\"${legacy}\" `).replace('<select ', `<select data-editor-field=\"${legacy}\" `);
   return `<label class="story-editor-property">${esc(ctx, label)}${control}${hint ? `<small class="story-editor-hint">${esc(ctx, hint)}</small>` : ''}</label>`;
@@ -119,7 +122,7 @@ function presentationEditor(ctx: UIContext, state: StoryEditorState, path: Path,
     <label class="story-editor-property">气泡位置${choices(ctx, [['left','左侧'],['right','右侧']], val(presentation,'side'), [...path,'side'], state, true)}<small class="story-editor-hint">控制对话气泡在左侧或右侧显示；留空沿用默认。</small></label>
     <label class="story-editor-property">文字对齐${choices(ctx, [['left','左对齐'],['center','居中'],['right','右对齐']], val(presentation,'align'), [...path,'align'], state, true)}<small class="story-editor-hint">用于旁白文字的对齐，默认居中。</small></label>
     <label class="story-editor-property">头像显示${choices(ctx, [['auto','自动'],['hide','隐藏'],['show','显示']], val(presentation,'avatarMode'), [...path,'avatarMode'], state, true)}<small class="story-editor-hint">自动跟随连发分组；隐藏时不显示头像；显示时连发仍显示头像与名称。</small></label>
-    ${scalar(ctx,'头像引用',[...path,'avatar'],val(presentation,'avatar'),state,'image',undefined,'覆盖角色头像；留空使用角色默认头像。隐藏时仍保留此引用。')}
+    ${scalar(ctx,'头像引用',[...path,'avatar'],val(presentation,'avatar'),state,'image',undefined,'覆盖角色头像；留空使用角色默认头像。隐藏时仍保留此引用。',undefined,true)}
   </section>`;
 }
 function transferEditor(ctx: UIContext, state: StoryEditorState, path: Path, value: Obj | null, draft?: StoryDraft): string {
@@ -132,13 +135,6 @@ function storyReference(ctx: UIContext,state:StoryEditorState,path:Path,value:un
   const entries=[...options,...(options.some(item=>item.value===self)?[]:[{value:self,label:`${draft.document.name||self}（当前 Story）`}])];
   return `<label class="story-editor-property">Story<select data-story-reference="story" data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${current?'':' selected'}>选择 Story…</option>${missing}${entries.map(item=>`<option value="${esc(ctx,item.value)}"${item.value===current?' selected':''}>${esc(ctx,item.label)}</option>`).join('')}</select></label>`;
 }
-function resultEditor(ctx: UIContext, state: StoryEditorState, path: Path, value: Obj | null, draft: StoryDraft, nodeId: string): string {
-  const actionsPath = [...path,'actions']; const actions = array(val(value,'actions'));
-  const hasActions = Boolean(value && hasOwn(value,'actions'));
-  const hasTransfer = Boolean(value && hasOwn(value,'transfer'));
-  // Enabled optionals always render their editor so a freshly enabled switch is never blank.
-  return `<div class="story-editor-property-group">${optional(ctx,'执行动作',path.concat('actions'),hasActions,state,actionList(ctx,state,actionsPath,actions,draft,nodeId),undefined,draft,nodeId)}${optional(ctx,'然后转移',path.concat('transfer'),hasTransfer,state,transferEditor(ctx,state,[...path,'transfer'],record(val(value,'transfer')),draft),undefined,draft,nodeId)}</div>`;
-}
 function cursorOwnerSelect(ctx: UIContext, state: StoryEditorState, path: Path, owner: unknown): string {
   const characters = [...ctx.game.registry.characters.values()];
   const unknown = typeof owner === 'string' && !ctx.game.registry.characters.has(owner);
@@ -148,13 +144,13 @@ function cursorOwnerSelect(ctx: UIContext, state: StoryEditorState, path: Path, 
 function entryCardEditor(ctx: UIContext, state: StoryEditorState, path: Path, card: Obj | null, requestPath: Path, draft: StoryDraft, nodeId: string): string {
   const request = record(val(card,'request')) ?? record(card);
   const out = [storyEntryReference(ctx,state,[...requestPath,'entryId'],val(request,'entryId'),draft), cursorOwnerSelect(ctx,state,[...requestPath,'owner'],val(request,'owner'))];
-  if (card) out.push(scalar(ctx,'标题',[...path,'title'],val(card,'title'),state),labelledChoices(ctx,'卡片对齐',[['left','左'],['right','右']],val(card,'align'),[...path,'align'],state,true));
+  out.push(scalar(ctx,'标题',[...path,'title'],val(card,'title'),state,'text',undefined,'留空沿用目标入口标题。',undefined,true),labelledChoices(ctx,'卡片对齐',[['left','左'],['right','右']],val(card,'align'),[...path,'align'],state,true));
   const continuation = record(val(card,'continuation'));
   const continuationPath = [...path,'continuation'];
   const continuationCreate = `<button type="button" class="mini-action" data-story-init-object="true" data-story-path="${esc(ctx,pathText(continuationPath))}"${disabled(state)}>完成后返回当前故事</button>`;
-  out.push(optional(ctx,'父故事续接',continuationPath,continuation!==null,state,continuation
-    ? `${scalar(ctx,'赴约地点',[...continuationPath,'areaId'],val(continuation,'areaId'),state,'ref','area')}${structuredField(ctx,state,[...continuationPath,'returnFlags'],continuation.returnFlags,'回传局部标记白名单')}`
-    : continuationCreate, undefined, undefined, undefined, continuationCreate));
+  out.push(continuation ? optional(ctx,'父故事续接',continuationPath,true,state,
+    `${scalar(ctx,'赴约地点',[...continuationPath,'areaId'],val(continuation,'areaId'),state,'ref','area')}${structuredField(ctx,state,[...continuationPath,'returnFlags'],continuation.returnFlags,'回传局部标记白名单')}`,
+    undefined,draft,nodeId) : continuationCreate);
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
 function storyEntryReference(ctx: UIContext,state:StoryEditorState,path:Path,value:unknown,draft:StoryDraft):string {
@@ -164,8 +160,7 @@ function storyEntryReference(ctx: UIContext,state:StoryEditorState,path:Path,val
   return `<label class="story-editor-property">目标 StoryEntry<select data-story-reference="activeEntry" data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${current?'':' selected'}>选择主动 Entry…</option>${missing}${options.map(item=>`<option value="${esc(ctx,item.value)}"${item.value===current?' selected':''}>${esc(ctx,item.label)}</option>`).join('')}</select></label>`;
 }
 
-const actionKinds: readonly [string,string][] = [['state','状态动作'],['travel','移动'],['entryRequest','请求剧情入口'],['overlay','覆盖层演出'],['presentation','表现演出'],['localFlag','局部标记']];
-const choiceActionKinds: readonly [string,string][] = [['localFlag','局部标记']];
+const actionKinds: readonly [string,string][] = [['clearNode','清除节点展示'],['state','状态动作'],['travel','移动'],['entryRequest','请求剧情入口'],['overlay','覆盖层演出'],['presentation','表现演出'],['localFlag','局部标记']];
 function actionImpact(ctx:UIContext,action:Obj|null):string {
   const kind=val(action,'kind'); const command=record(val(action,'command')); const name=val(command,'command');
   if(kind==='localFlag')return '只改本次 Entry 的局部标记；不会写入持久 flags。';
@@ -187,9 +182,14 @@ function actionImpact(ctx:UIContext,action:Obj|null):string {
   }
   return '';
 }
-function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, action: Obj | null, draft: StoryDraft, nodeId: string, choiceFlagOnly = false): string {
-  const kind = val(action,'kind'); const out = [branch(ctx,'行为类型',[...path,'kind'],kind,choiceFlagOnly ? choiceActionKinds : actionKinds,state)];
-  if (kind === 'localFlag') {
+function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, action: Obj | null, draft: StoryDraft, nodeId: string): string {
+  const kind = val(action,'kind'); const out = [branch(ctx,'行为类型',[...path,'kind'],kind,actionKinds,state)];
+  if (kind === 'clearNode') {
+    const storyId=String(val(action,'storyId')??'');
+    const target=storyId===draft.document.id?draft.document:ctx.game.registry.stories.get(storyId);
+    const nodes=(target?.nodes??[]).filter(node=>node.type==='talklet'||node.type==='click');
+    out.push(storyReference(ctx,state,[...path,'storyId'],storyId,draft),labelledChoices(ctx,'目标节点',nodes.map(node=>[node.id,node.id]),val(action,'nodeId'),[...path,'nodeId'],state),`<button type="button" class="mini-action" data-story-display-target="${esc(ctx,storyId)}" data-story-display-node="${esc(ctx,val(action,'nodeId'))}"${nodes.some(node=>node.id===val(action,'nodeId'))?'':' disabled'}>查看目标节点</button><p class="story-editor-hint">清除本次运行内目标节点的全部展示；不撤销标记、效果或执行进度。</p>`);
+  } else if (kind === 'localFlag') {
     const node = draft.document.nodes.find(item => item.id === nodeId);
     if (node?.type === 'operation' && path.length === 1 && path[0] === 'action') out.push(localFlagFields(ctx, state, draft, node));
     else {
@@ -215,19 +215,8 @@ function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, actio
   const impact=actionImpact(ctx,action); if(impact)out.push(`<p class="story-editor-hint"><strong>执行影响：</strong>${esc(ctx,impact)}</p>`);
   return `<div class="story-editor-property-group">${out.join('')}</div>`;
 }
-function actionList(ctx: UIContext, state: StoryEditorState, path: Path, rows: unknown[], draft: StoryDraft, nodeId: string): string {
-  return `<div class="story-editor-list-block">${listHeader(ctx,'动作（按顺序）',path,state)}${rows.map((row,index) => { const id=rowIdAt(draft,nodeId,path,index) ?? String(index); return `<section class="story-editor-property-row" data-editor-key="row:${esc(ctx,id)}">${actionEditor(ctx,state,[...path,index],record(row),draft,nodeId)}${rowButtons(ctx,path,id,index,rows.length,state)}</section>`; }).join('')}</div>`;
-}
-function choiceActionList(ctx: UIContext, state: StoryEditorState, path: Path, rows: unknown[], draft: StoryDraft, nodeId: string): string {
-  const items = rows.map((raw,index) => {
-    const itemPath=[...path,index]; const action=record(raw); const id=rowIdAt(draft,nodeId,path,index)??String(index);
-    if(val(action,'kind')!=='localFlag') return `<section class="story-editor-property-row" data-editor-key="choice-legacy:${esc(ctx,id)}"><p class="story-editor-error">旧 Choice 动作 · ${esc(ctx,String(val(action,'kind')??'未知类型'))}：<code>${esc(ctx,JSON.stringify(raw))}</code><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(path))}" data-story-row-id="${esc(ctx,id)}"${disabled(state)}>移除该动作</button></p></section>`;
-    return `<section class="story-editor-property-row" data-editor-key="choice-action:${esc(ctx,id)}">${actionEditor(ctx,state,itemPath,action,draft,nodeId,true)}${rowButtons(ctx,path,id,index,rows.length,state)}</section>`;
-  }).join('');
-  return `<div class="story-editor-list-block"><div class="story-editor-list-heading"><strong>局部标记（按顺序）</strong><button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx,pathText(path))}"${disabled(state)}>添加局部标记</button></div>${items}</div>`;
-}
 function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, index: number, rows: unknown[], row: Obj | null, draft: StoryDraft, nodeId: string): string {
-  const opValues: [string,string][] = [['setResource','设置资源'],['addResource','增加资源'],['setSpotLevel','设置设施等级'],['addSpotLevel','增加设施等级'],['setManager','设置经理'],['addEnhancement','获得强化'],['addItem','获得物品'],['unlockInit','解锁世界线'],['setFlag','写持久标记'],['setExtra','设置 Extra'],['addExtra','增加 Extra'],['removeExtra','移除 Extra'],['grantCharacter','获得角色'],['addAffectionExp','增加好感经验']];
+  const opValues: [string,string][] = [['setResource','设置资源'],['addResource','增加资源'],['setSpotLevel','设置设施等级'],['addSpotLevel','增加设施等级'],['setManager','设置经理'],['addEnhancement','获得强化'],['addItem','获得物品'],['unlockInit','解锁世界线'],['acquireAreaMap','收录区域地图'],['revealInformation','告知世界信息'],['setFlag','写持久标记'],['setExtra','设置 Extra'],['addExtra','增加 Extra'],['removeExtra','移除 Extra'],['grantCharacter','获得角色'],['addAffectionExp','增加好感经验']];
   const op=val(row,'op'); const p=[...path,index]; const fields: string[]=[];
   fields.push(branch(ctx,'状态动作',[...p,'op'],op,opValues,state));
   if (op==='setResource'||op==='addResource') fields.push(scalar(ctx,'资源',[...p,'resourceId'],val(row,'resourceId'),state,'ref','resource'),numericValueEditor(ctx,'数值',[...p,'amount'],val(row,'amount'),state));
@@ -236,6 +225,22 @@ function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, ind
   if (op==='addEnhancement') fields.push(scalar(ctx,'强化',[...p,'enhancementId'],val(row,'enhancementId'),state,'ref','enhancement'));
   if (op==='addItem') fields.push(scalar(ctx,'物品',[...p,'itemId'],val(row,'itemId'),state,'ref','item'),numericValueEditor(ctx,'数量',[...p,'amount'],val(row,'amount'),state));
   if (op==='unlockInit') fields.push(scalar(ctx,'世界线',[...p,'initId'],val(row,'initId'),state,'ref','init'));
+  if (op==='acquireAreaMap') fields.push(scalar(ctx,'地图',[...p,'mapId'],val(row,'mapId'),state,'ref','areaMap'));
+  if (op==='revealInformation') {
+    const target = record(val(row,'target'));
+    const targetPath = [...p,'target'];
+    const entityKind = val(target,'entityKind');
+    fields.push(branch(ctx,'世界对象类型',[...targetPath,'entityKind'],entityKind,[['area','区域'],['areaMap','区域地图'],['areaMapNode','地图节点']],state));
+    if (entityKind === 'area') fields.push(scalar(ctx,'区域',[...targetPath,'entityId'],val(target,'entityId'),state,'ref','area'));
+    if (entityKind === 'areaMap') fields.push(scalar(ctx,'地图',[...targetPath,'entityId'],val(target,'entityId'),state,'ref','areaMap'));
+    if (entityKind === 'areaMapNode') {
+      const mapId = val(target,'mapId');
+      const map = typeof mapId === 'string' ? ctx.game.registry.areaMaps.get(mapId) : undefined;
+      fields.push(scalar(ctx,'地图',[...targetPath,'mapId'],mapId,state,'ref','areaMap'));
+      fields.push(labelledChoices(ctx,'地图节点',(map?.nodes ?? []).map(item => [item.id,item.name || item.id] as [string,string]),val(target,'nodeId'),[...targetPath,'nodeId'],state));
+    }
+    if (entityKind === 'area' || entityKind === 'areaMap' || entityKind === 'areaMapNode') fields.push(labelledChoices(ctx,'信息面',[['existence','存在'],['name','身份'],['utility','用途'],['condition','方法']],val(target,'target'),[...targetPath,'target'],state));
+  }
   if (op==='setFlag') { fields.push(scalar(ctx,'全局标记名称',[...p,'flagId'],val(row,'flagId'),state)); fields.push(literalValueEditor(ctx,'值',[...p,'value'],val(row,'value'),state,draft,nodeId)); }
   if (op==='setExtra'||op==='addExtra'||op==='removeExtra') { fields.push(scalar(ctx,'Extra 路径',[...p,'path'],val(row,'path'),state,'text',undefined,'按现有 ExtraPath 规则填写。')); if(op==='setExtra') fields.push(literalValueEditor(ctx,'值',[...p,'value'],val(row,'value'),state,draft,nodeId)); if(op==='addExtra') fields.push(numericValueEditor(ctx,'增量',[...p,'amount'],val(row,'amount'),state)); }
   if (op==='grantCharacter'||op==='addAffectionExp') { fields.push(scalar(ctx,'角色差分',[...p,'variantId'],val(row,'variantId'),state,'ref','variant')); if(op==='addAffectionExp') fields.push(numericValueEditor(ctx,'经验',[...p,'amount'],val(row,'amount'),state)); }
@@ -283,18 +288,33 @@ function storyOverlayIds(ctx:UIContext,draft:StoryDraft):string[] {
   while(queue.length){const id=queue.pop()!;const story=id===draft.document.id?draft.document:ctx.game.registry.stories.get(id);if(!story)continue;const visit=(value:unknown)=>{if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach(visit);return;}const row=value as Record<string,unknown>;if(row.command==='show'&&typeof row.id==='string')ids.add(row.id);if(row.command==='clearId'&&typeof row.id==='string')ids.add(row.id);if(row.mode==='goto'||row.mode==='insert'){const next=typeof row.storyId==='string'?row.storyId:'';if(next&&!stories.has(next)){stories.add(next);queue.push(next);}}Object.values(row).forEach(visit);};visit(story);}
   return [...ids].sort();
 }
-export function renderSelectedOverlayCanvases(ctx:UIContext,state:StoryEditorState):string {
-  const draft=currentDraft(state);const node=draft?.document.nodes.find(item=>item.id===state.selectedNodeId);if(!draft||!node)return '';
+function nodeOverlayActions(node:StoryDraftNode):{path:(string|number)[];action:Obj}[] {
   const found:{path:(string|number)[];action:Obj}[]=[];
   const visit=(value:unknown,path:(string|number)[])=>{if(!value||typeof value!=='object')return;if(Array.isArray(value)){value.forEach((child,index)=>visit(child,[...path,index]));return;}const row=value as Obj;if(row.kind==='overlay'&&record(row.command)?.command==='show')found.push({path,action:row});for(const [key,child] of Object.entries(row))visit(child,[...path,key]);};visit(node,[]);
-  return found.map(({path,action},index)=>{const command=record(action.command)!;const content=record(command.content);const kind=val(content,'kind');const card=record(val(content,'card'));const request=record(val(card,'request'));const entry=request&&typeof request.entryId==='string'?ctx.game.registry.activeStories.get(request.entryId):undefined;const talklet=kind==='message'?record(val(content,'content')):null;
-    const entryView:ChatTextEntry={id:String(command.id||`${node.id}-${index}`),text:kind==='text'?String(val(content,'text')??''):undefined,talklet:talklet?{kind:val(talklet,'kind')==='narration'?'narration':'talk',text:String(val(talklet,'text')??''),speaker:String(val(talklet,'speaker')??''),...(val(talklet,'displayName')?{displayName:String(val(talklet,'displayName'))}:{}),...(val(talklet,'characterId')?{characterId:String(val(talklet,'characterId'))}:{}),...(val(record(val(content,'presentation')),'avatar')?{avatar:String(val(record(val(content,'presentation')),'avatar'))}:{}),...(val(talklet,'image')?{image:String(val(talklet,'image'))}:{})}:undefined,x:typeof command.x==='number'?command.x:0,y:typeof command.y==='number'?command.y:1,align:command.align==='center'||command.align==='right'?command.align:'left',kind:kind==='text'&&['title','badge','note'].includes(String(val(content,'template')))?val(content,'template') as ChatTextEntry['kind']:kind==='entryCard'?'kizuna':undefined,style:record(val(content,'style')) as ChatTextEntry['style'],title:kind==='entryCard'?String(val(card,'title')??''):undefined,buttonText:kind==='entryCard'?String(val(card,'buttonText')??''):undefined,targetStoryId:entry?.storyId,timestamp:0};
-    const identity=propertyKey(draft,node.id,path);
-    return `<section class="story-editor-overlay-preview" data-editor-key="overlay-preview:${ctx.escapeHtml(identity)}"><small class="story-editor-hint">当前节点 · 覆盖层 ${ctx.escapeHtml(entryView.id)}</small><div class="story-editor-overlay-canvas" data-editor-key="overlay-canvas:${ctx.escapeHtml(identity)}" data-story-overlay-canvas data-story-overlay-path="${ctx.escapeHtml(JSON.stringify([...path,'command']))}" data-story-overlay-id="${ctx.escapeHtml(entryView.id)}" aria-label="拖动覆盖层以调整位置"><span class="story-editor-overlay-axis">聊天窗格 · 左下角为坐标原点</span>${renderChatTexts(ctx,[entryView])}</div></section>`;
+  return found;
+}
+export function hasStoryNodeOverlay(node:StoryDraftNode):boolean {
+  return ((node.type==='talklet'||node.type==='click')&&node.performance?.layout?.mode==='positioned') || nodeOverlayActions(node).length>0;
+}
+export function renderStoryPerformanceEditing(ctx:UIContext,state:StoryEditorState):string {
+  const draft=currentDraft(state);if(!draft)return '';
+  const editing=state.performanceEditing?.[draft.draftId]??[];
+  return `<div class="story-editor-performance-layer" data-editor-key="performance-layer:${esc(ctx,draft.draftId)}" aria-label="演出编辑层">${draft.document.nodes.filter(node=>editing.includes(node.id)).map(node=>renderNodePerformanceEditing(ctx,draft,node)).join('')}</div>`;
+}
+function renderNodePerformanceEditing(ctx:UIContext,draft:StoryDraft,node:StoryDraftNode):string {
+  const canvas=(path:Path,body:string):string=>`<div class="story-editor-overlay-canvas" data-editor-key="overlay-canvas:${esc(ctx,propertyKey(draft,node.id,path))}" data-story-overlay-canvas data-story-overlay-node="${esc(ctx,node.id)}" data-story-overlay-draft="${esc(ctx,draft.draftId)}" data-story-overlay-path="${esc(ctx,pathText(path))}" aria-label="拖动演出以调整位置">${body}</div>`;
+  if ((node.type==='talklet'||node.type==='click')&&node.performance?.layout?.mode==='positioned') {
+    const body=node.type==='talklet' ? renderChatEntry(ctx,{...projectStoryContent(node.content,node.presentation),kind:node.content.kind,performance:node.performance}) : renderStoryClickAppearance(renderStoryClickPreview(ctx,node.interaction),node.performance);
+    return canvas(['performance','layout'],renderStoryNodePlacement(ctx,body,node.performance,node.id));
+  }
+  return nodeOverlayActions(node).map(({path,action},index)=>{const command=record(action.command)!;const content=record(command.content);const kind=val(content,'kind');const card=record(val(content,'card'));const request=record(val(card,'request'));const entry=request&&typeof request.entryId==='string'?ctx.game.registry.activeStories.get(request.entryId):undefined;const talklet=kind==='message'?record(val(content,'content')):null;
+    const entryView:ChatTextEntry={id:String(command.id||`${node.id}-${index}`),text:kind==='text'?String(val(content,'text')??''):undefined,talklet:talklet?{kind:val(talklet,'kind')==='narration'?'narration':'talk',text:String(val(talklet,'text')??''),speaker:String(val(talklet,'speaker')??''),...(val(talklet,'displayName')?{displayName:String(val(talklet,'displayName'))}:{}),...(val(talklet,'characterId')?{characterId:String(val(talklet,'characterId'))}:{}),...(val(record(val(content,'presentation')),'avatar')?{avatar:String(val(record(val(content,'presentation')),'avatar'))}:{}),...(val(talklet,'image')?{image:String(val(talklet,'image'))}:{}),...(record(val(content,'presentation'))?.side?{side:record(val(content,'presentation'))!.side as 'left'|'right'}:{}),...(record(val(content,'presentation'))?.align?{align:record(val(content,'presentation'))!.align as 'left'|'center'|'right'}:{}),...(record(val(content,'presentation'))?.avatarMode==='hide'?{noAvatar:true}:{}),...(record(val(content,'presentation'))?.avatarMode==='show'?{showAvatar:true}:{})}:undefined,x:Number.isFinite(Number(command.x))?Number(command.x):0,y:Number.isFinite(Number(command.y))?Number(command.y):1,align:command.align==='center'||command.align==='right'?command.align:'left',kind:kind==='text'&&['title','badge','note'].includes(String(val(content,'template')))?val(content,'template') as ChatTextEntry['kind']:kind==='entryCard'?'kizuna':undefined,style:record(val(content,'style')) as ChatTextEntry['style'],title:kind==='entryCard'?String(val(card,'title')??''):undefined,buttonText:kind==='entryCard'?String(val(card,'buttonText')??''):undefined,targetStoryId:entry?.storyId,timestamp:0};
+    if(kind==='entryCard') entryView.talklet={kind:'click',text:entryView.buttonText??'',kizuna:{storyId:entry?.storyId??'',title:entryView.title,buttonText:entryView.buttonText,align:val(card,'align')==='right'?'right':val(card,'align')==='left'?'left':undefined}};
+    return canvas([...path,'command'],renderChatTexts(ctx,[entryView],{preview:true}));
   }).join('');
 }
-function styleEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null): string {
-  return `<section class="story-editor-property-group" data-editor-key="${esc(ctx,key(path,':style'))}"><strong>基础样式</strong>${labelledChoices(ctx,'字型',[['default','默认字型'],['serif','衬线'],['sans','无衬线'],['mono','等宽'],['handwritten','手写']],val(value,'font'),[...path,'font'],state,true)}${scalar(ctx,'字号',[...path,'fontSize'],val(value,'fontSize'),state)}${scalar(ctx,'文字颜色',[...path,'color'],val(value,'color'),state)}${labelledChoices(ctx,'背景显示',[['true','显示背景'],['false','透明背景']],val(value,'background') === undefined ? undefined : String(val(value,'background')),[...path,'background'],state,true)}${scalar(ctx,'背景颜色',[...path,'backgroundColor'],val(value,'backgroundColor'),state)}</section>`;
+function styleEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null,omitEmpty=false): string {
+  return `<section class="story-editor-property-group" data-editor-key="${esc(ctx,key(path,':style'))}"><strong>基础样式</strong>${labelledChoices(ctx,'字型',[['default','默认字型'],['serif','衬线'],['sans','无衬线'],['mono','等宽'],['handwritten','手写']],val(value,'font'),[...path,'font'],state,true)}${scalar(ctx,'字号',[...path,'fontSize'],val(value,'fontSize'),state,'text',undefined,omitEmpty?'例如 24px 或 1.5rem；留空沿用默认。':undefined,undefined,omitEmpty)}${scalar(ctx,'文字颜色',[...path,'color'],val(value,'color'),state,'text',undefined,undefined,undefined,omitEmpty)}${labelledChoices(ctx,'背景显示',[['true','显示背景'],['false','透明背景']],val(value,'background') === undefined ? undefined : String(val(value,'background')),[...path,'background'],state,true)}${scalar(ctx,'背景颜色',[...path,'backgroundColor'],val(value,'backgroundColor'),state,'text',undefined,undefined,undefined,omitEmpty)}</section>`;
 }
 const THEME_TOKENS:[string,string][]=[['primary','主色'],['primaryDim','主色弱化'],['primaryStrong','强调主色'],['bg','画布背景'],['bgAlt','次级背景'],['panel','面板'],['panelLight','浅面板'],['text','正文文字'],['textDim','弱化文字'],['muted','提示文字'],['line','分隔线'],['border','边框'],['active','激活态'],['highlight','高亮'],['success','成功'],['warning','警告'],['danger','危险'],['accent','强调色'],['playerBubble','玩家气泡'],['playerBubbleText','玩家气泡文字'],['npcBubble','角色气泡'],['npcBubbleText','角色气泡文字']];
 const THEME_NODES:[string,string][]=[['primary','主色'],['primaryStrong','强调主色'],['bg','画布背景'],['bgAlt','次级背景'],['panel','面板'],['panelLight','浅面板'],['text','正文文字'],['muted','提示文字'],['line','分隔线'],['active','激活态'],['highlight','高亮'],['success','成功'],['warning','警告'],['danger','危险'],['accent','强调色'],['playerBubble','玩家气泡'],['npcBubble','角色气泡']];
@@ -409,20 +429,17 @@ function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
   const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['areaContinue','到地点继续']],state)];
-  out.push(bodyEditor(ctx,state,draft,nodeId));
+  if(kind!=='choice') out.push(bodyEditor(ctx,state,draft,nodeId));
   if(kind==='button') {
     const press=record(val(interaction,'press')); const pressPath=[...path,'press'];
-    const pressCreate=`<button type="button" class="mini-action" data-story-init-value="press" data-story-path="${esc(ctx,pathText(pressPath))}"${disabled(state)}>配置按击次数</button>`;
-    out.push(optional(ctx,'按击次数',pressPath,press!==null,state,press?`${scalar(ctx,'基础次数',[...pressPath,'base'],val(press,'base'),state,'number')}${scalarOptional(ctx,'随机增量上限',press,'rand',[...pressPath,'rand'],state,'number',undefined,draft,nodeId)}`:pressCreate,undefined,draft,nodeId,pressCreate));
-    const result=record(val(interaction,'result')); const resPath=[...path,'result'];
-    const resultCreate=`<button type="button" class="mini-action" data-story-init-object="true" data-story-path="${esc(ctx,pathText(resPath))}"${disabled(state)}>配置结果</button>`;
-    out.push(optional(ctx,'结果',resPath,Boolean(result),state,result?resultEditor(ctx,state,resPath,result,draft,nodeId):resultCreate,undefined,draft,nodeId,resultCreate));
+    out.push(scalar(ctx,'基础次数',[...pressPath,'base'],val(press,'base'),state,'number',undefined,'留空且无随机增量时，只需按一次。',undefined,true),
+      scalar(ctx,'随机增量上限',[...pressPath,'rand'],val(press,'rand'),state,'number',undefined,'留空不增加随机次数；0 表示显式关闭随机增量。',undefined,true));
+    if (interaction && hasOwn(interaction,'result')) out.push(legacyChoiceField(ctx,state,'旧按钮 result（不再执行，请改用后续节点）',[...path,'result'],interaction.result));
   }
   if(kind==='choice') {
-    out.push('<p class="story-editor-hint">新作者建议：选项只提供局部标记；效果放在后续受标记控制的 Operation，跳转使用 Transfer。旧动作可按下方诊断结果显式处理。</p>');
+    out.push('<p class="story-editor-hint">选择标记用于关联后续节点；再次选择时会替换本组旧记录。</p>');
     const sp=[...path,'sharedActions'];
-    if(interaction&&hasOwn(interaction,'sharedActions')&&!Array.isArray(interaction.sharedActions)) out.push(`<p class="story-editor-error">旧共同动作字段结构无效：<code>${esc(ctx,JSON.stringify(interaction.sharedActions))}</code><button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(sp))}"${disabled(state)}>移除该字段</button></p>`);
-    else out.push(choiceActionList(ctx,state,sp,array(val(interaction,'sharedActions')),draft,nodeId));
+    if(interaction&&hasOwn(interaction,'sharedActions')) out.push(legacyChoiceField(ctx,state,'旧 Choice sharedActions',sp,interaction.sharedActions));
     const optionsPath=[...path,'options']; const options=array(val(interaction,'options'));
     out.push(listHeader(ctx,'选项（按顺序）',optionsPath,state),...options.map((item,index)=>choiceOption(ctx,state,[...optionsPath,index],record(item),optionsPath,index,options.length,draft,nodeId)));
   }
@@ -431,24 +448,38 @@ function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interacti
   if(kind==='areaContinue') out.push('<p class="story-editor-hint">停住当前 Entry；玩家到达指定 Area 后手动接纳，沿同一游标继续后继。</p>');
   return out.join('');
 }
+function legacyChoiceField(ctx:UIContext,state:StoryEditorState,label:string,path:Path,value:unknown):string {
+  return `<p class="story-editor-error">${esc(ctx,label)}：<code>${esc(ctx,JSON.stringify(value))}</code><button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(path))}"${disabled(state)}>显式移除</button></p>`;
+}
+function choiceMarkList(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,draft:StoryDraft,nodeId:string):string {
+  const marksPath=[...path,'marks']; const raw=val(opt,'marks');
+  if(raw!==undefined&&!Array.isArray(raw)) return legacyChoiceField(ctx,state,'选择标记结构无效',marksPath,raw);
+  const marks=array(raw);
+  const rows=marks.map((name,index)=>{
+    const rowId=rowIdAt(draft,nodeId,marksPath,index)??String(index);
+    const editor=typeof name==='string'
+      ? scalar(ctx,'选择标记',[...marksPath,index],name,state,'text',undefined,undefined,'local')
+      : `<p class="story-editor-error">选择标记结构无效：<code>${esc(ctx,JSON.stringify(name))}</code></p>`;
+    return `<div class="story-editor-property-row" data-editor-key="choice-mark:${esc(ctx,rowId)}">${editor}<div class="story-editor-actions"><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(marksPath))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除标记</button></div></div>`;
+  }).join('');
+  return `<div class="story-editor-list-block" data-editor-key="choice-marks:${esc(ctx,pathText(path))}"><div class="story-editor-list-heading"><strong>选择标记</strong><button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx,pathText(marksPath))}"${disabled(state)}>添加标记</button></div>${rows}</div>`;
+}
 function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,listPath:Path,index:number,total:number,draft:StoryDraft,nodeId:string):string {
   const id=val(opt,'id'); const out=[`<div class="story-editor-property-row"><label class="story-editor-property">选项 ID<code>${esc(ctx,id)}</code></label><button type="button" class="mini-action" data-story-rename-option-id="true" data-story-node-id="${esc(ctx,nodeId)}" data-story-option-index="${index}" data-story-option-id="${esc(ctx,id)}"${disabled(state)}>更改 ID</button><small class="story-editor-hint">选项 ID 用于稳定标识；发布后尽量不要更改。若旧游标不再匹配，恢复时会从 Entry 开始。</small></div>`,scalar(ctx,'选项文案',[...path,'text'],val(opt,'text'),state,'textarea')];
-  const cp=[...path,'condition']; const cond=val(opt,'condition');
-  const conditionCreate=`<button type="button" class="mini-action" data-story-init-condition="true" data-story-path="${esc(ctx,pathText(cp))}"${disabled(state)}>配置条件</button>`;
-  out.push(optional(ctx,'条件',cp,cond!==undefined,state,cond!==undefined?conditionEditor(ctx,state,cp,cond):conditionCreate,undefined,draft,nodeId,conditionCreate));
-  const resPath=[...path,'result']; const rawResult=val(opt,'result'); const result=record(rawResult); const hasResult=opt!==null&&hasOwn(opt,'result');
-  if(hasResult&&!result) {
-    out.push(`<p class="story-editor-error">旧 Choice 结果结构无效：<code>${esc(ctx,JSON.stringify(rawResult))}</code><button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(resPath))}"${disabled(state)}>移除该结果</button></p>`);
-  } else if(result) {
-    const actionsPath=[...resPath,'actions']; const actions=array(val(result,'actions'));
-    const invalidActions=hasOwn(result,'actions')&&!Array.isArray(result.actions);
-    const transfer=record(result.transfer);
-    const transferPreview=hasOwn(result,'transfer')?renderStoryTransfer(ctx,state,{mode:transfer?.mode==='goto'?'goto':transfer?.mode==='insert'?'insert':undefined,storyId:typeof transfer?.storyId==='string'?transfer.storyId:undefined}):'';
-    out.push(`<div class="story-editor-property-group"><strong>选择结果 · 局部标记</strong>${invalidActions?`<p class="story-editor-error">旧动作字段结构无效：<code>${esc(ctx,JSON.stringify(result.actions))}</code><button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(actionsPath))}"${disabled(state)}>移除该字段</button></p>`:choiceActionList(ctx,state,actionsPath,actions,draft,nodeId)}${hasOwn(result,'transfer')?`<p class="story-editor-error">旧 Choice 转移：<code>${esc(ctx,JSON.stringify(result.transfer))}</code><button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText([...resPath,'transfer']))}"${disabled(state)}>移除该转移</button></p>${transferPreview}`:''}</div>`);
-  } else {
-    const actionsPath=[...resPath,'actions'];
-    out.push(`<button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx,pathText(actionsPath))}"${disabled(state)}>添加局部标记</button>`);
-  }
+  const oldConditionPath=[...path,'condition'];
+  if(opt&&hasOwn(opt,'condition')) out.push(legacyChoiceField(ctx,state,'旧 Choice condition（禁用语义，不等同于 showWhen）',oldConditionPath,opt.condition));
+  const showWhenPath=[...path,'showWhen']; const showWhen=val(opt,'showWhen'); const showWhenRecord=record(showWhen);
+  const showWhenGroup=Boolean(showWhenRecord&&['AND','OR'].includes(String(showWhenRecord.type))&&Array.isArray(showWhenRecord.conditions));
+  const showWhenCreate=`<button type="button" class="mini-action" data-story-init-condition="true" data-story-path="${esc(ctx,pathText(showWhenPath))}"${disabled(state)}>配置出现条件</button>`;
+  out.push(showWhen!==undefined&&!showWhenGroup
+    ? legacyChoiceField(ctx,state,'出现条件结构无效',showWhenPath,showWhen)
+    : showWhen!==undefined ? optional(ctx,'出现条件',showWhenPath,true,state,conditionEditor(ctx,state,showWhenPath,showWhen),undefined,draft,nodeId) : showWhenCreate);
+  if(opt&&hasOwn(opt,'result')) out.push(legacyChoiceField(ctx,state,'旧 Choice result（不再执行）',[...path,'result'],opt.result));
+  const requiredFlag=val(opt,'requiresFlag');
+  out.push(requiredFlag!==undefined&&typeof requiredFlag!=='string'
+    ? legacyChoiceField(ctx,state,'局部出现标记结构无效',[...path,'requiresFlag'],requiredFlag)
+    : scalar(ctx,'局部出现标记（需存在）',[...path,'requiresFlag'],requiredFlag,state,'text',undefined,'填写 Entry 局部表中的名称；仅检查该键是否存在。'));
+  out.push(choiceMarkList(ctx,state,path,opt,draft,nodeId));
   const rowId=rowIdAt(draft,nodeId,listPath,index)??String(id);
   return `<section class="story-editor-property-row" data-editor-key="choice:${esc(ctx,rowId)}">${out.join('')}${rowButtons(ctx,listPath,rowId,index,total,state)}</section>`;
 }
@@ -459,15 +490,50 @@ function talkletEditor(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,nod
   if(kind==='talk') {
     const speaker=val(content,'speaker'), characterId=val(content,'characterId');
     const identity = resolveStorySpeaker(ctx.game, { characterId: typeof characterId === 'string' ? characterId : undefined, speaker: typeof speaker === 'string' ? speaker : undefined });
-    const sender=identity.characterId ? `character:${identity.characterId}` : characterId===undefined && (speaker==='老师' || record(val(node,'presentation'))?.side==='right') ? 'teacher' : 'original';
+    const sender=identity.characterId ? `character:${identity.characterId}` : characterId===undefined && speaker==='老师' ? 'teacher' : characterId===undefined && speaker===undefined ? 'anonymous' : 'original';
     const known=[...ctx.game.registry.characters.values()].map(character=>`<option value="character:${esc(ctx,character.id)}"${sender===`character:${character.id}`?' selected':''}>${esc(ctx,character.displayName)}</option>`).join('');
-    out.push(`<label class="story-editor-property">发出方<select data-story-reference="sender" data-editor-key="sender" data-editor-field="sender"${disabled(state)}><option value="narrator">旁白</option><option value="teacher"${sender==='teacher'?' selected':''}>老师</option>${known}<option value="original"${sender==='original'?' selected':''}>保留当前发出方</option></select></label>`,scalar(ctx,'发出方（自由显示名）',['content','displayName'],val(content,'displayName'),state,'text',undefined,'留空使用角色默认名称；修改名称不会改变头像。'),scalar(ctx,'图片引用',['content','image'],val(content,'image'),state,'image',undefined,'可从图片目录选择，也可填当前内容的直接资源引用。'));
+    out.push(`<label class="story-editor-property">发出方<select data-story-reference="sender" data-editor-key="sender" data-editor-field="sender"${disabled(state)}><option value="narrator">旁白</option><option value="anonymous"${sender==='anonymous'?' selected':''}>不指定角色</option><option value="teacher"${sender==='teacher'?' selected':''}>老师</option>${known}<option value="original"${sender==='original'?' selected':''}>保留当前发出方${characterId || speaker ? `：${esc(ctx,characterId??speaker)}` : ''}</option></select></label>`,scalar(ctx,'发出方（自由显示名）',['content','displayName'],val(content,'displayName'),state,'text',undefined,'留空使用角色默认名称；修改名称不会改变头像。'),scalar(ctx,'图片引用',['content','image'],val(content,'image'),state,'image',undefined,'可从图片目录选择，也可填当前内容的直接资源引用。留空不附图。',undefined,true));
   }
   out.push(presentationEditor(ctx,state,['presentation'],record(val(node,'presentation'))));
   const pacing=record(val(node,'pacing')); const canPace=kind==='talk'&&record(val(node,'presentation'))?.side!=='right';
-  // Enabled pacing always renders both inputs, so a freshly enabled switch is not blank.
-  out.push(optional(ctx,'输入节奏', ['pacing'],Boolean(pacing),state,`${scalar(ctx,'打字时长（秒）',['pacing','typing'],val(pacing,'typing'),state,'number')}${scalar(ctx,'思考时长（秒）',['pacing','thinking'],val(pacing,'thinking'),state,'number')}`,canPace?'仅非右侧对话可启用。0 表示显式关闭；缺省沿用播放器默认。':'旁白或右侧对话下休眠，切回后恢复。',draft,String(val(node,'id'))));
+  out.push(canPace ? `<section class="story-editor-presentation" data-editor-key="pacing"><h3>输入节奏</h3><p class="story-editor-hint">仅非右侧对话可启用。0 表示显式关闭；留空沿用播放器默认。</p>${scalar(ctx,'打字时长（秒）',['pacing','typing'],val(pacing,'typing'),state,'number',undefined,undefined,undefined,true)}${scalar(ctx,'思考时长（秒）',['pacing','thinking'],val(pacing,'thinking'),state,'number',undefined,undefined,undefined,true)}</section>`
+    : '<p class="story-editor-hint" data-editor-key="pacing-inactive">输入节奏在旁白或右侧对话下休眠，切回后恢复。</p>');
   return out.join('');
+}
+
+/** The basic page owns the existing node payload; performance editing mounts alongside it. */
+export function renderStoryNodeBasicProperties(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,node:StoryDraftNode):string {
+  const value=node as unknown as Obj;
+  const body=node.type==='talklet' ? talkletEditor(ctx,state,draft,value)
+    : node.type==='click' ? clickEditor(ctx,state,['interaction'],record(val(value,'interaction')),draft,node.id) : '';
+  return `<section class="story-editor-property-content" data-story-basic-properties="${esc(ctx,node.id)}" data-editor-key="basic:${esc(ctx,node.id)}" aria-label="基础内容">${body}</section>`;
+}
+
+function performanceEditor(ctx:UIContext,state:StoryEditorState,node:StoryDraftNode):string {
+  const value=record(val(node as unknown as Obj,'performance')), layout=record(val(value,'layout'));
+  const path=['performance','layout'];
+  const out=[branch(ctx,'展示方式',[...path,'mode'],val(layout,'mode')??'flow',[['flow','随流排列'],['positioned','定位展示']],state)];
+  const anchor = record(val(layout,'anchor'));
+  const unit = val(layout,'unit') === 'px' ? 'px' : anchor ? '比例 −1–1' : '比例 0–1';
+  if (val(layout,'mode')==='positioned') {
+    out.push(
+      scalar(ctx,`X（${unit}，${anchor ? '向右为正' : '左下原点'}）`,[...path,'x'],val(layout,'x'),state,'number'),
+      scalar(ctx,`Y（${unit}，${anchor ? '向上为正' : '左下原点'}）`,[...path,'y'],val(layout,'y'),state,'number'));
+    if (!anchor) out.push(labelledChoices(ctx,'定位锚点',[['left','左'],['center','中'],['right','右']],val(layout,'align'),[...path,'align'],state,true));
+  }
+  if (node.type==='talklet') out.push(labelledChoices(ctx,'正文模板',[['message','对话 / 旁白'],['default','纯文字'],['title','标题'],['badge','徽标'],['note','注记']],val(value,'template'),['performance','template'],state,true));
+  out.push(styleEditor(ctx,state,['performance','style'],record(val(value,'style')),true));
+  out.push('<p class="story-editor-hint">定位内容在本轮运行结束或换场时清理；重复到达同一节点会替换其定位展示。输入按钮仍只在当前等待点可操作。</p>');
+  return out.join('');
+}
+
+function nodeDesigner(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,node:StoryDraftNode):string {
+  const tab=state.nodeDesignerTab??'basic';
+  const configured=Boolean(record(val(node as unknown as Obj,'performance'))&&Object.keys(record(val(node as unknown as Obj,'performance'))!).length);
+  return `${renderTabs(ctx,'right',[{id:'basic',label:'基础',action:'story-editor-designer:basic'},{id:'performance',label:'演出',action:'story-editor-designer:performance'}],tab,'节点设计页')}
+    ${configured?`<div class="story-editor-designer-status" data-editor-key="performance-status"><small>已配置演出</small><button type="button" class="mini-action" data-story-reset-performance${disabled(state)}>恢复默认</button></div>`:''}
+    <div class="story-editor-designer-page" data-story-designer-page="basic" data-editor-key="designer:basic"${tab==='basic'?'':' hidden'}>${renderStoryNodeBasicProperties(ctx,state,draft,node)}</div>
+    <div class="story-editor-designer-page story-editor-property-content" data-story-designer-page="performance" data-editor-key="designer:performance"${tab==='performance'?'':' hidden'}>${performanceEditor(ctx,state,node)}</div>`;
 }
 
 export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,node:StoryDraftNode,index:number):string {
@@ -482,13 +548,14 @@ export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,d
   ],type,'节点类型');
   const base=`<div class="story-editor-property-row"><label class="story-editor-property">节点 ID<code>${esc(ctx,node.id)}</code></label><button type="button" class="mini-action" data-story-rename-node-id="${esc(ctx,node.id)}"${disabled(state)}>更改 ID</button><small class="story-editor-hint">手写 ID 更易维护。ID 是游标定位键；更改后，旧游标会从 StoryEntry 开始。内容发布后尽量不要更改。</small></div>${scalar(ctx,'需要局部标记（可选）',['requiresFlag'],val(n,'requiresFlag'),state,'text',undefined,'留空时正常执行；填写后只在 Entry 局部表中存在该键时执行。')}`;
   let body='';
-  if(type==='talklet') body=talkletEditor(ctx,state,draft,n);
-  else if(type==='click') body=clickEditor(ctx,state,['interaction'],record(val(n,'interaction')),draft,node.id);
-  else if(type==='operation') body=`<p class="story-editor-hint">重读时一般 Operation 会完全跳过，不结算也不模拟；需要在重读中呈现的空间切换请使用独立移动节点。</p>${actionEditor(ctx,state,['action'],record(val(n,'action')),draft,node.id)}`;
+  if(type==='talklet'||type==='click') body=nodeDesigner(ctx,state,draft,node);
+  else if(type==='operation') body=`<p class="story-editor-hint">重读保留清理与临时演出，业务结算不重复执行；空间切换请使用独立移动节点。</p>${actionEditor(ctx,state,['action'],record(val(n,'action')),draft,node.id)}`;
   else if(type==='transfer') body=transferEditor(ctx,state,['transfer'],record(val(n,'transfer')),draft);
   else if(type==='moveToArea') body=`${scalar(ctx,'目标 Area',['areaId'],val(n,'areaId'),state,'ref','area')}<p class="story-editor-hint">正式播放会真实切换到目标 Area；隔离重读只切换演出场景。动作完成后继续当前正文，不建立返回点。</p>`;
   else if(type==='moveToCharaspace') body=`${scalar(ctx,'目标角色',['characterId'],val(n,'characterId'),state,'ref','variant')}<p class="story-editor-hint">正式播放切换到目标角色对话流；隔离重读只切换演出场景。动作完成后继续当前正文，不建立返回点。</p>`;
-  const error=draft.editorIssues?.filter(issue=>issue.path.startsWith(`nodes[${index}]`)).map(issue=>issueDiagnostic(ctx,state,issue,index)).join('')??'';
+  const error=draft.editorIssues?.filter(issue=>issue.path.startsWith(`nodes[${index}]`)
+    && !/\.interaction\.(?:result|sharedActions|options\[\d+\]\.(?:condition|result))$/.test(issue.path))
+    .map(issue=>issueDiagnostic(ctx,state,issue,index)).join('')??'';
   return `<div class="story-editor-fields" data-editor-key="inspector:${esc(ctx,node.id)}" data-story-node-properties="${esc(ctx,node.id)}"><div class="story-editor-node-type-switch">${nodeTypeSwitch}</div>${base}<div class="story-editor-property-content" data-editor-key="property-content:${esc(ctx,node.id)}">${body}</div>${renderStoryFlagSuggestions(ctx,state)}${error}<div class="story-editor-actions"><button type="button" class="mini-action" data-editor-action="up"${index===0||state.storageBlocked?' disabled':''}>上移</button><button type="button" class="mini-action" data-editor-action="down"${index===draft.document.nodes.length-1||state.storageBlocked?' disabled':''}>下移</button><button type="button" class="mini-action mini-action--danger" data-editor-action="delete-node"${disabled(state)}>删除节点</button></div></div>`;
 }
 function parseRelativePath(raw:string):Path|null {
@@ -496,9 +563,9 @@ function parseRelativePath(raw:string):Path|null {
   while((match=pattern.exec(raw))) path.push(match[1]===undefined?Number(match[2]):match[1]);
   return path.length?path:null;
 }
-function issueDiagnostic(ctx:UIContext,state:StoryEditorState,issue:{path:string;message:string},index:number):string {
+function issueDiagnostic(ctx:UIContext,state:StoryEditorState,issue:{path:string;message:string;removable?:boolean},index:number):string {
   const path=parseRelativePath(issue.path.slice(`nodes[${index}]`.length));
-  const clear=path?`<button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(path))}"${disabled(state)}>清理该字段</button>`:'';
+  const clear=path&&issue.removable!==false?`<button type="button" class="mini-action mini-action--danger" data-story-remove-readonly="true" data-story-optional-path="${esc(ctx,pathText(path))}"${disabled(state)}>清理该字段</button>`:'';
   return `<p class="story-editor-error" data-story-issue-path="${esc(ctx,issue.path)}">${esc(ctx,issue.message)}${clear}</p>`;
 }
 export function propertyNodeKind(node: StoryDraftNode): string { return node.type; }

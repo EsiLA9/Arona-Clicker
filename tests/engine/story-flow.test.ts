@@ -162,7 +162,7 @@ describe('Story 主流程（click 门控推进）', () => {
         ] } },
       ],
     };
-    const entry: ActiveStoryEntry = { id: entryId, storyId: story.id, type: 'active', availableInits: [], triggerCondition: and() };
+    const entry: ActiveStoryEntry = { id: entryId, storyId: story.id, availableInits: [], triggerCondition: and(), activation: { kind: 'active' as const } };
     game.init([baseDatapack, makePack([entry], [story])]);
     finishWelcome(game);
     expect(game.story.startActiveStory(entryId).success).toBe(true);

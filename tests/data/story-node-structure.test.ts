@@ -103,6 +103,43 @@ describe('Story node structure', () => {
     ], { input: { advance: 'input' } }), 'nodes[0].interaction.options[1].id', 'duplicate-id');
   });
 
+  it('checks Choice mark shape and ownership, while allowing one group to reuse a mark across options', () => {
+    const shared = validateStoryNodeStructure(documentOf([
+      choice('pick', 'first', [{ id: 'a', text: '甲', marks: ['route'] }, { id: 'b', text: '乙', marks: ['route'] }]),
+    ], { first: { advance: 'input' } }));
+    expect(shared.ok).toBe(true);
+
+    expectIssue(documentOf([
+      choice('pick', 'first', [{ id: 'a', text: '甲', marks: ['route', 'route'] }]),
+    ], { first: { advance: 'input' } }), 'nodes[0].interaction.options[0].marks[1]', 'duplicate-mark');
+
+    expectIssue(documentOf([
+      choice('pick-first', 'first', [{ id: 'a', text: '甲', marks: ['route'] }]),
+      choice('pick-second', 'second', [{ id: 'b', text: '乙', marks: ['route'] }]),
+    ], { first: { advance: 'input' }, second: { advance: 'input' } }),
+    'nodes[1].interaction.options[0].marks[0]', 'mark-owner');
+  });
+
+  it('reports retired Choice fields and malformed raw marks instead of ignoring them', () => {
+    const base = documentOf([choice('pick', 'input', [{ id: 'a', text: '甲' }])], { input: { advance: 'input' } });
+    const legacy = structuredClone(base) as unknown as { nodes: Array<{ interaction: Record<string, unknown> }> };
+    legacy.nodes[0].interaction.sharedActions = [];
+    const oldFields = validateStoryNodeStructure(legacy as unknown as StoryNodeDocument);
+    expect(oldFields.issues).toContainEqual(expect.objectContaining({ path: 'nodes[0].interaction.sharedActions', code: 'interaction-shape' }));
+
+    const oldOption = structuredClone(base) as unknown as { nodes: Array<{ interaction: { options: Array<Record<string, unknown>> } }> };
+    oldOption.nodes[0].interaction.options[0].condition = { type: 'AND', conditions: [] };
+    oldOption.nodes[0].interaction.options[0].result = { actions: [] };
+    const oldOptionFields = validateStoryNodeStructure(oldOption as unknown as StoryNodeDocument);
+    expect(oldOptionFields.issues).toContainEqual(expect.objectContaining({ path: 'nodes[0].interaction.options[0].condition', code: 'interaction-shape' }));
+    expect(oldOptionFields.issues).toContainEqual(expect.objectContaining({ path: 'nodes[0].interaction.options[0].result', code: 'interaction-shape' }));
+
+    const malformed = structuredClone(base) as unknown as { nodes: Array<{ interaction: { options: Array<Record<string, unknown>> } }> };
+    malformed.nodes[0].interaction.options[0].marks = 'route';
+    const malformedMarks = validateStoryNodeStructure(malformed as unknown as StoryNodeDocument);
+    expect(malformedMarks.issues).toContainEqual(expect.objectContaining({ path: 'nodes[0].interaction.options[0].marks', code: 'flag-shape' }));
+  });
+
   it('requires choices to have an option and validates click work without overflowing', () => {
     expectIssue(documentOf([choice('pick', 'input', [])], { input: { advance: 'input' } }),
       'nodes[0].interaction.options', 'interaction-shape');

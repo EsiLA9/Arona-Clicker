@@ -20,6 +20,8 @@ export type AccessStage = 'hidden' | 'obfuscated' | 'revealed' | 'accessible' | 
 
 export interface RevealRegistryEntry {
   readonly revealTriggers?: readonly RevealTrigger[];
+  /** World-specific information rules are evaluated by the product domain, not VisibilityEngine. */
+  readonly reveal?: unknown;
 }
 
 /** 可见性引擎读取数据包揭示声明所需的最小只读索引。 */

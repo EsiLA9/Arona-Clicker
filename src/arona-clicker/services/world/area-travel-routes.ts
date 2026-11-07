@@ -1,6 +1,6 @@
 import type { AreaDef } from '../../../data-services/contracts/world';
+import type { AreaMapDef } from '../../../data-services/contracts/area-map';
 import type { AreaConnectionDef, AreaTransitNetworkDef } from '../../../engine/contracts/affector';
-import { existenceMet, unlockMet } from '../../../engine/visibility/reveal';
 import type { ConditionQueryPort } from '../../contracts/runtime/condition-query';
 import type { PlayerState } from '../../types/state';
 
@@ -20,6 +20,7 @@ export class AreaTravelGraph {
     readonly areas: ReadonlyMap<string, AreaDef>,
     connections: readonly AreaConnectionDef[],
     networks: readonly AreaTransitNetworkDef[],
+    readonly areaMaps: ReadonlyMap<string, AreaMapDef> = new Map(),
   ) {
     const add = (from: string, to: string) => {
       if (!areas.has(from) || !areas.has(to) || areas.get(from)!.initId !== areas.get(to)!.initId) return;
@@ -50,9 +51,21 @@ export class AreaTravelGraph {
   }
 }
 
-export type AreaTravelMethod = 'adjacent' | 'visited' | 'transit';
+export type AreaTravelMethod = 'adjacent' | 'visited' | 'transit' | 'mapDirect';
 
 /** One traversal per query batch; never uses Map nodes/edges or persists route knowledge. */
+export function areaInformationKnown(state: Readonly<PlayerState>, area: AreaDef, target: 'existence' | 'name' | 'utility' | 'condition'): boolean {
+  if (!area.reveal?.[target]) return true;
+  return state.informationRevealProgress?.revealed.some(item => item.entityKind === 'area' && item.entityId === area.id && item.target === target) === true;
+}
+
+function nodeInformationKnown(state: PlayerState, map: AreaMapDef, nodeId: string): boolean {
+  const node = map.nodes.find(candidate => candidate.id === nodeId);
+  if (!node?.reveal?.existence) return true;
+  return state.informationRevealProgress?.revealed.some(item => item.entityKind === 'areaMapNode'
+    && item.mapId === map.id && item.nodeId === nodeId && item.target === 'existence') === true;
+}
+
 export function buildAreaTravelRoutes(graph: AreaTravelGraph, state: PlayerState, conditions: ConditionQueryPort): ReadonlyMap<string, AreaTravelMethod> {
   const routes = new Map<string, AreaTravelMethod>();
   const current = state.currentAreaId;
@@ -62,7 +75,8 @@ export function buildAreaTravelRoutes(graph: AreaTravelGraph, state: PlayerState
   const canEnter = (id: string) => {
     if (eligible.has(id)) return eligible.get(id)!;
     const area = graph.areas.get(id);
-    const allowed = !!area && area.initId === state.activeInit && existenceMet(area.revealTriggers, evaluate) && unlockMet(area.revealTriggers, evaluate);
+    const allowed = !!area && area.initId === state.activeInit && areaInformationKnown(state, area, 'existence')
+      && (!area.enterCondition || evaluate(area.enterCondition));
     eligible.set(id, allowed); return allowed;
   };
   const canPass = (id: string) => {
@@ -84,6 +98,16 @@ export function buildAreaTravelRoutes(graph: AreaTravelGraph, state: PlayerState
       if (expandedNetworks.has(network)) continue;
       expandedNetworks.add(network);
       for (const to of network.areaIds) offer(to, 'transit');
+    }
+  }
+  for (const map of graph.areaMaps.values()) {
+    if (!state.collectedAreaMapIds?.includes(map.id)) continue;
+    for (const node of map.nodes) {
+      const action = node.action;
+      if (action?.kind !== 'attemptAreaTravel' || action.travelMode !== 'mapDirect'
+        || !nodeInformationKnown(state, map, node.id) || node.actionCondition && !evaluate(node.actionCondition)
+        || routes.has(action.areaId) || !canEnter(action.areaId)) continue;
+      routes.set(action.areaId, 'mapDirect');
     }
   }
   return routes;

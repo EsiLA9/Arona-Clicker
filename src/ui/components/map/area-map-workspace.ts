@@ -17,7 +17,8 @@ export function areaMapReason(reason?: string): string {
 
 export function areaMapTravelLabel(node?: AreaMapNodeView): string {
   return node?.travelMethod === 'visited' ? '快速返回'
-    : node?.travelMethod === 'transit' ? '乘交通前往' : '尝试前往';
+    : node?.travelMethod === 'transit' ? '乘交通前往'
+      : node?.travelMethod === 'mapDirect' ? '导览直达' : '尝试前往';
 }
 
 export function renderAreaMapNode(ctx: UIContext, session: AreaMapSession, node: AreaMapNodeView): string {
@@ -63,8 +64,10 @@ export function createAreaMapWorkspaceFrame(ctx: UIContext, session: AreaMapSess
   const esc = ctx.escapeHtml;
   const camera = session.viewports.get(session.currentMapId)!;
   const selected = session.view.nodes.find(node => node.id === session.selectedNodeId);
+  const collection = renderAreaMapCollection(ctx);
   const toolbar = `<nav class="area-map-toolbar" aria-label="地图操作">
     <strong data-area-map-title>${esc(session.view.name)}</strong>
+    ${collection}
     <button type="button" data-area-map-action="back" ${session.history.length ? '' : 'disabled'}>上一图</button>
     <button type="button" data-area-map-action="current">当前区域地图</button>
     <button type="button" data-area-map-action="fit">适应视图</button>
@@ -90,6 +93,13 @@ export function createAreaMapWorkspaceFrame(ctx: UIContext, session: AreaMapSess
       { key: 'primary', width: 'var(--workspace-center-width)', slot: 'center', role: 'primary', workspaceOwner: 'area-map', hostId: 'centerPanel.area-map.main', themeScope: 'center.game', surface: 'panel', className: 'area-map-center', header: renderWorkspaceTitlebar(ctx, 'center', '区域地图'), content: center, scroll: 'none' },
       { key: 'inspector', width: 'var(--workspace-right-width)', slot: 'right', role: 'inspector', workspaceOwner: 'area-map', hostId: 'rightPanel.area-map.inspector', themeScope: 'right.game', surface: 'panel', className: 'area-map-inspector', header: renderWorkspaceTitlebar(ctx, 'right', '地图详情'), content: right, footer: actions, scroll: 'none' }]
   };
+}
+
+export function renderAreaMapCollection(ctx: UIContext): string {
+  const collectedMaps = ctx.game.areaMap.getCollectedMapEntries();
+  return `<div class="area-map-collection" role="group" aria-label="已收录地图"><span>图册</span>${collectedMaps.length
+    ? collectedMaps.map((entry, index) => `<button type="button" data-area-map-switch="${index}"${entry.available ? '' : ' disabled'}>${ctx.escapeHtml(entry.name)}</button>`).join('')
+    : '<small>暂无已收录地图</small>'}</div>`;
 }
 
 export function renderAreaMapWorkspace(ctx: UIContext, session: AreaMapSession, state: PanelState): string {

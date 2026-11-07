@@ -1,0 +1,16 @@
+{
+  "resourceDisplays": [
+    {
+      "resourceId": "base:resource:credit",
+      "label": "信用点",
+      "order": 0
+    },
+    {
+      "resourceId": "base:resource:pyroxene",
+      "label": "青辉石",
+      "detailLabel": "青辉石",
+      "showWhen": "hasAmount",
+      "order": 10
+    }
+  ]
+}

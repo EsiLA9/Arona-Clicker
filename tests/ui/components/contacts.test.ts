@@ -71,11 +71,9 @@ function makeDatapack(): Datapack {
       {
         id: 'test:story:bond_hoshino_1',
         storyId: 'test:story:bond_hoshino_1',
-        type: 'active',
         triggerCondition: and(),
         availableInits: [],
-        owner: 'Hoshino',
-      },
+        owner: 'Hoshino', activation: { kind: 'active' as const } },
     ],
     stories: [
       { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:bond_hoshino_1', name: '羁绊剧情 · 星野：测试', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
@@ -153,7 +151,6 @@ describe('通讯录 UI（U 组）', () => {
     // 构造带 kizuna 页的 StoryView，验证 renderCurrentStory 在流内渲染的 yuzu-kizuna 结构
     const story = {
       storyId: 'test:entry',
-      type: 'active' as const,
       storyDefId: 'base:story:bond_hoshino_evening',
       pageIndex: 0,
       totalPages: 1,
@@ -168,8 +165,7 @@ describe('通讯录 UI（U 组）', () => {
           buttonText: '进入羁绊剧情',
           align: 'right' as const,
         },
-      },
-    };
+      }, type: 'active' };
     const html = renderCurrentStory(ctx as any, story as any);
     expect(html).toContain('yuzu-kizuna-item');
     expect(html).toContain('yuzu-kizuna-header');
@@ -295,12 +291,9 @@ describe('通讯录 UI（U 组）', () => {
       const entry: any = {
         id: BLOCK_ENTRY_ID,
         storyId: 'test:story:bond_hoshino_1',
-        type: 'passive',
-        weight: 1,
         triggerCondition: and(),
         availableInits: [],
-        block: and({ target: 'flag', key: 'met_at_rooftop', comparator: '>=', value: 1 }),
-      };
+        block: and({ target: 'flag', key: 'met_at_rooftop', comparator: '>=', value: 1 }), activation: { kind: 'random' as const, weight: 1, repeatable: false } };
       (game.registry.passiveStories as Map<string, unknown>).set(BLOCK_ENTRY_ID, entry);
       game.mutations.setStudentBlock('Hoshino', BLOCK_ENTRY_ID);
     });

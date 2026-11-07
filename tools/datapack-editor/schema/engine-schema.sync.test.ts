@@ -16,6 +16,21 @@ const schema = parseEngineSchema();
 const generatedSchema = JSON.parse(readFileSync(new URL('./engine-defs.gen.json', import.meta.url), 'utf8'));
 const VALID_KEYS = new Set<string>(TABLES.map((t) => t.key));
 
+describe('StoryEntry activation schema',()=>{
+  it('generates the three configurations and exposes their legal authoring branches',()=>{
+    for(const name of ['ActiveStoryEntry','PassiveStoryEntry','RandomStoryEntry','AffectionStoryEntry','ActiveStoryActivation','RandomStoryActivation','AffectionStoryActivation'])expect(generatedSchema.defs[name]).toEqual(schema.defs[name]);
+    for(const [key,tags] of [['activeStories',['active']],['passiveStories',['random','affection']]] as const){
+      const table=getTable(key)!;
+      const field=table.fields.find(field=>field.key==='activation')!;
+      expect(field.type.kind).toBe('union');
+      if(field.type.kind==='union')expect(field.type.variants.map(variant=>variant.tag)).toEqual(tags);
+      const fields=schema.defs[key==='activeStories'?'ActiveStoryEntry':'PassiveStoryEntry'].fields;
+      expect(fields.some((field:{key:string})=>field.key==='catalog')).toBe(true);
+      expect(fields.some((field:{key:string})=>['type','weight','repeatable','affectionRequired','pushAfterStory'].includes(field.key))).toBe(false);
+    }
+  });
+});
+
 function withoutGeneratedAt(value: Record<string, unknown>): Record<string, unknown> {
   const { generatedAt: _generatedAt, ...semantic } = value;
   return semantic;
@@ -100,6 +115,23 @@ function collectRefs(type: FieldType, out: Set<string>, seen: Set<string>, depth
 }
 
 describe('Schema 描述协议：defMap 派生自 Datapack', () => {
+  it('Choice exposes only options, visibility and declarative selection marks', () => {
+    expect(schema.defs.StoryChoiceInteraction.fields.map((field: { key: string }) => field.key)).toEqual(['kind', 'options']);
+    const fields = schema.defs.StoryChoiceOption.fields;
+    expect(fields.map((field: { key: string }) => field.key)).toEqual(['id', 'text', 'showWhen', 'requiresFlag', 'marks']);
+    expect(schemaField(fields, 'showWhen').tsType).toBe('ConditionGroup');
+    expect(schemaField(fields, 'requiresFlag').kind).toBe('string');
+    expect(schemaField(fields, 'marks').tsType).toBe('readonly string[]');
+    const description = getTable('stories').fields.find(field => field.key === 'nodes')?.description;
+    expect(description).toContain('不接受共同动作或通用结果');
+  });
+  it('Story node performance keeps typed fields and documented clear targets',()=>{
+    expect(schema.defs.StoryNodePerformance.fields.map((field:{key:string})=>field.key)).toEqual(['template','style','layout']);
+    expect(schemaField(schema.defs.StoryTalkletNode.fields,'performance').tsType).toBe('StoryNodePerformance');
+    expect(schema.defs.StoryClickNode.fields.some((field:{key:string})=>field.key==='performance')).toBe(true);
+    const description=getTable('stories').fields.find(field=>field.key==='nodes')?.description;
+    expect(description).toContain('clearNode');expect(description).toContain('performance');
+  });
   it('区域地图使用独立表，Area 入口引用该表', () => {
     expect(schema.defMap.areaMaps?.type).toBe('AreaMapDef');
     expect(getTable('areaMaps')).toBeDefined();

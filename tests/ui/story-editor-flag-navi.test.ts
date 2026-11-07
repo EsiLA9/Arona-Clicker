@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -26,7 +27,7 @@ describe('local flag Navi',()=>{
     localStorage.clear(); document.body.innerHTML='<div id="app"></div>'; root=find('#app');
     game=new GameInstance(); game.init([baseDatapack]); ctrl=new UIController(game,root);
     ctrl.render(); ctrl.storyEditor.open();
-    find<HTMLButtonElement>('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     draft=currentDraft(ctrl.storyEditor.state)!;
     draft.document={...draft.document,startContext:{type:'area',areaId:[...game.registry.areas.keys()][0]},nodes:[
       writer('write','available'),writer('old','old-name'),
@@ -57,21 +58,21 @@ describe('local flag Navi',()=>{
     expect(input.value).toBe('available'); expect(document.activeElement===input).toBe(true);
   });
 
-  it('assigns writer and nested result names without cascading into other flag readers',()=>{
+  it('assigns writer and option mark names without cascading into other flag readers',()=>{
     selectNode('old'); open(find<HTMLInputElement>('[data-editor-field="local-flag-name"]')); choose('available');
     expect(draft.document.nodes.find(node=>node.id==='reader')!.requiresFlag).toBe('old-name');
     expect(draft.document.nodes.find(node=>node.id==='old')).toMatchObject({action:{name:'available'}});
-    draft.document.nodes.push({id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[{id:'a',text:'a',result:{actions:[{kind:'localFlag',op:'remove',name:'old-name'}]}}]}});refresh();selectNode('choice');
-    const path=JSON.stringify(['interaction','options',0,'result','actions',0,'name']);
+    draft.document.nodes.push({id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[{id:'a',text:'a',marks:['old-name']}]}});refresh();selectNode('choice');
+    const path=JSON.stringify(['interaction','options',0,'marks',0]);
     const input=[...root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')].find(input=>input.dataset.storyPropertyPath===path)!;
     open(input);choose('available');
-    expect(draft.document.nodes.at(-1)).toMatchObject({interaction:{options:[{result:{actions:[{name:'available'}]}}]}});
+    expect(draft.document.nodes.at(-1)).toMatchObject({interaction:{options:[{marks:['available']}]}});
   });
 
   it('shows internal Entry flags as disabled for conditions but permits selecting them for a return whitelist',()=>{
     const state=ctrl.storyEditor.state, authoring=emptyStoryAuthoring();
     const child:StoryDraft={draftId:'child',sourceId:null,document:{id:'local:story:child',name:'child',nodes:[writer('secret','child-secret')],stages:{}},dirty:true,persisted:false,savedAt:null,authoring};
-    authoring.activeStories.push({id:'local:activestory:child',type:'active',storyId:child.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}});
+    authoring.activeStories.push({id:'local:activestory:child',storyId:child.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
     state.drafts.push(child);
     draft.document.nodes.push({id:'card',type:'click',stageId:'one',interaction:{kind:'entryCard',card:{request:{entryId:'local:activestory:child',entryType:'active',owner:null,intent:'card'},continuation:{returnFlags:['returned']}}}});
     const relations=buildStoryRelations(state,game.registry.stories,game.registry.storyEntries);

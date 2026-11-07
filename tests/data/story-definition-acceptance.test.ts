@@ -53,7 +53,7 @@ describe('0336 independent data acceptance', () => {
   it('accepts valid source condition trees beyond UI limits without truncation', () => {
     let condition: ConditionGroup = { type: 'OR', conditions: [] };
     for (let depth = 0; depth < 8; depth++) condition = { type: 'AND', conditions: [condition] };
-    const input = withClick({ kind: 'choice', options: [{ id: 'yes', text: '是', condition }] });
+    const input = withClick({ kind: 'choice', options: [{ id: 'yes', text: '是', showWhen: condition }] });
     expect(projectStoryDefinition(input)).toEqual({ ok: true, story: input });
   });
 

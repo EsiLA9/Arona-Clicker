@@ -24,6 +24,12 @@ function defaultState(overrides: Partial<PlayerState> = {}): PlayerState {
 }
 
 describe('ConditionSystem', () => {
+  test('hasAreaMap reads current Init map collection state', () => {
+    const system = new ConditionSystem();
+    const condition = { target: 'hasAreaMap' as const, key: 'demo:area-map:a', comparator: '==' as const, value: 1 };
+    expect(system.evaluate(condition, { ...defaultState(), collectedAreaMapIds: [] })).toBe(false);
+    expect(system.evaluate(condition, { ...defaultState(), collectedAreaMapIds: ['demo:area-map:a'] })).toBe(true);
+  });
   test('alwaysTrue 条件始终成立且不产生状态依赖', () => {
     const system = new ConditionSystem();
     const condition = { target: 'alwaysTrue' as const, key: '', comparator: '==' as const, value: 1 };

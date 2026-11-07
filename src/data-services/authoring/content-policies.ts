@@ -1,5 +1,8 @@
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
-import type { RegistryAreaMutation, RegistryInitMutation, RegistrySpotMutation } from '../registry/registry';
+import type { AreaMapDef } from '../contracts/area-map';
+import type { RegistryAreaMapMutation, RegistryAreaMutation, RegistryInitMutation, RegistrySpotMutation } from '../registry/registry';
+import { validateAreaMapShapes } from '../registry/area-map-validation';
+import { isWorldCondition, validateWorldReveal } from '../registry/world-reveal-validation';
 import type {
   AuthoringExtension,
   AuthoringMutationReceipt,
@@ -71,6 +74,36 @@ function toRegistryAreaMutation(request: AuthoringMutationRequest): RegistryArea
   return { operation: 'delete', ownerModName: request.ownerModName, areaId: request.defId };
 }
 
+function toRegistryAreaMapMutation(request: AuthoringMutationRequest): RegistryAreaMapMutation {
+  if (request.operation === 'create' || request.operation === 'replace') {
+    return { operation: request.operation, ownerModName: request.ownerModName, areaMap: request.def as AreaMapDef };
+  }
+  return { operation: 'delete', ownerModName: request.ownerModName, areaMapId: request.defId };
+}
+
+function jsonExtension(inputKey: string, section: string, initialValue?: unknown): AuthoringExtension {
+  return {
+    inputKey, definitionKey: inputKey, section, editor: 'json-value',
+    ...(initialValue !== undefined ? { initialValue, preserveEmpty: true } : {}),
+    validate: value => {
+      const fail = (message: string): AuthoringProblem => ({ code: 'invalid-field', path: `areaMap.${inputKey}`, message });
+      if (inputKey === 'openCondition') return isWorldCondition(value) ? undefined : fail('开图条件必须是有效条件或条件组');
+      if (inputKey === 'reveal') {
+        try { validateWorldReveal(value, 'areaMap.reveal', message => { throw new Error(message); }); return undefined; }
+        catch (error) { return fail(error instanceof Error ? error.message : String(error)); }
+      }
+      if (inputKey === 'nodes') {
+        if (!Array.isArray(value)) return fail('节点必须是数组');
+        try { validateAreaMapShapes([{ id: 'authoring:area-map:preview', name: 'preview', nodes: value, edges: [] }], message => { throw new Error(message); }); return undefined; }
+        catch (error) { return fail(error instanceof Error ? error.message : String(error)); }
+      }
+      if (inputKey === 'edges' && Array.isArray(value) && value.every(edge => edge && typeof edge === 'object' && typeof (edge as Record<string, unknown>).fromNodeId === 'string' && typeof (edge as Record<string, unknown>).toNodeId === 'string')) return undefined;
+      return fail(inputKey === 'edges' ? '连线必须由 fromNodeId / toNodeId 组成' : `${inputKey} 必须是有效 JSON`);
+    },
+    encode: value => value,
+  };
+}
+
 const INIT_DEFAULT_AREAS_EXTENSION = refListExtension('defaultAreas', 'defaultAreas', 'areas', 'area', 'init', true);
 const INIT_TAG_EXTENSION: AuthoringExtension = {
   inputKey: 'tags', definitionKey: 'tags', section: 'basics', editor: 'tag-list',
@@ -111,8 +144,22 @@ const AREA_TAG_EXTENSION: AuthoringExtension = {
   initialValue: [], preserveEmpty: true, validate: value => validateTagList(value, 'area.tags'), encode: encodeTagList,
 };
 const AREA_REVEAL_EXTENSION: AuthoringExtension = {
-  inputKey: 'revealTriggers', definitionKey: 'revealTriggers', section: 'reveals', editor: 'reveal-trigger',
-  validate: value => validateRevealTriggerList(value, 'area.revealTriggers'), encode: encodeRevealTriggerList,
+  inputKey: 'reveal', definitionKey: 'reveal', section: 'reveals', editor: 'json-value',
+  validate: value => {
+    try { validateWorldReveal(value, 'area.reveal', message => { throw new Error(message); }); return undefined; }
+    catch (error) { return { code: 'invalid-field', path: 'area.reveal', message: error instanceof Error ? error.message : String(error) }; }
+  }, encode: value => value,
+};
+const AREA_ENTER_CONDITION_EXTENSION: AuthoringExtension = {
+  inputKey: 'enterCondition', definitionKey: 'enterCondition', section: 'travel', editor: 'json-value',
+  validate: value => isWorldCondition(value) ? undefined : { code: 'invalid-field', path: 'area.enterCondition', message: '进入条件必须是有效条件或条件组' },
+  encode: value => value,
+};
+const AREA_ON_VISIT_REVEAL_EXTENSION: AuthoringExtension = {
+  inputKey: 'onVisitReveal', definitionKey: 'onVisitReveal', section: 'reveals', editor: 'json-value',
+  validate: value => Array.isArray(value) && value.every(target => ['existence', 'name', 'utility', 'condition'].includes(String(target)))
+    ? undefined : { code: 'invalid-field', path: 'area.onVisitReveal', message: '到访揭示必须是有效信息面数组' },
+  encode: value => value,
 };
 
 function validateEnhancementAttachment(value: unknown): AuthoringProblem | undefined {
@@ -174,7 +221,7 @@ export const AREA_CONTENT_POLICY: ContentAuthoringPolicy = {
   key: 'areas', label: 'Area', idType: 'area', inputPrefix: 'area',
   sections: [
     { id: 'overview', label: '概览' }, { id: 'basics', label: '基础' }, { id: 'topology', label: '拓扑' },
-    { id: 'spots', label: '设施' }, { id: 'reveals', label: '揭示' }, { id: 'diagnostics', label: '诊断' },
+    { id: 'spots', label: '设施' }, { id: 'travel', label: '进入条件' }, { id: 'reveals', label: '揭示' }, { id: 'diagnostics', label: '诊断' },
   ],
   fields: [
     { key: 'idName', label: 'Area ID 名', kind: 'entityName', section: 'basics' },
@@ -184,20 +231,49 @@ export const AREA_CONTENT_POLICY: ContentAuthoringPolicy = {
     { key: 'name', label: '名称', kind: 'nonEmptyString', section: 'basics' },
     { key: 'description', label: '描述', kind: 'string', section: 'basics' },
   ],
-  extensions: [AREA_DEFAULT_SPOTS_EXTENSION, AREA_TOPOLOGY_EXTENSION, AREA_TAG_EXTENSION, AREA_REVEAL_EXTENSION],
+  extensions: [AREA_DEFAULT_SPOTS_EXTENSION, AREA_TOPOLOGY_EXTENSION, AREA_TAG_EXTENSION, AREA_REVEAL_EXTENSION, AREA_ENTER_CONDITION_EXTENSION, AREA_ON_VISIT_REVEAL_EXTENSION],
   defaults: { defaultSpots: [] }, apply: 'local-mutation', materialization: [
     reloadMaterialization('idName', ['registry-record'], 'none'), reloadMaterialization('initId', ['registry-record', 'area-index', 'init-scope']),
     reloadMaterialization('name', ['ui-dynamic'], 'none'), reloadMaterialization('description', ['ui-dynamic'], 'none'),
     reloadMaterialization('defaultSpots', ['registry-record', 'spot-service']), reloadMaterialization('topology', ['registry-record', 'ui-dynamic'], 'index'),
     reloadMaterialization('navigationMapId', ['registry-record', 'ui-dynamic'], 'none'),
     reloadMaterialization('quickPassage', ['registry-record', 'ui-dynamic'], 'none'),
-    reloadMaterialization('tags', ['registry-record', 'game-num']), reloadMaterialization('revealTriggers', ['registry-record', 'visibility'], 'index'),
+    reloadMaterialization('tags', ['registry-record', 'game-num']), reloadMaterialization('reveal', ['registry-record', 'ui-dynamic'], 'none'),
+    reloadMaterialization('enterCondition', ['registry-record', 'ui-dynamic'], 'none'), reloadMaterialization('onVisitReveal', ['registry-record', 'ui-dynamic'], 'none'),
   ], state: 'retain', unsupportedFieldHint: 'enterEffects、theme 与 extra 暂不开放编辑；它们需要独立的 DSL / 表现层回写协议',
   mutate(registry, request): AuthoringMutationReceipt {
     const receipt = registry.applyAreaMutation(toRegistryAreaMutation(request));
     return {
       table: 'areas', operation: request.operation, ownerModName: request.ownerModName, defId: receipt.areaId,
       previousDef: receipt.previousArea, currentDef: receipt.currentArea, rollback: () => receipt.rollback(),
+    };
+  },
+};
+
+export const AREA_MAP_CONTENT_POLICY: ContentAuthoringPolicy = {
+  key: 'areaMaps', label: 'AreaMap', idType: 'area-map', inputPrefix: 'areaMap',
+  sections: [
+    { id: 'overview', label: '概览' }, { id: 'basics', label: '基础' }, { id: 'map-data', label: '节点与连线' },
+    { id: 'conditions', label: '开放条件' }, { id: 'reveals', label: '信息揭示' }, { id: 'diagnostics', label: '诊断' },
+  ],
+  fields: [
+    { key: 'idName', label: 'AreaMap ID 名', kind: 'entityName', section: 'basics' },
+    { key: 'name', label: '地图名称', kind: 'nonEmptyString', section: 'basics' },
+    { key: 'description', label: '地图说明', kind: 'string', required: false, section: 'basics' },
+    { key: 'collection', label: '收录方式', kind: 'string', required: false, initialValue: 'onOpen', options: [{ value: 'onOpen', label: '成功打开时收录' }, { value: 'explicit', label: '仅由效果授予' }], section: 'basics' },
+  ],
+  extensions: [jsonExtension('nodes', 'map-data', []), jsonExtension('edges', 'map-data', []), jsonExtension('openCondition', 'conditions'), jsonExtension('reveal', 'reveals')],
+  apply: 'local-mutation', materialization: [
+    reloadMaterialization('idName', ['registry-record'], 'none'), reloadMaterialization('name', ['ui-dynamic'], 'none'),
+    reloadMaterialization('description', ['ui-dynamic'], 'none'), reloadMaterialization('collection', ['registry-record', 'ui-dynamic'], 'none'),
+    reloadMaterialization('nodes', ['registry-record', 'ui-dynamic'], 'none'), reloadMaterialization('edges', ['registry-record', 'ui-dynamic'], 'none'),
+    reloadMaterialization('openCondition', ['registry-record', 'ui-dynamic'], 'none'), reloadMaterialization('reveal', ['registry-record', 'ui-dynamic'], 'none'),
+  ], state: 'retain',
+  mutate(registry, request): AuthoringMutationReceipt {
+    const receipt = registry.applyAreaMapMutation(toRegistryAreaMapMutation(request));
+    return {
+      table: 'areaMaps', operation: request.operation, ownerModName: request.ownerModName, defId: receipt.areaMapId,
+      previousDef: receipt.previousAreaMap, currentDef: receipt.currentAreaMap, rollback: () => receipt.rollback(),
     };
   },
 };
@@ -373,6 +449,7 @@ export const SPOT_CONTENT_POLICY: ContentAuthoringPolicy = {
 export const CONTENT_POLICIES: readonly ContentAuthoringPolicy[] = [
   INIT_CONTENT_POLICY,
   AREA_CONTENT_POLICY,
+  AREA_MAP_CONTENT_POLICY,
   SPOT_CONTENT_POLICY,
   ENHANCEMENT_CONTENT_POLICY,
 ];

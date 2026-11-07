@@ -10,7 +10,7 @@ let game: GameInstance;
 function setup() {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
-    { id: entryId, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+    { id: entryId, storyId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
   ], [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Checkpoint', stages: { work: { advance: 'input' }, body: { advance: 'auto' } }, nodes: [
     { id: 'award', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 7 }] } },
     { id: 'overlay', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'hint', x: 0.2, y: 0.3, content: { kind: 'text', text: '恢复提示' } } } },
@@ -39,7 +39,7 @@ describe('formal Node save/load cutover', () => {
     g.story.clickSend('guest', g.story.getCurrentStoryView('guest')!.token);
     const save = JSON.parse(JSON.stringify(g.save())) as SaveData;
     const rolls = random.mock.calls.length;
-    expect(save.version).toBe('3.0.0');
+    expect(save.version).toBe('3.1.0');
     expect(save).not.toHaveProperty('pendingTalkletClicks');
     expect(g.state.resources['base:resource:credit']).toBe(before + 14);
 

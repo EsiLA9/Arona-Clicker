@@ -1,3 +1,4 @@
+import { storyEntryType } from '../../../data-services/contracts/story-entry';
 import type { StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { EntityPresentationDef, EntityPresentationKey } from '../../../data-services/contracts/entity-presentation';
 import type { Registry } from '../../../data-services/registry/registry';
@@ -13,11 +14,12 @@ import type { StoryAction, StoryEntryRequest, StoryOverlayCommand, StoryPresenta
 import type { StoryNodeActionOutcome, StoryNodePlaybackHost, StoryNodeSource } from '../../contracts/runtime/story-node-playback';
 import type { StoryNodePresentationPort } from './story-node-presentation-host';
 import type { EffectReceipt } from '../../../engine/contracts/effect-receipt';
+import type { WorldInformationTargetRef } from '../../../engine/contracts/world-information';
 import { displayName } from '../../../engine/core/display-name';
 
 /** 只读访问适配器可静态核验的领域引用表。 */
 export type StoryNodeActionRegistry = Pick<Registry,
-  'storyEntries' | 'stories' | 'inits' | 'areas' | 'spots' | 'enhancements' | 'items' | 'characters' | 'characterVariants' | 'colorGroups' | 'spotsOfInit'>;
+  'storyEntries' | 'stories' | 'inits' | 'areas' | 'areaMaps' | 'spots' | 'enhancements' | 'items' | 'characters' | 'characterVariants' | 'colorGroups' | 'spotsOfInit'>;
 
 /** 产品组合根提供的既有端口；不持有或反向依赖 GameInstance。 */
 export interface StoryNodeActionHostOptions {
@@ -34,6 +36,7 @@ export interface StoryNodeActionHostOptions {
   readonly deferPresentation?: boolean;
   readonly getTitle?: (source: StoryNodeSource) => string | undefined;
   readonly requestEntry?: (request: StoryEntryRequest, source: StoryNodeSource) => StoryNodeActionOutcome;
+  readonly clearNode?: (target: {storyId:string;nodeId:string}, source: StoryNodeSource) => void;
 }
 
 /** Playback factory 合并本端口与自身的链级 evaluate/random。 */
@@ -61,6 +64,16 @@ export function formatStoryEffectReceipt(receipt: EffectReceipt, registry: Regis
     case 'setManager': return `${name('spot')}的经理变更为${typeof receipt.after === 'string' && receipt.after !== 'none' ? name('character', receipt.after) : '未指派'}`;
     case 'addEnhancement': return `获得强化 ${name('enhancement')}`;
     case 'unlockInit': return `解锁世界线 ${name('init')}`;
+    case 'acquireAreaMap': return `获得区域地图 ${registry.areaMaps.get(receipt.target)?.name ?? receipt.target}`;
+    case 'revealInformation': {
+      try {
+        const target = JSON.parse(receipt.target) as WorldInformationTargetRef;
+        if (!target || !['area', 'areaMap', 'areaMapNode'].includes(target.entityKind)) return '得知世界信息';
+        const entity = target.entityKind === 'area' ? '区域' : target.entityKind === 'areaMap' ? '区域地图' : '地图节点';
+        const face = { existence: '存在', name: '身份', utility: '用途', condition: '方法' }[target.target];
+        return face ? `得知${entity}${face}信息` : '得知世界信息';
+      } catch { return '得知世界信息'; }
+    }
     case 'grantCharacter': {
       const variant = registry.characterVariants.get(receipt.target)?.displayName ?? receipt.target;
       if (details.duplicate === true) return typeof details.shards === 'number' && details.shards !== 0 ? `${variant}碎片 ${signed(details.shards)}` : `${variant}重复获得`;
@@ -93,7 +106,7 @@ function resolveEntry(registry: StoryNodeActionRegistry, request: StoryEntryRequ
   if (request.owner !== null && !nonEmpty(request.owner)) return { error: 'EmptyEntryOwner' };
   const entry = registry.storyEntries.get(request.entryId);
   if (!entry) return { error: 'EntryNotFound' };
-  if (entry.type !== request.entryType) return { error: 'EntryTypeMismatch' };
+  if (storyEntryType(entry) !== request.entryType) return { error: 'EntryTypeMismatch' };
   if (request.intent === 'card' && request.entryType !== 'active') return { error: 'CardEntryMustBeActive' };
   const story = registry.stories.get(entry.storyId);
   if (!story?.nodes.length) return { error: 'EntryStoryEmpty' };
@@ -125,6 +138,22 @@ function stateError(registry: StoryNodeActionRegistry, action: StoryStateAction)
     case 'addEnhancement': return registry.enhancements.has(action.enhancementId) ? undefined : 'EnhancementNotFound';
     case 'addItem': return registry.items.has(action.itemId) ? undefined : 'ItemNotFound';
     case 'unlockInit': return registry.inits.has(action.initId) ? undefined : 'InitNotFound';
+    case 'acquireAreaMap': return registry.areaMaps.has(action.mapId) ? undefined : 'AreaMapNotFound';
+    case 'revealInformation': {
+      const target = action.target;
+        const rule = target.entityKind === 'area'
+          ? registry.areas.get(target.entityId)?.reveal?.[target.target]
+          : target.entityKind === 'areaMap'
+            ? registry.areaMaps.get(target.entityId)?.reveal?.[target.target]
+            : registry.areaMaps.get(target.mapId)?.nodes.find(node => node.id === target.nodeId)?.reveal?.[target.target];
+        const found = target.entityKind === 'area'
+          ? registry.areas.has(target.entityId)
+          : target.entityKind === 'areaMap'
+            ? registry.areaMaps.has(target.entityId)
+            : registry.areaMaps.get(target.mapId)?.nodes.some(node => node.id === target.nodeId) === true;
+        if (!found) return 'InformationTargetNotFound';
+        return rule?.mode === 'explicit' ? undefined : 'InformationTargetNotExplicit';
+    }
     case 'setFlag': return nonEmpty(action.flagId) ? undefined : 'EmptyFlagId';
     case 'setExtra': case 'addExtra': case 'removeExtra': return nonEmpty(action.path) ? undefined : 'EmptyExtraPath';
     case 'grantCharacter': case 'addAffectionExp': return registry.characterVariants.has(action.variantId) ? undefined : 'CharacterVariantNotFound';
@@ -188,6 +217,8 @@ function toEffect(action: StoryStateAction): Effect {
     case 'addEnhancement': target = ''; value = action.enhancementId; break;
     case 'addItem': target = action.itemId; value = action.amount; break;
     case 'unlockInit': target = ''; value = action.initId; break;
+    case 'acquireAreaMap': target = action.mapId; value = 0; break;
+    case 'revealInformation': target = ''; value = action.target; break;
     case 'setFlag': target = action.flagId; value = action.value; break;
     case 'setExtra': target = action.path; value = action.value; break;
     case 'addExtra': target = action.path; value = action.amount; break;
@@ -347,9 +378,9 @@ function cursorGateError(options: StoryNodeActionHostOptions, request: StoryEntr
   if (!id) return undefined;
   const current = options.registry.storyEntries.get(id);
   if (!current) return undefined;
-  if (current.type === 'passive' && current.blocksInteraction) return 'EntryBlockedByPassive';
-  if (request.intent === 'card' || request.entryType === 'active' && current.type === 'passive'
-    || request.intent === 'system' && current.type === 'passive') return undefined;
+  if (storyEntryType(current) === 'passive' && current.blocksInteraction) return 'EntryBlockedByPassive';
+  if (request.intent === 'card' || request.entryType === 'active' && storyEntryType(current) === 'passive'
+    || request.intent === 'system' && storyEntryType(current) === 'passive') return undefined;
   return 'EntryCursorOccupied';
 }
 
@@ -360,7 +391,7 @@ function executeEntryRequest(options: StoryNodeActionHostOptions, request: Story
     const error = conditionGateError(options, resolved.entry);
     if (error) return rejected(error);
   }
-  if (request.intent === 'ordinary' && !(resolved.entry.type === 'passive' && resolved.entry.repeatable)
+  if (request.intent === 'ordinary' && !(storyEntryType(resolved.entry) === 'passive' && (resolved.entry.activation.kind === 'random' && resolved.entry.activation.repeatable))
     && options.storyService.hasCompletedStory(resolved.storyId)) return rejected('EntryAlreadyCompleted');
   const cursorError = cursorGateError(options, request);
   if (cursorError) return rejected(cursorError);
@@ -377,6 +408,8 @@ function executeEntryRequest(options: StoryNodeActionHostOptions, request: Story
 /** 将有限StoryAction接到既有服务；Entry静态预检与启动前资格复核分开执行。 */
 export function createStoryNodeActionHost(options: StoryNodeActionHostOptions): StoryNodeActionHost {
   const preflight = (action: StoryAction, source: StoryNodeSource) => {
+    if (action.kind==='clearNode') return !options.clearNode ? 'NodeDisplayLifecycleUnsupported'
+      : options.registry.stories.get(action.storyId)?.nodes.some(node=>node.id===action.nodeId&&(node.type==='talklet'||node.type==='click')) ? undefined : 'NodeDisplayTargetNotFound';
     if (options.presentation && (action.kind === 'overlay' || action.kind === 'presentation')) {
       return options.presentation.preflight(action, source);
     }
@@ -393,6 +426,7 @@ export function createStoryNodeActionHost(options: StoryNodeActionHostOptions): 
     const receipts: EffectReceipt[] = [];
     try {
       switch (action.kind) {
+        case 'clearNode': options.clearNode!(action,source); return {status:'applied'};
         case 'localFlag': return rejected('LocalFlagRequiresPlayback');
         case 'state': {
           const gateError = stateBatchGateError(options, action.effects);

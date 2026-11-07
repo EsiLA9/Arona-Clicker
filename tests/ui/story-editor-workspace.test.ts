@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -6,6 +7,7 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
 import { appendNode, composer, currentDraft, currentNode } from '../../src/ui/story-editor/model';
+import { editProperty } from '../../src/ui/story-editor/property-model';
 import { STORY_EDITOR_STORAGE_KEY } from '../../src/ui/story-editor/persistence';
 import { createUIContext } from '../../src/ui/runtime/context';
 import { storySenders } from '../../src/ui/story-editor/view';
@@ -24,7 +26,7 @@ describe('Story Editor workspace prototype', () => {
     return node!;
   };
   const click = (action: string): void => {
-    find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates();
+    if(action==='new') createStoryForTest(game,ctrl); else find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates();
     if (action === 'new') {
       const draft = currentDraft(ctrl.storyEditor.state);
       if (draft && !draft.document.startContext) {
@@ -61,6 +63,10 @@ describe('Story Editor workspace prototype', () => {
     const state = ctrl.storyEditor.state;
     const first = currentDraft(state)!;
     const node = currentNode(state)!;
+    editProperty(first,node.id,['performance'],{layout:{mode:'positioned',x:.5,y:.5,align:'center'}});
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    find<HTMLButtonElement>(`[data-story-performance-toggle="${node.id}"]`).click();ctrl.flushUIUpdates();
+    expect(root.querySelector(`[data-story-overlay-node="${node.id}"]`)).not.toBeNull();
     input('[data-editor-composer-text]', '待发送正文');
     const frame = find('[data-workspace-frame="story-editor"]');
     const center = find('.story-editor-center .workspace-column__body');
@@ -76,6 +82,7 @@ describe('Story Editor workspace prototype', () => {
     find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click(); ctrl.flushUIUpdates();
     expect(state.target).toEqual({ kind: 'entry', id: entry.id });
     expect(currentDraft(state)).toBeUndefined();
+    expect(root.querySelector('[data-story-overlay-canvas]')).toBeNull();
     expect(root.querySelector('[data-editor-composer-text]')).toBeNull();
     expect(root.querySelector('[data-editor-field="name"]')).toBeNull();
     expect(find('.story-editor-center [data-editor-entry-page]').dataset.editorEntryPage).toBe(entry.id);
@@ -94,6 +101,7 @@ describe('Story Editor workspace prototype', () => {
     expect(currentDraft(state)).toBe(first);
     expect(currentNode(state)?.id).toBe(node.id);
     expect(center.scrollTop).toBe(128); expect(right.scrollTop).toBe(64);
+    expect(root.querySelector(`[data-story-overlay-node="${node.id}"]`)).not.toBeNull();
     expect(find<HTMLTextAreaElement>('[data-editor-composer-text]').value).toBe('待发送正文');
     click('history-forward');
     expect(state.target).toEqual({ kind: 'entry', id: entry.id });
@@ -293,16 +301,16 @@ describe('Story Editor workspace prototype', () => {
     }
   });
 
-  it('shows nested result Transfers and missing targets without executing Click or Entry inputs', () => {
+  it('shows Button and Transfer targets without executing Click or Entry inputs', () => {
     open(); click('new'); click('click');
     const runningStory = game.storyService.getCurrentStoryId();
     const state = ctrl.storyEditor.state;
     const draft = currentDraft(state)!;
     const id = draft.document.nodes[0].id;
-    draft.document.nodes = [{ id, type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [
-      { id: 'a', text: '选项', result: { transfer: { mode: 'goto', storyId: 'missing:story:target' } } },
-      { id: 'b', text: '自己', result: { transfer: { mode: 'insert', storyId: draft.document.id } } },
-    ] } }];
+    draft.document.nodes = [
+      { id, type: 'transfer', transfer: { mode: 'goto', storyId: 'missing:story:target' } },
+      { id: 'self-transfer', type: 'transfer', transfer: { mode: 'insert', storyId: draft.document.id } },
+    ];
     ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
     const missing = find<HTMLButtonElement>('.story-editor-flow [data-editor-story-target="missing:story:target"]');
     expect(missing.disabled).toBe(true);
@@ -315,7 +323,7 @@ describe('Story Editor workspace prototype', () => {
     expect(game.storyService.getCurrentStoryId()).toBe(runningStory);
     expect(root.querySelector('.story-editor-right [data-editor-story-target]')).not.toBeNull();
     const target = [...game.registry.stories.values()][0];
-    draft.document.nodes = [{ id, type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', result: { transfer: { mode: 'goto', storyId: target.id } } } }];
+    draft.document.nodes = [{ id, type: 'transfer', transfer: { mode: 'goto', storyId: target.id } }];
     ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
     find<HTMLButtonElement>(`.story-editor-flow [data-editor-story-target="${target.id}"]`).click(); ctrl.flushUIUpdates();
     expect(currentDraft(state)!.document.id).toBe(target.id);
@@ -341,7 +349,7 @@ describe('Story Editor workspace prototype', () => {
     parent.document.nodes = [{id:'invite',type:'click',stageId:'input',interaction:{kind:'entryCard',card:{request:{entryId:'local:activestory:flags',entryType:'active',owner:null,intent:'card'},continuation:{returnFlags:['returned']}}}}];
     click('new'); const child = currentDraft(state)!;
     child.document.nodes = [{id:'secret',type:'operation',action:{kind:'localFlag',op:'set',name:'child-private',value:true}}];
-    child.authoring!.activeStories.push({id:'local:activestory:flags',storyId:child.document.id,type:'active',availableInits:[],triggerCondition:{type:'AND',conditions:[]}});
+    child.authoring!.activeStories.push({id:'local:activestory:flags',storyId:child.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
     child.dirty = true;
     find<HTMLButtonElement>(`[data-editor-story="${parent.draftId}"]`).click(); ctrl.flushUIUpdates();
     find<HTMLElement>('[data-editor-node="invite"]').click(); ctrl.flushUIUpdates();
@@ -844,8 +852,8 @@ describe('Story Editor workspace prototype', () => {
     const position = draft.document.nodes.findIndex(node => node.id === 'p6-choice') + 1;
     draft.document = { ...draft.document, stages: { ...draft.document.stages, extra: { advance: 'input' } } };
     draft.document.nodes.splice(position, 0, { id: 'second-choice', type: 'click', stageId: 'extra', interaction: {
-      kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'mygo' }], options: [
-        { id: 'foo', text: 'foo', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'mygo', value: true }] } },
+      kind: 'choice', options: [
+        { id: 'foo', text: 'foo', marks: ['mygo'] },
       ],
     } });
     draft.dirty = true;

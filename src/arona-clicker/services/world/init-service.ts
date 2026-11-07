@@ -26,14 +26,13 @@ import { DevLog } from '../../../engine/core/dev-log';
 import { StoryService } from '../story/story-service';
 import { InitSavepoint } from '../../state/init-savepoint';
 import { extra, mergeExtra } from '../../../engine/extra/index';
-import { unlockMet } from '../../../engine/visibility/reveal';
 import { mountInitTriggers, unmountInitTriggers, type InitTriggerGroupState } from './init-mount';
 import type { StoryEntryReactionMount } from '../story/story-entry-reaction-mount';
 import type { StoryFollowUpMount } from '../story/story-follow-up-mount';
 import type { StoryAvailabilityDeliveryMount } from '../story/story-availability-delivery-mount';
 import type { InformationRevealAdapter } from './information-reveal-adapter';
 import type { MilestoneAdapter } from './milestone-adapter';
-import { AreaTravelGraph, buildAreaTravelRoutes } from './area-travel-routes';
+import { areaInformationKnown, AreaTravelGraph, buildAreaTravelRoutes } from './area-travel-routes';
 
 export interface InitServiceOptions {
   registry: Registry;
@@ -97,6 +96,9 @@ export class InitService {
   getRuntimeGeneration(): number {
     return this.runtimeGeneration;
   }
+
+  setObservedAreaMapIds(mapIds: readonly string[]): void { this.opts.informationRevealAdapter.setObservedAreaMapIds(mapIds); }
+  getObservedAreaMapIds(): readonly string[] { return this.opts.informationRevealAdapter.getObservedAreaMapIds(); }
 
   isRuntimeGenerationCurrent(generation: number): boolean {
     return generation === this.runtimeGeneration;
@@ -245,6 +247,7 @@ export class InitService {
       if (!visited.includes(first)) {
         state.visitedAreas = [...visited, first];
       }
+      this.opts.informationRevealAdapter.grantOnVisitArea(first);
     } else {
       state.currentAreaId = undefined;
     }
@@ -328,6 +331,7 @@ export class InitService {
     if (!visitedAreas.includes(areaId)) {
       state.visitedAreas = [...visitedAreas, areaId];
     }
+    this.opts.informationRevealAdapter.grantOnVisitArea(areaId);
     const committed: Extract<TravelResult, { success: true }> = { success: true, areaId, fromAreaId,
       ...(admission.method && admission.method !== 'adjacent' ? { method: admission.method } : {}) };
     onCommitted?.(committed);
@@ -364,7 +368,7 @@ export class InitService {
     return areaId => this.checkAreaTravel(areaId, allowDuringStory, routes);
   }
 
-  private checkAreaTravel(areaId: AreaId, allowDuringStory: boolean, routes?: ReadonlyMap<string, 'adjacent' | 'visited' | 'transit'>): TravelResult {
+  private checkAreaTravel(areaId: AreaId, allowDuringStory: boolean, routes?: ReadonlyMap<string, 'adjacent' | 'visited' | 'transit' | 'mapDirect'>): TravelResult {
     const state = this.state;
     const area = this.opts.registry.areas.get(areaId);
     if (!area) {
@@ -382,8 +386,8 @@ export class InitService {
     if (fromAreaId === areaId) {
       return { success: false, areaId, error: 'AlreadyThere' };
     }
-    if (!this.opts.visibilityEngine.isAreaVisible(areaId, state) ||
-      !unlockMet(area.revealTriggers, condition => this.opts.conditionSystem.evaluateExpr(condition, state))) {
+    if (!areaInformationKnown(state, area, 'existence') || area.enterCondition
+      && !this.opts.conditionSystem.evaluateExpr(area.enterCondition, state)) {
       return { success: false, areaId, error: 'Locked' };
     }
     const method = routes?.get(areaId);

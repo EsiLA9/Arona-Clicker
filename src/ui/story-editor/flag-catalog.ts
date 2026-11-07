@@ -82,7 +82,6 @@ export function buildStoryFlagCatalog(state: StoryEditorState, relations: StoryR
       if (value.kind === 'overlay' && object(value.command) && value.command.command === 'show' && object(value.command.content) && value.command.content.kind === 'entryCard' && object(value.command.content.card)) returns(value.command.content.card.continuation, `${path}.command.content.card.continuation`);
     };
     const actions = (value: unknown, path: string): void => rows(value).forEach((item, index) => action(item, `${path}[${index}]`));
-    const nodeResult = (value: unknown, path: string): void => { if (object(value)) actions(value.actions, `${path}.actions`); };
     if (target.kind === 'story' && 'nodes' in content) {
       content.nodes.forEach((node, index) => {
         nodeId = node.id; const path = `$.nodes[${index}]`;
@@ -90,10 +89,14 @@ export function buildStoryFlagCatalog(state: StoryEditorState, relations: StoryR
         if (node.type === 'operation') action(node.action, `${path}.action`);
         if (node.type !== 'click') return;
         const input = node.interaction;
-        if (input?.kind === 'button') nodeResult(input.result, `${path}.interaction.result`);
         if (input?.kind === 'choice') {
-          actions(input.sharedActions, `${path}.interaction.sharedActions`);
-          rows(input.options).forEach((option, index) => { if (object(option)) { condition(option.condition, `${path}.interaction.options[${index}].condition`); nodeResult(option.result, `${path}.interaction.options[${index}].result`); } });
+          rows(input.options).forEach((option, index) => {
+            if (!object(option)) return;
+            const optionPath = `${path}.interaction.options[${index}]`;
+            condition(option.showWhen, `${optionPath}.showWhen`);
+            add(option.requiresFlag, 'local', 'read', `${optionPath}.requiresFlag`);
+            rows(option.marks).forEach((name, markIndex) => add(name, 'local', 'write', `${optionPath}.marks[${markIndex}]`));
+          });
         }
         if (input?.kind === 'entryCard') returns(input.card?.continuation, `${path}.interaction.card.continuation`);
       });

@@ -1,5 +1,6 @@
 import type { FuncletDef } from '../../../engine/types/expression';
 import type { AreaDef, InitDef, SpotDef } from '../../../data-services/contracts/world';
+import type { AreaMapDef } from '../../../data-services/contracts/area-map';
 import type { ResourceDisplayDef } from '../../../data-services/contracts/common';
 import type { ItemDef } from '../../../data-services/contracts/item';
 import type { EnhancementDef } from '../../../data-services/contracts/enhancement';
@@ -23,6 +24,7 @@ export interface CharacterCatalogEntry {
 export interface ContentCatalogQueryPort {
   readonly inits: ReadonlyMap<string, InitDef>;
   readonly areas: ReadonlyMap<string, AreaDef>;
+  readonly areaMaps: ReadonlyMap<string, AreaMapDef>;
   readonly spots: ReadonlyMap<string, SpotDef>;
   readonly enhancements: ReadonlyMap<string, EnhancementDef>;
   readonly funcletDefs: ReadonlyMap<string,FuncletDef>;

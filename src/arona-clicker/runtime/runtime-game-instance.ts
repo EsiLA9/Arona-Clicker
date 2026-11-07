@@ -1,3 +1,4 @@
+import { storyEntryType } from '../../data-services/contracts/story-entry';
 import { emptyStoryAuthoring, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
 import type { StoryAuthoringPreviewResult } from '../contracts/runtime/story-authoring';
 import { GAME_SAVE_VERSION } from '../../engine/contracts/save-version';
@@ -40,6 +41,7 @@ import { EnhancementService } from '../services/progression/enhancement-service'
 import { SessionService } from '../../engine/runtime/session-service';
 import { ChatFlowService } from '../services/story/chat-flow-service';
 import { buildGameView } from '../read-model/game-view-builder';
+import { areaInformationKnown } from '../services/world/area-travel-routes';
 import { buildAchievementView } from '../read-model/achievement-view';
 import type { AchievementViewItem } from '../read-model/achievement-view';
 import { OperationObservationStore } from '../services/operation/operation-observation';
@@ -139,6 +141,8 @@ import { UserThemeService } from '../services/presentation/user-theme-service';
 import { ShopService } from '../services/economy/shop-service';
 import type { StoryFollowUpMount } from '../services/story/story-follow-up-mount';
 import { AreaMapQuery } from '../services/world/area-map-query';
+import { AreaMapCommandService } from '../services/world/area-map-commands';
+import type { AreaMapOpenResult } from '../contracts/world/area-map-query';
 import { AreaTravelGraph } from '../services/world/area-travel-routes';
 
 import type { SaveData } from '../contracts/runtime/save-data';
@@ -386,10 +390,12 @@ export class GameInstance {
   private readonly sourceStoryDefinitions = new Map<string, StoryDef>();
   readonly areaMap = new AreaMapQuery({
     registry: () => this.registry, state: () => this._state,
+    observedMapIds: () => this.initService.getObservedAreaMapIds(),
     conditions: () => this.conditionSystem, travelStatus: areaId => this.getAreaTravelStatus(areaId),
     travelQuery: () => this.initService.createAreaTravelQuery(),
     connections: () => this.getAreaTravelGraph(),
   });
+  private areaMapCommandService!: AreaMapCommandService;
   /** Read-only snapshot/query facade over the currently loaded effective Registry. */
   readonly runtimeContentBrowser: RuntimeContentBrowserQueryPort;
   get world(): WorldCatalogQueryPort { return this.registry; }
@@ -1678,9 +1684,10 @@ export class GameInstance {
 
   /** 返回供 UI 使用的不可变数据快照，不暴露 PlayerState 写引用。 */
   getView(): GameView {
+    const visibility = this.visibility;
     return buildGameView({
       state: this._state,
-      visibility: this.visibility,
+      visibility: { ...visibility, areas: Object.fromEntries([...this.registry.areas].map(([id, area]) => [id, areaInformationKnown(this._state, area, 'existence')])) },
       currentStory: this.storyService.getCurrentStoryView(),
       activeAffectors: this.affectorEngine.getActiveInstances(),
       stats: this.statsService.getSnapshot(),
@@ -1725,7 +1732,7 @@ export class GameInstance {
       const entry = sandbox.registry.storyEntries.get(entryId);
       if (!entry) throw new Error('先选择一个可试播的 Entry。');
       const replayable = structuredClone(entry); replayable.replayable = true;
-      sandbox.registry.saveStoryAuthoring({ ...emptyStoryAuthoring(), [entry.type === 'active' ? 'activeStories' : 'passiveStories']: [replayable] });
+      sandbox.registry.saveStoryAuthoring({ ...emptyStoryAuthoring(), [storyEntryType(entry) === 'active' ? 'activeStories' : 'passiveStories']: [replayable] });
       let scene: import('../contracts/runtime/story-authoring').StoryAuthoringPreviewProjection['scene'] = (() => {
         const startContext = sandbox.registry.stories.get(entry.storyId)?.startContext;
         return startContext?.type === 'chara'
@@ -1822,7 +1829,7 @@ export class GameInstance {
     return new AreaTravelGraph(this.registry.areas, [
       ...this.runtimeAreaTopology.map(link => ({ fromAreaId: link.fromAreaId, toAreaId: link.toAreaId, direction: link.type })),
       ...this.affectorEngine.getActiveAreaConnections(),
-    ], this.affectorEngine.getActiveAreaTransitNetworks());
+    ], this.affectorEngine.getActiveAreaTransitNetworks(), this.registry.areaMaps);
   }
 
   // --- 初始化 ---
@@ -1989,6 +1996,13 @@ export class GameInstance {
   getAreaTravelStatus(areaId: AreaId): TravelResult {
     return this.initService.getAreaTravelStatus(areaId);
   }
+
+  setAreaMapCommandService(service: AreaMapCommandService): void { this.areaMapCommandService = service; }
+  openAreaMapFromArea(areaId: string): AreaMapOpenResult { return this.areaMapCommandService.openFromArea(areaId); }
+  openCollectedAreaMap(index: number): AreaMapOpenResult { return this.areaMapCommandService.openCollectedMap(index); }
+  openAreaMapFromNode(mapId: string, nodeId: string): AreaMapOpenResult { return this.areaMapCommandService.openFromNode(mapId, nodeId); }
+  observeAreaMapSession(mapIds: readonly string[]): void { this.areaMapCommandService.observeSessionMaps(mapIds); }
+  closeAreaMapSession(): void { this.areaMapCommandService.closeSession(); }
 
   // --- Extra 运行时 API（docs/13 §5.3） ---
 

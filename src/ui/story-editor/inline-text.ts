@@ -5,7 +5,7 @@ import { editProperty, editStoryNodeBody, propertyKey, readProperty, readStoryNo
 
 interface TextField { selector: string; path: PropertyPath; shared?: boolean; name?: boolean }
 function fields(node: StoryDraftNode): TextField[] {
-  if (node.type === 'talklet') return [{ selector: '.chat-bubble > p.presentation-host-content, .chat-narration-text', path: ['content', 'text'], shared: true },
+  if (node.type === 'talklet') return [{ selector: '.chat-bubble > p.presentation-host-content, .chat-narration-text, .chat-text-overlay-inner, .chat-text-title > span, .chat-text-badge > span, .chat-text-note > span', path: ['content', 'text'], shared: true },
     ...(node.content?.kind === 'talk' ? [{ selector: '.chat-name', path: ['content', 'displayName'], name: true }] : [])];
   if (node.type !== 'click' || !node.interaction) return [];
   const interaction = node.interaction;

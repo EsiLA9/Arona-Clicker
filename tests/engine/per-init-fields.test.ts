@@ -14,7 +14,7 @@ import { Character, CharacterRarity, CharacterSchool } from '../../src/arona-cli
 
 /** 快照键全集（与 types/state.ts InitSnapshot 对齐；漂移时本测试与编译期守卫同时报警）。 */
 const EXPECTED_SNAPSHOT_KEYS = [
-  'resources', 'spotLevels', 'spotManagers', 'visitedAreas', 'totalFrames',
+  'resources', 'spotLevels', 'spotManagers', 'visitedAreas', 'collectedAreaMapIds', 'totalFrames',
   'inventory', 'unlockedEnhancements', 'storyLog', 'areaStoryDeliveries', 'storyReadLogs', 'flags',
   'triggersCompleted', 'currentAreaId', 'extras', 'roster', 'fragments', 'gachaState', 'chatRead',
   'equipmentsOwned', 'shopPurchaseRecords', 'storyCursors',
@@ -57,6 +57,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     state.resources = { credit: 100 };
     state.flags = { a: '1' };
     state.visitedAreas = ['base:area:x' as never];
+    state.collectedAreaMapIds = ['demo:area-map:a'];
     state.totalFrames = 42;
     state.storyReadLogs = { 's1': { readTalkletIndexes: [0], chosenChoiceIndexes: {} } };
 
@@ -64,6 +65,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     const snapshot = state.initSnapshots!['i1'];
     expect(snapshot.resources).toEqual({ credit: 100 });
     expect(snapshot.totalFrames).toBe(42);
+    expect(snapshot.collectedAreaMapIds).toEqual(['demo:area-map:a']);
     expect(snapshot.storyReadLogs).toBeDefined();
 
     state.resources.credit = 999;
@@ -88,6 +90,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     const { state, savepoint } = makeSavepoint();
     state.resources = { credit: 100 };
     state.totalFrames = 42;
+    state.collectedAreaMapIds = ['demo:area-map:a'];
     state.activeInit = 'base:init:schale_office';
     state.chatRead = { 'm1': true };
     const roster: NonNullable<PlayerState['roster']> = { v1: { variantId: 'v1' } as never };
@@ -96,6 +99,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     savepoint.clear();
     expect(state.resources).toEqual({});
     expect(state.totalFrames).toBe(0);
+    expect(state.collectedAreaMapIds).toEqual([]);
     expect(state.activeInit).toBe('');
     expect(state.chatRead).toEqual({});
     expect(state.roster).toBe(roster);

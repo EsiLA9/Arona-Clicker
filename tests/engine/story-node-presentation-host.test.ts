@@ -28,7 +28,7 @@ function pack(): Datapack {
       ] },
     }],
     spots: [], enhancements: [],
-    activeStories: [{ id: 'test:activestory:target', storyId: 'test:story:target', type: 'active', availableInits: [], triggerCondition: emptyCondition }],
+    activeStories: [{ id: 'test:activestory:target', storyId: 'test:story:target', availableInits: [], triggerCondition: emptyCondition, activation: { kind: 'active' as const } }],
     passiveStories: [],
     stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: 'test:story:target', name: 'Target Story', stages: { main: { advance: 'auto' } },

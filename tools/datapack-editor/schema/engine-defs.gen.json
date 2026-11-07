@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T11:07:40.693Z",
+  "generatedAt": "2026-11-07T03:25:12.125Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -1643,14 +1643,34 @@
           "description": "已到访区域默认允许快速路线通过；false 时必须在此停下。"
         },
         {
-          "key": "revealTriggers",
+          "key": "reveal",
+          "required": false,
+          "kind": "hand",
+          "tsType": "WorldInformationDef"
+        },
+        {
+          "key": "enterCondition",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "description": "Current conditions for entering this Area; remembered knowledge never substitutes for access."
+        },
+        {
+          "key": "onVisitReveal",
           "required": false,
           "kind": "array",
-          "tsType": "RevealTrigger[]",
+          "tsType": "WorldInformationTarget[]",
+          "description": "Information granted by an actual visit; omitted defaults to existence and name.",
           "item": {
             "key": "$",
-            "kind": "hand",
-            "tsType": "RevealTrigger"
+            "kind": "enum",
+            "options": [
+              "existence",
+              "name",
+              "utility",
+              "condition"
+            ],
+            "tsType": "WorldInformationTarget"
           }
         },
         {
@@ -15332,15 +15352,28 @@
           "tsType": "string"
         },
         {
-          "key": "revealTriggers",
+          "key": "reveal",
           "required": false,
-          "kind": "array",
-          "tsType": "RevealTrigger[]",
-          "item": {
-            "key": "$",
-            "kind": "hand",
-            "tsType": "RevealTrigger"
-          }
+          "kind": "hand",
+          "tsType": "WorldInformationDef"
+        },
+        {
+          "key": "openCondition",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "description": "Current condition for browsing this map; collection and travel are separate."
+        },
+        {
+          "key": "collection",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'onOpen' | 'explicit'",
+          "description": "Successful opens collect by default; explicit maps must be granted.",
+          "options": [
+            "onOpen",
+            "explicit"
+          ]
         },
         {
           "key": "nodes",
@@ -15383,15 +15416,17 @@
                 "tsType": "{\n    /** 外观不推导节点动作。 */\n    kind?: 'point' | 'landmark' | 'portal';\n    /** @ref pics */\n    iconPicId?: string;\n  }"
               },
               {
-                "key": "revealTriggers",
+                "key": "reveal",
                 "required": false,
-                "kind": "array",
-                "tsType": "RevealTrigger[]",
-                "item": {
-                  "key": "$",
-                  "kind": "hand",
-                  "tsType": "RevealTrigger"
-                }
+                "kind": "hand",
+                "tsType": "WorldInformationDef"
+              },
+              {
+                "key": "actionCondition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "ConditionGroup",
+                "description": "Current condition for this node's declared action."
               },
               {
                 "key": "action",
@@ -17509,15 +17544,22 @@
         {
           "key": "id",
           "required": true,
-          "kind": "ref",
-          "tsType": "StoryId",
-          "table": "stories"
+          "kind": "string",
+          "tsType": "StoryEntryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryEntryId"
+          }
         },
         {
           "key": "storyId",
           "required": true,
           "kind": "ref",
           "tsType": "StoryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryId"
+          },
           "table": "stories"
         },
         {
@@ -17525,6 +17567,13 @@
           "required": true,
           "kind": "array",
           "tsType": "InitId[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "InitId"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "ref",
@@ -17537,6 +17586,13 @@
           "required": false,
           "kind": "array",
           "tsType": "TagPath[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "TagPath"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "hand",
@@ -17547,13 +17603,145 @@
           "key": "triggerCondition",
           "required": true,
           "kind": "hand",
-          "tsType": "ConditionGroup"
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "catalog",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryEntryCatalog",
+          "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "category",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "part",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "chapter",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "StoryEntryCatalog"
+          },
+          "fields": [
+            {
+              "key": "category",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "part",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "chapter",
+              "required": false,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "order",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        },
+        {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "completionReward",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "first",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              },
+              {
+                "key": "repeat",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              }
+            ]
+          }
         },
         {
           "key": "revealTriggers",
           "required": false,
           "kind": "array",
           "tsType": "RevealTrigger[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "RevealTrigger"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "hand",
@@ -17564,19 +17752,32 @@
           "key": "replayable",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "travelToStartContext",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "completionStrategy",
           "required": false,
           "kind": "enum",
           "tsType": "'simple' | 'conditional'",
+          "authoringSchema": {
+            "type": "stringUnion",
+            "values": [
+              "simple",
+              "conditional"
+            ]
+          },
           "options": [
             "simple",
             "conditional"
@@ -17587,6 +17788,13 @@
           "required": false,
           "kind": "array",
           "tsType": "ConditionalReward[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "ConditionalReward"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17595,13 +17803,24 @@
                 "key": "condition",
                 "required": true,
                 "kind": "hand",
-                "tsType": "ConditionGroup"
+                "tsType": "ConditionGroup",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
               },
               {
                 "key": "effects",
                 "required": true,
                 "kind": "array",
                 "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -17617,6 +17836,13 @@
           "required": false,
           "kind": "array",
           "tsType": "BranchGuard[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "BranchGuard"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17626,6 +17852,10 @@
                 "required": true,
                 "kind": "ref",
                 "tsType": "StoryId",
+                "authoringSchema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                },
                 "table": "stories"
               },
               {
@@ -17633,6 +17863,29 @@
                 "required": true,
                 "kind": "array",
                 "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "storyId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryId"
+                        }
+                      },
+                      {
+                        "key": "talkletIndex",
+                        "required": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -17643,7 +17896,10 @@
                 "key": "denialMessage",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               }
             ],
             "tsType": "BranchGuard"
@@ -17653,26 +17909,142 @@
           "key": "openingTitle",
           "required": false,
           "kind": "string",
-          "tsType": "string"
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
         },
         {
           "key": "extra",
           "required": false,
           "kind": "extra",
-          "tsType": "ExtraCompound"
+          "tsType": "ExtraCompound",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ExtraCompound"
+          }
         },
         {
           "key": "kizuna",
           "required": false,
           "kind": "hand",
           "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
-          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area."
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "entryId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "areaId",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "AreaId"
+                }
+              },
+              {
+                "key": "returnFlags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
         },
         {
           "key": "reactions",
           "required": false,
           "kind": "array",
           "tsType": "StoryEntryReaction[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "activation",
+                  "required": false,
+                  "schema": {
+                    "type": "literal",
+                    "value": "after-completion"
+                  }
+                },
+                {
+                  "key": "lifetime",
+                  "required": false,
+                  "schema": {
+                    "type": "stringUnion",
+                    "values": [
+                      "current-init",
+                      "until-consumed"
+                    ]
+                  }
+                },
+                {
+                  "key": "on",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "TriggerEventDef"
+                  }
+                },
+                {
+                  "key": "condition",
+                  "required": false,
+                  "schema": {
+                    "type": "union",
+                    "variants": [
+                      {
+                        "type": "reference",
+                        "name": "Condition"
+                      },
+                      {
+                        "type": "reference",
+                        "name": "ConditionGroup"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "effects",
+                  "required": true,
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "reference",
+                      "name": "Effect"
+                    }
+                  }
+                },
+                {
+                  "key": "once",
+                  "required": false,
+                  "schema": {
+                    "type": "boolean"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryReaction"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17681,19 +18053,33 @@
                 "key": "id",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               },
               {
                 "key": "activation",
                 "required": false,
                 "kind": "hand",
-                "tsType": "'after-completion'"
+                "tsType": "'after-completion'",
+                "authoringSchema": {
+                  "type": "literal",
+                  "value": "after-completion"
+                }
               },
               {
                 "key": "lifetime",
                 "required": false,
                 "kind": "enum",
                 "tsType": "'current-init' | 'until-consumed'",
+                "authoringSchema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "current-init",
+                    "until-consumed"
+                  ]
+                },
                 "options": [
                   "current-init",
                   "until-consumed"
@@ -17703,19 +18089,43 @@
                 "key": "on",
                 "required": true,
                 "kind": "hand",
-                "tsType": "TriggerEventDef"
+                "tsType": "TriggerEventDef",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "TriggerEventDef"
+                }
               },
               {
                 "key": "condition",
                 "required": false,
                 "kind": "hand",
-                "tsType": "Condition | ConditionGroup"
+                "tsType": "Condition | ConditionGroup",
+                "authoringSchema": {
+                  "type": "union",
+                  "variants": [
+                    {
+                      "type": "reference",
+                      "name": "Condition"
+                    },
+                    {
+                      "type": "reference",
+                      "name": "ConditionGroup"
+                    }
+                  ]
+                }
               },
               {
                 "key": "effects",
                 "required": true,
                 "kind": "array",
                 "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -17726,7 +18136,10 @@
                 "key": "once",
                 "required": false,
                 "kind": "bool",
-                "tsType": "boolean"
+                "tsType": "boolean",
+                "authoringSchema": {
+                  "type": "boolean"
+                }
               }
             ],
             "tsType": "StoryEntryReaction"
@@ -17737,6 +18150,72 @@
           "required": false,
           "kind": "array",
           "tsType": "StoryFollowUp[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "waitFor",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "next-enter-area"
+                        }
+                      },
+                      {
+                        "key": "areaId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "AreaId"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "outcome",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "start-story-entry"
+                        }
+                      },
+                      {
+                        "key": "storyEntryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryEntryId"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "sourceType": "StoryFollowUp"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17745,41 +18224,190 @@
                 "key": "id",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               },
               {
                 "key": "waitFor",
                 "required": true,
                 "kind": "hand",
-                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }"
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "next-enter-area"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": true,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "key": "outcome",
                 "required": true,
                 "kind": "hand",
-                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }"
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "start-story-entry"
+                      }
+                    },
+                    {
+                      "key": "storyEntryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    }
+                  ]
+                }
               }
             ],
             "tsType": "StoryFollowUp"
           }
         },
         {
-          "key": "type",
+          "key": "activation",
           "required": true,
-          "kind": "hand",
-          "tsType": "'active'"
-        },
-        {
-          "key": "completionReward",
-          "required": false,
-          "kind": "hand",
-          "tsType": "{ first?: Effect[]; repeat?: Effect[] }"
-        },
-        {
-          "key": "owner",
-          "required": false,
-          "kind": "string",
-          "tsType": "string"
+          "kind": "object",
+          "tsType": "ActiveStoryActivation",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "kind",
+                "required": true,
+                "schema": {
+                  "type": "literal",
+                  "value": "active"
+                }
+              },
+              {
+                "key": "fallback",
+                "required": false,
+                "schema": {
+                  "type": "union",
+                  "discriminator": "kind",
+                  "variants": [
+                    {
+                      "tag": "current-area",
+                      "fields": [
+                        {
+                          "key": "kind",
+                          "required": true,
+                          "schema": {
+                            "type": "literal",
+                            "value": "current-area"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "tag": "fixed-area",
+                      "fields": [
+                        {
+                          "key": "kind",
+                          "required": true,
+                          "schema": {
+                            "type": "literal",
+                            "value": "fixed-area"
+                          }
+                        },
+                        {
+                          "key": "areaId",
+                          "required": true,
+                          "schema": {
+                            "type": "reference",
+                            "name": "AreaId"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ],
+            "sourceType": "ActiveStoryActivation"
+          },
+          "fields": [
+            {
+              "key": "kind",
+              "required": true,
+              "kind": "hand",
+              "tsType": "'active'",
+              "authoringSchema": {
+                "type": "literal",
+                "value": "active"
+              }
+            },
+            {
+              "key": "fallback",
+              "required": false,
+              "kind": "hand",
+              "tsType": "{ kind: 'current-area' } | { kind: 'fixed-area'; areaId: AreaId }",
+              "authoringSchema": {
+                "type": "union",
+                "discriminator": "kind",
+                "variants": [
+                  {
+                    "tag": "current-area",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "current-area"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "fixed-area",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "fixed-area"
+                        }
+                      },
+                      {
+                        "key": "areaId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "AreaId"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -17788,15 +18416,22 @@
         {
           "key": "id",
           "required": true,
-          "kind": "ref",
-          "tsType": "StoryId",
-          "table": "stories"
+          "kind": "string",
+          "tsType": "StoryEntryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryEntryId"
+          }
         },
         {
           "key": "storyId",
           "required": true,
           "kind": "ref",
           "tsType": "StoryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryId"
+          },
           "table": "stories"
         },
         {
@@ -17804,6 +18439,13 @@
           "required": true,
           "kind": "array",
           "tsType": "InitId[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "InitId"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "ref",
@@ -17816,6 +18458,13 @@
           "required": false,
           "kind": "array",
           "tsType": "TagPath[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "TagPath"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "hand",
@@ -17826,13 +18475,145 @@
           "key": "triggerCondition",
           "required": true,
           "kind": "hand",
-          "tsType": "ConditionGroup"
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "catalog",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryEntryCatalog",
+          "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "category",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "part",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "chapter",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "StoryEntryCatalog"
+          },
+          "fields": [
+            {
+              "key": "category",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "part",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "chapter",
+              "required": false,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "order",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        },
+        {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "completionReward",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "first",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              },
+              {
+                "key": "repeat",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              }
+            ]
+          }
         },
         {
           "key": "revealTriggers",
           "required": false,
           "kind": "array",
           "tsType": "RevealTrigger[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "RevealTrigger"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "hand",
@@ -17843,19 +18624,32 @@
           "key": "replayable",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "travelToStartContext",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "completionStrategy",
           "required": false,
           "kind": "enum",
           "tsType": "'simple' | 'conditional'",
+          "authoringSchema": {
+            "type": "stringUnion",
+            "values": [
+              "simple",
+              "conditional"
+            ]
+          },
           "options": [
             "simple",
             "conditional"
@@ -17866,6 +18660,13 @@
           "required": false,
           "kind": "array",
           "tsType": "ConditionalReward[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "ConditionalReward"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17874,13 +18675,24 @@
                 "key": "condition",
                 "required": true,
                 "kind": "hand",
-                "tsType": "ConditionGroup"
+                "tsType": "ConditionGroup",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
               },
               {
                 "key": "effects",
                 "required": true,
                 "kind": "array",
                 "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -17896,6 +18708,13 @@
           "required": false,
           "kind": "array",
           "tsType": "BranchGuard[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "BranchGuard"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17905,6 +18724,10 @@
                 "required": true,
                 "kind": "ref",
                 "tsType": "StoryId",
+                "authoringSchema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                },
                 "table": "stories"
               },
               {
@@ -17912,6 +18735,29 @@
                 "required": true,
                 "kind": "array",
                 "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "storyId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryId"
+                        }
+                      },
+                      {
+                        "key": "talkletIndex",
+                        "required": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -17922,7 +18768,10 @@
                 "key": "denialMessage",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               }
             ],
             "tsType": "BranchGuard"
@@ -17932,26 +18781,142 @@
           "key": "openingTitle",
           "required": false,
           "kind": "string",
-          "tsType": "string"
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
         },
         {
           "key": "extra",
           "required": false,
           "kind": "extra",
-          "tsType": "ExtraCompound"
+          "tsType": "ExtraCompound",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ExtraCompound"
+          }
         },
         {
           "key": "kizuna",
           "required": false,
           "kind": "hand",
           "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
-          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area."
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "entryId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "areaId",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "AreaId"
+                }
+              },
+              {
+                "key": "returnFlags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
         },
         {
           "key": "reactions",
           "required": false,
           "kind": "array",
           "tsType": "StoryEntryReaction[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "activation",
+                  "required": false,
+                  "schema": {
+                    "type": "literal",
+                    "value": "after-completion"
+                  }
+                },
+                {
+                  "key": "lifetime",
+                  "required": false,
+                  "schema": {
+                    "type": "stringUnion",
+                    "values": [
+                      "current-init",
+                      "until-consumed"
+                    ]
+                  }
+                },
+                {
+                  "key": "on",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "TriggerEventDef"
+                  }
+                },
+                {
+                  "key": "condition",
+                  "required": false,
+                  "schema": {
+                    "type": "union",
+                    "variants": [
+                      {
+                        "type": "reference",
+                        "name": "Condition"
+                      },
+                      {
+                        "type": "reference",
+                        "name": "ConditionGroup"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "effects",
+                  "required": true,
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "reference",
+                      "name": "Effect"
+                    }
+                  }
+                },
+                {
+                  "key": "once",
+                  "required": false,
+                  "schema": {
+                    "type": "boolean"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryReaction"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -17960,19 +18925,33 @@
                 "key": "id",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               },
               {
                 "key": "activation",
                 "required": false,
                 "kind": "hand",
-                "tsType": "'after-completion'"
+                "tsType": "'after-completion'",
+                "authoringSchema": {
+                  "type": "literal",
+                  "value": "after-completion"
+                }
               },
               {
                 "key": "lifetime",
                 "required": false,
                 "kind": "enum",
                 "tsType": "'current-init' | 'until-consumed'",
+                "authoringSchema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "current-init",
+                    "until-consumed"
+                  ]
+                },
                 "options": [
                   "current-init",
                   "until-consumed"
@@ -17982,19 +18961,43 @@
                 "key": "on",
                 "required": true,
                 "kind": "hand",
-                "tsType": "TriggerEventDef"
+                "tsType": "TriggerEventDef",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "TriggerEventDef"
+                }
               },
               {
                 "key": "condition",
                 "required": false,
                 "kind": "hand",
-                "tsType": "Condition | ConditionGroup"
+                "tsType": "Condition | ConditionGroup",
+                "authoringSchema": {
+                  "type": "union",
+                  "variants": [
+                    {
+                      "type": "reference",
+                      "name": "Condition"
+                    },
+                    {
+                      "type": "reference",
+                      "name": "ConditionGroup"
+                    }
+                  ]
+                }
               },
               {
                 "key": "effects",
                 "required": true,
                 "kind": "array",
                 "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
                 "item": {
                   "key": "$",
                   "kind": "hand",
@@ -18005,7 +19008,10 @@
                 "key": "once",
                 "required": false,
                 "kind": "bool",
-                "tsType": "boolean"
+                "tsType": "boolean",
+                "authoringSchema": {
+                  "type": "boolean"
+                }
               }
             ],
             "tsType": "StoryEntryReaction"
@@ -18016,6 +19022,72 @@
           "required": false,
           "kind": "array",
           "tsType": "StoryFollowUp[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "waitFor",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "next-enter-area"
+                        }
+                      },
+                      {
+                        "key": "areaId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "AreaId"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "outcome",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "start-story-entry"
+                        }
+                      },
+                      {
+                        "key": "storyEntryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryEntryId"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "sourceType": "StoryFollowUp"
+            }
+          },
           "item": {
             "key": "$",
             "kind": "object",
@@ -18024,98 +19096,1148 @@
                 "key": "id",
                 "required": true,
                 "kind": "string",
-                "tsType": "string"
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
               },
               {
                 "key": "waitFor",
                 "required": true,
                 "kind": "hand",
-                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }"
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "next-enter-area"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": true,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "key": "outcome",
                 "required": true,
                 "kind": "hand",
-                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }"
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "start-story-entry"
+                      }
+                    },
+                    {
+                      "key": "storyEntryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    }
+                  ]
+                }
               }
             ],
             "tsType": "StoryFollowUp"
           }
         },
         {
-          "key": "type",
-          "required": true,
-          "kind": "hand",
-          "tsType": "'passive'"
-        },
-        {
-          "key": "repeatable",
-          "required": true,
-          "kind": "bool",
-          "tsType": "boolean"
-        },
-        {
-          "key": "weight",
-          "required": true,
-          "kind": "float",
-          "tsType": "number"
-        },
-        {
-          "key": "completionReward",
-          "required": false,
-          "kind": "hand",
-          "tsType": "{ first?: Effect[]; repeat?: Effect[] }"
-        },
-        {
-          "key": "owner",
-          "required": false,
-          "kind": "string",
-          "tsType": "string"
-        },
-        {
-          "key": "affectionRequired",
-          "required": false,
-          "kind": "float",
-          "tsType": "number"
-        },
-        {
-          "key": "pushAfterStory",
-          "required": false,
-          "kind": "string",
-          "tsType": "string"
-        },
-        {
-          "key": "cooldownFrames",
-          "required": false,
-          "kind": "float",
-          "tsType": "number"
-        },
-        {
           "key": "block",
           "required": false,
           "kind": "hand",
-          "tsType": "ConditionGroup"
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
         },
         {
           "key": "interruptible",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "leaveArea",
           "required": false,
           "kind": "bool",
-          "tsType": "boolean"
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
         },
         {
           "key": "blocksInteraction",
           "required": false,
           "kind": "bool",
           "tsType": "boolean",
-          "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。"
+          "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "activation",
+          "required": true,
+          "kind": "object",
+          "tsType": "RandomStoryActivation",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "kind",
+                "required": true,
+                "schema": {
+                  "type": "literal",
+                  "value": "random"
+                }
+              },
+              {
+                "key": "weight",
+                "required": true,
+                "schema": {
+                  "type": "number"
+                }
+              },
+              {
+                "key": "repeatable",
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "cooldownFrames",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "RandomStoryActivation"
+          },
+          "fields": [
+            {
+              "key": "kind",
+              "required": true,
+              "kind": "hand",
+              "tsType": "'random'",
+              "authoringSchema": {
+                "type": "literal",
+                "value": "random"
+              }
+            },
+            {
+              "key": "weight",
+              "required": true,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            },
+            {
+              "key": "repeatable",
+              "required": true,
+              "kind": "bool",
+              "tsType": "boolean",
+              "authoringSchema": {
+                "type": "boolean"
+              }
+            },
+            {
+              "key": "cooldownFrames",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
         }
-      ]
+      ],
+      "authoringSchema": {
+        "type": "union",
+        "variants": [
+          {
+            "type": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "storyId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                }
+              },
+              {
+                "key": "availableInits",
+                "required": true,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                }
+              },
+              {
+                "key": "tags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "TagPath"
+                  }
+                }
+              },
+              {
+                "key": "triggerCondition",
+                "required": true,
+                "schema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "catalog",
+                "required": false,
+                "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "category",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "part",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "chapter",
+                      "required": false,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "order",
+                      "required": false,
+                      "schema": {
+                        "type": "number"
+                      }
+                    }
+                  ],
+                  "sourceType": "StoryEntryCatalog"
+                }
+              },
+              {
+                "key": "owner",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "completionReward",
+                "required": false,
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "first",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "reference",
+                          "name": "Effect"
+                        }
+                      }
+                    },
+                    {
+                      "key": "repeat",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "reference",
+                          "name": "Effect"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "revealTriggers",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "RevealTrigger"
+                  }
+                }
+              },
+              {
+                "key": "replayable",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "travelToStartContext",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "completionStrategy",
+                "required": false,
+                "schema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "simple",
+                    "conditional"
+                  ]
+                }
+              },
+              {
+                "key": "conditionalRewards",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "ConditionalReward"
+                  }
+                }
+              },
+              {
+                "key": "branchGuards",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "BranchGuard"
+                  }
+                }
+              },
+              {
+                "key": "openingTitle",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "extra",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "ExtraCompound"
+                }
+              },
+              {
+                "key": "kizuna",
+                "required": false,
+                "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "entryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": false,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    },
+                    {
+                      "key": "returnFlags",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "reactions",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "activation",
+                        "required": false,
+                        "schema": {
+                          "type": "literal",
+                          "value": "after-completion"
+                        }
+                      },
+                      {
+                        "key": "lifetime",
+                        "required": false,
+                        "schema": {
+                          "type": "stringUnion",
+                          "values": [
+                            "current-init",
+                            "until-consumed"
+                          ]
+                        }
+                      },
+                      {
+                        "key": "on",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "TriggerEventDef"
+                        }
+                      },
+                      {
+                        "key": "condition",
+                        "required": false,
+                        "schema": {
+                          "type": "union",
+                          "variants": [
+                            {
+                              "type": "reference",
+                              "name": "Condition"
+                            },
+                            {
+                              "type": "reference",
+                              "name": "ConditionGroup"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": "effects",
+                        "required": true,
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "reference",
+                            "name": "Effect"
+                          }
+                        }
+                      },
+                      {
+                        "key": "once",
+                        "required": false,
+                        "schema": {
+                          "type": "boolean"
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryEntryReaction"
+                  }
+                }
+              },
+              {
+                "key": "followUps",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "waitFor",
+                        "required": true,
+                        "schema": {
+                          "type": "object",
+                          "fields": [
+                            {
+                              "key": "kind",
+                              "required": true,
+                              "schema": {
+                                "type": "literal",
+                                "value": "next-enter-area"
+                              }
+                            },
+                            {
+                              "key": "areaId",
+                              "required": true,
+                              "schema": {
+                                "type": "reference",
+                                "name": "AreaId"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": "outcome",
+                        "required": true,
+                        "schema": {
+                          "type": "object",
+                          "fields": [
+                            {
+                              "key": "kind",
+                              "required": true,
+                              "schema": {
+                                "type": "literal",
+                                "value": "start-story-entry"
+                              }
+                            },
+                            {
+                              "key": "storyEntryId",
+                              "required": true,
+                              "schema": {
+                                "type": "string",
+                                "sourceType": "StoryEntryId"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryFollowUp"
+                  }
+                }
+              },
+              {
+                "key": "block",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "interruptible",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "leaveArea",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "blocksInteraction",
+                "required": false,
+                "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "activation",
+                "required": true,
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "random"
+                      }
+                    },
+                    {
+                      "key": "weight",
+                      "required": true,
+                      "schema": {
+                        "type": "number"
+                      }
+                    },
+                    {
+                      "key": "repeatable",
+                      "required": true,
+                      "schema": {
+                        "type": "boolean"
+                      }
+                    },
+                    {
+                      "key": "cooldownFrames",
+                      "required": false,
+                      "schema": {
+                        "type": "number"
+                      }
+                    }
+                  ],
+                  "sourceType": "RandomStoryActivation"
+                }
+              }
+            ],
+            "sourceType": "RandomStoryEntry"
+          },
+          {
+            "type": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "storyId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                }
+              },
+              {
+                "key": "availableInits",
+                "required": true,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                }
+              },
+              {
+                "key": "tags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "TagPath"
+                  }
+                }
+              },
+              {
+                "key": "triggerCondition",
+                "required": true,
+                "schema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "catalog",
+                "required": false,
+                "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "category",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "part",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "chapter",
+                      "required": false,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "order",
+                      "required": false,
+                      "schema": {
+                        "type": "number"
+                      }
+                    }
+                  ],
+                  "sourceType": "StoryEntryCatalog"
+                }
+              },
+              {
+                "key": "owner",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "completionReward",
+                "required": false,
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "first",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "reference",
+                          "name": "Effect"
+                        }
+                      }
+                    },
+                    {
+                      "key": "repeat",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "reference",
+                          "name": "Effect"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "revealTriggers",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "RevealTrigger"
+                  }
+                }
+              },
+              {
+                "key": "replayable",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "travelToStartContext",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "completionStrategy",
+                "required": false,
+                "schema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "simple",
+                    "conditional"
+                  ]
+                }
+              },
+              {
+                "key": "conditionalRewards",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "ConditionalReward"
+                  }
+                }
+              },
+              {
+                "key": "branchGuards",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "BranchGuard"
+                  }
+                }
+              },
+              {
+                "key": "openingTitle",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "extra",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "ExtraCompound"
+                }
+              },
+              {
+                "key": "kizuna",
+                "required": false,
+                "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "entryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": false,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    },
+                    {
+                      "key": "returnFlags",
+                      "required": false,
+                      "schema": {
+                        "type": "array",
+                        "item": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "reactions",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "activation",
+                        "required": false,
+                        "schema": {
+                          "type": "literal",
+                          "value": "after-completion"
+                        }
+                      },
+                      {
+                        "key": "lifetime",
+                        "required": false,
+                        "schema": {
+                          "type": "stringUnion",
+                          "values": [
+                            "current-init",
+                            "until-consumed"
+                          ]
+                        }
+                      },
+                      {
+                        "key": "on",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "TriggerEventDef"
+                        }
+                      },
+                      {
+                        "key": "condition",
+                        "required": false,
+                        "schema": {
+                          "type": "union",
+                          "variants": [
+                            {
+                              "type": "reference",
+                              "name": "Condition"
+                            },
+                            {
+                              "type": "reference",
+                              "name": "ConditionGroup"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": "effects",
+                        "required": true,
+                        "schema": {
+                          "type": "array",
+                          "item": {
+                            "type": "reference",
+                            "name": "Effect"
+                          }
+                        }
+                      },
+                      {
+                        "key": "once",
+                        "required": false,
+                        "schema": {
+                          "type": "boolean"
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryEntryReaction"
+                  }
+                }
+              },
+              {
+                "key": "followUps",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "id",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "waitFor",
+                        "required": true,
+                        "schema": {
+                          "type": "object",
+                          "fields": [
+                            {
+                              "key": "kind",
+                              "required": true,
+                              "schema": {
+                                "type": "literal",
+                                "value": "next-enter-area"
+                              }
+                            },
+                            {
+                              "key": "areaId",
+                              "required": true,
+                              "schema": {
+                                "type": "reference",
+                                "name": "AreaId"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": "outcome",
+                        "required": true,
+                        "schema": {
+                          "type": "object",
+                          "fields": [
+                            {
+                              "key": "kind",
+                              "required": true,
+                              "schema": {
+                                "type": "literal",
+                                "value": "start-story-entry"
+                              }
+                            },
+                            {
+                              "key": "storyEntryId",
+                              "required": true,
+                              "schema": {
+                                "type": "string",
+                                "sourceType": "StoryEntryId"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryFollowUp"
+                  }
+                }
+              },
+              {
+                "key": "block",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "interruptible",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "leaveArea",
+                "required": false,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "blocksInteraction",
+                "required": false,
+                "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。",
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "activation",
+                "required": true,
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "affection"
+                      }
+                    },
+                    {
+                      "key": "when",
+                      "required": true,
+                      "schema": {
+                        "type": "union",
+                        "discriminator": "kind",
+                        "variants": [
+                          {
+                            "tag": "level",
+                            "fields": [
+                              {
+                                "key": "kind",
+                                "required": true,
+                                "schema": {
+                                  "type": "literal",
+                                  "value": "level"
+                                }
+                              },
+                              {
+                                "key": "level",
+                                "required": true,
+                                "schema": {
+                                  "type": "number"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "tag": "after-story",
+                            "fields": [
+                              {
+                                "key": "kind",
+                                "required": true,
+                                "schema": {
+                                  "type": "literal",
+                                  "value": "after-story"
+                                }
+                              },
+                              {
+                                "key": "storyId",
+                                "required": true,
+                                "schema": {
+                                  "type": "string",
+                                  "sourceType": "StoryId"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "cooldownFrames",
+                      "required": false,
+                      "schema": {
+                        "type": "number"
+                      }
+                    }
+                  ],
+                  "sourceType": "AffectionStoryActivation"
+                }
+              }
+            ],
+            "sourceType": "AffectionStoryEntry"
+          }
+        ]
+      }
     },
     "PassivePoolDef": {
       "fields": [
@@ -23974,15 +26096,2366 @@
     "ExtraValue": {
       "hand": true,
       "tsType": "export type ExtraValue =\n  | { t: 'int'; v: number }        // 整数（NBT Int）\n  | { t: 'float'; v: number }      // 浮点（NBT Float）\n  | { t: 'str'; v: string }        // 字符串（NBT String）\n  | { t: 'bool'; v: boolean }      // 布尔\n  | { t: 'list'; v: ExtraValue[] } // 列表（NBT List，异构）\n  | { t: 'dict'; v: Record<string, ExtraValue> };"
+    },
+    "StoryChoiceInteraction": {
+      "fields": [
+        {
+          "key": "kind",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'choice'",
+          "description": "交互类型，固定为一组互斥候选。"
+        },
+        {
+          "key": "options",
+          "required": true,
+          "kind": "hand",
+          "tsType": "readonly StoryChoiceOption[]",
+          "description": "候选项；每个选项是本 Click 内独立分支。"
+        }
+      ]
+    },
+    "StoryChoiceOption": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "稳定候选身份。"
+        },
+        {
+          "key": "text",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "候选显示文案。"
+        },
+        {
+          "key": "showWhen",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "description": "持久状态条件；与 requiresFlag 同时满足时才显示候选。"
+        },
+        {
+          "key": "requiresFlag",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "本次 Entry 局部表必须存在此键才显示候选；只判断存在，不比较值。"
+        },
+        {
+          "key": "marks",
+          "required": false,
+          "kind": "hand",
+          "tsType": "readonly string[]",
+          "description": "选择成功后设置为 true；本组其他选项声明的标记会先清除。"
+        }
+      ]
+    },
+    "StoryNodePerformance": {
+      "fields": [
+        {
+          "key": "template",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'message' | 'default' | 'title' | 'badge' | 'note'",
+          "description": "正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。",
+          "options": [
+            "message",
+            "default",
+            "title",
+            "badge",
+            "note"
+          ]
+        },
+        {
+          "key": "style",
+          "required": false,
+          "kind": "object",
+          "tsType": "ChatTextStyle",
+          "description": "流内与定位展示均可使用的有限样式。",
+          "fields": [
+            {
+              "key": "font",
+              "required": false,
+              "kind": "enum",
+              "tsType": "ChatTextFont",
+              "options": [
+                "default",
+                "serif",
+                "sans",
+                "mono",
+                "handwritten"
+              ]
+            },
+            {
+              "key": "fontSize",
+              "required": false,
+              "kind": "string",
+              "tsType": "string"
+            },
+            {
+              "key": "color",
+              "required": false,
+              "kind": "string",
+              "tsType": "string"
+            },
+            {
+              "key": "background",
+              "required": false,
+              "kind": "bool",
+              "tsType": "boolean"
+            },
+            {
+              "key": "backgroundColor",
+              "required": false,
+              "kind": "string",
+              "tsType": "string"
+            }
+          ]
+        },
+        {
+          "key": "layout",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ readonly mode: 'flow' } | {\n    readonly mode: 'positioned'; readonly x: number; readonly y: number;\n    /** 默认 percent，按窗格宽高计算比例。px 使用 CSS 像素。 */\n    readonly unit?: 'percent' | 'px';\n    /** 九宫格基准。X/Y 是向右、向上为正的偏移。 */\n    readonly anchor?: { readonly x: 'left' | 'center' | 'right'; readonly y: 'bottom' | 'center' | 'top' };\n    /** 旧式定位的横向锚点，只在缺省 anchor 时使用。 */\n    readonly align?: 'left' | 'center' | 'right';\n  }",
+          "description": "定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。"
+        }
+      ]
+    },
+    "StoryTalkletNode": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryNodeId",
+          "description": "在当前 StoryNodeDocument 内唯一的节点身份。"
+        },
+        {
+          "key": "requiresFlag",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "本次 Entry 局部表必须存在此键才执行；仅一个名称，不比较值。建议 StoryName-flagid，不强制前缀。"
+        },
+        {
+          "key": "type",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'talklet'",
+          "description": "顶层节点类型，固定为 talklet。"
+        },
+        {
+          "key": "stageId",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryStageId",
+          "description": "旧阶段兼容 ID；不会控制相邻 Click 或节点顺序。"
+        },
+        {
+          "key": "content",
+          "required": true,
+          "kind": "hand",
+          "tsType": "StoryContent",
+          "description": "对话或旁白内容。"
+        },
+        {
+          "key": "presentation",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryPresentation",
+          "description": "左右侧、对齐和头像呈现意图。",
+          "fields": [
+            {
+              "key": "side",
+              "required": false,
+              "kind": "enum",
+              "tsType": "'left' | 'right'",
+              "description": "气泡所在侧。",
+              "options": [
+                "left",
+                "right"
+              ]
+            },
+            {
+              "key": "align",
+              "required": false,
+              "kind": "enum",
+              "tsType": "'center' | 'left' | 'right'",
+              "description": "正文对齐方式。",
+              "options": [
+                "center",
+                "left",
+                "right"
+              ]
+            },
+            {
+              "key": "avatar",
+              "required": false,
+              "kind": "string",
+              "tsType": "string",
+              "description": "可选头像资源标识。"
+            },
+            {
+              "key": "avatarMode",
+              "required": false,
+              "kind": "enum",
+              "tsType": "'auto' | 'hide' | 'show'",
+              "description": "头像显示策略。",
+              "options": [
+                "auto",
+                "hide",
+                "show"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "pacing",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryPacing",
+          "description": "对方输入中与思考节奏意图。",
+          "fields": [
+            {
+              "key": "typing",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "description": "对方文字输入节奏参数。"
+            },
+            {
+              "key": "thinking",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "description": "对方思考停顿参数。"
+            }
+          ]
+        },
+        {
+          "key": "performance",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryNodePerformance",
+          "description": "节点局部模板、样式与定位，不改变正文或推进语义。",
+          "fields": [
+            {
+              "key": "template",
+              "required": false,
+              "kind": "enum",
+              "tsType": "'message' | 'default' | 'title' | 'badge' | 'note'",
+              "description": "正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。",
+              "options": [
+                "message",
+                "default",
+                "title",
+                "badge",
+                "note"
+              ]
+            },
+            {
+              "key": "style",
+              "required": false,
+              "kind": "object",
+              "tsType": "ChatTextStyle",
+              "description": "流内与定位展示均可使用的有限样式。",
+              "fields": [
+                {
+                  "key": "font",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "ChatTextFont",
+                  "options": [
+                    "default",
+                    "serif",
+                    "sans",
+                    "mono",
+                    "handwritten"
+                  ]
+                },
+                {
+                  "key": "fontSize",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "color",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "background",
+                  "required": false,
+                  "kind": "bool",
+                  "tsType": "boolean"
+                },
+                {
+                  "key": "backgroundColor",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                }
+              ]
+            },
+            {
+              "key": "layout",
+              "required": false,
+              "kind": "hand",
+              "tsType": "{ readonly mode: 'flow' } | {\n    readonly mode: 'positioned'; readonly x: number; readonly y: number;\n    /** 默认 percent，按窗格宽高计算比例。px 使用 CSS 像素。 */\n    readonly unit?: 'percent' | 'px';\n    /** 九宫格基准。X/Y 是向右、向上为正的偏移。 */\n    readonly anchor?: { readonly x: 'left' | 'center' | 'right'; readonly y: 'bottom' | 'center' | 'top' };\n    /** 旧式定位的横向锚点，只在缺省 anchor 时使用。 */\n    readonly align?: 'left' | 'center' | 'right';\n  }",
+              "description": "定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。"
+            }
+          ]
+        }
+      ]
+    },
+    "StoryClickNode": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryNodeId",
+          "description": "在当前 StoryNodeDocument 内唯一的节点身份。"
+        },
+        {
+          "key": "requiresFlag",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "本次 Entry 局部表必须存在此键才执行；仅一个名称，不比较值。建议 StoryName-flagid，不强制前缀。"
+        },
+        {
+          "key": "type",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'click'",
+          "description": "顶层节点类型，固定为 click。"
+        },
+        {
+          "key": "stageId",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryStageId",
+          "description": "旧阶段兼容 ID；当前输入次序完全由 nodes 顺序决定。"
+        },
+        {
+          "key": "interaction",
+          "required": true,
+          "kind": "hand",
+          "tsType": "StoryClickInteraction",
+          "description": "本次输入的明确形式。"
+        },
+        {
+          "key": "performance",
+          "required": false,
+          "kind": "hand",
+          "tsType": "Omit<StoryNodePerformance, 'template'>",
+          "description": "交互局部样式与定位；不提供正文文本模板。"
+        }
+      ]
+    },
+    "RandomStoryEntry": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryEntryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryEntryId"
+          }
+        },
+        {
+          "key": "storyId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryId"
+          },
+          "table": "stories"
+        },
+        {
+          "key": "availableInits",
+          "required": true,
+          "kind": "array",
+          "tsType": "InitId[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "InitId"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "ref",
+            "table": "inits",
+            "tsType": "InitId"
+          }
+        },
+        {
+          "key": "tags",
+          "required": false,
+          "kind": "array",
+          "tsType": "TagPath[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "TagPath"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "TagPath"
+          }
+        },
+        {
+          "key": "triggerCondition",
+          "required": true,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "catalog",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryEntryCatalog",
+          "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "category",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "part",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "chapter",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "StoryEntryCatalog"
+          },
+          "fields": [
+            {
+              "key": "category",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "part",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "chapter",
+              "required": false,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "order",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        },
+        {
+          "key": "owner",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "completionReward",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "first",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              },
+              {
+                "key": "repeat",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "revealTriggers",
+          "required": false,
+          "kind": "array",
+          "tsType": "RevealTrigger[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "RevealTrigger"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "RevealTrigger"
+          }
+        },
+        {
+          "key": "replayable",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "travelToStartContext",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "completionStrategy",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'simple' | 'conditional'",
+          "authoringSchema": {
+            "type": "stringUnion",
+            "values": [
+              "simple",
+              "conditional"
+            ]
+          },
+          "options": [
+            "simple",
+            "conditional"
+          ]
+        },
+        {
+          "key": "conditionalRewards",
+          "required": false,
+          "kind": "array",
+          "tsType": "ConditionalReward[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "ConditionalReward"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "condition",
+                "required": true,
+                "kind": "hand",
+                "tsType": "ConditionGroup",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "ConditionalReward"
+          }
+        },
+        {
+          "key": "branchGuards",
+          "required": false,
+          "kind": "array",
+          "tsType": "BranchGuard[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "BranchGuard"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "storyId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "StoryId",
+                "authoringSchema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                },
+                "table": "stories"
+              },
+              {
+                "key": "prerequisites",
+                "required": true,
+                "kind": "array",
+                "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "storyId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryId"
+                        }
+                      },
+                      {
+                        "key": "talkletIndex",
+                        "required": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "{ storyId: StoryId; talkletIndex: number }"
+                }
+              },
+              {
+                "key": "denialMessage",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "tsType": "BranchGuard"
+          }
+        },
+        {
+          "key": "openingTitle",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ExtraCompound"
+          }
+        },
+        {
+          "key": "kizuna",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "entryId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "areaId",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "AreaId"
+                }
+              },
+              {
+                "key": "returnFlags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "reactions",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryReaction[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "activation",
+                  "required": false,
+                  "schema": {
+                    "type": "literal",
+                    "value": "after-completion"
+                  }
+                },
+                {
+                  "key": "lifetime",
+                  "required": false,
+                  "schema": {
+                    "type": "stringUnion",
+                    "values": [
+                      "current-init",
+                      "until-consumed"
+                    ]
+                  }
+                },
+                {
+                  "key": "on",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "TriggerEventDef"
+                  }
+                },
+                {
+                  "key": "condition",
+                  "required": false,
+                  "schema": {
+                    "type": "union",
+                    "variants": [
+                      {
+                        "type": "reference",
+                        "name": "Condition"
+                      },
+                      {
+                        "type": "reference",
+                        "name": "ConditionGroup"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "effects",
+                  "required": true,
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "reference",
+                      "name": "Effect"
+                    }
+                  }
+                },
+                {
+                  "key": "once",
+                  "required": false,
+                  "schema": {
+                    "type": "boolean"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryReaction"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "activation",
+                "required": false,
+                "kind": "hand",
+                "tsType": "'after-completion'",
+                "authoringSchema": {
+                  "type": "literal",
+                  "value": "after-completion"
+                }
+              },
+              {
+                "key": "lifetime",
+                "required": false,
+                "kind": "enum",
+                "tsType": "'current-init' | 'until-consumed'",
+                "authoringSchema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "current-init",
+                    "until-consumed"
+                  ]
+                },
+                "options": [
+                  "current-init",
+                  "until-consumed"
+                ]
+              },
+              {
+                "key": "on",
+                "required": true,
+                "kind": "hand",
+                "tsType": "TriggerEventDef",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "TriggerEventDef"
+                }
+              },
+              {
+                "key": "condition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "Condition | ConditionGroup",
+                "authoringSchema": {
+                  "type": "union",
+                  "variants": [
+                    {
+                      "type": "reference",
+                      "name": "Condition"
+                    },
+                    {
+                      "type": "reference",
+                      "name": "ConditionGroup"
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "once",
+                "required": false,
+                "kind": "bool",
+                "tsType": "boolean",
+                "authoringSchema": {
+                  "type": "boolean"
+                }
+              }
+            ],
+            "tsType": "StoryEntryReaction"
+          }
+        },
+        {
+          "key": "followUps",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryFollowUp[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "waitFor",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "next-enter-area"
+                        }
+                      },
+                      {
+                        "key": "areaId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "AreaId"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "outcome",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "start-story-entry"
+                        }
+                      },
+                      {
+                        "key": "storyEntryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryEntryId"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "sourceType": "StoryFollowUp"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "waitFor",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "next-enter-area"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": true,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "outcome",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "start-story-entry"
+                      }
+                    },
+                    {
+                      "key": "storyEntryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "tsType": "StoryFollowUp"
+          }
+        },
+        {
+          "key": "block",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "interruptible",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "leaveArea",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "blocksInteraction",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "activation",
+          "required": true,
+          "kind": "object",
+          "tsType": "RandomStoryActivation",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "kind",
+                "required": true,
+                "schema": {
+                  "type": "literal",
+                  "value": "random"
+                }
+              },
+              {
+                "key": "weight",
+                "required": true,
+                "schema": {
+                  "type": "number"
+                }
+              },
+              {
+                "key": "repeatable",
+                "required": true,
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              {
+                "key": "cooldownFrames",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "RandomStoryActivation"
+          },
+          "fields": [
+            {
+              "key": "kind",
+              "required": true,
+              "kind": "hand",
+              "tsType": "'random'",
+              "authoringSchema": {
+                "type": "literal",
+                "value": "random"
+              }
+            },
+            {
+              "key": "weight",
+              "required": true,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            },
+            {
+              "key": "repeatable",
+              "required": true,
+              "kind": "bool",
+              "tsType": "boolean",
+              "authoringSchema": {
+                "type": "boolean"
+              }
+            },
+            {
+              "key": "cooldownFrames",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AffectionStoryEntry": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "StoryEntryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryEntryId"
+          }
+        },
+        {
+          "key": "storyId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "StoryId",
+          "authoringSchema": {
+            "type": "string",
+            "sourceType": "StoryId"
+          },
+          "table": "stories"
+        },
+        {
+          "key": "availableInits",
+          "required": true,
+          "kind": "array",
+          "tsType": "InitId[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "InitId"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "ref",
+            "table": "inits",
+            "tsType": "InitId"
+          }
+        },
+        {
+          "key": "tags",
+          "required": false,
+          "kind": "array",
+          "tsType": "TagPath[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "TagPath"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "TagPath"
+          }
+        },
+        {
+          "key": "triggerCondition",
+          "required": true,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "catalog",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryEntryCatalog",
+          "description": "历史目录位置；与正式激活方式、角色归属和完成状态独立。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "category",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "part",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "chapter",
+                "required": false,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "StoryEntryCatalog"
+          },
+          "fields": [
+            {
+              "key": "category",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "part",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "chapter",
+              "required": false,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "order",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        },
+        {
+          "key": "owner",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "completionReward",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ first?: Effect[]; repeat?: Effect[] }",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "first",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              },
+              {
+                "key": "repeat",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "revealTriggers",
+          "required": false,
+          "kind": "array",
+          "tsType": "RevealTrigger[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "RevealTrigger"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "hand",
+            "tsType": "RevealTrigger"
+          }
+        },
+        {
+          "key": "replayable",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "travelToStartContext",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "completionStrategy",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'simple' | 'conditional'",
+          "authoringSchema": {
+            "type": "stringUnion",
+            "values": [
+              "simple",
+              "conditional"
+            ]
+          },
+          "options": [
+            "simple",
+            "conditional"
+          ]
+        },
+        {
+          "key": "conditionalRewards",
+          "required": false,
+          "kind": "array",
+          "tsType": "ConditionalReward[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "ConditionalReward"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "condition",
+                "required": true,
+                "kind": "hand",
+                "tsType": "ConditionGroup",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "ConditionGroup"
+                }
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              }
+            ],
+            "tsType": "ConditionalReward"
+          }
+        },
+        {
+          "key": "branchGuards",
+          "required": false,
+          "kind": "array",
+          "tsType": "BranchGuard[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "reference",
+              "name": "BranchGuard"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "storyId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "StoryId",
+                "authoringSchema": {
+                  "type": "string",
+                  "sourceType": "StoryId"
+                },
+                "table": "stories"
+              },
+              {
+                "key": "prerequisites",
+                "required": true,
+                "kind": "array",
+                "tsType": "{ storyId: StoryId; talkletIndex: number }[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "storyId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryId"
+                        }
+                      },
+                      {
+                        "key": "talkletIndex",
+                        "required": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "{ storyId: StoryId; talkletIndex: number }"
+                }
+              },
+              {
+                "key": "denialMessage",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "tsType": "BranchGuard"
+          }
+        },
+        {
+          "key": "openingTitle",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "authoringSchema": {
+            "type": "string"
+          }
+        },
+        {
+          "key": "extra",
+          "required": false,
+          "kind": "extra",
+          "tsType": "ExtraCompound",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ExtraCompound"
+          }
+        },
+        {
+          "key": "kizuna",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ entryId: StoryEntryId; areaId?: AreaId; returnFlags?: string[] }",
+          "description": "One bounded child Entry; areaId requires accepting its invitation at that Area.",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "entryId",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "sourceType": "StoryEntryId"
+                }
+              },
+              {
+                "key": "areaId",
+                "required": false,
+                "schema": {
+                  "type": "reference",
+                  "name": "AreaId"
+                }
+              },
+              {
+                "key": "returnFlags",
+                "required": false,
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "reactions",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryReaction[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "activation",
+                  "required": false,
+                  "schema": {
+                    "type": "literal",
+                    "value": "after-completion"
+                  }
+                },
+                {
+                  "key": "lifetime",
+                  "required": false,
+                  "schema": {
+                    "type": "stringUnion",
+                    "values": [
+                      "current-init",
+                      "until-consumed"
+                    ]
+                  }
+                },
+                {
+                  "key": "on",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "TriggerEventDef"
+                  }
+                },
+                {
+                  "key": "condition",
+                  "required": false,
+                  "schema": {
+                    "type": "union",
+                    "variants": [
+                      {
+                        "type": "reference",
+                        "name": "Condition"
+                      },
+                      {
+                        "type": "reference",
+                        "name": "ConditionGroup"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "effects",
+                  "required": true,
+                  "schema": {
+                    "type": "array",
+                    "item": {
+                      "type": "reference",
+                      "name": "Effect"
+                    }
+                  }
+                },
+                {
+                  "key": "once",
+                  "required": false,
+                  "schema": {
+                    "type": "boolean"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryReaction"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "activation",
+                "required": false,
+                "kind": "hand",
+                "tsType": "'after-completion'",
+                "authoringSchema": {
+                  "type": "literal",
+                  "value": "after-completion"
+                }
+              },
+              {
+                "key": "lifetime",
+                "required": false,
+                "kind": "enum",
+                "tsType": "'current-init' | 'until-consumed'",
+                "authoringSchema": {
+                  "type": "stringUnion",
+                  "values": [
+                    "current-init",
+                    "until-consumed"
+                  ]
+                },
+                "options": [
+                  "current-init",
+                  "until-consumed"
+                ]
+              },
+              {
+                "key": "on",
+                "required": true,
+                "kind": "hand",
+                "tsType": "TriggerEventDef",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "TriggerEventDef"
+                }
+              },
+              {
+                "key": "condition",
+                "required": false,
+                "kind": "hand",
+                "tsType": "Condition | ConditionGroup",
+                "authoringSchema": {
+                  "type": "union",
+                  "variants": [
+                    {
+                      "type": "reference",
+                      "name": "Condition"
+                    },
+                    {
+                      "type": "reference",
+                      "name": "ConditionGroup"
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "effects",
+                "required": true,
+                "kind": "array",
+                "tsType": "Effect[]",
+                "authoringSchema": {
+                  "type": "array",
+                  "item": {
+                    "type": "reference",
+                    "name": "Effect"
+                  }
+                },
+                "item": {
+                  "key": "$",
+                  "kind": "hand",
+                  "tsType": "Effect"
+                }
+              },
+              {
+                "key": "once",
+                "required": false,
+                "kind": "bool",
+                "tsType": "boolean",
+                "authoringSchema": {
+                  "type": "boolean"
+                }
+              }
+            ],
+            "tsType": "StoryEntryReaction"
+          }
+        },
+        {
+          "key": "followUps",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryFollowUp[]",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "id",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "waitFor",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "next-enter-area"
+                        }
+                      },
+                      {
+                        "key": "areaId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "AreaId"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "outcome",
+                  "required": true,
+                  "schema": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "start-story-entry"
+                        }
+                      },
+                      {
+                        "key": "storyEntryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryEntryId"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "sourceType": "StoryFollowUp"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "id",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "waitFor",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'next-enter-area'; areaId: AreaId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "next-enter-area"
+                      }
+                    },
+                    {
+                      "key": "areaId",
+                      "required": true,
+                      "schema": {
+                        "type": "reference",
+                        "name": "AreaId"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "outcome",
+                "required": true,
+                "kind": "hand",
+                "tsType": "{ kind: 'start-story-entry'; storyEntryId: StoryEntryId }",
+                "authoringSchema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "kind",
+                      "required": true,
+                      "schema": {
+                        "type": "literal",
+                        "value": "start-story-entry"
+                      }
+                    },
+                    {
+                      "key": "storyEntryId",
+                      "required": true,
+                      "schema": {
+                        "type": "string",
+                        "sourceType": "StoryEntryId"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "tsType": "StoryFollowUp"
+          }
+        },
+        {
+          "key": "block",
+          "required": false,
+          "kind": "hand",
+          "tsType": "ConditionGroup",
+          "authoringSchema": {
+            "type": "reference",
+            "name": "ConditionGroup"
+          }
+        },
+        {
+          "key": "interruptible",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "leaveArea",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "blocksInteraction",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "activation",
+          "required": true,
+          "kind": "object",
+          "tsType": "AffectionStoryActivation",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "kind",
+                "required": true,
+                "schema": {
+                  "type": "literal",
+                  "value": "affection"
+                }
+              },
+              {
+                "key": "when",
+                "required": true,
+                "schema": {
+                  "type": "union",
+                  "discriminator": "kind",
+                  "variants": [
+                    {
+                      "tag": "level",
+                      "fields": [
+                        {
+                          "key": "kind",
+                          "required": true,
+                          "schema": {
+                            "type": "literal",
+                            "value": "level"
+                          }
+                        },
+                        {
+                          "key": "level",
+                          "required": true,
+                          "schema": {
+                            "type": "number"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "tag": "after-story",
+                      "fields": [
+                        {
+                          "key": "kind",
+                          "required": true,
+                          "schema": {
+                            "type": "literal",
+                            "value": "after-story"
+                          }
+                        },
+                        {
+                          "key": "storyId",
+                          "required": true,
+                          "schema": {
+                            "type": "string",
+                            "sourceType": "StoryId"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "cooldownFrames",
+                "required": false,
+                "schema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "sourceType": "AffectionStoryActivation"
+          },
+          "fields": [
+            {
+              "key": "kind",
+              "required": true,
+              "kind": "hand",
+              "tsType": "'affection'",
+              "authoringSchema": {
+                "type": "literal",
+                "value": "affection"
+              }
+            },
+            {
+              "key": "when",
+              "required": true,
+              "kind": "hand",
+              "tsType": "{ kind: 'level'; level: number } | { kind: 'after-story'; storyId: StoryId }",
+              "authoringSchema": {
+                "type": "union",
+                "discriminator": "kind",
+                "variants": [
+                  {
+                    "tag": "level",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "level"
+                        }
+                      },
+                      {
+                        "key": "level",
+                        "required": true,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "after-story",
+                    "fields": [
+                      {
+                        "key": "kind",
+                        "required": true,
+                        "schema": {
+                          "type": "literal",
+                          "value": "after-story"
+                        }
+                      },
+                      {
+                        "key": "storyId",
+                        "required": true,
+                        "schema": {
+                          "type": "string",
+                          "sourceType": "StoryId"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "key": "cooldownFrames",
+              "required": false,
+              "kind": "float",
+              "tsType": "number",
+              "authoringSchema": {
+                "type": "number"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ActiveStoryActivation": {
+      "fields": [
+        {
+          "key": "kind",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'active'",
+          "authoringSchema": {
+            "type": "literal",
+            "value": "active"
+          }
+        },
+        {
+          "key": "fallback",
+          "required": false,
+          "kind": "hand",
+          "tsType": "{ kind: 'current-area' } | { kind: 'fixed-area'; areaId: AreaId }",
+          "authoringSchema": {
+            "type": "union",
+            "discriminator": "kind",
+            "variants": [
+              {
+                "tag": "current-area",
+                "fields": [
+                  {
+                    "key": "kind",
+                    "required": true,
+                    "schema": {
+                      "type": "literal",
+                      "value": "current-area"
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "fixed-area",
+                "fields": [
+                  {
+                    "key": "kind",
+                    "required": true,
+                    "schema": {
+                      "type": "literal",
+                      "value": "fixed-area"
+                    }
+                  },
+                  {
+                    "key": "areaId",
+                    "required": true,
+                    "schema": {
+                      "type": "reference",
+                      "name": "AreaId"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "RandomStoryActivation": {
+      "fields": [
+        {
+          "key": "kind",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'random'",
+          "authoringSchema": {
+            "type": "literal",
+            "value": "random"
+          }
+        },
+        {
+          "key": "weight",
+          "required": true,
+          "kind": "float",
+          "tsType": "number",
+          "authoringSchema": {
+            "type": "number"
+          }
+        },
+        {
+          "key": "repeatable",
+          "required": true,
+          "kind": "bool",
+          "tsType": "boolean",
+          "authoringSchema": {
+            "type": "boolean"
+          }
+        },
+        {
+          "key": "cooldownFrames",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "authoringSchema": {
+            "type": "number"
+          }
+        }
+      ]
+    },
+    "AffectionStoryActivation": {
+      "fields": [
+        {
+          "key": "kind",
+          "required": true,
+          "kind": "hand",
+          "tsType": "'affection'",
+          "authoringSchema": {
+            "type": "literal",
+            "value": "affection"
+          }
+        },
+        {
+          "key": "when",
+          "required": true,
+          "kind": "hand",
+          "tsType": "{ kind: 'level'; level: number } | { kind: 'after-story'; storyId: StoryId }",
+          "authoringSchema": {
+            "type": "union",
+            "discriminator": "kind",
+            "variants": [
+              {
+                "tag": "level",
+                "fields": [
+                  {
+                    "key": "kind",
+                    "required": true,
+                    "schema": {
+                      "type": "literal",
+                      "value": "level"
+                    }
+                  },
+                  {
+                    "key": "level",
+                    "required": true,
+                    "schema": {
+                      "type": "number"
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "after-story",
+                "fields": [
+                  {
+                    "key": "kind",
+                    "required": true,
+                    "schema": {
+                      "type": "literal",
+                      "value": "after-story"
+                    }
+                  },
+                  {
+                    "key": "storyId",
+                    "required": true,
+                    "schema": {
+                      "type": "string",
+                      "sourceType": "StoryId"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "key": "cooldownFrames",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "authoringSchema": {
+            "type": "number"
+          }
+        }
+      ]
     }
   },
   "indexedTypes": [
     "AccessStage",
     "AchievementDef",
     "ActiveAreaConnection",
+    "ActiveStoryActivation",
     "ActiveStoryEntry",
     "ActiveThemeSelection",
     "AffectionConfigDef",
+    "AffectionStoryActivation",
+    "AffectionStoryEntry",
     "AffectorCapabilityGrant",
     "AffectorEffect",
     "AffectorFlow",
@@ -24218,6 +28691,7 @@
     "PanelPresentationDef",
     "PassivePoolChild",
     "PassivePoolDef",
+    "PassiveStoryBehavior",
     "PassiveStoryEntry",
     "PaymentOptionDef",
     "PersistedSession",
@@ -24240,6 +28714,8 @@
     "ProductionResult",
     "ProgressionCostDef",
     "ProtoStatState",
+    "RandomStoryActivation",
+    "RandomStoryEntry",
     "ResolvedTagDef",
     "ResourceAmount",
     "ResourceAmounts",
@@ -24313,11 +28789,13 @@
     "StoryCursorSnapshot",
     "StoryDef",
     "StoryDeferredStart",
+    "StoryDisplayTarget",
     "StoryEffectPort",
     "StoryEntityPresentationSnapshot",
     "StoryEntryBase",
     "StoryEntryCard",
     "StoryEntryCardInteraction",
+    "StoryEntryCatalog",
     "StoryEntryDef",
     "StoryEntryId",
     "StoryEntryReaction",
@@ -24335,8 +28813,8 @@
     "StoryNodeDocument",
     "StoryNodeId",
     "StoryNodePendingSnapshot",
+    "StoryNodePerformance",
     "StoryNodePresentationData",
-    "StoryNodeResult",
     "StoryNodeSnapshot",
     "StoryNumericValue",
     "StoryOperationNode",
@@ -24396,6 +28874,10 @@
     "ValueState",
     "VariantId",
     "VariantProgressionDef",
-    "VisibilitySnapshot"
+    "VisibilitySnapshot",
+    "WorldInformationDef",
+    "WorldInformationRule",
+    "WorldInformationTarget",
+    "WorldInformationTargetRef"
   ]
 }

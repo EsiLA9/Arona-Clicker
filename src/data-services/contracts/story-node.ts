@@ -4,6 +4,7 @@ import type { StoryId } from '../../engine/types/ids';
 import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-actions';
 import type { AreaId } from '../../engine/types/ids';
 import type { VariantId } from '../../engine/types/character';
+import type { StoryNodePerformance } from '../../engine/contracts/chat-presentation';
 
 /** 文档内唯一的稳定局部身份：1–64位ASCII名，首位字母，后续字母/数字/_/-。 */
 export type StoryNodeId = string;
@@ -72,6 +73,8 @@ export interface StoryTalkletNode extends StoryNodeBase {
   readonly presentation?: StoryPresentation;
   /** 对方输入中与思考节奏意图。 */
   readonly pacing?: StoryPacing;
+  /** 节点局部模板、样式与定位，不改变正文或推进语义。 */
+  readonly performance?: StoryNodePerformance;
 }
 
 /** 交互输入节点；选择候选属于本 Click，不由相邻 Click 推断。 */
@@ -80,6 +83,8 @@ export interface StoryClickNode extends StoryNodeBase {
   /** 旧阶段兼容 ID；当前输入次序完全由 nodes 顺序决定。 */ readonly stageId: StoryStageId;
   /** 本次输入的明确形式。 */
   readonly interaction: StoryClickInteraction;
+  /** 交互局部样式与定位；不提供正文文本模板。 */
+  readonly performance?: Omit<StoryNodePerformance, 'template'>;
 }
 
 /** 独立执行一项有界行为的节点；不属于呈现阶段。 */
@@ -157,12 +162,11 @@ export type StoryClickInteraction =
       /** 空白时沿用地点续播默认文案。 */ readonly buttonText?: string;
     };
 
-/** 单按钮输入；可声明按击工作量和成功结果。 */
+/** 单按钮输入；可声明按击工作量，完成后继续后继节点。 */
 export interface StoryButtonInteraction {
   /** 交互类型，固定为单按钮。 */ readonly kind: 'button';
   /** 按钮文案。 */ readonly text: string;
   /** 可选基础与随机按击工作量。 */ readonly press?: StoryClickPress;
-  /** 输入成功后的动作与控制流结果。 */ readonly result?: StoryNodeResult;
 }
 
 /** 单按钮所需的基础与随机按击工作量。 */
@@ -174,23 +178,16 @@ export interface StoryClickPress {
 /** 一个 Click 内互斥的一组候选项。 */
 export interface StoryChoiceInteraction {
   /** 交互类型，固定为一组互斥候选。 */ readonly kind: 'choice';
-  /** 成功选择后、候选结果前执行的共同动作。 */
-  readonly sharedActions?: readonly StoryAction[];
   /** 候选项；每个选项是本 Click 内独立分支。 */ readonly options: readonly StoryChoiceOption[];
 }
 
-/** 互斥选择中的单个候选项；候选项不声明独立多击。 */
+/** 互斥选择中的候选项；只声明出现条件与本 Entry 局部选择标记。 */
 export interface StoryChoiceOption {
   /** 稳定候选身份。 */ readonly id: string;
   /** 候选显示文案。 */ readonly text: string;
-  /** 候选可选条件。 */ readonly condition?: ConditionGroup;
-  /** 该候选的动作与控制流结果。 */ readonly result?: StoryNodeResult;
-}
-
-/** 输入成功后先执行动作，再可选执行控制流转移。 */
-export interface StoryNodeResult {
-  /** 输入成功后执行的动作。 */ readonly actions?: readonly StoryAction[];
-  /** 动作之后可选执行的控制流转移。 */ readonly transfer?: StoryTransfer;
+  /** 持久状态条件；与 requiresFlag 同时满足时才显示候选。 */ readonly showWhen?: ConditionGroup;
+  /** 本次 Entry 局部表必须存在此键才显示候选；只判断存在，不比较值。 */ readonly requiresFlag?: string;
+  /** 选择成功后设置为 true；本组其他选项声明的标记会先清除。 */ readonly marks?: readonly string[];
 }
 
 /** 以入口卡片邀请进入目标 Entry 的交互。 */

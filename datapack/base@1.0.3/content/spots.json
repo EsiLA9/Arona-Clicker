@@ -1,0 +1,3126 @@
+{
+  "spots": [
+    {
+      "id": "base:spot:credit_printer",
+      "areaId": "base:area:schale_main",
+      "name": "信用点制造机",
+      "description": "一台老旧但可靠的信用点制造设备，每个 Tick 都会产出信用点。",
+      "tags": [
+        [
+          "credit"
+        ],
+        [
+          "office"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 100
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:credit_printer",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 200
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:credit_printer",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 5
+        },
+        {
+          "id": "base:funclet:credit_printer_linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 2
+        },
+        {
+          "id": "base:funclet:credit_printer_gacha",
+          "kind": "gacha"
+        },
+        {
+          "id": "base:spot:credit_printer:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 2,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "信用点制造机",
+          "description": "一台老旧但可靠的信用点制造设备，每个 Tick 都会产出信用点。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:abydos_student_recruitment",
+      "areaId": "base:area:schale_main",
+      "name": "阿比多斯联络点",
+      "description": "夏莱为阿比多斯对策委员会准备的联络点。领取后，星野、芹香与白子会加入通讯录。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "abydos"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "free",
+          "label": "免费",
+          "costs": []
+        }
+      ],
+      "maxLevel": 1,
+      "global": true,
+      "presentation": {
+        "default": {
+          "name": "阿比多斯联络点",
+          "description": "夏莱为阿比多斯对策委员会准备的联络点。领取后，星野、芹香与白子会加入通讯录。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:comms_terminal",
+      "areaId": "base:area:schale_main",
+      "name": "通讯终端",
+      "description": "连接联邦网络的终端设备。可以安全结束当前世界线的经营活动，回到世界线选择。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "tech"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 60
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:comms_terminal",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 120
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:comms_terminal",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 3
+        },
+        {
+          "id": "base:funclet:comms_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:comms_terminal:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "通讯终端",
+          "description": "连接联邦网络的终端设备。可以安全结束当前世界线的经营活动，回到世界线选择。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:variant_training",
+      "areaId": "base:area:schale_main",
+      "name": "转译演练场",
+      "description": "在这里检查当前持有角色与场景切片的转译差异，并进行短回合实战演练。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "combat"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "maxLevel": 1,
+      "functionalities": [
+        {
+          "id": "base:funclet:variant_training_entry",
+          "kind": "variantTrainingEntry"
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "转译演练场",
+          "description": "在这里检查当前持有角色与场景切片的转译差异，并进行短回合实战演练。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:data_wiper",
+      "areaId": "base:area:schale_main",
+      "name": "数据清除装置",
+      "description": "一台带有⚡警示标志的重置设备。可以彻底抹除当前世界线的运营记录，下次进入时为崭新状态。注意：这会删除快照，但会保留所有统计数据。",
+      "tags": [
+        [
+          "tech"
+        ],
+        [
+          "defense"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 50
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:data_wiper",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 100
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:data_wiper",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 2
+        },
+        {
+          "id": "base:funclet:data_wiper_hard_reset",
+          "kind": "hardResetInit"
+        },
+        {
+          "id": "base:spot:data_wiper:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "数据清除装置",
+          "description": "一台带有⚡警示标志的重置设备。可以彻底抹除当前世界线的运营记录，下次进入时为崭新状态。注意：这会删除快照，但会保留所有统计数据。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:field_work",
+      "areaId": "base:area:schale_main",
+      "name": "野外调查站",
+      "description": "阿比多斯风格的小型户外作业点，适合野外探索型学生。",
+      "tags": [
+        [
+          "field"
+        ],
+        [
+          "combat"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 20
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 144
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:field_work",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 259
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:field_work",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 10
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 40
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 8
+        },
+        {
+          "id": "base:funclet:field_work_conditioned",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">",
+                "value": 100
+              }
+            ]
+          }
+        },
+        {
+          "id": "base:spot:field_work:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "野外调查站",
+          "description": "阿比多斯风格的小型户外作业点，适合野外探索型学生。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:tactical_desk",
+      "areaId": "base:area:schale_main",
+      "name": "战术指挥台",
+      "description": "配备通讯设备和地图的指挥站，适合战术型学生。",
+      "tags": [
+        [
+          "tactical"
+        ],
+        [
+          "intel"
+        ],
+        [
+          "office"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 30
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 216
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:tactical_desk",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 388
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:tactical_desk",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 20
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 60
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 10
+        },
+        {
+          "id": "base:spot:tactical_desk:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "战术指挥台",
+          "description": "配备通讯设备和地图的指挥站，适合战术型学生。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:abydos_rehab",
+      "areaId": "base:area:abydos_campus",
+      "name": "对策委员会室",
+      "description": "堆满资料与装备的对策室。委员会的日常从这里开始。",
+      "tags": [
+        [
+          "office"
+        ],
+        [
+          "defense"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 81
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:abydos_rehab",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 145
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:abydos_rehab",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 4
+        },
+        {
+          "id": "base:funclet:abydos_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:abydos_rehab:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "对策委员会室",
+          "description": "堆满资料与装备的对策室。委员会的日常从这里开始。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:abydos_cafe",
+      "areaId": "base:area:abydos_campus",
+      "name": "阿比多斯咖啡角",
+      "description": "临时搭起的咖啡角。午后的阳光里，少女们的谈笑声此起彼伏。",
+      "tags": [
+        [
+          "shop"
+        ],
+        [
+          "rest"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 15
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 126
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:abydos_cafe",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 226
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:abydos_cafe",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 8
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 30
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 6
+        },
+        {
+          "id": "base:funclet:abydos_cafe_shop",
+          "kind": "shop",
+          "shopId": "base:shop:abydos-cafe"
+        },
+        {
+          "id": "base:spot:abydos_cafe:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "阿比多斯咖啡角",
+          "description": "临时搭起的咖啡角。午后的阳光里，少女们的谈笑声此起彼伏。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:millennium_lab",
+      "areaId": "base:area:millennium_lab",
+      "name": "千禧年数据分析站",
+      "description": "全天候运转的数据分析站。信用点从海量数据流中沉淀出来。",
+      "tags": [
+        [
+          "tech"
+        ],
+        [
+          "intel"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 108
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_lab",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 194
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_lab",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 7
+        },
+        {
+          "id": "base:funclet:millennium_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:millennium_lab:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "千禧年数据分析站",
+          "description": "全天候运转的数据分析站。信用点从海量数据流中沉淀出来。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:millennium_game",
+      "areaId": "base:area:millennium_lab",
+      "name": "游戏开发部终端",
+      "description": "散发奶茶味与代码香的开发终端。正在开发一部惊天巨作。",
+      "tags": [
+        [
+          "game"
+        ],
+        [
+          "tech"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 20
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 162
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_game",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 291
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_game",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 12
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 40
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 9
+        },
+        {
+          "id": "base:spot:millennium_game:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "游戏开发部终端",
+          "description": "散发奶茶味与代码香的开发终端。正在开发一部惊天巨作。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:archive",
+      "areaId": "base:area:schale_library",
+      "name": "卷宗整理台",
+      "description": "分类整理联邦委托卷宗的工作台。每份归档都是一笔稳定的信用点收入。",
+      "tags": [
+        [
+          "archive"
+        ],
+        [
+          "office"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 25
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 180
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:archive",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 324
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:archive",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 6
+        },
+        {
+          "id": "base:spot:archive:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "卷宗整理台",
+          "description": "分类整理联邦委托卷宗的工作台。每份归档都是一笔稳定的信用点收入。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:hangar_supply",
+      "areaId": "base:area:schale_hangar",
+      "name": "机库补给车",
+      "description": "为出勤车辆补充物资的小型补给车。运转起来，信用点也随之流动。",
+      "tags": [
+        [
+          "logistics"
+        ],
+        [
+          "vehicle"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 35
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 252
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_supply",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 453
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_supply",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 30
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 80
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 9
+        },
+        {
+          "id": "base:spot:hangar_supply:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "机库补给车",
+          "description": "为出勤车辆补充物资的小型补给车。运转起来，信用点也随之流动。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:hangar_dispatch_deck",
+      "areaId": "base:area:schale_hangar",
+      "name": "出勤调度台",
+      "description": "统筹车辆、补给与出勤路线的调度台。只有机库形成稳定周转后，调度系统才会开放。",
+      "tags": [
+        [
+          "logistics"
+        ],
+        [
+          "vehicle"
+        ],
+        [
+          "tactical"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 90
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 407
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_dispatch_deck",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 752
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_dispatch_deck",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "spotLevel",
+                    "key": "base:spot:hangar_supply",
+                    "comparator": ">=",
+                    "value": 2
+                  },
+                  {
+                    "target": "stat",
+                    "key": "$GlobalProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 1000
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:supply_chain",
+                    "comparator": "==",
+                    "value": 1
+                  },
+                  {
+                    "target": "hasReadStory",
+                    "key": "base:story:schale_flow_show",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStory",
+                "key": "base:story:schale_flow_show",
+                "comparator": "==",
+                "value": 1
+              },
+              {
+                "target": "countTags",
+                "key": "vehicle",
+                "comparator": ">=",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "target": "spotLevel",
+                "key": "base:spot:hangar_supply",
+                "comparator": ">=",
+                "value": 3
+              },
+              {
+                "target": "hasEnh",
+                "key": "base:enhancement:tactical_command",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 14
+        },
+        {
+          "id": "base:spot:hangar_dispatch_deck:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 2,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "出勤调度台",
+          "description": "统筹车辆、补给与出勤路线的调度台。只有机库形成稳定周转后，调度系统才会开放。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:hangar_maintenance_bay",
+      "areaId": "base:area:schale_hangar",
+      "name": "车辆维护坞",
+      "description": "检修夏莱专用车辆的维护坞。后勤规模与技术储备同时达标后，才能承担高强度出勤。",
+      "tags": [
+        [
+          "vehicle"
+        ],
+        [
+          "tech"
+        ],
+        [
+          "maintenance"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 120
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 494
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_maintenance_bay",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 938
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_maintenance_bay",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "countTags",
+                "key": "vehicle",
+                "comparator": ">=",
+                "value": 2
+              },
+              {
+                "type": "OR",
+                "conditions": [
+                  {
+                    "target": "spotLevel",
+                    "key": "base:spot:data_wiper",
+                    "comparator": ">=",
+                    "value": 2
+                  },
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:field_logistics",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "resource",
+                    "key": "base:resource:credit",
+                    "comparator": ">=",
+                    "value": 600
+                  },
+                  {
+                    "target": "stat",
+                    "key": "$CurrentRunProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 1500
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:combat_drone",
+                    "comparator": "==",
+                    "value": 1
+                  },
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:intel_network",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "spotLevel",
+                "key": "base:spot:hangar_dispatch_deck",
+                "comparator": ">=",
+                "value": 1
+              },
+              {
+                "target": "countTags",
+                "key": "tech",
+                "comparator": ">=",
+                "value": 2
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 12
+        },
+        {
+          "id": "base:spot:hangar_maintenance_bay:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 2,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "车辆维护坞",
+          "description": "检修夏莱专用车辆的维护坞。后勤规模与技术储备同时达标后，才能承担高强度出勤。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:hangar_command_link",
+      "areaId": "base:area:schale_hangar",
+      "name": "联邦出勤联络台",
+      "description": "连接各学院出勤网络的联络台。它要求稳定的机库产能，也要求老师真正理解夏莱的日常调度。",
+      "tags": [
+        [
+          "tactical"
+        ],
+        [
+          "intel"
+        ],
+        [
+          "office"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 180
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 720
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_command_link",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 1440
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:hangar_command_link",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "hasReadStory",
+                    "key": "base:story:schale_welcome",
+                    "comparator": "==",
+                    "value": 1
+                  },
+                  {
+                    "target": "spotLevel",
+                    "key": "base:spot:hangar_dispatch_deck",
+                    "comparator": ">=",
+                    "value": 2
+                  },
+                  {
+                    "target": "resource",
+                    "key": "base:resource:credit",
+                    "comparator": ">=",
+                    "value": 1000
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "countTags",
+                    "key": "logistics",
+                    "comparator": ">=",
+                    "value": 2
+                  },
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:area_hub",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStory",
+                "key": "base:story:schale_flow_show",
+                "comparator": "==",
+                "value": 1
+              },
+              {
+                "type": "OR",
+                "conditions": [
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:tactical_command",
+                    "comparator": "==",
+                    "value": 1
+                  },
+                  {
+                    "target": "stat",
+                    "key": "$GlobalProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 2500
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "spotLevel",
+                "key": "base:spot:hangar_maintenance_bay",
+                "comparator": ">=",
+                "value": 2
+              },
+              {
+                "target": "countTags",
+                "key": "tactical",
+                "comparator": ">=",
+                "value": 2
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 18
+        },
+        {
+          "id": "base:spot:hangar_command_link:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 3,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "联邦出勤联络台",
+          "description": "连接各学院出勤网络的联络台。它要求稳定的机库产能，也要求老师真正理解夏莱的日常调度。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:pool_train",
+      "areaId": "base:area:abydos_pool",
+      "name": "泳池训练棚",
+      "description": "在干涸的池底架起的简易训练棚。挥洒汗水，也沉淀信用点。",
+      "tags": [
+        [
+          "training"
+        ],
+        [
+          "defense"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 18
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 153
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:pool_train",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 275
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:pool_train",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 5
+        },
+        {
+          "id": "base:spot:pool_train:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "泳池训练棚",
+          "description": "在干涸的池底架起的简易训练棚。挥洒汗水，也沉淀信用点。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:canteen_vendor",
+      "areaId": "base:area:millennium_canteen",
+      "name": "食堂自动售货机",
+      "description": "千禧年食堂的自动化售货机。投币、出货、信用点到账，一气呵成。",
+      "tags": [
+        [
+          "shop"
+        ],
+        [
+          "tech"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 28
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 198
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:canteen_vendor",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 356
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:canteen_vendor",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 20
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 60
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 8
+        },
+        {
+          "id": "base:funclet:canteen_gacha",
+          "kind": "gacha"
+        },
+        {
+          "id": "base:spot:canteen_vendor:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "食堂自动售货机",
+          "description": "千禧年食堂的自动化售货机。投币、出货、信用点到账，一气呵成。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:millennium_ai_cluster",
+      "areaId": "base:area:millennium_server",
+      "name": "AI 训练集群",
+      "description": "搭载专用 GPU 的分布式训练集群。海量数据从这里流经，信用点与算力等比产出。",
+      "tags": [
+        [
+          "tech"
+        ],
+        [
+          "link"
+        ],
+        [
+          "math"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 50
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 360
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_ai_cluster",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 648
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:millennium_ai_cluster",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 12
+        },
+        {
+          "id": "base:funclet:ai_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:millennium_ai_cluster:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "AI 训练集群",
+          "description": "搭载专用 GPU 的分布式训练集群。海量数据从这里流经，信用点与算力等比产出。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:trinity_donation",
+      "areaId": "base:area:trinity_cathedral",
+      "name": "圣所捐赠箱",
+      "description": "信徒们虔诚的捐赠汇集于此。每一笔捐赠都化为重建学园的基石。",
+      "tags": [
+        [
+          "faith"
+        ],
+        [
+          "courtesy"
+        ],
+        [
+          "credit"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 99
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_donation",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 178
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_donation",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 6
+        },
+        {
+          "id": "base:funclet:trinity_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:trinity_donation:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "圣所捐赠箱",
+          "description": "信徒们虔诚的捐赠汇集于此。每一笔捐赠都化为重建学园的基石。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:trinity_repair",
+      "areaId": "base:area:trinity_cathedral",
+      "name": "古文书修复台",
+      "description": "满是古籍与羊皮纸的修复工坊。每修复一页，信用点便伴随历史苏醒。",
+      "tags": [
+        [
+          "archive"
+        ],
+        [
+          "book"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 30
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 234
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_repair",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 421
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_repair",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 15
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 50
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 9
+        },
+        {
+          "id": "base:spot:trinity_repair:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "古文书修复台",
+          "description": "满是古籍与羊皮纸的修复工坊。每修复一页，信用点便伴随历史苏醒。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:trinity_tea_prep",
+      "areaId": "base:area:trinity_tea_room",
+      "name": "茶会准备台",
+      "description": "精致的茶具与点心摆满桌面。淑女们在优雅的茶香中讨论着学园的未来。",
+      "tags": [
+        [
+          "tea"
+        ],
+        [
+          "rest"
+        ],
+        [
+          "politics"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 25
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 198
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_tea_prep",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 356
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:trinity_tea_prep",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 18
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 55
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 10
+        },
+        {
+          "id": "base:spot:trinity_tea_prep:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "茶会准备台",
+          "description": "精致的茶具与点心摆满桌面。淑女们在优雅的茶香中讨论着学园的未来。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:gehenna_hall",
+      "areaId": "base:area:gehenna_council",
+      "name": "万魔殿会议厅",
+      "description": "桌椅歪斜、文件散落的会议厅。看似杂乱无章，却总能高效地完成行政工作。",
+      "tags": [
+        [
+          "admin"
+        ],
+        [
+          "discipline"
+        ],
+        [
+          "office"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 117
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:gehenna_hall",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 210
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:gehenna_hall",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 7
+        },
+        {
+          "id": "base:funclet:gehenna_restart",
+          "kind": "restartInit"
+        },
+        {
+          "id": "base:spot:gehenna_hall:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "万魔殿会议厅",
+          "description": "桌椅歪斜、文件散落的会议厅。看似杂乱无章，却总能高效地完成行政工作。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:gehenna_bureau",
+      "areaId": "base:area:gehenna_district",
+      "name": "便利屋68据点",
+      "description": "挂着\"业务中\"牌子的小事务所。社长亚瑠的\"法外\"业务为学园带来意想不到的收益。",
+      "tags": [
+        [
+          "business"
+        ],
+        [
+          "outlaw"
+        ],
+        [
+          "shop"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 35
+              }
+            }
+          ]
+        }
+      ],
+      "levelUpgrades": [
+        {
+          "level": 2,
+          "paymentOptions": [
+            {
+              "id": "upgrade-2",
+              "label": "升级 Lv.2",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 270
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:gehenna_bureau",
+              "value": "2"
+            }
+          ]
+        },
+        {
+          "level": 3,
+          "paymentOptions": [
+            {
+              "id": "upgrade-3",
+              "label": "升级 Lv.3",
+              "costs": [
+                {
+                  "type": "resource",
+                  "resourceId": "base:resource:credit",
+                  "amount": {
+                    "type": "const",
+                    "value": 486
+                  }
+                }
+              ]
+            }
+          ],
+          "effects": [
+            {
+              "op": "setSpotLevel",
+              "target": "base:spot:gehenna_bureau",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 25
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 70
+              }
+            ]
+          }
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:base",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 11
+        },
+        {
+          "id": "base:spot:gehenna_bureau:generic-level-linear",
+          "kind": "linearYield",
+          "resource": "base:resource:credit",
+          "amountPerLevel": 1,
+          "startLevel": 1
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "便利屋68据点",
+          "description": "挂着\"业务中\"牌子的小事务所。社长亚瑠的\"法外\"业务为学园带来意想不到的收益。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:theme_showcase_a",
+      "areaId": "base:area:theme_showcase",
+      "name": "主题色面板样本",
+      "description": "展示 Panel、边框、激活态与主题节点的组合效果，并可从此结束展示世界线。",
+      "tags": [
+        [
+          "theme",
+          "showcase"
+        ],
+        [
+          "display"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:showcase",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 1
+        },
+        {
+          "id": "base:funclet:theme_showcase_restart",
+          "kind": "restartInit"
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "主题色面板样本",
+          "description": "展示 Panel、边框、激活态与主题节点的组合效果，并可从此结束展示世界线。"
+        }
+      }
+    },
+    {
+      "id": "base:spot:theme_showcase_b",
+      "areaId": "base:area:theme_showcase",
+      "name": "气泡、状态与商店样本",
+      "description": "展示聊天气泡、状态色、对比度派生效果，以及可直接验收的 Spot 商店入口。",
+      "tags": [
+        [
+          "theme",
+          "showcase"
+        ],
+        [
+          "display"
+        ]
+      ],
+      "purchaseOptions": [
+        {
+          "id": "purchase",
+          "label": "购买",
+          "costs": [
+            {
+              "type": "resource",
+              "resourceId": "base:resource:credit",
+              "amount": {
+                "type": "const",
+                "value": 0
+              }
+            }
+          ]
+        }
+      ],
+      "functionalities": [
+        {
+          "id": "base:flow:showcase",
+          "kind": "flow",
+          "resource": "base:resource:credit",
+          "amount": 1
+        },
+        {
+          "id": "base:funclet:theme_showcase_shop",
+          "kind": "shop",
+          "shopId": "base:shop:abydos-cafe"
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "气泡、状态与商店样本",
+          "description": "展示聊天气泡、状态色、对比度派生效果，以及可直接验收的 Spot 商店入口。"
+        }
+      }
+    }
+  ]
+}

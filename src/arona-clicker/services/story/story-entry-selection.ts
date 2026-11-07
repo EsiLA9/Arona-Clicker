@@ -25,9 +25,10 @@ export function readyStepIds(ctx: StoryEntrySelectionContext, owner: string): st
   const tails: string[] = [];
   const steps: { id: string; required: number }[] = [];
   for (const entry of ctx.registry.passiveStories.values()) {
+    if (entry.activation.kind !== 'affection') continue;
     if (!isReadyStep(ctx, entry, owner, level, blocked, activeEntryId)) continue;
-    if (entry.pushAfterStory != null) tails.push(entry.id);
-    else steps.push({ id: entry.id, required: entry.affectionRequired! });
+    if (entry.activation.when.kind === 'after-story') tails.push(entry.id);
+    else steps.push({id:entry.id,required:entry.activation.when.level});
   }
   steps.sort((a, b) => a.required - b.required);
   return [...tails, ...steps.map(step => step.id)];
@@ -48,11 +49,10 @@ export function triggerPassiveStory(ctx: StoryEntrySelectionContext, initId = ct
   if (ctx.getCurrentStoryId(owner) !== null) return { success: false, error: 'AlreadyActive' };
   const state = ctx.getState();
   const selectedId = ctx.passivePools.pick(state, entry => {
-    if (entry.weight <= 0) return false;
-    if (entry.affectionRequired != null || entry.pushAfterStory != null) return false;
+    if (entry.activation.kind !== 'random' || entry.activation.weight <= 0) return false;
     if (entry.availableInits.length > 0 && !entry.availableInits.includes(initId)) return false;
     if (entry.triggerCondition && !ctx.conditionSystem.evaluateGroup(entry.triggerCondition, state)) return false;
-    if (!entry.repeatable && ctx.hasCompletedStory(entry.storyId)) return false;
+    if (!entry.activation.repeatable && ctx.hasCompletedStory(entry.storyId)) return false;
     return true;
   }, {
     owner: owner ?? null,
@@ -69,7 +69,7 @@ export function triggerTailPush(ctx: StoryEntrySelectionContext, owner: string, 
   const level = ctx.conditionSystem.affectionLevelReader(owner, state);
   const blocked = !!state.studentBlocks?.[owner];
   const tail = [...ctx.registry.passiveStories.values()].find(entry =>
-    entry.pushAfterStory === storyId && isReadyStep(ctx, entry, owner, level, blocked, null));
+    entry.activation.kind === 'affection' && entry.activation.when.kind === 'after-story' && entry.activation.when.storyId === storyId && isReadyStep(ctx, entry, owner, level, blocked, null));
   if (!tail) return { success: false, error: 'NoAvailableStory' };
   return ctx.startStory(tail.id, 'passive', owner, { skipConditions: true });
 }
@@ -82,18 +82,15 @@ function isReadyStep(
   blocked: boolean,
   activeEntryId: string | null,
 ): boolean {
-  if (entry.repeatable || entry.owner !== owner || blocked || entry.id === activeEntryId) return false;
-  if (entry.pushAfterStory != null) {
-    if (!ctx.hasCompletedStory(entry.pushAfterStory)) return false;
-  } else if (entry.affectionRequired != null) {
-    if (entry.affectionRequired > level) return false;
-  } else return false;
+  if (entry.activation.kind !== 'affection' || entry.owner !== owner || blocked || entry.id === activeEntryId) return false;
+  const when = entry.activation.when;
+  if (when.kind === 'after-story' ? !ctx.hasCompletedStory(when.storyId) : when.level > level) return false;
   if (ctx.hasCompletedStory(entry.storyId)) return false;
   const state = ctx.getState();
   if (entry.availableInits.length > 0 && !entry.availableInits.includes(state.activeInit)) return false;
   if (entry.triggerCondition && !ctx.conditionSystem.evaluateGroup(entry.triggerCondition, state)) return false;
   const last = state.passiveCooldowns?.[entry.id];
-  if (last !== undefined && entry.cooldownFrames && state.totalFrames - last < entry.cooldownFrames) return false;
+  if (last !== undefined && entry.activation.cooldownFrames && state.totalFrames - last < entry.activation.cooldownFrames) return false;
   return true;
 }
 

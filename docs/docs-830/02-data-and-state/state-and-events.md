@@ -18,20 +18,23 @@ UI 命令 → Runtime / 领域服务 → StateMutationService → PlayerState �
 | 范围 | 示例 | 生命周期 |
 | --- | --- | --- |
 | 全局 | `globalResources`、`unlockedInits`、`characterMemory` | 在不同 Init 间保留 |
-| 当前 Init | `resources`、`spotLevels`、`inventory`、`currentAreaId` | 随当前 Init 运行 |
-| Init 快照 | 当前 Init 的资源、据点、库存与阅读进度等字段 | 用于离开后恢复该 Init |
+| 当前 Init | `resources`、`spotLevels`、`inventory`、`currentAreaId`、`collectedAreaMapIds` | 随当前 Init 运行 |
+| Init 快照 | 当前 Init 的资源、据点、库存、到访与地图收录等字段 | 用于离开后恢复该 Init |
+| Save 级 | `informationRevealProgress` | 跨 Init 保留已记住的区域、地图、地图节点及其他信息面 |
 
 具体字段归属由 `PER_INIT_FIELD_SPECS` 和快照编解码逻辑决定。部分字段还按内容定义的 scope 分类：例如 Spot 等级可同时包含全局和 Init 局部条目，角色容器是否按 Init 保存取决于 Registry 的角色 scope。不能仅凭字段名判断整个容器的归属。新增字段时应核对状态类型、快照规范与保存恢复代码；存档结构改变遵循项目清档策略，不自行编写迁移兼容层。详见 [[init-state-snapshots]]。
 
 ## 写入与通知
 
-`StateMutationService` 提供资源、物品、角色进度、Spot 和商店交易等有语义的写入方法。复合购买和 Spot 升级会先校验整笔变更，再通过单次事务提交成本与结果，避免部分扣款。写入方法同时记录统计需要的信息并发出对应领域事件。
+`StateMutationService` 提供资源、物品、角色进度、Spot、地图收录、信息揭示和商店交易等有语义的写入方法。复合购买和 Spot 升级会先校验整笔变更，再通过单次事务提交成本与结果，避免部分扣款。写入方法同时记录统计需要的信息并发出对应领域事件。`acquireAreaMap` 与 `revealInformation` 不能直接修改状态数组；领域授权器先核对地图或信息规则，再通过共享写入口提交。
 
 `EventBus.emit()` 在通常情况下立即派发，包括普通派发过程中发出的嵌套事件；只有 `flush()` 正在执行时新发出的事件才进入队列，由当前 flush 的后续批次处理。订阅由 Runtime wiring 和领域反应器建立。事件代表已经发生的状态变化，不能替代状态写入本身。
 
 ### 例子：资源变化
 
 `StateMutationService.changeResource()` 更新对应资源桶后发出 `resourceChanged`，事件中包含资源 ID、变化量和新值；订阅者据此更新派生结果或检查响应规则。测试 `tests/engine/state-mutation-service.test.ts` 中的 `mutates state and emits one resource event` 将状态结果与事件一起核对。`isGlobalResource()` 按产品侧全局资源 ID 集合选择 `globalResources` 或当前 Init 的 `resources`，因此调用前应区分资源 ID 和当前数量。
+
+地图首次收录发出 `areaMapCollected`，并驱动 `hasAreaMap` 条件、地图册投影和相应订阅者；同一 Init 重复收录是 no-op。知识写入发出 `informationRevealed`，条件知识与显式剧情告知都经过信息揭示领域的目标校验。事件通知写入已发生的状态变化，不代表地图已经打开或区域已经到访。
 
 ```mermaid
 sequenceDiagram

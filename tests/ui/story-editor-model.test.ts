@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
-import { appendNode, composer, createStoryEditorState, currentDraft, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, newStory, renameStory, selectStory, storyDefinitionFromDraft, storyList, type StorySender } from '../../src/ui/story-editor/model';
+import { appendNode, bindStoryNodeToChoiceOption, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, choiceOptionFlagBindings, composer, createStoryEditorState, currentDraft, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, newStory, renameStory, renameStoryLocalFlag, selectStory, storyDefinitionFromDraft, storyList, unbindStoryNodeFromChoiceOption, type StorySender } from '../../src/ui/story-editor/model';
+import { selectDiscriminant, toggleOptional } from '../../src/ui/story-editor/property-model';
 import { StoryDraftPersistence, STORY_EDITOR_STORAGE_KEY } from '../../src/ui/story-editor/persistence';
 
 const senders: StorySender[] = [{ id: 'narrator', label: '旁白' }, { id: 'teacher', label: '老师', speaker: '老师' }, { id: 'character:hoshino', label: '星野', speaker: '星野' }];
@@ -117,6 +118,105 @@ describe('Story Editor authoring model and persistence', () => {
     expect(operation()).toMatchObject({ action: { value: 'kept' } });
   });
 
+  it('adds independent Choice mark pairs idempotently and preserves marks when a reader is unbound', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    draft.document = { ...draft.document, stages: { one: { advance: 'input' } }, nodes: [
+      { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'yes', text: 'Yes' }] } },
+      { id: 'first', type: 'operation', action: { kind: 'travel', areaId: 'test:area:home' } },
+      { id: 'second', type: 'operation', action: { kind: 'travel', areaId: 'test:area:home' } },
+    ] };
+    const first = canBindStoryNodeToChoiceOption(draft, 'choice', 0, 'yes', 'first');
+    expect(first).toMatchObject({ ok: true, created: true });
+    if (!first.ok) return;
+    expect(bindStoryNodeToChoiceOption(state, 'choice', 0, 'yes', 'first')).toEqual(first);
+    const afterFirst = JSON.stringify(draft.document);
+    expect(bindStoryNodeToChoiceOption(state, 'choice', 0, 'yes', 'first')).toMatchObject({ ok: true, created: false, flagName: first.flagName });
+    expect(JSON.stringify(draft.document)).toBe(afterFirst);
+    const second = bindStoryNodeToChoiceOption(state, 'choice', 0, 'yes', 'second');
+    expect(second).toMatchObject({ ok: true, created: true });
+    if (!second.ok) return;
+    expect((draft.document.nodes[0] as Extract<(typeof draft.document.nodes)[number], { type: 'click' }>).interaction).toMatchObject({
+      options: [{ marks: [first.flagName, second.flagName] }],
+    });
+    expect(choiceOptionFlagBindings(draft, 'choice', 0, 'yes')).toEqual([
+      { flagName: first.flagName, nodeIds: ['first'] }, { flagName: second.flagName, nodeIds: ['second'] },
+    ]);
+    expect(unbindStoryNodeFromChoiceOption(draft, 'choice', 0, 'yes', first.flagName, 'first')).toBe(true);
+    expect(draft.document.nodes.find(node => node.id === 'first')).not.toHaveProperty('requiresFlag');
+    expect((draft.document.nodes[0] as Extract<(typeof draft.document.nodes)[number], { type: 'click' }>).interaction).toMatchObject({
+      options: [{ marks: [first.flagName, second.flagName] }],
+    });
+  });
+
+  it('rejects stale unbinds and removes the shared node condition across same-Choice options', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    draft.document = { ...draft.document, stages: { one: { advance: 'input' } }, nodes: [
+      { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [
+        { id: 'first', text: 'First', marks: ['shared'] }, { id: 'second', text: 'Second', marks: ['shared'] },
+      ] } },
+      { id: 'target', type: 'operation', requiresFlag: 'shared', action: { kind: 'travel', areaId: 'test:area:home' } },
+    ] };
+    draft.dirty = false;
+    const before = JSON.stringify(draft.document);
+    expect(unbindStoryNodeFromChoiceOption(draft, 'choice', 0, 'removed-option', 'shared', 'target')).toBe(false);
+    expect(unbindStoryNodeFromChoiceOption(draft, 'choice', 0, 'first', 'stale-mark', 'target')).toBe(false);
+    expect(JSON.stringify(draft.document)).toBe(before);
+    expect(draft.dirty).toBe(false);
+    expect(unbindStoryNodeFromChoiceOption(draft, 'choice', 0, 'first', 'shared', 'target')).toBe(true);
+    expect(draft.document.nodes.find(node => node.id === 'target')).not.toHaveProperty('requiresFlag');
+    expect(choiceOptionFlagBindings(draft, 'choice', 0, 'first')).toEqual([]);
+    expect(choiceOptionFlagBindings(draft, 'choice', 1, 'second')).toEqual([]);
+    expect((draft.document.nodes[0] as Extract<(typeof draft.document.nodes)[number], { type: 'click' }>).interaction).toMatchObject({
+      options: [{ marks: ['shared'] }, { marks: ['shared'] }],
+    });
+  });
+
+  it('scopes Choice marks to live or cached Choice options, not similarly named Extra fields', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    const dormantMark = 'test-story-cache-yes-1';
+    const overlayMark = 'test-story-cache-yes-2';
+    draft.document = { ...draft.document, id: 'test:story:cache', extra: { t: 'dict', v: { marks: { t: 'str', v: dormantMark } } },
+      stages: { one: { advance: 'input' } }, nodes: [
+        { id: 'cached', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'yes', text: 'Old', marks: [dormantMark] }] } },
+        { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'yes', text: 'New' }] } },
+        { id: 'reader', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'outer', value: { kind: 'localFlag', op: 'set', name: 'inner', requiresFlag: 'nested' } } },
+        { id: 'overlay', type: 'operation', action: { kind: 'overlay', command: { command: 'show', id: 'entry-card', content: { kind: 'entryCard', card: {
+          request: { entryType: 'active', entryId: 'test:activestory:child', intent: 'card', owner: null }, continuation: { returnFlags: [overlayMark] },
+        } } } } },
+      ] };
+    expect(selectDiscriminant(draft, 'cached', ['interaction'], 'kind', 'button')).toBe(true);
+    expect(canBindStoryNodeToChoiceOption(draft, 'choice', 0, 'yes', 'reader')).toMatchObject({ ok: true, flagName: 'test-story-cache-yes-3', created: true });
+    expect(canBindStoryNodeToFlagReader(draft, 'route', 'reader')).toMatchObject({ ok: false });
+    expect(canBindStoryNodeToFlagReader(draft, 'inner', 'reader')).toMatchObject({ ok: false });
+    expect(renameStoryLocalFlag(draft, 'inner', 'renamed-inner').ok).toBe(false);
+    expect(draft.document.nodes.find(node=>node.id==='reader')).toMatchObject({action:{value:{kind:'localFlag',name:'inner',requiresFlag:'nested'}}});
+    expect(canBindStoryNodeToFlagReader(draft, overlayMark, 'reader')).toMatchObject({ok:true});
+    expect(renameStoryLocalFlag(draft, overlayMark, 'renamed-overlay')).toMatchObject({ok:true,changed:true});
+    expect(draft.document.nodes.find(node=>node.id==='overlay')).toMatchObject({action:{command:{content:{card:{continuation:{returnFlags:['renamed-overlay']}}}}}});
+    const renamed = renameStoryLocalFlag(draft, dormantMark, 'renamed-route');
+    expect(renamed).toEqual({ ok: true, changed: true });
+    expect(draft.document.extra).toMatchObject({ t: 'dict', v: { marks: { t: 'str', v: dormantMark } } });
+    expect(selectDiscriminant(draft, 'cached', ['interaction'], 'kind', 'choice')).toBe(true);
+    expect(draft.document.nodes.find(node => node.id === 'cached')).toMatchObject({ interaction: { options: [{ marks: ['renamed-route'] }] } });
+  });
+
+  it('tracks disabled Operation actions in their exact optional cache for allocation and rename', () => {
+    const state = createStoryEditorState(), draft = newStory(state);
+    const cachedName = 'test-story-button-cache-route-1';
+    draft.document = { ...draft.document, id: 'test:story:button-cache', stages: { one: { advance: 'input' } }, nodes: [
+      { id: 'button', type: 'click', stageId: 'one', interaction: { kind: 'button', text: 'go' } },
+  { id: "button-effect-1", type: 'operation', action: { kind: 'localFlag', op: 'set', name: cachedName, value: true } },
+      { id: 'choice', type: 'click', stageId: 'one', interaction: { kind: 'choice', options: [{ id: 'route', text: 'route' }] } },
+      { id: 'target', type: 'operation', action: { kind: 'travel', areaId: 'test:area:home' } },
+    ] };
+    expect(toggleOptional(draft, 'button-effect-1', ['action'], false)).toBe(true);
+    expect(canBindStoryNodeToFlagReader(draft, cachedName, 'target')).toMatchObject({ok:true});
+    expect(canBindStoryNodeToChoiceOption(draft, 'choice', 0, 'route', 'target')).toMatchObject({ok:true,flagName:'test-story-button-cache-route-2'});
+    expect(renameStoryLocalFlag(draft, cachedName, 'cached-renamed')).toMatchObject({ok:true,changed:true});
+    toggleOptional(draft, 'button-effect-1', ['action'], true);
+    expect(draft.document.nodes.find(node=>node.id==='button-effect-1')).toMatchObject({action:{kind:'localFlag',name:'cached-renamed'}});
+  });
+
   it('keeps an empty story and incomplete nodes without fabricating Click or executable payloads', () => {
     const state = createStoryEditorState();
     const draft = newStory(state);
@@ -192,12 +292,16 @@ describe('Story Editor authoring model and persistence', () => {
     expect(state.selectedNodeId).toBe('choice');
     expect(currentDraft(state)?.document.nodes.map(node => node.id)).toEqual(['choice', 'text', 'op', 'transfer']);
     expect(moveNode(state, -1)).toBe(false);
+    const draftId=currentDraft(state)!.draftId;
+    state.performanceEditing={[draftId]:['choice','text']};
     deleteNode(state);
+    expect(state.performanceEditing[draftId]).toEqual(['text']);
     expect(currentDraft(state)?.document.stages).toEqual(source.stages);
     expect(state.selectedNodeId).toBeNull();
     state.selectedNodeId = 'text';
     deleteNode(state);
     expect(currentDraft(state)?.document.stages).toEqual({});
+    expect(state.performanceEditing[draftId]).toEqual([]);
   });
 
   it('keeps registered sources and drafts in one searchable list, including missing sources', () => {

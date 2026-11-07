@@ -11,8 +11,7 @@ const OFFICE = 'base:init:schale_office';
 
 function activeEntry(id: string, storyId: string, extra: Partial<ActiveStoryEntry> = {}): ActiveStoryEntry {
   return {
-    id, storyId, type: 'active', availableInits: [], triggerCondition: and(), ...extra,
-  };
+    id, storyId, availableInits: [], triggerCondition: and(), ...extra, activation: { kind: 'active' as const } };
 }
 
 function nodeDoc(id: string, nodes: StoryDef['nodes'], stages: StoryDef['stages'] = {}): StoryDef {
@@ -79,11 +78,10 @@ describe('StoryService StoryNode 会话集成', () => {
   test.each(['direct', 'entry-request'] as const)('替换清理通知抛错时保留可存读的失败槽，不执行新目标（%s）', route => {
     const sourceEntry = activeEntry(`test:story:cleanup_source_${route}`, `test:story:cleanup_source_doc_${route}`);
     const targetEntry = activeEntry(`test:story:cleanup_target_${route}`, `test:story:cleanup_target_doc_${route}`);
-    const source = nodeDoc(sourceEntry.storyId, [{ id: 'replace', type: 'click', stageId: 'input', interaction: {
-      kind: 'button', text: '进入下一段', result: { actions: [{ kind: 'entryRequest', request: {
+    const source = nodeDoc(sourceEntry.storyId, [{ id: 'replace', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '进入下一段' } },
+  { id: "replace-effect-1", type: 'operation', action: { kind: 'entryRequest', request: {
         entryId: targetEntry.id, entryType: 'active', owner: null, intent: 'card',
-      } }] },
-    } }], { input: { advance: 'input' } });
+      } } }], { input: { advance: 'input' } });
     const target = nodeDoc(targetEntry.storyId, [
       { id: 'target-write', type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'cleanup_target_started', value: true }] } },
       { id: 'target-body', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '新目标正文' } },
@@ -139,7 +137,7 @@ describe('StoryService StoryNode 会话集成', () => {
 
     const result = game.story.startActiveStory(sourceEntry.id);
 
-    expect(result).toMatchObject({ success: true, finished: true, storyId: target.id, completed: { type: 'active', storyId: target.id } });
+    expect(result).toMatchObject({ success: true, finished: true, storyId: target.id, completed: { storyId: target.id, type: 'active' } });
     expect(game.story.getCurrentStoryId()).toBeNull();
     expect(game.state.flags.node_reentrant_target_ran).toBe('true');
     expect((game.state.globalResources?.[Resource.Pyroxene] ?? 0) - beforePyroxene).toBe(3);

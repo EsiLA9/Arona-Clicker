@@ -33,6 +33,7 @@ export const CONDITION_DEP_EVENT_TYPES: readonly GameEvent['type'][] = [
     'spotTagChanged',
     'tagCollectedChanged',
     'characterProgressChanged',
+    'areaMapCollected',
   ]),
 ];
 
@@ -59,6 +60,7 @@ export function eventEntityKeyOf(e: GameEvent): string | undefined {
     case 'storyCompleted': return e.storyId;
     case 'initEntered': return e.initId;
     case 'areaEntered': return e.areaId;
+    case 'areaMapCollected': return e.mapId;
     case 'tagCollectedChanged': return e.kind;
     default: return undefined;
   }
@@ -173,6 +175,9 @@ export class ConditionDepIndex<K> {
       case 'hasEnh':
         this.indexAdd('enhancementAdded', leaf.key, key);
         this.indexAdd('enhancementRemoved', leaf.key, key);
+        return false;
+      case 'hasAreaMap':
+        this.indexAdd('areaMapCollected', leaf.key, key);
         return false;
       case 'hasTag':
       case 'countTags': {

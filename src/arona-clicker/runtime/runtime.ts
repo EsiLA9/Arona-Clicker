@@ -1,4 +1,5 @@
 import { patchStoryDatapack, STORY_AUTHORING_TABLES, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
+import { packStoryIdentityReferences, planStoryIdentityChange, type StoryIdentityChange } from '../../data-services/authoring/story-identity';
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
@@ -10,9 +11,10 @@ import { buildAuthoringDef, requireContentPolicy, validateAuthoringInput } from 
 import type { AuthoringValidationContext, ContentAuthoringPolicy } from '../../data-services/authoring/content-policy';
 import { defaultDatapack } from '../content/default-datapack';
 import bundledBaseManifest from '../content/base-pack/datapack.json';
-import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogPane, PackCatalogReadModel, PackCatalogRecord, RuntimeAreaDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft, RuntimeModApplyResult } from '../contracts/index';
+import type { PackCatalogCommands, PackCatalogDependencyHint, PackCatalogEntry, PackCatalogPane, PackCatalogReadModel, PackCatalogRecord, RuntimeAreaDraft, RuntimeAreaMapDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft, RuntimeModApplyResult } from '../contracts/index';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AreaDef, InitDef, SpotDef } from '../../data-services/contracts/world';
+import type { AreaMapDef } from '../../data-services/contracts/area-map';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import { RuntimeContentCoordinator } from '../services/runtime/runtime-content-coordinator';
 import { RuntimeWorldContentCoordinator } from '../services/world/runtime-world-content-coordinator';
@@ -92,6 +94,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         for (const areaId of commit.changedAreaIds) {
           this.eventBus.emit({ type: 'areaDefinitionChanged', areaId });
         }
+        for (const areaMapId of commit.changedAreaMapIds) this.eventBus.emit({ type: 'areaMapDefinitionChanged', areaMapId });
         if (commit.topologyAreaIds.length > 0) {
           this.eventBus.emit({ type: 'areaTopologyChanged', areaIds: [...commit.topologyAreaIds] });
         }
@@ -313,6 +316,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         draft.modName,
         pack.datapack.inits.map(init => init.id),
         pack.datapack.areas.map(area => area.id),
+        pack.datapack.areaMaps?.map(areaMap => areaMap.id) ?? [],
       );
       return { ok: true, message: `已打开编辑态数据包：${draft.displayName}。` };
     } catch (error) {
@@ -497,6 +501,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}),
         ...(area.topology ? { topology: area.topology.map(item => ({ ...item })) } : {}),
       })),
+      ...(draft.areaMaps !== undefined ? { areaMaps: draft.areaMaps.map(areaMap => structuredClone(areaMap)) } : current?.areaMaps ? { areaMaps: current.areaMaps.map(areaMap => structuredClone(areaMap)) } : {}),
       ...(this.runtimeEditorPackRecordId ? { targetPackRecordId: this.runtimeEditorPackRecordId } : {}),
     };
     const persisted = this.persistRuntimeEditingPack();
@@ -524,14 +529,17 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       const suspendedSpotIds = new Set(draft.suspendedSpotIds ?? []);
       const suspendedInitIds = new Set(draft.suspendedInitIds ?? []);
       const suspendedAreaIds = new Set(draft.suspendedAreaIds ?? []);
+      const suspendedAreaMapIds = new Set(draft.suspendedAreaMapIds ?? []);
       const suspendedEnhancementIds = new Set(draft.suspendedEnhancementIds ?? []);
       const seenSpotIds = new Set<string>();
       const seenInitIds = new Set<string>();
       const seenAreaIds = new Set<string>();
+      const seenAreaMapIds = new Set<string>();
       const seenEnhancementIds = new Set<string>();
       const spots: SpotDef[] = [];
       const inits: InitDef[] = [];
       const areas: AreaDef[] = [];
+      const areaMaps: AreaMapDef[] = [];
       const enhancements: EnhancementDef[] = [];
 
       for (const draftSpot of draft.spots) {
@@ -562,6 +570,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         validateRuntimeDraftRecord(requireContentPolicy('areas'), input, context, seenAreaIds);
         if (!suspendedAreaIds.has(draftArea.idName)) areas.push(buildAuthoringDef(requireContentPolicy('areas'), draft.modName, input) as AreaDef);
       }
+      for (const draftAreaMap of draft.areaMaps ?? []) {
+        const input = { ...draftAreaMap };
+        validateRuntimeDraftRecord(requireContentPolicy('areaMaps'), input, context, seenAreaMapIds);
+        if (!suspendedAreaMapIds.has(draftAreaMap.idName)) areaMaps.push(buildAuthoringDef(requireContentPolicy('areaMaps'), draft.modName, input) as AreaMapDef);
+      }
       for (const draftEnhancement of draft.enhancements ?? []) {
         const input = { ...draftEnhancement };
         validateRuntimeDraftRecord(requireContentPolicy('enhancements'), input, context, seenEnhancementIds);
@@ -586,6 +599,8 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         version: draft.version,
         inits: previousDatapack ? mergeAuthoringRecords(previousDatapack.inits, inits) : inits,
         areas: previousDatapack ? mergeAuthoringRecords(previousDatapack.areas, areas) : areas,
+        areaMaps: draft.areaMaps === undefined ? previousDatapack?.areaMaps ?? []
+          : previousDatapack ? mergeOwnedAuthoringRecords(previousDatapack.areaMaps ?? [], areaMaps, draft.modName, 'area-map') : areaMaps,
         spots: previousDatapack ? mergeAuthoringRecords(previousDatapack.spots, spots) : spots,
         enhancements: previousDatapack ? mergeAuthoringRecords(previousDatapack.enhancements, enhancements) : enhancements,
       };
@@ -606,9 +621,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         suspendedSpotIds: [...suspendedSpotIds].filter(id => seenSpotIds.has(id)),
         ...(draft.inits !== undefined ? { inits: draft.inits.map(init => ({ ...init, defaultAreas: [...init.defaultAreas] })) } : {}),
         ...(draft.areas !== undefined ? { areas: draft.areas.map(area => ({ ...area, defaultSpots: [...area.defaultSpots] })) } : {}),
+        ...(draft.areaMaps !== undefined ? { areaMaps: draft.areaMaps.map(areaMap => structuredClone(areaMap)) } : {}),
         ...(draft.enhancements !== undefined ? { enhancements: draft.enhancements.map(enhancement => ({ ...enhancement })) } : {}),
         ...(draft.suspendedInitIds !== undefined || suspendedInitIds.size > 0 ? { suspendedInitIds: [...suspendedInitIds].filter(id => seenInitIds.has(id)) } : {}),
         ...(draft.suspendedAreaIds !== undefined || suspendedAreaIds.size > 0 ? { suspendedAreaIds: [...suspendedAreaIds].filter(id => seenAreaIds.has(id)) } : {}),
+        ...(draft.suspendedAreaMapIds !== undefined || suspendedAreaMapIds.size > 0 ? { suspendedAreaMapIds: [...suspendedAreaMapIds].filter(id => seenAreaMapIds.has(id)) } : {}),
         ...(draft.suspendedEnhancementIds !== undefined || suspendedEnhancementIds.size > 0 ? { suspendedEnhancementIds: [...suspendedEnhancementIds].filter(id => seenEnhancementIds.has(id)) } : {}),
       };
       this.runtimeContent.adoptRuntimeMod(
@@ -620,11 +637,12 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         draft.modName,
         inits.map(init => init.id),
         areas.map(area => area.id),
+        areaMaps.map(areaMap => areaMap.id),
       );
       this.runtimeEditorPackRecordId = targetPackRecordId ?? null;
       const persisted = this.persistRuntimeEditingPack();
       if (!persisted.ok) return persisted;
-      const activeCount = inits.length + areas.length + spots.length + enhancements.length;
+      const activeCount = inits.length + areas.length + areaMaps.length + spots.length + enhancements.length;
       return { ok: true, message: `运行时 Mod 已载入：${draft.displayName}；已应用 ${activeCount} 条内容。` };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -651,6 +669,31 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       this.persistPackManagerSnapshot();
       return { ok: true, message: '已保存到编辑态数据包；重新载入该包后生效。可从包管理导出。' };
     } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  renameStoryInPack(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult {
+    try {
+      const pack = this.requireEditingPack(packRecordId);
+      if (!change.expectedDigest || change.expectedDigest !== (pack.contentDigest ?? storedPackContentDigest(pack))) throw new Error('目标 Mod 已变化，请重新打开更改 ID 对话框。');
+      if (!pack.datapack.stories?.some(story=>story.id===change.fromId)) throw new Error('目标 Mod 不拥有原 Story。');
+      if (this.registry.stories.has(change.toId)) throw new Error(`Story ID 已存在：${change.toId}`);
+      for (const table of STORY_AUTHORING_TABLES) {
+        for (const row of change.patch[table]) if (!(pack.datapack[table] ?? []).some(item=>item.id===row.id)) throw new Error(`改名不能顺带创建内容：${row.id}`);
+        if (change.patch.removed?.[table]?.length) throw new Error('改名不能顺带删除其他内容。');
+      }
+      for (const other of this.packManager.listPacks()) {
+        if (other.id!==pack.id && other.datapack.stories?.some(story=>story.id===change.toId)) throw new Error(`Story ID 已存在于其他包：${change.toId}`);
+        if ((other.datapack.modName ?? other.manifest.modName) === pack.datapack.modName) continue;
+        const reference = packStoryIdentityReferences(other.datapack,change.fromId)[0];
+        if (reference) throw new Error(`其他 Mod 仍引用此 Story：${other.manifest.modName} / ${reference.id} ${reference.path}`);
+      }
+      const {datapack} = planStoryIdentityChange(pack.datapack,change.patch,change.fromId,change.toId);
+      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
+      this.validatePackDatapacks(replaceRuntimeDatapack(active,datapack));
+      this.packManager.savePack({...pack,datapack,contentDigest:undefined});
+      this.persistPackManagerSnapshot();
+      return {ok:true,message:'Story ID 与引用已保存到编辑态 Mod；重新载入该包后生效。'};
+    } catch (error) { return {ok:false,message:error instanceof Error ? error.message : String(error)}; }
   }
 
   private requireEditingPack(packRecordId: string): StoredPack {
@@ -1036,10 +1079,23 @@ function datapackToRuntimeModDraft(pack: StoredPack): RuntimeModDraft {
       name: area.name,
       description: area.description,
       defaultSpots: [...area.defaultSpots],
+      ...(area.navigationMapId ? { navigationMapId: area.navigationMapId } : {}),
+      ...(area.quickPassage !== undefined ? { quickPassage: area.quickPassage } : {}),
       ...(area.adjacentAreaIds ? { adjacentAreaIds: [...area.adjacentAreaIds] } : {}),
       ...(area.adjacentAreaIds ? { topology: area.adjacentAreaIds.map(areaId => ({ areaId, type: 'oneWay' as const })) } : {}),
       ...(tagDraft(area.tags) ? { tags: tagDraft(area.tags) } : {}),
-      ...(revealDraft(area.revealTriggers) ? { revealTriggers: revealDraft(area.revealTriggers) } : {}),
+      ...(area.reveal ? { reveal: cloneJson(area.reveal) } : {}),
+      ...(area.enterCondition ? { enterCondition: cloneJson(area.enterCondition) } : {}),
+      ...(area.onVisitReveal ? { onVisitReveal: [...area.onVisitReveal] } : {}),
+    })),
+    areaMaps: (datapack.areaMaps ?? []).map(areaMap => ({
+      idName: localDefinitionId(areaMap.id, modName, 'area-map'),
+      name: areaMap.name,
+      ...(areaMap.description !== undefined ? { description: areaMap.description } : {}),
+      ...(areaMap.reveal ? { reveal: cloneJson(areaMap.reveal) } : {}),
+      ...(areaMap.openCondition ? { openCondition: cloneJson(areaMap.openCondition) } : {}),
+      ...(areaMap.collection ? { collection: areaMap.collection } : {}),
+      nodes: cloneJson(areaMap.nodes), edges: cloneJson(areaMap.edges),
     })),
     enhancements: datapack.enhancements.map(enhancement => ({
       idName: localDefinitionId(enhancement.id, modName, 'enhancement'),
@@ -1064,6 +1120,13 @@ function mergeAuthoringRecords<T extends { id: string }>(
   return next.map(record => ({ ...(byId.get(record.id) ?? {}), ...record } as T));
 }
 
+function mergeOwnedAuthoringRecords<T extends { id: string }>(previous: readonly T[], next: readonly T[], modName: string, type: string): T[] {
+  const owned = `${modName}:${type}:`;
+  const kept = previous.filter(record => !record.id.startsWith(owned));
+  const replacements = mergeAuthoringRecords(previous.filter(record => record.id.startsWith(owned)), next);
+  return [...kept, ...replacements];
+}
+
 function runtimeModToDatapack(draft: RuntimeModDraft, previous: Datapack, registry: Registry): Datapack {
   const context = addDatapackValidationRefs(runtimeAuthoringValidationContext(registry), previous);
   const active = <T extends { idName: string }>(records: readonly T[], suspended: readonly string[] | undefined): T[] => {
@@ -1085,6 +1148,11 @@ function runtimeModToDatapack(draft: RuntimeModDraft, previous: Datapack, regist
   });
   const inits = draft.inits === undefined ? previous.inits : active(draft.inits, draft.suspendedInitIds).map(init => buildAuthoringDef(requireContentPolicy('inits'), draft.modName, init) as InitDef);
   const areas = draft.areas === undefined ? previous.areas : active(draft.areas, draft.suspendedAreaIds).map(area => buildAuthoringDef(requireContentPolicy('areas'), draft.modName, area) as AreaDef);
+  const areaMaps = draft.areaMaps === undefined ? previous.areaMaps ?? [] : active(draft.areaMaps, draft.suspendedAreaMapIds).map(areaMap => {
+    const policy = requireContentPolicy('areaMaps');
+    validateAuthoringInput(policy, areaMap, context);
+    return buildAuthoringDef(policy, draft.modName, areaMap) as AreaMapDef;
+  });
   const enhancements = draft.enhancements === undefined ? previous.enhancements : active(draft.enhancements, draft.suspendedEnhancementIds).map(enhancement => buildAuthoringDef(requireContentPolicy('enhancements'), draft.modName, enhancement) as EnhancementDef);
   return {
     ...cloneJson(previous),
@@ -1094,6 +1162,7 @@ function runtimeModToDatapack(draft: RuntimeModDraft, previous: Datapack, regist
     spots: mergeAuthoringRecords(previous.spots, spots),
     inits: mergeAuthoringRecords(previous.inits, inits),
     areas: mergeAuthoringRecords(previous.areas, areas),
+    areaMaps: draft.areaMaps === undefined ? previous.areaMaps ?? [] : mergeOwnedAuthoringRecords(previous.areaMaps ?? [], areaMaps, draft.modName, 'area-map'),
     enhancements: mergeAuthoringRecords(previous.enhancements, enhancements),
   };
 }

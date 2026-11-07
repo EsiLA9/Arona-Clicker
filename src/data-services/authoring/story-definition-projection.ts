@@ -1,4 +1,6 @@
+import { storyEntryType, type StoryEntryDef } from '../contracts/story-entry';
 import type { StoryDef } from '../contracts/story';
+import { storyPerformanceIssues } from '../validation/story-performance';
 import { validateStoryNodeStructure } from '../validation/story-node-structure';
 import { isStoryLocalFlagAction, validStoryFlagName } from '../validation/story-run-flags';
 import { validateExtraValue } from '../../engine/extra/extra-validate';
@@ -6,17 +8,20 @@ import { EXTRA_MAX_DEPTH } from '../../engine/extra/extra-core';
 import { parseExtraPath } from '../../engine/extra/extra-path';
 import { parseEntityId } from '../../engine/core/entity-id';
 import { parsePicId } from '../contracts/pic';
+import type { WorldInformationTarget, WorldInformationTargetRef } from '../../engine/contracts/world-information';
+import type { WorldInformationDef } from '../contracts/world-reveal';
 
 export interface StoryDefinitionReferences {
   stories?: ReadonlyMap<string, unknown>;
   areas?: ReadonlyMap<string, unknown>;
+  areaMaps?: ReadonlyMap<string, unknown>;
   spots?: ReadonlyMap<string, unknown>;
   enhancements?: ReadonlyMap<string, unknown>;
   items?: ReadonlyMap<string, unknown>;
   inits?: ReadonlyMap<string, unknown>;
   characterVariants?: ReadonlyMap<string, unknown>;
   characters?: ReadonlyMap<string, unknown>;
-  storyEntries?: ReadonlyMap<string, { readonly type: string }>;
+  storyEntries?: ReadonlyMap<string, Pick<StoryEntryDef,'activation'>>;
   colorGroups?: ReadonlyMap<string, unknown>;
   pics?: ReadonlyMap<string, unknown>;
   funclets?: ReadonlyMap<string, unknown>;
@@ -228,7 +233,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     return done({ target: v.target, key, comparator: v.comparator, value: number(v.value, `${path}.value`) });
   };
   const conditionGroup = (v: unknown, path: string): unknown => {
-    if (!plain(v) || v.type !== 'AND' && v.type !== 'OR') { fail(path, '选项 condition 必须是 ConditionGroup'); return null; }
+    if (!plain(v) || v.type !== 'AND' && v.type !== 'OR') { fail(path, 'Choice 出现条件 showWhen 必须是 ConditionGroup'); return null; }
     return condition(v, path);
   };
   const style = (v: unknown, path: string): Obj => {
@@ -244,8 +249,23 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     const out: Obj = {};
     if (hasOwn(x, 'side')) { if (!enums(x.side, ['left', 'right'])) fail(`${path}.side`, 'side 无效'); else out.side = x.side; }
     if (hasOwn(x, 'align')) { if (!enums(x.align, ['left', 'right', 'center'])) fail(`${path}.align`, 'align 无效'); else out.align = x.align; }
-    if (hasOwn(x, 'avatar')) out.avatar = string(x.avatar, `${path}.avatar`);
+    if (hasOwn(x, 'avatar')) {
+      const avatar=string(x.avatar,`${path}.avatar`);
+      if(parsePicId(avatar)&&refs?.pics&&!refs.pics.has(avatar)) fail(`${path}.avatar`,`图片引用不存在：${avatar}`);
+      out.avatar=avatar;
+    }
     if (hasOwn(x, 'avatarMode')) { if (!enums(x.avatarMode, ['auto', 'hide', 'show'])) fail(`${path}.avatarMode`, 'avatarMode 无效'); else out.avatarMode = x.avatarMode; }
+    return out;
+  };
+  const performance = (v: unknown, path: string, click: boolean): Obj => {
+    const x=object(v,path,click?['style','layout']:['template','style','layout'])??{};
+    const out:Obj={...x};
+    if (hasOwn(x,'style')) out.style=style(x.style,`${path}.style`);
+    if (plain(x.layout)) {
+      out.layout={...x.layout};
+      if (x.layout.mode==='positioned') for (const k of ['x','y']) (out.layout as Obj)[k]=number(x.layout[k],`${path}.layout.${k}`);
+    }
+    for (const issue of storyPerformanceIssues(out,click)) fail(`${path}${issue.path}`,issue.message);
     return out;
   };
   const content = (v: unknown, path: string): Obj => {
@@ -277,7 +297,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (x.entryType === 'passive' && x.intent === 'card') fail(path, 'passive Entry 不支持 card 意图');
     if (refs?.storyEntries) {
       const actual = refs.storyEntries.get(id);
-      if (!actual || actual.type !== x.entryType) fail(`${path}.entryId`, '目标剧情入口不存在或类型不匹配');
+      if (!actual || storyEntryType(actual) !== x.entryType) fail(`${path}.entryId`, '目标剧情入口不存在或类型不匹配');
     }
     return { entryId: id, entryType: x.entryType, owner: x.owner, intent: x.intent };
   };
@@ -352,6 +372,14 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
   const action = (v: unknown, path: string): Obj | undefined => {
     if (!plain(v)) { fail(path, 'StoryAction 必须是对象'); return {}; }
     if (Reflect.ownKeys(v).length === 0) return undefined;
+    if (v.kind === 'clearNode') {
+      const x=object(v,path,['kind','storyId','nodeId'])??{};
+      const storyId=string(x.storyId,`${path}.storyId`,true), nodeId=string(x.nodeId,`${path}.nodeId`,true);
+      ref('stories',storyId,`${path}.storyId`,true);
+      const target=storyId===(value as Obj)?.id ? (value as Obj) : refs?.stories?.get(storyId);
+      if (plain(target) && (!Array.isArray(target.nodes)||!target.nodes.some(node=>plain(node)&&node.id===nodeId&&['talklet','click'].includes(String(node.type))))) fail(`${path}.nodeId`,'目标必须是现有 Talklet / Click 节点');
+      return {kind:'clearNode',storyId,nodeId};
+    }
     if (v.kind === 'localFlag') {
       if (!isStoryLocalFlagAction(v)) fail(path, '本次播放局部标记配置无效');
       object(v, path, v.op === 'remove' ? ['kind', 'op', 'name'] : ['kind', 'op', 'name', 'value']);
@@ -397,7 +425,8 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       setResource: ['op', 'resourceId', 'amount'], addResource: ['op', 'resourceId', 'amount'],
       setSpotLevel: ['op', 'spotId', 'amount'], addSpotLevel: ['op', 'spotId', 'amount'],
       setManager: ['op', 'spotId', 'managerId'], addEnhancement: ['op', 'enhancementId'], addItem: ['op', 'itemId', 'amount'],
-      unlockInit: ['op', 'initId'], setFlag: ['op', 'flagId', 'value'], setExtra: ['op', 'path', 'value'],
+      unlockInit: ['op', 'initId'], acquireAreaMap: ['op', 'mapId'], revealInformation: ['op', 'target'],
+      setFlag: ['op', 'flagId', 'value'], setExtra: ['op', 'path', 'value'],
       addExtra: ['op', 'path', 'amount'], removeExtra: ['op', 'path'], grantCharacter: ['op', 'variantId'], addAffectionExp: ['op', 'variantId', 'amount'],
     };
     if (typeof op !== 'string' || !op.trim()) { fail(`${path}.op`, '请选择状态动作'); return {}; }
@@ -414,6 +443,8 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       case 'addEnhancement': stringField('enhancementId', 'enhancements'); break;
       case 'addItem': stringField('itemId', 'items'); out.amount = numeric(x.amount, `${path}.amount`); break;
       case 'unlockInit': stringField('initId', 'inits'); break;
+      case 'acquireAreaMap': stringField('mapId', 'areaMaps'); break;
+      case 'revealInformation': out.target = worldInformationTarget(x.target, `${path}.target`); break;
       case 'setFlag': stringField('flagId'); out.value = flagValue(x.value, `${path}.value`); break;
       case 'setExtra': case 'addExtra': case 'removeExtra': {
         const p = string(x.path, `${path}.path`, true); out.path = p;
@@ -426,10 +457,41 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     return out;
   };
-  const actionArray = (value: unknown, path: string): Obj[] => arr(value, path).flatMap((item, i) => {
-    const projected = action(item, `${path}[${i}]`);
-    return projected === undefined ? [] : [projected];
-  });
+  const worldInformationTarget = (v: unknown, path: string): WorldInformationTargetRef => {
+    if (!plain(v)) { fail(path, '世界信息目标必须是对象'); return { entityKind: 'area', entityId: '', target: 'existence' }; }
+    const allowed = v.entityKind === 'area' ? ['entityKind', 'entityId', 'target']
+      : v.entityKind === 'areaMap' ? ['entityKind', 'entityId', 'target']
+        : v.entityKind === 'areaMapNode' ? ['entityKind', 'mapId', 'nodeId', 'target'] : ['entityKind'];
+    const x = object(v, path, allowed) ?? {};
+    if (!enums(x.target, ['existence', 'name', 'utility', 'condition'])) fail(`${path}.target`, '信息面无效');
+    const target = (enums(x.target, ['existence', 'name', 'utility', 'condition']) ? x.target : 'existence') as WorldInformationTarget;
+    if (x.entityKind === 'area') {
+      const entityId = string(x.entityId, `${path}.entityId`, true);
+      ref('areas', entityId, `${path}.entityId`);
+      const definition = refs?.areas?.get(entityId) as { reveal?: WorldInformationDef } | undefined;
+      if (definition && definition.reveal?.[target]?.mode !== 'explicit') fail(`${path}.target`, '剧情只能授予声明为 explicit 的信息面');
+      return { entityKind: 'area', entityId, target };
+    }
+    if (x.entityKind === 'areaMap') {
+      const entityId = string(x.entityId, `${path}.entityId`, true);
+      ref('areaMaps', entityId, `${path}.entityId`);
+      const definition = refs?.areaMaps?.get(entityId) as { reveal?: WorldInformationDef } | undefined;
+      if (definition && definition.reveal?.[target]?.mode !== 'explicit') fail(`${path}.target`, '剧情只能授予声明为 explicit 的信息面');
+      return { entityKind: 'areaMap', entityId, target };
+    }
+    if (x.entityKind === 'areaMapNode') {
+      const mapId = string(x.mapId, `${path}.mapId`, true);
+      const nodeId = string(x.nodeId, `${path}.nodeId`, true);
+      ref('areaMaps', mapId, `${path}.mapId`);
+      const map = refs?.areaMaps?.get(mapId) as { nodes?: readonly { id: string; reveal?: WorldInformationDef }[] } | undefined;
+      const node = map?.nodes?.find(item => item.id === nodeId);
+      if (map && !node) fail(`${path}.nodeId`, `地图节点不存在：${nodeId}`);
+      if (node && node.reveal?.[target]?.mode !== 'explicit') fail(`${path}.target`, '剧情只能授予声明为 explicit 的信息面');
+      return { entityKind: 'areaMapNode', mapId, nodeId, target };
+    }
+    fail(`${path}.entityKind`, '世界信息目标类型无效');
+    return { entityKind: 'area', entityId: '', target };
+  };
   const flagValue = (v: unknown, path: string): unknown => {
     if (plain(v) && typeof v.type === 'string') return expression(v, path);
     if (typeof v === 'string' || typeof v === 'boolean') return v;
@@ -509,21 +571,6 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     fail(`${path}.command`, '未知 Presentation 命令'); return {};
   };
-  const result = (v: unknown, path: string): Obj | undefined => {
-    if (v === undefined) return undefined;
-    if (plain(v) && Reflect.ownKeys(v).length === 0) return undefined;
-    const x = object(v, path, ['actions', 'transfer']) ?? {};
-    const out: Obj = {};
-    if (hasOwn(x, 'actions')) {
-      const actions = actionArray(x.actions, `${path}.actions`);
-      if (actions.length) out.actions = actions;
-    }
-    if (hasOwn(x, 'transfer')) {
-      const projected = transfer(x.transfer, `${path}.transfer`);
-      if (projected) out.transfer = projected;
-    }
-    return Object.keys(out).length ? out : undefined;
-  };
   const root = object(value, '$', ['id', 'name', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
   const id = string(root.id, 'id', true);
   if (parseEntityId(id)?.type !== 'story') fail('id', '需要有效的 Story ID');
@@ -586,8 +633,9 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       return [base];
     }
     if (type === 'talklet') {
-      const x = object(nodeValue, p, [...common, 'stageId', 'content', 'presentation', 'pacing']) ?? {};
+      const x = object(nodeValue, p, [...common, 'stageId', 'content', 'presentation', 'pacing', 'performance']) ?? {};
       base.stageId = string(x.stageId, `${p}.stageId`, true); base.content = content(x.content, `${p}.content`);
+      if (hasOwn(x,'performance')) base.performance=performance(x.performance,`${p}.performance`,false);
       if (hasOwn(x, 'presentation')) base.presentation = presentation(x.presentation, `${p}.presentation`);
       if (hasOwn(x, 'pacing')) {
         const pacing = object(x.pacing, `${p}.pacing`, ['typing', 'thinking']) ?? {}; const out: Obj = {};
@@ -597,7 +645,8 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       return base;
     }
     if (type === 'click') {
-      const x = object(nodeValue, p, [...common, 'stageId', 'interaction']) ?? {};
+      const x = object(nodeValue, p, [...common, 'stageId', 'interaction', 'performance']) ?? {};
+      if (hasOwn(x,'performance')) base.performance=performance(x.performance,`${p}.performance`,true);
       base.stageId = string(x.stageId, `${p}.stageId`, true); base.interaction = interaction(x.interaction, `${p}.interaction`); return base;
     }
     if (type === 'operation') {
@@ -632,28 +681,31 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
         if (hasOwn(press, 'rand')) { const rand = number(press.rand, `${path}.press.rand`); if (!Number.isSafeInteger(rand) || rand < 0) fail(`${path}.press.rand`, '必须是非负安全整数'); else if (Number.isSafeInteger(base) && !Number.isSafeInteger(base + Math.max(rand - 1, 0))) fail(`${path}.press`, '总按击数超出安全整数范围'); pressOut.rand = rand; }
         out.press = pressOut;
       }
-      if (hasOwn(x, 'result')) {
-        const projected = result(x.result, `${path}.result`);
-        if (projected) out.result = projected;
-      }
+      if (hasOwn(x, 'result')) fail(`${path}.result`, '按钮不再支持 result；请改用后续 Operation、Transfer 或移动节点');
       return out;
     }
     if (v.kind === 'choice') {
       const x = object(v, path, ['kind', 'options', 'sharedActions']) ?? {};
+      if (hasOwn(x, 'sharedActions')) fail(`${path}.sharedActions`, 'Choice 不再支持 sharedActions');
       const out: Obj = { kind: 'choice', options: arr(x.options, `${path}.options`).map((optionValue, i) => {
-        const p = `${path}.options[${i}]`; const option = object(optionValue, p, ['id', 'text', 'condition', 'reply', 'result']) ?? {};
+        const p = `${path}.options[${i}]`;
+        const option = object(optionValue, p, ['id', 'text', 'showWhen', 'requiresFlag', 'marks', 'reply', 'condition', 'result']) ?? {};
+        if (hasOwn(option, 'condition')) fail(`${p}.condition`, 'Choice option 不再支持 condition，请使用 showWhen');
+        if (hasOwn(option, 'result')) fail(`${p}.result`, 'Choice option 不再支持 result；请使用 marks 与独立后续节点');
         const o: Obj = { id: string(option.id, `${p}.id`, true), text: string(option.text, `${p}.text`) };
-        if (hasOwn(option, 'condition')) o.condition = conditionGroup(option.condition, `${p}.condition`);
-        if (hasOwn(option, 'result')) {
-          const projected = result(option.result, `${p}.result`);
-          if (projected) o.result = projected;
+        if (hasOwn(option, 'showWhen')) o.showWhen = conditionGroup(option.showWhen, `${p}.showWhen`);
+        if (hasOwn(option, 'requiresFlag')) {
+          const flag = string(option.requiresFlag, `${p}.requiresFlag`, true);
+          if (!validStoryFlagName(flag)) fail(`${p}.requiresFlag`, 'requiresFlag 必须是非空局部标记名');
+          o.requiresFlag = flag;
         }
+        if (hasOwn(option, 'marks')) o.marks = arr(option.marks, `${p}.marks`).map((mark, j) => {
+          const flag = string(mark, `${p}.marks[${j}]`, true);
+          if (!validStoryFlagName(flag)) fail(`${p}.marks[${j}]`, '选择标记必须是非空局部标记名');
+          return flag;
+        });
         return o;
       }) };
-      if (hasOwn(x, 'sharedActions')) {
-        const actions = actionArray(x.sharedActions, `${path}.sharedActions`);
-        if (actions.length) out.sharedActions = actions;
-      }
       return out;
     }
     if (v.kind === 'entryCard') {

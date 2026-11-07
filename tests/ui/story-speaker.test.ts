@@ -1,3 +1,4 @@
+import { createStoryForTest } from './story-editor-test-helpers';
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -32,7 +33,7 @@ describe('Story speaker identity and temporary display name', () => {
   const refresh = () => { ctrl!.storyEditor.requestRefresh(); ctrl!.flushUIUpdates(); };
   function editor(nodes: StoryDraftNode[]): StoryDraft {
     ctrl = new UIController(game, root); ctrl.render(); ctrl.storyEditor.open();
-    find<HTMLButtonElement>('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     const draft = currentDraft(ctrl.storyEditor.state)!;
     draft.document = { ...draft.document, startContext: { type: 'area', areaId: [...game.registry.areas.keys()][0] }, nodes };
     refresh(); return draft;

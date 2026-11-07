@@ -7,7 +7,8 @@ const gate = (target: string, key: string) => ({ reveal: target as 'name', condi
 const fixture = () => {
   const maps = {
     inits: new Map([['i', { id: 'i', revealTriggers: [gate('name', 'r')] }]]),
-    areas: new Map([['a', { id: 'a', initId: 'i', revealTriggers: [gate('name', 'r')] }], ['other-area', { id: 'other-area', initId: 'j' }]]),
+    areas: new Map([['a', { id: 'a', initId: 'i', reveal: { name: { mode: 'condition' as const, condition: gate('name', 'r').condition! } } }], ['other-area', { id: 'other-area', initId: 'j' }]]),
+    areaMaps: new Map(),
     spots: new Map([['s', { id: 's', areaId: 'a', revealTriggers: [gate('name', 'r')] }], ['global-spot', { id: 'global-spot', areaId: 'other-area', global: true, revealTriggers: [gate('name', 'r')] }]]),
     enhancements: new Map([['e', { id: 'e', revealTriggers: [gate('name', 'r')] }]]),
     items: new Map([['it', { id: 'it', revealTriggers: [gate('name', 'r')] }], ['no-gates', { id: 'no-gates' }]]),
@@ -21,8 +22,8 @@ const state = (extra: Partial<PlayerState> = {}) => ({ activeInit: 'i', informat
 describe('information reveal domain', () => {
   test('derives watches for all seven entity kinds using current Init and StoryEntry identity', () => {
     const watches = deriveDesiredInformationWatches(fixture(), state(), 'i');
-    expect(watches.map(w => `${w.key.entityKind}:${w.key.entityId}`)).toEqual([
-      'init:i', 'area:a', 'spot:s', 'spot:global-spot', 'enhancement:e', 'item:it', 'activeStoryEntry:entry-a', 'passiveStoryEntry:entry-p',
+    expect(watches.map(w => `${w.key.entityKind}:${w.key.entityKind === 'areaMapNode' ? `${w.key.mapId}/${w.key.nodeId}` : w.key.entityId}`)).toEqual([
+      'init:i', 'spot:s', 'spot:global-spot', 'enhancement:e', 'item:it', 'activeStoryEntry:entry-a', 'passiveStoryEntry:entry-p', 'area:a',
     ]);
     expect(watches[0].wakePlan.kind).toBe('reactive');
     expect(watches[0].fullCondition).toEqual({ target: 'resource', key: 'r', comparator: '>=', value: 1 });
@@ -59,7 +60,7 @@ describe('information reveal domain', () => {
     targets.forEach((target, n) => registry.items.set(`cond-${n}`, { revealTriggers: [{
       reveal: 'name', condition: { target, key: target, comparator: '>=', value: 1 },
     }] }));
-    const watches = deriveDesiredInformationWatches(registry as unknown as Registry, state(), 'i').filter(w => w.key.entityId.startsWith('cond-'));
+    const watches = deriveDesiredInformationWatches(registry as unknown as Registry, state(), 'i').filter(w => w.key.entityKind !== 'areaMapNode' && w.key.entityId.startsWith('cond-'));
     expect(watches.filter(w => w.wakePlan.kind === 'reactive')).toHaveLength(4);
     expect(watches.filter(w => w.wakePlan.kind === 'admission-only')).toHaveLength(3);
     registry.inits.get('i')!.revealTriggers.push({ reveal: 'utility', condition: { type: 'AND', conditions: [
@@ -99,7 +100,7 @@ describe('information reveal domain', () => {
     registry.items.set('run-gate', { revealTriggers: [{
       reveal: 'name', condition: { target: 'hasReadStoryInRun', key: 'story', comparator: '==', value: 1 },
     }] });
-    const watch = deriveDesiredInformationWatches(registry as unknown as Registry, state(), 'i').find(w => w.key.entityId === 'run-gate')!;
+    const watch = deriveDesiredInformationWatches(registry as unknown as Registry, state(), 'i').find(w => w.key.entityKind !== 'areaMapNode' && w.key.entityId === 'run-gate')!;
     expect(watch.wakePlan).toMatchObject({ kind: 'reactive', invalidationCoverage: 'complete' });
   });
 });

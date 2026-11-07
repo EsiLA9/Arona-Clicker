@@ -27,10 +27,13 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
       </div>`
     : '';
   const mapEntry = currentArea ? game.areaMap?.getEntryView(currentArea.id) : undefined;
+  const collectedMapIndex = game.areaMap?.getCollectedMapEntries().findIndex(entry => entry.available) ?? -1;
   const mapRouteAllowed = allowAreaMapEntry
     ?? (!panelState.workspace && (!panelState.workspaceNavigation || panelState.workspaceNavigation.current.kind === 'game'));
   const mapButton = mapEntry && mapEntry.ready
     ? `<button type="button" class="area-map-entry" data-area-map-open="${ctx.escapeHtml(currentArea!.id)}"${interactionBlocked || !mapRouteAllowed || panelState.areaMapSession ? ' disabled' : ''}>区域地图</button>` : '';
+  const collectionButton = (!mapEntry?.ready && collectedMapIndex >= 0)
+    ? `<button type="button" class="area-map-entry" data-area-map-open-collected="${collectedMapIndex}"${interactionBlocked || !mapRouteAllowed || panelState.areaMapSession ? ' disabled' : ''}>地图册</button>` : '';
 
   // hero 横幅
   const hero = currentArea
@@ -55,7 +58,7 @@ export function renderAreaNavigationContent(ctx: UIContext, panelState: AreaNavi
 
   return `
     ${hero}
-    ${mapButton}
+    ${mapButton || collectionButton}
     ${quickStoryButtons}
     <div class="nav-sub">可前往区域</div>
     ${reachableRows || '<div class="nav-item"><span class="nav-marker"></span><span>暂无可达区域</span><small>—</small></div>'}
@@ -67,19 +70,22 @@ export function renderAreaNavItem(ctx: UIContext, areaId: string, replayLocked =
   const { game, view } = ctx;
   const area = game.world.areas.get(areaId);
   if (!area) return '';
-  const visible = view.visibility.areas[area.id] ?? false;
+  const visible = game.areaMap.getAreaInfo(area.id).existenceKnown;
   const storyLocked = game.story.isBlockingMovement() || replayLocked;
   const reveal = getAreaReveal(ctx, area);
   const presentation = resolveEntityPresentation(ctx, 'area', area.id);
   const name = reveal.nameKnown ? (presentation?.name ?? area.name) : '未知区域';
-  const isLocked = !visible || storyLocked;
-  const spotCount = game.world.spotsOfArea(area.id).length;
+  const travel = game.getAreaTravelStatus(area.id);
+  const isLocked = !visible || storyLocked || !travel.success;
   const marker = isLocked ? '<span class="nav-lock">🔒</span>' : '<span class="nav-marker"></span>';
+  const route = travel.success ? travel.method === 'mapDirect' ? '导览直达'
+    : travel.method === 'transit' ? '交通'
+      : travel.method === 'visited' ? '已探索通路' : '相邻通路' : '';
   const state = storyLocked
     ? '<small>演出中</small>'
     : isLocked
       ? '<small>LOCKED</small>'
-      : `<small>${spotCount} SPOT</small>`;
+      : `<small>${route}</small>`;
   return `
       <button class="nav-item area-nav hover-wrap ${isLocked ? 'is-locked' : ''}" data-ui-area-nav="reachable:${area.id}" data-ui-area-nav-kind="reachable" data-area="${area.id}" data-tooltip="area:${area.id}" aria-disabled="${isLocked}" ${isLocked ? 'data-locked' : ''}>
         ${marker}<span>${ctx.escapeHtml(name)}</span>${state}

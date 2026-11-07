@@ -6,6 +6,7 @@ import type { Character } from './ids';
 import type { ExtraPath, ExtraValue } from './extra';
 import type { EngineTalklet } from '../contracts/talklet';
 import type { ActiveThemeSelection } from './theme';
+import type { WorldInformationTargetRef } from '../contracts/world-information';
 
 /** Why a StoryNode playback source released its temporary presentation resources. */
 export type StoryRunEndReason = 'completed' | 'replaced' | 'cancelled' | 'failed';
@@ -22,6 +23,7 @@ export type GameEvent =
     }
   | { type: 'initDefinitionChanged'; initId: string }
   | { type: 'areaDefinitionChanged'; areaId: string }
+  | { type: 'areaMapDefinitionChanged'; areaMapId: string }
   | { type: 'areaTopologyChanged'; areaIds: string[] }
   | { type: 'managerChanged'; spotId: string; newManager: Character }
   | { type: 'enhancementAdded'; enhancementId: string }
@@ -30,6 +32,8 @@ export type GameEvent =
   | { type: 'initEntered'; initId: string }
   | { type: 'initUnlocked'; initId: string }
   | { type: 'areaEntered'; areaId: string; fromAreaId: string | null }
+  | { type: 'areaMapCollected'; mapId: string }
+  | { type: 'informationRevealed'; target: WorldInformationTargetRef }
   | { type: 'storyAreaTraveled'; areaId: string; owner?: string | null; runId?: string }
   | { type: 'storyTriggered'; storyId: string; owner?: string | null; runId?: string; replayId?: string; isolated?: boolean; isReplay?: boolean; context?: { type: 'area'; areaId: string } | { type: 'chara'; characterId: string } }
   | { type: 'storyPlaybackChanged'; owner: string | null; replayId?: string }

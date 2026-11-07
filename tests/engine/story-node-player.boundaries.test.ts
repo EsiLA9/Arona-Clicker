@@ -63,15 +63,14 @@ describe('StoryNodePlayer boundary regressions', () => {
     expect(click.node.id).toBe('continue');
   });
 
-  it('keeps the same input ticket when action preflight rejects before effects', () => {
-    const root = documentOf(ROOT, [{ id: 'choose', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{
-      id: 'go', text: '开始', result: { actions: [credit(3)] },
-    }] } }], { pick: { advance: 'input' } });
+  it('fails at a following Operation whose preflight rejects, without effects', () => {
+    const root = documentOf(ROOT, [{ id: 'choose', type: 'click', stageId: 'pick', interaction: { kind: 'button', text: '开始' } },
+  { id: "choose-effect-1", type: 'operation', action: credit(3) }], { pick: { advance: 'input' } });
     const { host, state } = makeHost({ rejectPreflight: action => action.kind === 'state' });
     const player = new StoryNodePlayer(documents(root), host);
     const waiting = input(player.start(ROOT, source).view);
-    const rejected = player.submit(waiting.token, 'go');
-    expect(rejected).toMatchObject({ ok: false, error: 'preflight rejected', view: { status: 'input', token: waiting.token } });
+    const rejected = player.submit(waiting.token);
+    expect(rejected).toMatchObject({ ok: false, error: 'preflight rejected', view: { status: 'failed' } });
     expect(state.credit).toBe(0);
     expect(state.applied).toHaveLength(0);
     expect(state.preflighted).toHaveLength(1);
@@ -99,11 +98,12 @@ describe('StoryNodePlayer boundary regressions', () => {
     expect(overState.state.applied).toHaveLength(0);
   });
 
-  it('preserves root identity when an insert at the chain tail ends in another story', () => {
+  it('routes a marked Choice through an explicit insert at the chain tail', () => {
     const insertedId = 'test:story:inserted-tail';
-    const root = documentOf(ROOT, [{ id: 'insert', type: 'click', stageId: 'entry', interaction: { kind: 'choice', options: [{
-      id: 'go', text: '进入', result: { transfer: { mode: 'insert', storyId: insertedId } },
-    }] } }], { entry: { advance: 'input' } });
+    const root = documentOf(ROOT, [
+      { id: 'insert', type: 'click', stageId: 'entry', interaction: { kind: 'choice', options: [{ id: 'go', text: '进入', marks: ['route'] }] } },
+      { id: 'transfer', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'insert', storyId: insertedId } },
+    ], { entry: { advance: 'input' } });
     const inserted = documentOf(insertedId, [talk('last-line', 'body')], { body: { advance: 'auto' } });
     const player = new StoryNodePlayer(documents(root, inserted), makeHost().host);
     const choice = input(player.start(ROOT, source).view);

@@ -11,6 +11,7 @@ import type { EntityPresentationOptionView, EntityPresentationQueryPort, EntityP
 import type { PlayerState } from '../../types/state';
 import { Registry } from '../../../data-services/registry/registry';
 import { ColorSystem } from '../progression/color-system';
+import { areaInformationKnown } from '../world/area-travel-routes';
 
 type PresentationTarget = {
   presentation?: EntityPresentationDef;
@@ -202,7 +203,10 @@ export class EntityPresentationService implements EntityPresentationQueryPort {
     const { kind, id } = splitKey(key);
     switch (kind) {
       case 'init': return this.visibility.isInitVisible(id, state);
-      case 'area': return this.visibility.isAreaVisible(id, state);
+      case 'area': {
+        const area = this.registry.areas.get(id);
+        return !!area && areaInformationKnown(state, area, 'existence');
+      }
       case 'spot': return this.visibility.isSpotVisible(id, state);
       case 'enhancement': return this.visibility.isEnhancementVisible(id, state);
       case 'variant': return true;

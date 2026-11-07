@@ -30,69 +30,75 @@ export interface StoryContentItem {
 
 /** AronaClicker 故事栏的内容编排；它是产品内容，不属于基础引擎或测试包。 */
 export const baseStoryHierarchy: StoryContentTable = {
-  categories: [
+  "categories": [
     {
-      id: 'main', name: '主线故事', parts: [
+      "id": "main",
+      "name": "主线故事",
+      "parts": [
         {
-          id: 'part_1', name: '夏莱篇', chapters: [
-            { id: 'ch_1', name: '第一章', items: [{ id: 'base:activestory:schale_welcome', entryId: 'base:activestory:schale_welcome', replayable: true }] },
-            { id: 'ch_2', name: '第二章', items: [
-              { id: 'base:activestory:schale_flow_show', entryId: 'base:activestory:schale_flow_show', replayable: true },
-              { id: 'base:activestory:schale_theme_lite_test', entryId: 'base:activestory:schale_theme_lite_test', replayable: true },
-            ] },
-            { id: 'ch_3', name: '第三章', items: [
-              { id: 'base:activestory:millennium_welcome', entryId: 'base:activestory:millennium_welcome', replayable: true },
-              { id: 'base:activestory:millennium_game_crisis', entryId: 'base:activestory:millennium_game_crisis', replayable: true },
-            ] },
-          ],
+          "id": "part_1",
+          "name": "夏莱篇",
+          "chapters": [
+            {
+              "id": "ch_1",
+              "name": "第一章",
+              "items": []
+            },
+            {
+              "id": "ch_2",
+              "name": "第二章",
+              "items": []
+            },
+            {
+              "id": "ch_3",
+              "name": "第三章",
+              "items": []
+            }
+          ]
         },
         {
-          id: 'part_2', name: '阿比多斯篇', chapters: [
-          { id: 'ch_1', name: '第一章', items: [{ id: 'base:activestory:abydos_welcome', entryId: 'base:activestory:abydos_welcome', replayable: true }] },
-          ],
-        },
-      ],
+          "id": "part_2",
+          "name": "阿比多斯篇",
+          "chapters": [
+            {
+              "id": "ch_1",
+              "name": "第一章",
+              "items": []
+            }
+          ]
+        }
+      ]
     },
     {
-      id: 'side', name: '小故事', parts: [
-        { id: 'part_1', name: '芹香系列', items: [
-          { id: 'base:activestory:serika_side_1', entryId: 'base:activestory:serika_side_1', replayable: true },
-          { id: 'base:activestory:serika_side_2', entryId: 'base:activestory:serika_side_2', replayable: true },
-        ] },
-        { id: 'part_2', name: '跑腿系列', items: [
-          { id: 'base:activestory:run_chain_1', entryId: 'base:activestory:run_chain_1', replayable: true },
-          { id: 'base:activestory:run_chain_2', entryId: 'base:activestory:run_chain_2', replayable: true },
-          { id: 'base:activestory:run_chain_3', entryId: 'base:activestory:run_chain_3', replayable: true },
-        ] },
-        { id: 'part_3', name: '星野系列', items: [
-          { id: 'base:passivestory:hoshino_conv_2', entryId: 'base:passivestory:hoshino_conv_2', replayable: true },
-        ] },
-        { id: 'part_4', name: '白子系列', items: [
-          { id: 'base:passivestory:shiroko_drink_invite', entryId: 'base:passivestory:shiroko_drink_invite', replayable: true },
-          { id: 'base:activestory:shiroko_drink', entryId: 'base:activestory:shiroko_drink', replayable: true },
-          { id: 'base:passivestory:shiroko_rooftop_invite', entryId: 'base:passivestory:shiroko_rooftop_invite', replayable: true },
-          { id: 'base:activestory:shiroko_rooftop', entryId: 'base:activestory:shiroko_rooftop', replayable: true },
-        ] },
-      ],
+      "id": "side",
+      "name": "小故事",
+      "parts": [
+        {
+          "id": "part_1",
+          "name": "芹香系列",
+          "items": []
+        },
+        {
+          "id": "part_2",
+          "name": "跑腿系列",
+          "items": []
+        },
+        {
+          "id": "part_3",
+          "name": "星野系列",
+          "items": []
+        },
+        {
+          "id": "part_4",
+          "name": "白子系列",
+          "items": []
+        }
+      ]
     },
-    { id: 'club', name: '社团故事', parts: [] },
-  ],
+    {
+      "id": "club",
+      "name": "社团故事",
+      "parts": []
+    }
+  ]
 };
-
-/**
- * Entries whose only first-play entrance is the Story hierarchy.
- * When their existing availability conditions become true, the runtime delivers them
- * to the Area the player is currently visiting. Entries with Init / FollowUp / card
- * activation paths are intentionally excluded.
- */
-export const baseStoryPageOnlyEntryIds = [
-  'base:activestory:schale_flow_show',
-  'base:activestory:schale_theme_lite_test',
-  'base:activestory:abydos_welcome',
-  'base:activestory:millennium_welcome',
-  'base:activestory:millennium_game_crisis',
-  'base:activestory:serika_side_1',
-  'base:activestory:serika_side_2',
-  'base:activestory:run_chain_2',
-  'base:activestory:run_chain_3',
-] as const;

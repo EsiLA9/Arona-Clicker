@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { renderCurrentStory } from '../../src/ui/components/story/story';
+import { renderChatEntry, renderCurrentStory, renderStoryClickPreview, renderChatTexts, type ChatTextEntry } from '../../src/ui/components/story/story';
 import { renderSendButton } from '../../src/ui/columns/chat-content';
 import type { UIContext } from '../../src/ui/runtime/context';
 import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
@@ -9,22 +9,40 @@ import type { UIController } from '../../src/ui/controller/controller';
 import { presentation } from './story-playback-fixtures';
 
 const ctx = { escapeHtml: (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') } as UIContext;
-const view: StoryView = { storyId: 'entry:test', storyDefId: 'story:test', type: 'active', pageIndex: 1, totalPages: 2,
+const view: StoryView = { storyId: 'entry:test', storyDefId: 'story:test', pageIndex: 1, totalPages: 2,
   nodeId: 'choice', token: 'player-1:2', phase: 'input', runId: 'run-1', availableChoiceIndexes: [1],
-  page: { kind: 'click', text: '', choices: [{ id: 'closed', text: '锁定' }, { id: 'stable-id', text: '继续' }] } };
+  page: { kind: 'click', text: '', choices: [{ id: 'closed', text: '锁定' }, { id: 'stable-id', text: '继续' }] }, type: 'active' };
 describe('new node input uses the existing choice/card/button surfaces', () => {
-  it('renders stable choice identity and wait token while retaining unavailable options', () => {
+  it('hides unavailable choices while preserving the original option identity, index and token', () => {
     document.body.innerHTML = renderCurrentStory(ctx, view);
     const choices = document.querySelectorAll<HTMLButtonElement>('[data-story-choice]');
-    expect(choices[0].disabled).toBe(true);
-    expect(choices[1].dataset.storyChoiceId).toBe('stable-id');
-    expect(choices[1].dataset.storyToken).toBe(view.token);
+    expect(choices).toHaveLength(1);
+    expect(choices[0].disabled).toBe(false);
+    expect(choices[0].dataset.storyChoice).toBe('1');
+    expect(choices[0].dataset.storyChoiceId).toBe('stable-id');
+    expect(choices[0].dataset.storyToken).toBe(view.token);
+    expect(document.body.textContent).not.toContain('锁定');
+    expect(renderCurrentStory(ctx, { ...view, availableChoiceIndexes: [] })).toBe('');
     expect(renderCurrentStory(ctx, { ...view, phase: 'delivery' })).toBe('');
   });
   it('renders a current input card with a submit token instead of a detached Entry launch', () => {
     document.body.innerHTML = renderCurrentStory(ctx, { ...view, page: { kind: 'click', text: '', kizuna: { storyId: 'entry:next' } } });
     expect(document.querySelector('[data-story-card-token]')?.getAttribute('data-story-card-token')).toBe(view.token);
     expect(document.querySelector('[data-kizuna]')).toBeNull();
+  });
+  it('keeps all authored options in preview and the recorded options in completed history', () => {
+    document.body.innerHTML = renderStoryClickPreview(ctx, { kind: 'choice', options: [
+      { id: 'closed', text: '条件选项', requiresFlag: 'not-present' }, { id: 'stable-id', text: '继续' },
+    ] });
+    expect(document.querySelectorAll('[data-story-editor-click-option]')).toHaveLength(2);
+    expect(document.querySelector('[data-story-choice]')).toBeNull();
+    document.body.innerHTML = renderChatEntry(ctx, { kind: 'narration', text: '', choice: {
+      options: [{ id: 'stable-id', text: '当时可见' }], selectedOptionId: 'stable-id',
+    } });
+    expect(document.querySelectorAll('.choice-option')).toHaveLength(1);
+    expect(document.querySelector<HTMLButtonElement>('.choice-option')?.disabled).toBe(true);
+    expect(document.body.textContent).toContain('已选择');
+    expect(document.querySelector('[data-story-choice]')).toBeNull();
   });
   it('carries the captured token on the existing work button', () => {
     document.body.innerHTML = renderSendButton({ mode: 'advance', storyId: view.storyId, pageIndex: 1, text: '按下', token: view.token,
@@ -124,5 +142,17 @@ describe('Story input submits explicit Runtime intents', () => {
     expect(f.commands.continueStory).not.toHaveBeenCalled();
     expect(f.commands.submitStoryInput).not.toHaveBeenCalled();
     expect(f.commands.accelerateStoryPresentation).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('Story author overlay preview isolation',()=>{
+  it('author previews never produce detached Entry launch bindings',()=>{
+    const values:ChatTextEntry[]=[{id:'preview',x:.5,y:.5,align:'left',timestamp:0,kind:'kizuna',targetStoryId:'test:activestory:target',talklet:{kind:'click',text:'',kizuna:{storyId:'test:activestory:target',align:'right'}}}];
+    expect(renderChatTexts(ctx,values)).toContain('data-kizuna=');
+    const preview=renderChatTexts(ctx,values,{preview:true});
+    expect(preview).not.toContain('data-kizuna=');
+    expect(preview).toContain('data-story-editor-click-card');
+    expect(preview).toContain('align-right');
   });
 });

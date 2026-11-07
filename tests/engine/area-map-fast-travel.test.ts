@@ -42,6 +42,45 @@ test('real elevator links unlock unvisited halls; rooms need exploration and clo
   expect(g.travelToArea(a('hall1')).success).toBe(false);
 });
 
+test('Story collects an explicit guide and its mapDirect marker stays anonymous until actual entry', async () => {
+  const g = await setup();
+  expect(g.state.collectedAreaMapIds).not.toContain(m('b'));
+  expect(g.story.startStory('area-map-demo:activestory:arrival', 'active').success).toBe(true);
+  expect(g.state.collectedAreaMapIds).toContain(m('b'));
+  g.story.clearAllCurrentStories();
+  expect(g.travelToArea(a('mall_entrance')).success).toBe(true);
+  expect(g.openAreaMapFromArea(a('mall_entrance'))).toMatchObject({ success: true, mapId: m('mall') });
+  expect(g.openAreaMapFromNode(m('mall'), 'floor')).toMatchObject({ success: true, mapId: m('floor') });
+
+  const info = g.areaMap.getAreaInfo(a('quiet_lounge'));
+  const marker = g.areaMap.getNodeView(m('floor'), 'quiet_lounge');
+  expect(info).toMatchObject({ existenceKnown: true, nameKnown: false });
+  expect(marker).toMatchObject({ name: '无名休息点', ready: true, travelMethod: 'mapDirect', visited: false });
+  expect(g.state.visitedAreas).not.toContain(a('quiet_lounge'));
+  expect(g.travelToArea(a('quiet_lounge'))).toMatchObject({ success: true, method: 'mapDirect' });
+  expect(g.areaMap.getAreaInfo(a('quiet_lounge'))).toMatchObject({ nameKnown: true });
+});
+
+test('permit reveals the hidden branch, while its Area entry gate remains live', async () => {
+  const g = await setup();
+  g.mutations.acquireAreaMap(m('b'));
+  g.openAreaMapFromArea(a('a'));
+  expect(g.openAreaMapFromNode(m('a'), 'portal')).toMatchObject({ success: true, mapId: m('b') });
+  expect(g.openAreaMapFromNode(m('b'), 'portal')).toMatchObject({ success: true, mapId: m('c') });
+  expect(g.areaMap.getNodeView(m('c'), 'hidden')).toBeNull();
+
+  expect(g.travelToArea(a('b')).success).toBe(true);
+  g.story.clearAllCurrentStories();
+  expect(g.travelToArea(a('c')).success).toBe(true);
+  expect(g.state.resources['area-map-demo:resource:permit']).toBe(1);
+  expect(g.areaMap.getNodeView(m('c'), 'hidden')?.action).toEqual({ kind: 'attemptAreaTravel', areaId: a('secret_garden') });
+  expect(g.areaMap.getNodeView(m('c'), 'hidden')).toMatchObject({ ready: true, visited: false });
+
+  g.mutations.changeResource('area-map-demo:resource:permit', -1);
+  expect(g.areaMap.getNodeView(m('c'), 'hidden')).toMatchObject({ existenceKnown: true, ready: false, reason: 'Locked' });
+  expect(g.travelToArea(a('secret_garden')).success).toBe(false);
+});
+
 test('Map lines are a subset of actual directed connections and Map visibility never grants travel', async () => {
   const g = await setup();
   expect(g.areaMap.getView(m('mall'))!.edges).toEqual([]);
@@ -54,8 +93,10 @@ test('Map lines are a subset of actual directed connections and Map visibility n
   expect(g.areaMap.getView(m('fake'))!.edges).toEqual([]);
   expect(g.getAreaTravelStatus(a('shop')).success).toBe(false);
   g.registry.areas.get(a('corridor'))!.adjacentAreaIds = [a('shop')];
+  expect(g.openAreaMapFromArea(a('mall_entrance'))).toMatchObject({ success: true, mapId: m('mall') });
+  expect(g.openAreaMapFromNode(m('mall'), 'floor')).toMatchObject({ success: true, mapId: m('floor') });
   expect(g.areaMap.getView(m('floor'))!.edges).toContainEqual({ fromNodeId: 'hall1', toNodeId: 'corridor', directed: true });
-  g.registry.areaMaps.get(m('mall'))!.revealTriggers = [{ reveal: 'existence', condition: { target: 'resource', key: 'hidden', comparator: '>=', value: 1 } }];
+  g.registry.areaMaps.get(m('mall'))!.openCondition = { type: 'AND', conditions: [{ target: 'resource', key: 'hidden', comparator: '>=', value: 1 }] };
   expect(g.areaMap.getView(m('mall'))).toBeNull();
   expect(g.getAreaTravelStatus(a('hall2')).success).toBe(true);
 });

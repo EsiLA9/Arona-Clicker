@@ -23,7 +23,7 @@ export function storyDisplayTitle(ctx: UIContext, entryId: string): string {
 /** 首次完成奖励摘要行（entry.completionReward.first；无声明返回空）。 */
 function rewardLines(ctx: UIContext, entryId: string): string[] {
   const entry = ctx.game.registry.storyEntries.get(entryId);
-  const effects = entry?.type === 'active' ? entry.completionReward?.first ?? [] : [];
+  const effects = entry?.activation.kind === 'active' ? entry.completionReward?.first ?? [] : [];
   return effects.map(effect => {
     switch (effect.op) {
       case 'addResource': return `${ctx.nameOf('resource', effect.target)} ×${effect.value}`;

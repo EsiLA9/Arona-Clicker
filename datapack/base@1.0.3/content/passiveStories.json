@@ -1,0 +1,848 @@
+{
+  "passiveStories": [
+    {
+      "id": "base:passivestory:schale_briefing",
+      "storyId": "base:story:schale_briefing",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 30
+              }
+            ]
+          }
+        }
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_tea",
+      "storyId": "base:story:schale_tea",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_printer",
+      "storyId": "base:story:schale_printer",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "office"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_archive",
+      "storyId": "base:story:schale_archive",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "office"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_sunset",
+      "storyId": "base:story:schale_sunset",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_planner",
+      "storyId": "base:story:schale_planner",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_vending",
+      "storyId": "base:story:schale_vending",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "office"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:schale_night",
+      "storyId": "base:story:schale_night",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "night"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:abydos_daily_committee",
+      "storyId": "base:story:abydos_daily_committee",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:abydos_siesta",
+      "storyId": "base:story:abydos_siesta",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:abydos_serika_shift",
+      "storyId": "base:story:abydos_serika_shift",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:abydos_money",
+      "storyId": "base:story:abydos_money",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:millennium_calculation",
+      "storyId": "base:story:millennium_calculation",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:millennium_game_dev",
+      "storyId": "base:story:millennium_game_dev",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:millennium_hack",
+      "storyId": "base:story:millennium_hack",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:millennium_server",
+      "storyId": "base:story:millennium_server",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:hoshino_conv_1",
+      "storyId": "base:story:hoshino_tea_time",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true,
+        "cooldownFrames": 600
+      },
+      "owner": "Hoshino",
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:hoshino_conv_2",
+      "storyId": "base:story:hoshino_rooftop_hint",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_3",
+        "order": 0
+      },
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": false
+      },
+      "owner": "Hoshino",
+      "interruptible": false,
+      "leaveArea": false
+    },
+    {
+      "id": "base:passivestory:hoshino_bond_invite",
+      "storyId": "base:story:hoshino_bond_invite",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "replayable": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": false
+      },
+      "owner": "Hoshino",
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:shiroko_drink_invite",
+      "storyId": "base:story:shiroko_drink_invite",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 0
+      },
+      "owner": "Shiroko",
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:shiroko_rooftop_invite",
+      "storyId": "base:story:shiroko_rooftop_invite",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "hasReadStory",
+            "key": "base:story:shiroko_drink_invite",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 2
+      },
+      "owner": "Shiroko",
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:cooldown_demo_1",
+      "storyId": "base:story:schale_briefing",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:hoshino_selfie",
+      "storyId": "base:story:hoshino_selfie",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
+      "completionReward": {
+        "first": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 15
+          }
+        ],
+        "repeat": [
+          {
+            "op": "addResource",
+            "target": "base:resource:pyroxene",
+            "value": 5
+          }
+        ]
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:affinity_hoshino_1",
+      "storyId": "base:story:affinity_hoshino_1",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "owner": "Hoshino",
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:affinity_hoshino_2",
+      "storyId": "base:story:affinity_hoshino_2",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "owner": "Hoshino",
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 3
+        }
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:affinity_hoshino_bond_tail",
+      "storyId": "base:story:affinity_hoshino_bond_tail",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "replayable": true,
+      "owner": "Hoshino",
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 3
+        }
+      },
+      "interruptible": true
+    },
+    {
+      "id": "base:passivestory:theme_showcase",
+      "storyId": "base:story:schale_tea",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:theme_showcase"
+      ],
+      "tags": [
+        [
+          "theme",
+          "showcase"
+        ]
+      ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
+      "interruptible": true
+    }
+  ]
+}

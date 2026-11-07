@@ -22,6 +22,8 @@ Runtime 输出与表现阶段 → owner / replayId 查询 → ChatStream 投影
 UI 继续 / 输入 / 节奏加速 → Controller → GameCommands → Runtime
 ```
 
+节点局部演出通过同一 Runtime 输出进入 ChatStream，流内内容仍交给 `renderChatHistory()`；定位内容由 `renderPositionedStoryHistory()` 放在 `.chat-pane` 的非滚动层，不在流里重复绘制。当前定位 Click 使用同一个 StoryView / token，按钮替代底部输入，Choice / EntryCard 保留原命令绑定；历史 Choice 无可提交 token。`projectStoryContent()` 统一正式播放、覆盖层与编辑预览的身份、图片、side / align 和头像策略映射；模板、有限样式及位置分别由共用渲染处理。原覆盖层预览也完整传递头像显隐、side / align 与卡片对齐。相关行为见 `tests/ui/story-performance.test.ts`、`tests/engine/story-playback-coordinator.test.ts` 与编辑器属性测试。
+
 聊天条目由 `src/ui/components/story/story.ts` 的 renderer 输出，Map 信息流也复用 Flow 条目能力。渲染器负责转义文本、呈现图片/头像/选项等类型；任意 HTML 和内联脚本不是内容接口。继续、输入和节奏加速分别提交显式命令与当前 token，Runtime 检查阶段；UI 动画、刷新与滚动不会调用隐式送达确认。正式 Story 横幅显示 Runtime 的剩余时间；独立于 Story run 的旧效果仍可使用 UI 自己的横幅计时。
 
 Story 正文、实际动作通知和尾奖励属于 Runtime 输出；商店、地图等非 Story 的本地通知仍由 UI 聊天历史持有。ChatStream 保留 Runtime 内部序号顺序，普通通知按时间合并；玩家移动提示使用提交移动前捕获的输出位置，保证已有正文、移动提示、到达正文的顺序，即使同一毫秒或延迟刷新也稳定。Runtime 输出保留 `storyOutputId`，保存 UI 历史时排除这些条目及瞬态 typing。读档后分别恢复非 Story 历史和 Runtime 输出，避免同一正文保存两次。清空 Runtime 流通过 epoch 通知投影清理显示，不以本地数组长度改变业务进度。

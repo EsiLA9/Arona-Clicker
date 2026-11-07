@@ -9,11 +9,11 @@
 | 游戏进度 | `SaveSystem` + `GameInstance.save()` / `load()` | PlayerState、Story cursors、统计、时间戳，以及可恢复的 Map / Operation Run |
 | 包库选择 | `PackSnapshotStore` | 已安装包、启用 ID、顺序和选择槽；可用 JSON/LocalStorage 或 IndexedDB 后端 |
 
-`SaveSystem` 基于 `StorageAdapter` 将 JSON 字符串保存到 LocalStorage，使用固定 key，读取与导入时检查统一 `GAME_SAVE_VERSION='3.0.0'`；它负责介质读写与格式门槛，不负责编排游戏领域状态。旧 `2.0.0` 等版本拒绝读取和导入，保留原存储，不补默认值或执行迁移。`GameInstance.save()` 生成产品级 SaveData，游戏 UI 的 Controller 可补入非 Story 聊天历史，并通过 `controller-save.ts` 保存与读取。另有 `src/main.ts` 入口在内容包加载后读档，并在页面关闭前停会话、保存进度；它不应与 `/game` 使用的 `src/ui/main.ts` 入口混为一谈。包管理器快照使用另一组 `PackSnapshotStore` 接口，游戏进度与包启用配置分开保存。
+`SaveSystem` 基于 `StorageAdapter` 将 JSON 字符串保存到 LocalStorage，使用固定 key，读取与导入时检查统一 `GAME_SAVE_VERSION='3.1.0'`；它负责介质读写与格式门槛，不负责编排游戏领域状态。旧版本拒绝读取和导入，保留原存储，不补默认值或执行迁移。`GameInstance.save()` 生成产品级 SaveData，游戏 UI 的 Controller 可补入非 Story 聊天历史，并通过 `controller-save.ts` 保存与读取。另有 `src/main.ts` 入口在内容包加载后读档，并在页面关闭前停会话、保存进度；它不应与 `/game` 使用的 `src/ui/main.ts` 入口混为一谈。包管理器快照使用另一组 `PackSnapshotStore` 接口，游戏进度与包启用配置分开保存。
 
 ## 游戏 SaveData 与恢复顺序
 
-`GameInstance.save()` 先按当前 Registry/State 重算派生可见性，再由 `buildSaveData()` 组装版本 `3.0.0`、时间戳、PlayerState、visibility、Story playback、持久统计和标签残留；存在可保存的局内 Map/Operation 时附带对应 Run 快照。版本常量统一定义于 `src/engine/contracts/save-version.ts`。
+`GameInstance.save()` 先按当前 Registry/State 重算派生可见性，再由 `buildSaveData()` 组装版本 `3.1.0`、时间戳、PlayerState、visibility、Story playback、持久统计和标签残留；存在可保存的局内 Map/Operation 时附带对应 Run 快照。区域地图收录事实随当前 Init 快照保存，已知信息随完整 Save 保留。版本常量统一定义于 `src/engine/contracts/save-version.ts`。
 
 UI 的显式保存由 `controller-save.ts` 调用 `SaveSystem.save(ctrl.withHistories(ctrl.commands.save()))`；`withHistories()` 限制非 Story 历史长度，并剔除 typing 与带 storyOutputId 的 Runtime 投影条目。Story 正文和实际效果通知由 Story output 快照保存；UI 的商店、地图等本地通知单独保存在 chatHistories。读档后两者合并显示，避免重复保存正文。新存档进入 Init 选择页时，Controller 会先写入一份 Lobby 存档，防止用户在作出 Init 选择前关闭页面而丢失初始状态。
 

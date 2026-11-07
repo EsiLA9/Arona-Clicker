@@ -9,6 +9,7 @@ import type { ColorGroupId, GachaPoolId } from '../../engine/types/character';
 import type { ThemeDef } from '../../engine/types/theme';
 import type { ResourceAmount } from '../../engine/contracts/resource';
 import type { RevealTrigger } from '../../engine/types/reveal';
+import type { WorldInformationDef, WorldInformationTarget } from './world-reveal';
 import type { TriggerDef } from '../../engine/types/trigger';
 import type { ExtraCompound } from '../../engine/types/extra';
 import type { ShopId } from './shop';
@@ -75,7 +76,11 @@ export interface AreaDef {
   adjacentAreaIds?: AreaId[];
   /** 已到访区域默认允许快速路线通过；false 时必须在此停下。 */
   quickPassage?: boolean;
-  revealTriggers?: RevealTrigger[];
+  reveal?: WorldInformationDef;
+  /** Current conditions for entering this Area; remembered knowledge never substitutes for access. */
+  enterCondition?: ConditionGroup;
+  /** Information granted by an actual visit; omitted defaults to existence and name. */
+  onVisitReveal?: WorldInformationTarget[];
   /** @label 标签 */
   tags?: TagPath[];
   theme?: ThemeDef;

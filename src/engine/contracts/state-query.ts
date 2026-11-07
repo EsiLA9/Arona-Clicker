@@ -30,6 +30,7 @@ export interface ConditionState {
   unlockedEnhancements: EnhancementId[];
   flags: Record<string, string>;
   storyLog: readonly StoryCompletionState[];
+  collectedAreaMapIds?: readonly string[];
   protoStats?: Record<string, ProtoStatState>;
   currentAreaId?: AreaId;
 }

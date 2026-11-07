@@ -3,7 +3,7 @@ function key(node: Node): string | null {
   if (!(node instanceof HTMLElement)) return null;
   // Theme projection may insert a background before the content wrapper. Both
   // are DIVs: positional/tag matching must never replace the live content with it.
-  for (const role of ['presentation-host-background', 'presentation-host-content', 'workspace-column__slot', 'workspace-column__body']) {
+  for (const role of ['presentation-host-background', 'presentation-host-content', 'workspace-column__slot', 'workspace-column__viewport', 'workspace-column__body']) {
     if (node.classList.contains(role)) return role;
   }
   if (node.dataset.columnInstance) return `column:${node.dataset.columnInstance}`;
@@ -13,7 +13,11 @@ function compatible(current: Node, next: Node): boolean {
   return current.nodeType === next.nodeType && (!(current instanceof Element) || current.tagName === (next as Element).tagName);
 }
 export function patchEditorDOM(current: HTMLElement, next: HTMLElement, beforeRemove: (root: HTMLElement) => void): void {
-  for (const attribute of [...current.attributes]) if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
+  for (const attribute of [...current.attributes]) {
+    // Flag disclosure belongs to the mounted item, not the authored document.
+    if (attribute.name === 'open' && current.matches('details.story-editor-flag-item, details.story-editor-entry-pool') && next.matches('details.story-editor-flag-item, details.story-editor-entry-pool')) continue;
+    if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
+  }
   for (const attribute of [...next.attributes]) if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);
   // The browser owns the active text subtree, including its selection and IME composition.
   if (current.hasAttribute('data-story-inline-active') && next.hasAttribute('data-story-inline-active')

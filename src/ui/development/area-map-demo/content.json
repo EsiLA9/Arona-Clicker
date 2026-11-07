@@ -59,12 +59,25 @@
       "id": "area-map-demo:area:c",
       "initId": "area-map-demo:init:demo",
       "name": "山间观测站",
-      "description": "广场之外的观测站。",
+      "description": "抵达观测站后可领取通行许可，开放地图上的隐秘支路。",
       "defaultSpots": [],
       "adjacentAreaIds": [
-        "area-map-demo:area:b"
+        "area-map-demo:area:b",
+        "area-map-demo:area:secret_garden"
       ],
-      "navigationMapId": "area-map-demo:area-map:c"
+      "navigationMapId": "area-map-demo:area-map:c",
+      "enterEffects": [
+        {
+          "first": true,
+          "effects": [
+            {
+              "op": "addResource",
+              "target": "area-map-demo:resource:permit",
+              "value": 1
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "area-map-demo:area:mall_entrance",
@@ -136,6 +149,39 @@
         "area-map-demo:area:corridor"
       ],
       "navigationMapId": "area-map-demo:area-map:floor"
+    },
+    {
+      "id": "area-map-demo:area:quiet_lounge",
+      "initId": "area-map-demo:init:demo",
+      "name": "松林深处的休息处",
+      "description": "一处安静的临时休息点。",
+      "defaultSpots": [],
+      "navigationMapId": "area-map-demo:area-map:floor",
+      "reveal": {
+        "name": { "mode": "explicit" }
+      }
+    },
+    {
+      "id": "area-map-demo:area:secret_garden",
+      "initId": "area-map-demo:init:demo",
+      "name": "密林观景点",
+      "description": "一条需要通行许可才能进入的隐秘支路。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "area-map-demo:area:c"
+      ],
+      "navigationMapId": "area-map-demo:area-map:c",
+      "enterCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "resource",
+            "key": "area-map-demo:resource:permit",
+            "comparator": ">=",
+            "value": 1
+          }
+        ]
+      }
     }
   ],
   "areaMaps": [
@@ -228,6 +274,7 @@
       "id": "area-map-demo:area-map:b",
       "name": "郊外导览",
       "description": "这里可以查看观测站，也可以继续浏览其他地图。",
+      "collection": "explicit",
       "nodes": [
         {
           "id": "portal",
@@ -313,17 +360,17 @@
           "appearance": {
             "kind": "landmark"
           },
-          "revealTriggers": [
-            {
-              "reveal": "unlock",
-              "condition": {
+          "actionCondition": {
+            "type": "AND",
+            "conditions": [
+              {
                 "target": "resource",
                 "key": "area-map-demo:resource:permit",
                 "comparator": ">=",
                 "value": 1
               }
-            }
-          ],
+            ]
+          },
           "action": {
             "kind": "attemptAreaTravel",
             "areaId": "area-map-demo:area:c"
@@ -336,9 +383,9 @@
             "x": 0,
             "y": 200
           },
-          "revealTriggers": [
-            {
-              "reveal": "existence",
+          "reveal": {
+            "existence": {
+              "mode": "condition",
               "condition": {
                 "target": "resource",
                 "key": "area-map-demo:resource:permit",
@@ -346,7 +393,11 @@
                 "value": 1
               }
             }
-          ]
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:secret_garden"
+          }
         }
       ],
       "edges": [
@@ -479,6 +530,20 @@
           }
         },
         {
+          "id": "quiet_lounge",
+          "name": "无名休息点",
+          "description": "地图标出了一处地点，但还不知道它的真实身份。",
+          "position": {
+            "x": 260,
+            "y": -220
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "area-map-demo:area:quiet_lounge",
+            "travelMode": "mapDirect"
+          }
+        },
+        {
           "id": "mall",
           "name": "商场楼层导览",
           "position": {
@@ -504,9 +569,9 @@
           "toNodeId": "shop"
         }
       ],
-      "revealTriggers": [
-        {
-          "reveal": "existence",
+      "reveal": {
+        "existence": {
+          "mode": "condition",
           "condition": {
             "target": "resource",
             "key": "area-map-demo:resource:mall_guide",
@@ -514,18 +579,54 @@
             "value": 1
           }
         }
-      ]
+      }
     }
   ],
   "stories": [
     {
       "id": "area-map-demo:story:arrival",
       "name": "抵达广场",
-      "startContext": { "type": "area", "areaId": "area-map-demo:area:b" },
-      "stages": { "arrival": { "advance": "auto" } },
+      "startContext": {
+        "type": "area",
+        "areaId": "area-map-demo:area:b"
+      },
+      "stages": {
+        "arrival": {
+          "advance": "auto"
+        }
+      },
       "nodes": [
-        { "id": "arrival-first", "type": "talklet", "stageId": "arrival", "content": { "kind": "narration", "text": "你穿过街道，抵达了中央广场。" } },
-        { "id": "arrival-next", "type": "talklet", "stageId": "arrival", "content": { "kind": "narration", "text": "接下来，去哪里看看呢？" } }
+        {
+          "id": "grant-guide",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "acquireAreaMap",
+                "mapId": "area-map-demo:area-map:b"
+              }
+            ]
+          }
+        },
+        {
+          "id": "arrival-first",
+          "type": "talklet",
+          "stageId": "arrival",
+          "content": {
+            "kind": "narration",
+            "text": "你穿过街道，抵达了中央广场。"
+          }
+        },
+        {
+          "id": "arrival-next",
+          "type": "talklet",
+          "stageId": "arrival",
+          "content": {
+            "kind": "narration",
+            "text": "接下来，去哪里看看呢？"
+          }
+        }
       ]
     }
   ],
@@ -533,13 +634,15 @@
     {
       "id": "area-map-demo:activestory:arrival",
       "storyId": "area-map-demo:story:arrival",
-      "type": "active",
       "availableInits": [
         "area-map-demo:init:demo"
       ],
       "triggerCondition": {
         "type": "AND",
         "conditions": []
+      },
+      "activation": {
+        "kind": "active"
       }
     }
   ],

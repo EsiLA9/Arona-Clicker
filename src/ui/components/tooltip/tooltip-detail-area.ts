@@ -4,9 +4,8 @@
 // ============================================================
 
 import type { AreaDef } from '../../../data-services/contracts/world';
-import { existenceCondition } from '../../../engine/visibility/reveal';
 import { UIContext } from '../../runtime/context';
-import { conditionMet, getAreaReveal, OBFUSCATED, renderRevealTriggers } from './tooltip-reveal';
+import { conditionMet, getAreaReveal, OBFUSCATED } from './tooltip-reveal';
 import { describeCondition, getSpotYieldBreakdown } from './tooltip-enhancement';
 import { buildConditionView, renderConditionTree } from '../../presentation/condition-presentation';
 import { resolveEntityPresentation } from '../presentation/entity-presentation';
@@ -17,8 +16,8 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
   const reveal = getAreaReveal(ctx, area);
   const known = reveal.utilityKnown;
   const isCurrent = view.currentAreaId === area.id;
-  const visible = view.visibility.areas[area.id] ?? false;
-  const isLocked = !visible;
+  const travel = game.getAreaTravelStatus(area.id);
+  const isLocked = !isCurrent && !travel.success;
   const resolvedPresentation = resolveEntityPresentation(ctx, 'area', area.id);
   const name = reveal.nameKnown ? (resolvedPresentation?.name ?? area.name) : OBFUSCATED;
   const desc = known ? (resolvedPresentation?.description ?? area.description) : '';
@@ -58,7 +57,7 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
       ${known ? `<div class="info-row"><span>所属世界线</span><span>${ctx.escapeHtml(ctx.nameOf('init', area.initId))}</span></div>` : ''}
       ${isLocked
         ? `<div class="info-row"><span>状态</span><span class="info-dim">尚未开放</span></div>
-           <div class="info-row"><span>解锁条件</span><span>${renderConditionTree(buildConditionView(existenceCondition(area.revealTriggers), { nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui', evaluate: condition => conditionMet(condition, ctx.game) }), ctx.escapeHtml, reveal.conditionKnown)}</span></div>`
+           ${area.enterCondition && reveal.conditionKnown ? `<div class="info-row"><span>进入条件</span><span>${renderConditionTree(buildConditionView(area.enterCondition, { nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui', evaluate: condition => conditionMet(condition, ctx.game) }), ctx.escapeHtml, true)}</span></div>` : ''}`
         : known
           ? `<div class="info-row"><span>运营设施</span><span>${spotIds.length} 处 · ${spotIds.filter(id => (view.spotLevels[id] ?? 0) > 0).length} 已启用</span></div>
              <div class="info-sub">设施明细</div>
@@ -67,6 +66,5 @@ export function renderAreaDetail(ctx: UIContext, area: AreaDef): string {
       <div class="info-divider"></div>
       <div class="info-row"><span>相邻区域</span></div>
       <div class="info-tags">${adjacentRows || '<span class="info-dim">无相邻区域</span>'}</div>
-      ${renderRevealTriggers(ctx, area.revealTriggers, reveal.stage === 'owned')}
     </div>`;
 }

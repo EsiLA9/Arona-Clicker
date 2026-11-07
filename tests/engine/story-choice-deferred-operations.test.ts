@@ -11,25 +11,54 @@ const token = (view: StoryNodePlaybackView): string => {
   return view.token;
 };
 function setup(...documents: StoryNodeDocument[]) {
-  const host = { evaluate: () => false, preflight: vi.fn<NonNullable<StoryNodePlaybackHost['preflight']>>(() => undefined), execute: vi.fn<StoryNodePlaybackHost['execute']>(() => ({ status: 'applied' })), random: () => 0.5 } satisfies StoryNodePlaybackHost;
+  const host = { evaluate: vi.fn<StoryNodePlaybackHost['evaluate']>(() => false), preflight: vi.fn<NonNullable<StoryNodePlaybackHost['preflight']>>(() => undefined), execute: vi.fn<StoryNodePlaybackHost['execute']>(() => ({ status: 'applied' })), random: () => 0.5 } satisfies StoryNodePlaybackHost;
   return { player: new StoryNodePlayer(new Map(documents.map(item => [item.id, item])), host), host };
 }
 
 describe('Choice flags with deferred Operations', () => {
-  it('rejects a condition-failed option without consuming input or writing local flags', () => {
-    const root = doc('root', [{ id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'locked', text: 'locked', condition: { type: 'AND', conditions: [] }, result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route_locked', value: true }] } }] } }, talk('guarded', 'route_locked')]);
+  it('skips a Choice entered with no visible candidates and clears only its declared marks', () => {
+    const root = doc('root', [
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [
+        { id: 'a', text: 'A', showWhen: { type: 'AND', conditions: [] }, marks: ['route_a'] },
+        { id: 'b', text: 'B', showWhen: { type: 'AND', conditions: [] }, marks: ['route_b'] },
+      ] } },
+      talk('guarded', 'route_a'), talk('tail'),
+    ]);
     const f = setup(root);
-    const input = f.player.start('root', source, { prior: 1 }).view;
-    expect(input).toMatchObject({ status: 'input', availableOptionIds: [] });
-    expect(f.player.submit(token(input), 'locked')).toMatchObject({ ok: false, error: 'OptionUnavailable' });
-    expect(f.player.getView()).toEqual(input);
-    expect(f.player.save().run?.localFlags).toEqual({ prior: 1 });
+    const result = f.player.start('root', source, { route_a: false, route_b: 0, unrelated: null });
+    expect(result.view).toMatchObject({ status: 'delivery', node: { id: 'tail' } });
+    expect(f.player.save().run?.localFlags).toEqual({ unrelated: null });
     expect(f.host.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects an option that became hidden without consuming the input token or clearing marks', () => {
+    const root = doc('root', [{ id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'locked', text: 'locked', showWhen: { type: 'AND', conditions: [] }, marks: ['route_locked'] }] } }, talk('guarded', 'route_locked')]);
+    const f = setup(root);
+    f.host.evaluate.mockReturnValue(true);
+    const input = f.player.start('root', source, { prior: 1, route_locked: true }).view;
+    expect(input).toMatchObject({ status: 'input', availableOptionIds: ['locked'] });
+    f.host.evaluate.mockReturnValue(false);
+    const rejected = f.player.submit(token(input), 'locked');
+    expect(rejected).toMatchObject({ ok: false, error: 'OptionUnavailable', view: { status: 'input', token: token(input), availableOptionIds: [] } });
+    expect(f.player.save().run?.localFlags).toEqual({ prior: 1, route_locked: true });
+    expect(f.host.execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects conflicting mark owners across explicitly reachable Stories', () => {
+    const root = doc('root', [
+      { id: 'first-choice', type: 'click', stageId: 'first-choice', interaction: { kind: 'choice', options: [{ id: 'a', text: 'A', marks: ['route'] }] } },
+      { id: 'to-child', type: 'transfer', transfer: { mode: 'goto', storyId: 'child' } },
+    ]);
+    const child = doc('child', [
+      { id: 'second-choice', type: 'click', stageId: 'second-choice', interaction: { kind: 'choice', options: [{ id: 'b', text: 'B', marks: ['route'] }] } },
+    ]);
+    const f = setup(root, child);
+    expect(f.player.start('root', source)).toMatchObject({ ok: false, error: 'ChoiceMarkOwnerConflict:route' });
   });
 
   it('clears a previous branch marker before setting the new choice and keeps state flags persistent-only', () => {
     const root = doc('root', [
-      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'remove', name: 'route_a' }, { kind: 'localFlag', op: 'remove', name: 'route_b' }], options: [{ id: 'a', text: 'A', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route_a', value: true }] } }, { id: 'b', text: 'B', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route_b', value: true }] } }] } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'a', text: 'A', marks: ['route_a'] }, { id: 'b', text: 'B', marks: ['route_b'] }] } },
       { id: 'award', type: 'operation', requiresFlag: 'route_b', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'persistent_route_b', value: true }, { op: 'addResource', resourceId: 'credit', amount: 2 }] } },
       talk('a-only', 'route_a'), talk('b-only', 'route_b'),
     ]);
@@ -47,9 +76,9 @@ describe('Choice flags with deferred Operations', () => {
   });
 
   it('clears A when the same Choice is re-entered before dispatching only branch B', () => {
-    const choice = { id: 'choice', type: 'click' as const, stageId: 'choice', interaction: { kind: 'choice' as const, sharedActions: [{ kind: 'localFlag' as const, op: 'remove' as const, name: 'route_a' }, { kind: 'localFlag' as const, op: 'remove' as const, name: 'route_b' }, { kind: 'localFlag' as const, op: 'remove' as const, name: 'again' }], options: [
-      { id: 'a', text: 'A', result: { actions: [{ kind: 'localFlag' as const, op: 'set' as const, name: 'route_a', value: true }, { kind: 'localFlag' as const, op: 'set' as const, name: 'again', value: true }] } },
-      { id: 'b', text: 'B', result: { actions: [{ kind: 'localFlag' as const, op: 'set' as const, name: 'route_b', value: true }] } },
+    const choice = { id: 'choice', type: 'click' as const, stageId: 'choice', interaction: { kind: 'choice' as const, options: [
+      { id: 'a', text: 'A', marks: ['route_a', 'again'] },
+      { id: 'b', text: 'B', marks: ['route_b'] },
     ] } };
     const root = doc('root', [choice,
       { id: 'award-a', type: 'operation', requiresFlag: 'route_a', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 1 }] } },
@@ -77,7 +106,7 @@ describe('Choice flags with deferred Operations', () => {
 
   it('preserves the insert return point and local flags across Story documents and goto', () => {
     const root = doc('root', [
-      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route', value: true }] } }] } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', marks: ['route'] }] } },
       { id: 'to-child', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'insert', storyId: 'child' } },
       talk('returned', 'route'), { id: 'to-end', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'goto', storyId: 'end' } },
     ]);
@@ -92,7 +121,7 @@ describe('Choice flags with deferred Operations', () => {
 
   it('restores an Operation wait without replaying it, then follows its flag-gated Transfer', () => {
     const root = doc('root', [
-      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route', value: true }] } }] } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', marks: ['route'] }] } },
       { id: 'award', type: 'operation', requiresFlag: 'route', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 3 }] } },
       { id: 'to-child', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'goto', storyId: 'child' } },
     ]);
@@ -113,7 +142,7 @@ describe('Choice flags with deferred Operations', () => {
 
   it('keeps a replay local route marker while skipping persistent state effects', () => {
     const root = doc('root', [
-      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', result: { actions: [{ kind: 'localFlag', op: 'set', name: 'route', value: true }] } }] } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'Go', marks: ['route'] }] } },
       { id: 'award', type: 'operation', requiresFlag: 'route', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'persistent', value: true }] } }, talk('route-tail', 'route'),
     ]);
     const f = setup(root);
@@ -127,7 +156,7 @@ describe('Choice flags with deferred Operations', () => {
 
   it('fails at a later Operation without pretending the earlier committed batch was rolled back', () => {
     const root = doc('root', [
-      {id:'choice',type:'click',stageId:'choice',interaction:{kind:'choice',options:[{id:'go',text:'Go',result:{actions:[{kind:'localFlag',op:'set',name:'route',value:true}]}}]}},
+      {id:'choice',type:'click',stageId:'choice',interaction:{kind:'choice',options:[{id:'go',text:'Go',marks:['route']}]}},
       {id:'first',type:'operation',requiresFlag:'route',action:{kind:'state',effects:[{op:'setFlag',flagId:'first',value:true}]}},
       {id:'second',type:'operation',requiresFlag:'route',action:{kind:'state',effects:[{op:'setFlag',flagId:'second',value:true}]}},
     ]);

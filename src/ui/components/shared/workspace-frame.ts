@@ -33,6 +33,8 @@ export interface WorkspaceColumnSpec {
   header?: string;
   /** Fixed content outside the independently scrolling column body. */
   footer?: string;
+  /** Fixed layer over the body viewport, outside its scrolling content. */
+  bodyOverlay?: string;
   content: string;
 }
 export interface WorkspaceLayoutSpec {
@@ -143,10 +145,11 @@ export function renderWorkspaceColumn(ctx: UIContext, column: WorkspaceColumnSpe
   const header = column.header ? `<header class="workspace-column__header">${column.header}</header>` : '';
   const scroll = column.scroll ?? 'auto';
   const body = `<div class="workspace-column__body" data-scroll="${scroll}" data-scroll-owner="${scrollOwner(scroll)}">${column.content}</div>`;
+  const viewport = column.bodyOverlay === undefined ? body : `<div class="workspace-column__viewport">${body}${column.bodyOverlay}</div>`;
   const footer = column.footer ? `<footer class="workspace-column__footer">${column.footer}</footer>` : '';
   const role = column.role ? ` data-workspace-role="${ctx.escapeHtml(column.role)}"` : '';
   const owner = column.workspaceOwner ? ` data-workspace-owner="${ctx.escapeHtml(column.workspaceOwner)}"` : '';
-  const content = `<div class="workspace-column__slot" data-workspace-column="${ctx.escapeHtml(column.slot ?? columnKey(column))}" data-workspace-surface="${surface}"${role}${owner}>${header}${body}${footer}</div>`;
+  const content = `<div class="workspace-column__slot" data-workspace-column="${ctx.escapeHtml(column.slot ?? columnKey(column))}" data-workspace-surface="${surface}"${role}${owner}>${header}${viewport}${footer}</div>`;
   return renderUIHost(ctx, { hostId: column.hostId, themeScope: column.themeScope, className, content, useHostGeometry: surface === 'panel', attributes: {
     'data-column-key': columnKey(column), 'data-column-instance': columnInstanceId(scope, column),
     'data-column-definition': column.definitionId ?? column.role ?? columnKey(column),

@@ -1,0 +1,144 @@
+{
+  "passivePools": [
+    {
+      "id": "base:passivepool:schale_root",
+      "children": [
+        {
+          "id": "base:passivepool:schale_daily",
+          "weight": 3
+        },
+        {
+          "id": "base:passivepool:schale_office_topic",
+          "weight": 2
+        },
+        {
+          "id": "base:passivepool:schale_night_owl",
+          "weight": 2
+        }
+      ],
+      "name": "夏莱闲聊",
+      "tags": [
+        [
+          "place",
+          "schale"
+        ]
+      ]
+    },
+    {
+      "id": "base:passivepool:schale_daily",
+      "children": [
+        {
+          "id": "base:passivestory:schale_briefing",
+          "weight": 1
+        },
+        {
+          "id": "base:passivestory:schale_tea",
+          "weight": 2
+        },
+        {
+          "id": "base:passivestory:schale_sunset",
+          "weight": 1
+        },
+        {
+          "id": "base:passivestory:schale_planner",
+          "weight": 2
+        }
+      ],
+      "name": "日常",
+      "tags": [
+        [
+          "theme",
+          "daily"
+        ]
+      ]
+    },
+    {
+      "id": "base:passivepool:schale_office_topic",
+      "children": [
+        {
+          "id": "base:passivestory:schale_printer",
+          "weight": 1
+        },
+        {
+          "id": "base:passivestory:schale_archive",
+          "weight": 2
+        },
+        {
+          "id": "base:passivestory:schale_vending",
+          "weight": 1
+        }
+      ],
+      "name": "办公区专题",
+      "tags": [
+        [
+          "theme",
+          "office"
+        ]
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "tagCount",
+            "key": "spots:office",
+            "comparator": ">=",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "base:passivepool:schale_night_owl",
+      "children": [
+        {
+          "id": "base:passivestory:schale_night",
+          "weight": 1
+        }
+      ],
+      "name": "深夜闲聊",
+      "tags": [
+        [
+          "theme",
+          "night"
+        ]
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "flag",
+            "key": "night_mode",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "base:passivepool:hoshino_conv",
+      "children": [
+        {
+          "id": "base:passivestory:hoshino_conv_1"
+        },
+        {
+          "id": "base:passivestory:hoshino_conv_2"
+        },
+        {
+          "id": "base:passivestory:hoshino_bond_invite"
+        }
+      ],
+      "name": "星野对话空间",
+      "owner": "Hoshino"
+    },
+    {
+      "id": "base:passivepool:cooldown_demo",
+      "children": [
+        {
+          "id": "base:passivestory:cooldown_demo_1"
+        }
+      ],
+      "name": "冷却演示池",
+      "cooldownFrames": 1200
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import type { StoryView, SendState } from './results';
 import type { BackgroundLayerDef } from '../../../engine/types/theme';
 import type { StoryPresentationSnapshot } from '../../../engine/contracts/story-presentation-snapshot';
 export type { StoryAuthoringPatch, StoryAuthoringResult };
+export type { StoryIdentityChange } from '../../../data-services/authoring/story-identity';
 /** Isolated candidate playback; closing releases all timers and never commits player progress. */
 export interface StoryAuthoringPreview {
   getView(): StoryPresentationView | null;

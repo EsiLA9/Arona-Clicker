@@ -1,3 +1,5 @@
+import { storyEntryType } from '../../../data-services/contracts/story-entry';
+import { projectStoryContent } from '../../../data-services/authoring/story-content-display';
 import type { StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { EntityPresentationDef, EntityPresentationKey } from '../../../data-services/contracts/entity-presentation';
 import type {
@@ -7,7 +9,6 @@ import type {
   StoryPresentationCommand,
 } from '../../../data-services/contracts/story-node-actions';
 import type { Registry } from '../../../data-services/registry/registry';
-import type { StoryContent, StoryPresentation } from '../../../data-services/contracts/story-node';
 import type { EngineTalklet } from '../../../engine/contracts/talklet';
 import type { ChatTextEffectValue, ChatTextFont, ChatTextKind } from '../../../engine/contracts/chat-presentation';
 import type { BackgroundLayerDef, ThemeNodeName } from '../../../engine/types/theme';
@@ -63,7 +64,7 @@ function entryForCard(registry: StoryNodePresentationRegistry, request: StoryEnt
   if (request.owner !== null && !nonEmpty(request.owner)) return { error: 'EmptyEntryOwner' };
   const entry = registry.storyEntries.get(request.entryId);
   if (!entry) return { error: 'EntryNotFound' };
-  if (entry.type !== 'active') return { error: 'EntryTypeMismatch' };
+  if (storyEntryType(entry) !== 'active') return { error: 'EntryTypeMismatch' };
   const story = registry.stories.get(entry.storyId);
   if (!story?.nodes.length) return { error: 'EntryStoryEmpty' };
   return { entry, storyId: story.id };
@@ -138,21 +139,6 @@ function presentationError(
   }
 }
 
-function storyContentTalklet(content: StoryContent, presentation?: StoryPresentation): EngineTalklet {
-  return {
-    kind: content.kind,
-    text: content.text,
-    ...(content.kind === 'talk' && content.speaker !== undefined ? { speaker: content.speaker } : {}),
-    ...(content.kind === 'talk' && content.characterId !== undefined ? { characterId: content.characterId } : {}),
-    ...(content.kind === 'talk' && content.displayName !== undefined ? { displayName: content.displayName } : {}),
-    ...(content.kind === 'talk' && content.image !== undefined ? { image: content.image } : {}),
-    ...(presentation?.side === undefined ? {} : { side: presentation.side }),
-    ...(presentation?.align === undefined ? {} : { align: presentation.align }),
-    ...(presentation?.avatar === undefined ? {} : { avatar: presentation.avatar }),
-    ...(presentation?.avatarMode === 'hide' ? { noAvatar: true } : {}),
-    ...(presentation?.avatarMode === 'show' ? { showAvatar: true } : {}),
-  };
-}
 
 function sourceEventFields(source: StoryNodeSource): { owner: string | null; runId?: string; replayId?: string } {
   return { owner: source.owner, ...(source.runId === undefined ? {} : { runId: source.runId }), ...(source.replayId ? { replayId: source.replayId } : {}) };
@@ -488,7 +474,7 @@ export class StoryNodePresentationHost implements StoryNodePresentationPort {
         }
         if (content.kind === 'message') {
           const overlay: StoryPresentationOverlaySnapshot = { id: command.id, value: {
-            talklet: storyContentTalklet(content.content, content.presentation),
+            talklet: projectStoryContent(content.content, content.presentation),
             ...(content.style === undefined ? {} : { style: content.style }),
             ...valueLocation,
           } };

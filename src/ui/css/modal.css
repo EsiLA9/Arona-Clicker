@@ -27,7 +27,7 @@
 .modal-panel {
    display: flex;
    flex-direction: column;
-   width: min(560px, 100%);
+   width: min(600px, 100%);
    max-height: 82vh;
    overflow: hidden;
    background: var(--panel);
@@ -35,6 +35,8 @@
    border: 1px solid var(--line);
    border-radius: 16px;
    box-shadow: 0 24px 60px rgba(15, 30, 48, .35);
+   font-size: 14px;
+   line-height: 1.65;
 }
 
 .modal-panel.user-theme-modal {
@@ -112,29 +114,179 @@
    align-items: center;
    justify-content: space-between;
    gap: 14px;
-   padding: 15px 20px;
+   flex: 0 0 auto;
+   padding: 18px 24px;
    border-bottom: 1px solid var(--line);
 }
 
 .modal-head .eyebrow {
-   font-size: 11px;
+   min-width: 0;
+   margin: 0;
+   color: inherit;
+   font: inherit;
+   font-size: 18px;
+   font-weight: 700;
+   line-height: 1.4;
+   letter-spacing: normal;
+   text-transform: none;
+   overflow-wrap: anywhere;
+}
+
+.modal-head .modal-close {
+   display: grid;
+   place-items: center;
+   flex: 0 0 36px;
+   width: 36px;
+   height: 36px;
+   padding: 0;
+   border: 0;
+   border-radius: 10px;
+   background: transparent;
+   color: var(--muted-on-panel);
+   font: inherit;
+   font-size: 22px;
+   line-height: 1;
+   cursor: pointer;
+}
+
+.modal-head .modal-close:hover {
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
 }
 
 .modal-body {
-   padding: 20px;
+   min-height: 0;
+   padding: 24px;
    overflow-y: auto;
-   font-size: 12px;
-   line-height: 1.8;
+   font-size: 14px;
+   line-height: 1.7;
    color: var(--ink-on-panel);
+   overflow-wrap: anywhere;
+}
+
+.modal-body > :first-child { margin-top: 0; }
+.modal-body > :last-child { margin-bottom: 0; }
+
+/* Rich editors own their field layout; ordinary dialogs inherit these form defaults. */
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body :where(h2, h3, h4) {
+   margin: 20px 0 10px;
+   font-size: 16px;
+   font-weight: 700;
+   line-height: 1.45;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body > :first-child { margin-top: 0; }
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body :where(small, .story-editor-hint) {
+   font-size: 13px;
+   line-height: 1.6;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body label:has(> input:not([type="checkbox"], [type="radio"], [type="hidden"]), > select, > textarea) {
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   gap: 8px;
+   font-size: 14px;
+   font-weight: 600;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body > label + label {
+   margin-top: 18px;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body > label + :where(p, ul, ol) {
+   margin-top: 14px;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body :where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="button"], [type="submit"], [type="reset"], [type="image"], [type="hidden"]), select, textarea) {
+   box-sizing: border-box;
+   width: 100%;
+   min-width: 0;
+   min-height: 42px;
+   padding: 10px 12px;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+   font: inherit;
+   font-size: 14px;
+   font-weight: 400;
+   line-height: 1.5;
+}
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body textarea {
+   min-height: 112px;
+   resize: vertical;
+}
+
+.modal-body :where(input, textarea)::placeholder { color: var(--muted-on-panel-light); opacity: 1; }
+.modal-body :where(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--cyan); }
+.modal-body code { font-size: .95em; overflow-wrap: anywhere; }
+
+.modal-panel:not(.user-theme-modal):not(.runtime-datapack-modal) .modal-body :where(button.mini-action:not(.mini-action--danger), button:not([class])) {
+   min-height: 34px;
+   padding: 7px 12px;
+   border: 1px solid var(--line);
+   border-radius: 8px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+   font: inherit;
+   font-size: 13px;
+   line-height: 1.5;
+   cursor: pointer;
+}
+
+.modal-panel .modal-body :where(input, select, textarea):focus-visible,
+.modal-panel :where(.modal-head, .modal-foot) > button:focus-visible {
+   outline: 2px solid var(--cyan);
+   outline-offset: 2px;
+}
+
+.modal-panel .modal-body :where(input, select, textarea):disabled {
+   opacity: .6;
+   cursor: not-allowed;
 }
 
 .modal-foot {
    display: flex;
+   flex: 0 0 auto;
+   flex-wrap: wrap;
    justify-content: flex-end;
-   gap: 8px;
-   padding: 14px 20px;
+   gap: 10px;
+   padding: 16px 24px;
    border-top: 1px solid var(--line);
 }
+
+.modal-foot > button {
+   min-height: 40px;
+   padding: 9px 18px;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+   font: inherit;
+   font-size: 14px;
+   font-weight: 600;
+   line-height: 1.5;
+   cursor: pointer;
+   box-shadow: none;
+}
+
+.modal-foot > .primary-button {
+   border-color: transparent;
+   background: var(--cyan);
+   color: var(--ink-on-cyan);
+}
+
+.modal-foot > :is(.primary-button--danger, .mini-action--danger) {
+   border-color: transparent;
+   background: var(--danger, #b43b48);
+   color: #fff;
+}
+
+.modal-foot > button:hover:not(:disabled) { filter: brightness(.96); }
+.modal-foot > button:disabled { opacity: .5; cursor: not-allowed; }
 
 .shop-modal { display: grid; gap: 14px; }
 .shop-topbar { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }

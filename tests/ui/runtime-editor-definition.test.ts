@@ -136,6 +136,29 @@ describe('Runtime Editor shared Init / Area framework', () => {
     expect(getSelectedRuntimeEditorDefinition(editor)).toBeNull();
   });
 
+  test('AreaMap 表单可编辑收录规则、节点 action 与连线并进入数据包草稿', () => {
+    const editor = createRuntimeDatapackEditorState(null, 'runtime-editor', 'editing:test');
+    editor.modName = 'runtime';
+    editor.displayName = 'Runtime';
+    setRuntimeEditorDefinition(editor, 'areaMaps', {
+      idName: 'guide', name: 'Guide', collection: 'explicit',
+      nodes: [{ id: 'shortcut', position: { x: 10, y: 20 }, action: { kind: 'attemptAreaTravel', areaId: 'runtime:area:remote', travelMode: 'mapDirect' } }],
+      edges: [],
+    });
+    editor.activeSection = 'basics';
+    const form = document.createElement('div');
+    form.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areaMaps');
+    expect(form.querySelector('[data-runtime-editor-field="collection"]')?.tagName).toBe('SELECT');
+    editor.activeSection = 'map-data';
+    form.innerHTML = renderRuntimeDefinitionForm(ctx, { runtimeDatapackEditor: editor } as unknown as PanelState, 'areaMaps');
+    expect(form.querySelector<HTMLTextAreaElement>('[data-runtime-editor-extension="nodes"]')?.value).toContain('mapDirect');
+    expect(form.querySelector<HTMLTextAreaElement>('[data-runtime-editor-extension="edges"]')?.value).toBe('[]');
+    expect(toRuntimeModDraft(editor)?.areaMaps?.[0]).toMatchObject({ idName: 'guide', collection: 'explicit' });
+    markRuntimeEditorApplied(editor, true);
+    removeRuntimeEditorDefinition(editor, 'areaMaps', 'guide');
+    expect(toRuntimeModDraft(editor)?.areaMaps).toEqual([]);
+  });
+
   test('游戏 Init 页面新建 Area 时使用当前 Init，并在概览显示关系摘要', () => {
     const editor = createRuntimeDatapackEditorState(null);
     editor.modName = 'runtime';

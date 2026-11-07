@@ -1,3 +1,4 @@
+import { storyEntryType, type StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { Effect, EntityPresentationEffectValue, GameEvent } from '../../../engine/types/index';
 import type { EntityPresentationKey } from '../../../data-services/contracts/entity-presentation';
 import type { ChatTextEffectValue } from '../../../engine/contracts/chat-presentation';
@@ -56,7 +57,7 @@ export class RuntimeEffectReactor extends EventDrivenReactor {
       case 'storyEffectRequested': {
         const effect = (event as { effect: Effect }).effect;
         const entry = this.registry.storyEntries.get(effect.target);
-        const expectedType = entry?.type ?? 'passive';
+        const expectedType = storyEntryType(entry) ?? 'passive';
         this.storyService.startStory(effect.target, expectedType, effect.owner ?? null, { force: true });
         break;
       }
@@ -75,5 +76,5 @@ export class RuntimeEffectReactor extends EventDrivenReactor {
 }
 
 export interface RuntimeEffectRegistryContext {
-  readonly storyEntries: ReadonlyMap<string, { type: 'active' | 'passive' }>;
+  readonly storyEntries: ReadonlyMap<string, StoryEntryDef>;
 }

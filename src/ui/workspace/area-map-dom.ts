@@ -1,7 +1,7 @@
 import type { UIContext } from '../runtime/context';
 import type { PanelState } from '../components/shared/app-shell';
 import type { AreaMapSession } from './area-map-session';
-import { renderAreaMapDetail, renderAreaMapEdges, renderAreaMapNode, renderAreaMapWorkspace, areaMapTravelLabel } from '../components/map/area-map-workspace';
+import { renderAreaMapCollection, renderAreaMapDetail, renderAreaMapEdges, renderAreaMapNode, renderAreaMapWorkspace, areaMapTravelLabel } from '../components/map/area-map-workspace';
 
 interface Overlays {
   dismissBeforeRootMutation(scope: ParentNode): void;
@@ -33,6 +33,41 @@ function svgFragment(markup: string): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.innerHTML = markup;
   return svg;
+}
+
+function reconcileAreaMapCollection(toolbar: HTMLElement, ctx: UIContext): void {
+  const template = document.createElement('template');
+  template.innerHTML = renderAreaMapCollection(ctx);
+  const desired = template.content.firstElementChild as HTMLElement | null;
+  if (!desired) return;
+  let current = toolbar.querySelector<HTMLElement>('.area-map-collection');
+  if (!current) { toolbar.append(desired); return; }
+  current.setAttribute('role', 'group');
+  current.setAttribute('aria-label', '已收录地图');
+  let label = current.querySelector('span');
+  if (!label) { label = document.createElement('span'); current.prepend(label); }
+  label.textContent = desired.querySelector('span')?.textContent ?? '图册';
+  const wantedButtons = [...desired.querySelectorAll<HTMLButtonElement>('[data-area-map-switch]')];
+  if (wantedButtons.length) {
+    current.querySelector('small')?.remove();
+    for (const wanted of wantedButtons) {
+      const index = wanted.dataset.areaMapSwitch;
+      let button = [...current.querySelectorAll<HTMLButtonElement>('[data-area-map-switch]')]
+        .find(candidate => candidate.dataset.areaMapSwitch === index);
+      if (!button) { button = document.createElement('button'); button.type = 'button'; current.append(button); }
+      attributes(button, wanted);
+      if (button.textContent !== wanted.textContent) button.textContent = wanted.textContent;
+    }
+    const wantedIndexes = new Set(wantedButtons.map(button => button.dataset.areaMapSwitch));
+    for (const button of current.querySelectorAll<HTMLButtonElement>('[data-area-map-switch]')) {
+      if (!wantedIndexes.has(button.dataset.areaMapSwitch)) button.remove();
+    }
+    return;
+  }
+  for (const button of current.querySelectorAll('[data-area-map-switch]')) button.remove();
+  let empty = current.querySelector('small');
+  if (!empty) { empty = document.createElement('small'); current.append(empty); }
+  empty.textContent = desired.querySelector('small')?.textContent ?? '暂无已收录地图';
 }
 
 export function applyAreaMapCamera(root: ParentNode, session: AreaMapSession): void {
@@ -72,6 +107,7 @@ export function reconcileAreaMapDOM(root: HTMLElement, ctx: UIContext, state: Pa
   }
   const viewport = frame.querySelector<SVGSVGElement>('[data-area-map-viewport]')!;
   if (viewport.dataset.areaMapSession !== session.sessionId) return false;
+  reconcileAreaMapCollection(frame.querySelector<HTMLElement>('.area-map-toolbar')!, ctx);
   viewport.setAttribute('aria-label', session.view.name);
   let world = viewport.querySelector('[data-area-map-world]');
   if (!world) {

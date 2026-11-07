@@ -19,6 +19,7 @@ import type {
 import type { EntityPresentationKey } from './entity-presentation';
 import type { StoryContent, StoryPresentation } from './story-node';
 import type { StoryFlagValue } from '../../engine/contracts/story-run-flags';
+import type { WorldInformationTargetRef } from '../../engine/contracts/world-information';
 
 /** 仅修改本次 Entry 播放的局部 Map；不写 PlayerState.flags。 */
 export type StoryLocalFlagAction =
@@ -56,6 +57,10 @@ export type StoryStateAction =
   | { readonly op: 'addItem'; readonly itemId: ItemId; readonly amount: StoryNumericValue }
   /** 解锁指定世界线。 */
   | { readonly op: 'unlockInit'; readonly initId: InitId }
+  /** 收录一张已知区域地图；不是位置移动。 */
+  | { readonly op: 'acquireAreaMap'; readonly mapId: string }
+  /** 通过剧情告知一个显式声明的世界信息面。 */
+  | { readonly op: 'revealInformation'; readonly target: WorldInformationTargetRef }
   /** 写入 flag；旧执行会把数字表达式结算结果转成字符串。 */
   | {
       readonly op: 'setFlag';
@@ -210,6 +215,8 @@ export type StoryPresentationCommand =
  */
 export type StoryAction =
   | StoryLocalFlagAction
+  /** 清除当前运行中目标节点的全部可见展示；不回退进度或撤销效果。 */
+  | { readonly kind: 'clearNode'; readonly storyId: StoryId; readonly nodeId: string }
   | { readonly kind: 'state'; readonly effects: readonly StoryStateAction[] }
   | { readonly kind: 'travel'; readonly areaId: AreaId; readonly notice?: boolean }
   | { readonly kind: 'overlay'; readonly command: StoryOverlayCommand }

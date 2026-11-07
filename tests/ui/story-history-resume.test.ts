@@ -22,8 +22,8 @@ describe('Story 历史恢复', () => {
     document.body.innerHTML = '<div id="app"></div>';
     game = new GameInstance();
     game.init([baseDatapack, makePack([
-      { id: ENTRY, storyId: STORY, type: 'active', availableInits: [], triggerCondition: and(), replayable: true },
-      { id: RESET, storyId: 'test:story:history-reset', type: 'active', availableInits: [], triggerCondition: and() },
+      { id: ENTRY, storyId: STORY, availableInits: [], triggerCondition: and(), replayable: true, activation: { kind: 'active' as const } },
+      { id: RESET, storyId: 'test:story:history-reset', availableInits: [], triggerCondition: and(), activation: { kind: 'active' as const } },
     ], [
       { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:history-reset', name: '清空测试历史', stages: {}, nodes: [
         { id: 'clear', type: 'operation', action: { kind: 'overlay', command: { command: 'clearFlow' } } },

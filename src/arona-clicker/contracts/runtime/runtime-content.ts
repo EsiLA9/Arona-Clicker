@@ -1,5 +1,7 @@
 import type { DefinitionChange } from '../../../data-services/definition/definition-types';
 import type { AreaDef, InitDef, SpotDef } from '../../../data-services/contracts/world';
+import type { AreaMapDef } from '../../../data-services/contracts/area-map';
+import type { RuntimeAreaMapDraft } from './runtime';
 import type { PaymentCostDraft, PaymentOptionDraft, SpotFunctionalityDraft, SpotLevelUpgradeDraft, SpotRevealTriggerDraft } from '../../../data-services/authoring/content-policy-types';
 import type { Registry } from '../../../data-services/registry/registry';
 
@@ -8,6 +10,7 @@ export type RuntimePaymentCostDraft = PaymentCostDraft;
 export type RuntimePaymentOptionDraft = PaymentOptionDraft;
 export type RuntimeSpotLevelUpgradeDraft = SpotLevelUpgradeDraft;
 export type RuntimeSpotRevealTriggerDraft = SpotRevealTriggerDraft;
+export type RuntimeAreaMapInput = RuntimeAreaMapDraft;
 
 /**
  * 编辑器提交的 Spot 输入：键与 `SPOT_CONTENT_POLICY` 的字段 / 扩展 inputKey 对齐，
@@ -171,6 +174,7 @@ export interface RuntimeInitInput {
 
 export interface RuntimeAreaInput {
   readonly navigationMapId?: string;
+  readonly quickPassage?: boolean;
   readonly idName: string;
   readonly initId: string;
   readonly name: string;
@@ -179,7 +183,9 @@ export interface RuntimeAreaInput {
   readonly adjacentAreaIds?: readonly string[];
   readonly topology?: readonly RuntimeAreaTopologyDraft[];
   readonly tags?: readonly string[];
-  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+  readonly reveal?: import('../../../data-services/contracts/world-reveal').WorldInformationDef;
+  readonly enterCondition?: import('../../../engine/types/expression').ConditionGroup;
+  readonly onVisitReveal?: readonly ('existence' | 'name' | 'utility' | 'condition')[];
 }
 
 export type RuntimeAreaTopologyType = 'oneWay' | 'twoWay';
@@ -201,6 +207,7 @@ export interface RuntimeWorldDraft {
   readonly targetPackRecordId?: string;
   readonly inits: readonly RuntimeInitInput[];
   readonly areas: readonly RuntimeAreaInput[];
+  readonly areaMaps?: readonly RuntimeAreaMapDraft[];
 }
 
 export type RuntimeWorldDiagnosticCode =
@@ -223,6 +230,7 @@ export interface RuntimeWorldStateSnapshot {
   readonly sourceId: string;
   readonly inits: ReadonlyMap<string, InitDef>;
   readonly areas: ReadonlyMap<string, AreaDef>;
+  readonly areaMaps: ReadonlyMap<string, AreaMapDef>;
   readonly topology: readonly RuntimeAreaTopologyConnection[];
   readonly revision: number;
 }
@@ -231,6 +239,7 @@ export interface RuntimeWorldCommit {
   readonly modName: string;
   readonly changedInitIds: readonly string[];
   readonly changedAreaIds: readonly string[];
+  readonly changedAreaMapIds: readonly string[];
   readonly topologyAreaIds: readonly string[];
   readonly topology: readonly RuntimeAreaTopologyConnection[];
   readonly revisionBefore: number;

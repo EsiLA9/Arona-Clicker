@@ -189,6 +189,10 @@ export function bindEvents(ctrl: UIController): void {
       ctrl.refreshLogPanel(false);
       return;
     }
+    if (event.type === 'areaMapDefinitionChanged') {
+      if (!ctrl.isContentRefreshBatchActive() && ctrl.panelState.areaMapSession) ctrl.scheduleRender();
+      return;
+    }
     refreshRevealIfChanged(ctrl);
     if (event.type === 'areaEntered' || event.type === 'storyCompleted') scheduleAreaStoryQuickRefresh();
     ctrl.refreshLogPanel(false);

@@ -1,0 +1,185 @@
+{
+  "shops": [
+    {
+      "id": "base:shop:abydos-cafe",
+      "name": "阿比多斯咖啡角",
+      "description": "用信用点或探索物资换取补给。",
+      "theme": {
+        "tokens": {
+          "primary": "#d97706",
+          "accent": "#facc15",
+          "panel": "#fff8e7"
+        }
+      },
+      "sections": [
+        {
+          "id": "daily",
+          "name": "日常补给"
+        },
+        {
+          "id": "exchange",
+          "name": "物资交换"
+        }
+      ],
+      "entries": [
+        {
+          "id": "energy-drink",
+          "name": "战术能量饮料",
+          "sectionId": "daily",
+          "offer": {
+            "type": "item",
+            "itemId": "base:item:energy_drink",
+            "amount": 1
+          },
+          "price": {
+            "unitCosts": [
+              {
+                "type": "resource",
+                "resourceId": "base:resource:credit",
+                "amount": {
+                  "type": "const",
+                  "value": 25
+                }
+              }
+            ]
+          },
+          "stock": {
+            "type": "limited",
+            "max": 3
+          },
+          "purchase": {
+            "quantity": "multiple",
+            "maxPerCheckout": 3,
+            "scope": {
+              "lifetime": "init",
+              "owner": "shop"
+            }
+          }
+        },
+        {
+          "id": "field-note-exchange",
+          "name": "调查记录兑换",
+          "sectionId": "exchange",
+          "offer": {
+            "type": "item",
+            "itemId": "base:item:field_note",
+            "amount": 1
+          },
+          "price": {
+            "unitCosts": [
+              {
+                "type": "item",
+                "itemId": "base:item:energy_drink",
+                "amount": {
+                  "type": "const",
+                  "value": 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "premium-drink",
+          "name": "高级能量饮料",
+          "sectionId": "daily",
+          "visibility": "show-locked",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 100
+              }
+            ]
+          },
+          "offer": {
+            "type": "item",
+            "itemId": "base:item:premium_drink",
+            "amount": 1
+          },
+          "price": {
+            "unitCosts": [
+              {
+                "type": "resource",
+                "resourceId": "base:resource:credit",
+                "amount": {
+                  "type": "const",
+                  "value": 80
+                }
+              }
+            ]
+          },
+          "stock": {
+            "type": "limited",
+            "max": 1
+          },
+          "purchase": {
+            "scope": {
+              "lifetime": "global",
+              "owner": "shop"
+            }
+          }
+        },
+        {
+          "id": "mystery-fragment",
+          "name": "神秘碎片",
+          "sectionId": "exchange",
+          "visibility": "hidden-until-available",
+          "revealTriggers": [
+            {
+              "reveal": "existence",
+              "condition": {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 500
+              }
+            }
+          ],
+          "offer": {
+            "type": "item",
+            "itemId": "base:item:mystery_fragment",
+            "amount": 1
+          },
+          "price": {
+            "unitCosts": [
+              {
+                "type": "resource",
+                "resourceId": "base:resource:credit",
+                "amount": {
+                  "type": "add",
+                  "left": {
+                    "type": "const",
+                    "value": 40
+                  },
+                  "right": {
+                    "type": "value",
+                    "value": {
+                      "type": "value",
+                      "source": "res",
+                      "params": {
+                        "resource": "base:resource:credit"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "stock": {
+            "type": "limited",
+            "max": 1
+          },
+          "purchase": {
+            "scope": {
+              "lifetime": "init",
+              "owner": "spot"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

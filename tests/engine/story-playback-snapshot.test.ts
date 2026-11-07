@@ -24,7 +24,7 @@ describe('submitted Choice output admission', () => {
 
 const root: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:root', name: 'Root', stages: {}, nodes: [{ id: 'end', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: 'end' } }] };
 const target: StoryDef = { ...root, id: 'story:target', name: 'Target' };
-const entry = (id: string, storyId: string): StoryEntryDef => ({ id, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } });
+const entry = (id: string, storyId: string): StoryEntryDef => ({ id, storyId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } });
 const registry: Pick<Registry, 'storyEntries' | 'stories'> = {
   storyEntries: new Map([['entry:root', entry('entry:root', root.id)], ['entry:target', entry('entry:target', target.id)]]),
   stories: new Map([[root.id, root], [target.id, target]]),
@@ -124,5 +124,18 @@ describe('GameInstance rejects corrupt deferred starts before replacing state', 
     expect(() => game!.load(saved)).toThrow('DeferredStart');
     expect(JSON.stringify(game.state)).toBe(beforeState);
     expect(game.story.getPlaybackView()).toEqual(beforeStory);
+  });
+});
+
+
+describe('node performance snapshot admission',()=>{
+  it.each([
+    {performance:{layout:{mode:'positioned',x:0,y:0}}},
+    {node:{storyId:'story',nodeId:'node'},performance:{style:{color:'red;display:none'}}},
+    {node:{storyId:'story',nodeId:''},performance:{layout:{mode:'positioned',x:0,y:0}}},
+    {node:{storyId:'story',nodeId:'node'},performance:{layout:{mode:'positioned',x:Infinity,y:0}}},
+  ])('rejects malformed restored node displays (%j)', fields=>{
+    const steps=[{kind:'output',content:{kind:'narration',text:'body',...fields}}] as Parameters<typeof validateStoryPlaybackSteps>[0];
+    expect(()=>validateStoryPlaybackSteps(steps)).toThrow('StoryPlaybackSnapshotInvalid');
   });
 });

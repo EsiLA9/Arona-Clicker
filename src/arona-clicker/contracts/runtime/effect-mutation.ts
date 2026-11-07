@@ -1,6 +1,7 @@
 import type { StateMutationPort } from '../../../engine/contracts/mutation';
 import type { CharacterAcquireVia } from '../../types/character';
 import type { Effect, ExtraPath, ExtraValue, Character } from '../../../engine/types/index';
+import type { WorldInformationTargetRef } from '../../../engine/contracts/world-information';
 
 /** AronaClicker 对 Effect DSL 的完整状态写入能力。 */
 export interface EffectMutationPort extends StateMutationPort {
@@ -11,6 +12,8 @@ export interface EffectMutationPort extends StateMutationPort {
   addEnhancement(enhancementId: string): boolean;
   addItem(itemId: string, count: number, maxStack?: number): number;
   unlockInit(initId: string): boolean;
+  acquireAreaMap(mapId: string): boolean;
+  grantInformationTarget(target: WorldInformationTargetRef): boolean;
   setFlag(flag: string, value: string): void;
   setExtra(path: ExtraPath, value: ExtraValue): void;
   addExtra(path: ExtraPath, delta: number): void;

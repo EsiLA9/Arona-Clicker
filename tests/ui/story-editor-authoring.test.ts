@@ -1,8 +1,12 @@
+import { LocalStorageAdapter } from '../../src/data-services/persistence/storage-adapter';
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createStoryForTest } from './story-editor-test-helpers';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { UIController } from '../../src/ui/controller/controller';
+import { createUIContext } from '../../src/ui/runtime/context';
+import { renderStoryAuthoringTools } from '../../src/ui/story-editor/authoring-view';
 import { currentAuthoringDraft, currentNode, renameStoryNodeId } from '../../src/ui/story-editor/model';
 import { compileStoryAuthoring, constructStructuredValue, editStructuredValue, hydrateStoryAuthoring } from '../../src/ui/story-editor/authoring-model';
 import { editProperty, moveRowBy, rowIdAt, selectDiscriminant, selectNodeType } from '../../src/ui/story-editor/property-model';
@@ -13,7 +17,7 @@ describe('Story authoring UI and draft API', () => {
   let game: GameInstance, ctrl: UIController, root: HTMLElement;
   const draft = () => currentAuthoringDraft(ctrl.storyEditor.state)!;
   const q = <T extends HTMLElement = HTMLElement>(selector: string): T => { const item = root.querySelector<T>(selector); expect(item,selector).not.toBeNull(); return item!; };
-  const click = (selector: string) => { q<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
+  const click = (selector: string) => { if(selector==='[data-editor-action="new"]') createStoryForTest(game,ctrl); else q<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
   const change = (element: HTMLInputElement | HTMLSelectElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
   const valueControl = (scope: string, path: (string|number)[], attr: string) => {
     const found = [...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[${attr}]`)].find(x=>x.dataset.valueScope===scope&&x.dataset.valuePath===JSON.stringify(path));
@@ -52,7 +56,7 @@ describe('Story authoring UI and draft API', () => {
     click(`[data-editor-entry="${entry.id}"]`);
     const owner = draft();
     const index = owner.authoring!.passiveStories.findIndex(row => row.id === entry.id);
-    const weight = valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input');
+    const weight = valueControl('$authoring',['passiveStories',index,'activation','weight'],'data-value-input');
     weight.focus(); change(weight,'-');
     expect(document.activeElement).toBe(weight);
     expect(weight.closest('.story-editor-center')).not.toBeNull();
@@ -61,13 +65,34 @@ describe('Story authoring UI and draft API', () => {
     click('[data-editor-action="save"]');
     ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
     click(`[data-editor-entry-target="${entry.id}"]`);
-    expect(valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input').value).toBe('-');
-    change(valueControl('$authoring',['passiveStories',index,'weight'],'data-value-input'),'2');
+    expect(valueControl('$authoring',['passiveStories',index,'activation','weight'],'data-value-input').value).toBe('-');
+    change(valueControl('$authoring',['passiveStories',index,'activation','weight'],'data-value-input'),'2');
     click('[data-authoring-catalog="passiveStories"]');
-    expect(draft().authoring!.passiveStories[index].extra).toBeTruthy();
+    expect(draft().authoring!.passiveStories[index].catalog).toBeTruthy();
     click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeNull();
   });
 
+  it('creates explicit affection entries and cancels or confirms reviewed branch changes',()=>{
+    const owner=[...game.registry.characterVariants.keys()][0];
+    const confirm=()=>{document.querySelector<HTMLButtonElement>('[data-modal-action="confirm-entry-activation"]')!.click();ctrl.flushUIUpdates();};
+    click('[data-authoring-add="affection"]');
+    expect(draft().authoring!.passiveStories).toHaveLength(0);
+    change(document.querySelector<HTMLSelectElement>('[data-entry-activation-owner]')!,owner);confirm();
+    const entry=draft().authoring!.passiveStories[0];expect(entry).toMatchObject({owner,activation:{kind:'affection'}});
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    const center=q('.story-editor-center .workspace-column__body');
+    change(q('[data-entry-activation-part="kind"]'),'random');
+    expect(entry.activation.kind).toBe('affection');document.querySelector<HTMLButtonElement>('.app-modal .modal-close')!.click();ctrl.flushUIUpdates();
+    expect(entry.activation.kind).toBe('affection');
+    change(q('[data-entry-activation-part="kind"]'),'random');
+    const save=vi.spyOn(LocalStorageAdapter.prototype,'set').mockImplementationOnce(()=>{throw new Error('storage full');});
+    confirm();expect(entry.activation.kind).toBe('affection');expect(ctrl.modal.isOpen()).toBe(true);save.mockRestore();
+    confirm();
+    expect(draft().authoring!.passiveStories[0].activation).toEqual({kind:'random',weight:1,repeatable:false});
+    expect(q('.story-editor-center .workspace-column__body')).toBe(center);
+    click('[data-editor-action="save"]');ctrl.destroy();ctrl=new UIController(game,root);ctrl.storyEditor.open();
+    expect(draft().authoring!.passiveStories[0].activation.kind).toBe('random');
+  });
   it('removes an Entry from its center form and returns to its owner Story', () => {
     click('[data-authoring-add="activeStories"]');
     const owner = draft(); const entry = owner.authoring!.activeStories[0];
@@ -93,9 +118,7 @@ describe('Story authoring UI and draft API', () => {
     expect(document.activeElement).toBe(identity);
     expect(identity.closest('.story-editor-center')).not.toBeNull();
     expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:entry.id});
-    const children = [...root.querySelectorAll<HTMLButtonElement>('[data-value-action="add"]')].find(button => button.dataset.valuePath === JSON.stringify(['passivePools',0,'children']))!;
-    children.click(); ctrl.flushUIUpdates();
-    change(valueControl('$authoring',['passivePools',0,'children',0],'data-value-type'),'pool-child');
+    expect(pool.children[0].id).toBe(entry.id);
     change(valueControl('$authoring',['passivePools',0,'children',0,'id'],'data-value-input'),entry.id);
     const weightPath = ['passivePools',0,'children',0,'weight'];
     change(valueControl('$authoring',weightPath,'data-value-input'),'-');
@@ -170,21 +193,21 @@ describe('Story authoring UI and draft API', () => {
     expect(game.storyService.getCurrentStoryId()).toBe(gameplay);
   });
 
-  it('exposes nested localFlag fields and structured values in a Button result', () => {
-    click('[data-editor-action="click"]'); const node=currentNode(ctrl.storyEditor.state)!;
-    editProperty(draft(),node.id,['interaction','text'],'继续');
-    editProperty(draft(),node.id,['interaction','result'],{actions:[{kind:'localFlag',op:'set',name:'answer',value:{number:1}}]});
+  it('exposes localFlag fields and structured values in an independent Operation', () => {
+    click('[data-editor-action="operation"]'); const node=currentNode(ctrl.storyEditor.state)!;
+    editProperty(draft(),node.id,['action'],{kind:'localFlag',op:'set',name:'answer',value:{number:1}});
     ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
-    const name=[...root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')].find(x=>x.dataset.storyPropertyPath===JSON.stringify(['interaction','result','actions',0,'name']))!;
-    expect(name.closest('label')?.textContent).toContain('局部标记名称'); change(name,'selected');
-    const path=['interaction','result','actions',0,'value','number'];
+    const name=q<HTMLInputElement>('[data-editor-field="local-flag-name"]');
+    expect(name.closest('label')?.textContent).toContain('标记名称');
+    name.value='selected';name.dispatchEvent(new Event('change',{bubbles:true}));ctrl.flushUIUpdates();
+    const path=['action','value','number'];
     const input=valueControl(node.id,path,'data-value-input') as HTMLInputElement;
     input.focus(); change(input,'-');
     expect(compileStoryAuthoring(ctrl.storyEditor.state)).toMatchObject({ok:false});
     expect(document.activeElement).toBe(input); expect(input.value).toBe('-');
     change(input,'3');
     const compiled=compileStoryAuthoring(ctrl.storyEditor.state); expect(compiled.ok).toBe(true);
-    if(compiled.ok) expect(compiled.patch.stories[0].nodes[0]).toMatchObject({interaction:{result:{actions:[{kind:'localFlag',name:'selected',value:{number:3}}]}}});
+    if(compiled.ok) expect(compiled.patch.stories[0].nodes[0]).toMatchObject({action:{kind:'localFlag',name:'selected',value:{number:3}}});
   });
   it('does not expose legacy bounded child association controls', () => {
     click('[data-authoring-add="activeStories"]');
@@ -192,18 +215,31 @@ describe('Story authoring UI and draft API', () => {
     expect([...q<HTMLSelectElement>('[data-authoring-field="activeStories"]').options].some(option=>option.value==='kizuna')).toBe(false);
     expect(root.querySelector('[data-authoring-kizuna-mode]')).toBeNull();
   });
-  it('keeps pending numeric input with its stable action row after reorder and reload', () => {
+  it('shows only Runtime-available candidates in the isolated authoring preview', () => {
+    const state=ctrl.storyEditor.state;
+    state.preview={playback:null,projection:null,story:{
+      availableChoiceIndexes:[1],page:{choices:[{id:'hidden',text:'隐藏项'},{id:'visible',text:'可见项'}]},
+    } as unknown as NonNullable<NonNullable<typeof state.preview>['story']>};
+    const host=document.createElement('div');host.innerHTML=renderStoryAuthoringTools(createUIContext(game),state,draft());
+    expect([...host.querySelectorAll<HTMLElement>('[data-authoring-preview-option]')].map(item=>item.dataset.authoringPreviewOption)).toEqual(['visible']);
+  });
+  it('keeps each Choice mark attached to its stable option row after reorder and reload', () => {
     click('[data-editor-action="click"]');const node=currentNode(ctrl.storyEditor.state)!;
     selectDiscriminant(draft(),node.id,['interaction'],'kind','choice');
-    editProperty(draft(),node.id,['interaction','sharedActions'],[{kind:'localFlag',op:'set',name:'first',value:1},{kind:'localFlag',op:'set',name:'second',value:2}]);
-    const list=['interaction','sharedActions'];const first=rowIdAt(draft(),node.id,list,0)!;
-    editStructuredValue(draft(),node.id,[...list,0,'value'],'number','-');
+    editProperty(draft(),node.id,['interaction','options'],[{id:'first',text:'第一项',marks:['first-mark']},{id:'second',text:'第二项',marks:['second-mark']}]);
+    ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
+    const list=['interaction','options'];const first=rowIdAt(draft(),node.id,list,0)!;
+    const firstRow=root.querySelector<HTMLElement>(`[data-editor-key="choice:${first}"]`)!;
+    const firstMark=[...root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')].find(x=>x.dataset.storyPropertyPath===JSON.stringify([...list,0,'marks',0]))!;
+    firstMark.focus();change(firstMark,'edited-first-mark');
     moveRowBy(draft(),node.id,list,first,1);
     ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();
-    expect(valueControl(node.id,[...list,1,'value'],'data-value-input').value).toBe('-');
-    expect(valueControl(node.id,[...list,0,'value'],'data-value-input').value).toBe('2');
+    const markAt=(index:number)=>[...root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')].find(x=>x.dataset.storyPropertyPath===JSON.stringify([...list,index,'marks',0]))!;
+    expect(markAt(1).value).toBe('edited-first-mark');
+    expect(markAt(0).value).toBe('second-mark');
+    expect(root.querySelector(`[data-editor-key="choice:${first}"]`)).toBe(firstRow);
     click('[data-editor-action="save"]');ctrl.destroy();ctrl=new UIController(game,root);ctrl.storyEditor.open();
-    expect(Object.values(draft().structuredInputs!).some(x=>x.text==='-'&&x.error)).toBe(true);
+    expect(draft().document.nodes[0]).toMatchObject({interaction:{options:[{id:'second',marks:['second-mark']},{id:'first',marks:['edited-first-mark']}]}});
   });
   it('constructs expressions and Extra without raw JSON and protects published identities', () => {
     constructStructuredValue(draft(),'$document',['extra'],'extra-dict');
@@ -231,7 +267,7 @@ describe('Story authoring UI and draft API', () => {
     expect(compileStoryAuthoring(ctrl.storyEditor.state).ok).toBe(true);
   });
   it('projects Entry-owned catalog metadata without changing the base table', () => {
-    const base={categories:[]}; const entry={id:'test:activestory:one',type:'active' as const,storyId:'test:story:one',availableInits:[],triggerCondition:{type:'AND' as const,conditions:[]},extra:{t:'dict' as const,v:{storyCatalog:{t:'dict' as const,v:{category:{t:'str' as const,v:'剧情:分类'},part:{t:'str' as const,v:'篇章'},chapter:{t:'str' as const,v:'章节'}}}}}};
+    const base={categories:[]}; const entry={id:'test:activestory:one',storyId:'test:story:one',availableInits:[],triggerCondition:{type:'AND' as const,conditions:[]},catalog:{category:'剧情:分类',part:'篇章',chapter:'章节'}, activation: { kind: 'active' as const } };
     const catalog=withAuthoredStoryCatalog(base,[entry]);expect(base.categories).toHaveLength(0);
     expect(catalog.categories[0].id).not.toContain(':');expect(catalog.categories[0].parts[0].chapters?.[0].items[0].entryId).toBe(entry.id);
   });

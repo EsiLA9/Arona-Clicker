@@ -15,11 +15,11 @@ function setup(atArea = false, charaScene = false) {
   const body = { id: 'body', type: 'talklet' as const, stageId: 's', content: { kind: 'narration' as const, text: 'body' } };
   const docBase = { name: 'route', startContext: { type: 'area' as const, areaId: area }, stages: { s: { advance: 'input' as const } } };
   const pack = makePack([
-    { ...entryBase, id: parent, storyId: 'test:story:route_parent', type: 'passive', repeatable: false, weight: 1, owner: 'Hoshino', kizuna: { entryId: child, ...(atArea ? { areaId: area } : {}) } },
-    { ...entryBase, id: child, storyId: 'test:story:route_child', type: 'active' },
-    { ...entryBase, id: plain, storyId: 'test:story:route_plain', type: 'active' },
-    { ...entryBase, id: passive, storyId: 'test:story:route_plain', type: 'passive', repeatable: false, weight: 1, owner: 'Hoshino' },
-    { ...entryBase, id: onsite, storyId: 'test:story:route_onsite', type: 'passive', repeatable: false, weight: 1, owner: 'Hoshino' },
+    { ...entryBase, id: parent, storyId: 'test:story:route_parent', owner: 'Hoshino', kizuna: { entryId: child, ...(atArea ? { areaId: area } : {}) }, activation: { kind: 'random' as const, weight: 1, repeatable: false } },
+    { ...entryBase, id: child, storyId: 'test:story:route_child', activation: { kind: 'active' as const } },
+    { ...entryBase, id: plain, storyId: 'test:story:route_plain', activation: { kind: 'active' as const } },
+    { ...entryBase, id: passive, storyId: 'test:story:route_plain', owner: 'Hoshino', activation: { kind: 'random' as const, weight: 1, repeatable: false } },
+    { ...entryBase, id: onsite, storyId: 'test:story:route_onsite', owner: 'Hoshino', activation: { kind: 'random' as const, weight: 1, repeatable: false } },
   ], [
     { ...docBase, id: 'test:story:route_parent', startContext: { type: 'chara', characterId: 'Hoshino' }, nodes: [{ id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } }, body] },
     { ...docBase, id: 'test:story:route_child', ...(charaScene ? { startContext: { type: 'chara' as const, characterId: 'Hoshino' } } : {}), nodes: [body] },

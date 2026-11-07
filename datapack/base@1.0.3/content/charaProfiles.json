@@ -1,0 +1,24 @@
+{
+  "charaProfiles": [
+    {
+      "id": "hoshino",
+      "names": [
+        {
+          "id": "default",
+          "text": "小鸟游星野"
+        },
+        {
+          "id": "nickname",
+          "text": "星野酱"
+        }
+      ],
+      "avatars": [
+        {
+          "id": "default",
+          "pic": "base:avatar(pic):hoshino"
+        }
+      ],
+      "activeAvatar": "default"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import {
 } from '../../data-services/archive/archive-writer';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { AreaDef, InitDef, SpotDef } from '../../data-services/contracts/world';
+import type { AreaMapDef } from '../../data-services/contracts/area-map';
 import type { EnhancementDef } from '../../data-services/contracts/enhancement';
 import type { PackManifest } from '../../data-services/datapack/manifest';
 import {
@@ -26,7 +27,7 @@ import {
   type RuntimeEditorSpotDraft,
 } from './state';
 
-const EXPORTABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots', 'enhancements'];
+const EXPORTABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'areaMaps', 'spots', 'enhancements'];
 
 export interface RuntimeEditorPackExportContext extends AuthoringValidationContext {
   readonly initIds?: ReadonlySet<string>;
@@ -74,6 +75,7 @@ export function compileRuntimeEditorPack(
   const compiled: Record<RuntimeEditorContentKind, unknown[]> = {
     inits: [],
     areas: [],
+    areaMaps: [],
     spots: [],
     enhancements: [],
   };
@@ -129,6 +131,7 @@ export function compileRuntimeEditorPack(
     version: editor.version,
     inits: compiled.inits as InitDef[],
     areas: compiled.areas as AreaDef[],
+    areaMaps: compiled.areaMaps as AreaMapDef[],
     spots: compiled.spots as SpotDef[],
     enhancements: compiled.enhancements as EnhancementDef[],
     activeStories: context.sourceDatapack?.activeStories ? structuredClone(context.sourceDatapack.activeStories) : [],
@@ -201,6 +204,7 @@ export function compileRuntimeEditorPack(
 const DATAPACK_LIST_ARCHIVE_ENTRIES: ReadonlyArray<{ readonly field: DatapackListField; readonly path: string }> = [
   { field: 'inits', path: 'data/10-inits.json' },
   { field: 'areas', path: 'data/20-areas.json' },
+  { field: 'areaMaps', path: 'data/25-area-maps.json' },
   { field: 'spots', path: 'data/30-spots.json' },
   { field: 'enhancements', path: 'data/40-enhancements.json' },
   { field: 'activeStories', path: 'data/50-active-stories.json' },
@@ -233,7 +237,7 @@ const DATAPACK_LIST_ARCHIVE_ENTRIES: ReadonlyArray<{ readonly field: DatapackLis
 const DATAPACK_LIST_FIELDS = DATAPACK_LIST_ARCHIVE_ENTRIES.map(entry => entry.field) as readonly DatapackListField[];
 const DATAPACK_SINGLETON_FIELDS = ['gearConfig', 'characterPersistConfig', 'affectionConfig', 'extras'] as const;
 type DatapackListField =
-  | 'inits' | 'areas' | 'spots' | 'enhancements' | 'activeStories' | 'passiveStories' | 'stories'
+  | 'inits' | 'areas' | 'areaMaps' | 'spots' | 'enhancements' | 'activeStories' | 'passiveStories' | 'stories'
   | 'items' | 'dropTables' | 'affectorPacks' | 'triggerDefs' | 'funcletDefs' | 'characters'
   | 'resourceDisplays' | 'pics' | 'charaProfiles' | 'passivePools' | 'characterVariants'
   | 'cultivateCurves' | 'favoriteItems' | 'uniqueWeapons' | 'traits' | 'gears' | 'colorGroups'

@@ -1,0 +1,624 @@
+{
+  "items": [
+    {
+      "id": "base:item:energy_drink",
+      "name": "战术能量饮料",
+      "description": "恢复少量信用点，适合测试背包使用流程。",
+      "maxStack": 5,
+      "rarity": "common",
+      "type": "consumable",
+      "useEffects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 25
+        }
+      ]
+    },
+    {
+      "id": "base:item:premium_drink",
+      "name": "高级能量饮料",
+      "description": "千禧年特制的营养补剂，能恢复大量精力。",
+      "maxStack": 3,
+      "rarity": "rare",
+      "type": "consumable",
+      "useEffects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 100
+        }
+      ]
+    },
+    {
+      "id": "base:item:tactical_kit",
+      "name": "战术急救包",
+      "description": "SRT制式战术急救套件，紧急时刻恢复可观信用点。",
+      "maxStack": 3,
+      "rarity": "rare",
+      "type": "consumable",
+      "useEffects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 60
+        }
+      ]
+    },
+    {
+      "id": "base:item:momo_friends_cookie",
+      "name": "喵喵饼干",
+      "description": "补课部特制手工饼干，形状是全基沃托斯最可爱的喵喵。恢复少量信用点。",
+      "maxStack": 10,
+      "rarity": "common",
+      "type": "consumable",
+      "useEffects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "base:item:field_note",
+      "name": "野外调查记录",
+      "description": "记录一次调查结果的普通素材。",
+      "maxStack": 99,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:mystery_fragment",
+      "name": "神秘碎片",
+      "description": "蕴含神秘力量的水晶碎片。在崔妮蒂大圣堂附近偶有发现。",
+      "maxStack": 20,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:broken_core",
+      "name": "损毁的核心零件",
+      "description": "从废弃机械中回收的核心部件，对千禧年工程师来说也许还有用。",
+      "maxStack": 50,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:data_chip",
+      "name": "千禧年数据芯片",
+      "description": "存储着海量研究数据的高密度芯片，千禧年学院的特产。",
+      "maxStack": 30,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:battle_report",
+      "name": "战斗数据报告",
+      "description": "记录了战术编队作战表现的数据报告，SRT和瓦尔基里都在收集。",
+      "maxStack": 50,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:peroro_doll",
+      "name": "佩洛洛玩偶",
+      "description": "一二三最爱的佩洛洛限定版玩偶。在基沃托斯有着神秘的收藏价值。",
+      "maxStack": 5,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:schale_pass",
+      "name": "夏莱通行证",
+      "description": "联邦搜查部「夏莱」的官方通行证。持有者可在各学院间自由通行。",
+      "maxStack": 1,
+      "rarity": "epic",
+      "type": "key"
+    },
+    {
+      "id": "base:item:federal_order",
+      "name": "联邦委托书",
+      "description": "来自联邦学生会的正式委托文件，完成委托可获得丰富回报。",
+      "maxStack": 5,
+      "rarity": "rare",
+      "type": "key"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t1",
+      "name": "攻击装备·帽子 图纸 T1",
+      "description": "攻击装备·帽子 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t2",
+      "name": "攻击装备·帽子 图纸 T2",
+      "description": "攻击装备·帽子 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t3",
+      "name": "攻击装备·帽子 图纸 T3",
+      "description": "攻击装备·帽子 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t4",
+      "name": "攻击装备·帽子 图纸 T4",
+      "description": "攻击装备·帽子 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t5",
+      "name": "攻击装备·帽子 图纸 T5",
+      "description": "攻击装备·帽子 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t6",
+      "name": "攻击装备·帽子 图纸 T6",
+      "description": "攻击装备·帽子 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t7",
+      "name": "攻击装备·帽子 图纸 T7",
+      "description": "攻击装备·帽子 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t8",
+      "name": "攻击装备·帽子 图纸 T8",
+      "description": "攻击装备·帽子 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t9",
+      "name": "攻击装备·帽子 图纸 T9",
+      "description": "攻击装备·帽子 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-hat-t10",
+      "name": "攻击装备·帽子 图纸 T10",
+      "description": "攻击装备·帽子 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t1",
+      "name": "攻击装备·手套 图纸 T1",
+      "description": "攻击装备·手套 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t2",
+      "name": "攻击装备·手套 图纸 T2",
+      "description": "攻击装备·手套 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t3",
+      "name": "攻击装备·手套 图纸 T3",
+      "description": "攻击装备·手套 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t4",
+      "name": "攻击装备·手套 图纸 T4",
+      "description": "攻击装备·手套 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t5",
+      "name": "攻击装备·手套 图纸 T5",
+      "description": "攻击装备·手套 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t6",
+      "name": "攻击装备·手套 图纸 T6",
+      "description": "攻击装备·手套 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t7",
+      "name": "攻击装备·手套 图纸 T7",
+      "description": "攻击装备·手套 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t8",
+      "name": "攻击装备·手套 图纸 T8",
+      "description": "攻击装备·手套 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t9",
+      "name": "攻击装备·手套 图纸 T9",
+      "description": "攻击装备·手套 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-attack-glove-t10",
+      "name": "攻击装备·手套 图纸 T10",
+      "description": "攻击装备·手套 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t1",
+      "name": "防御装备·防弹背心 图纸 T1",
+      "description": "防御装备·防弹背心 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t2",
+      "name": "防御装备·防弹背心 图纸 T2",
+      "description": "防御装备·防弹背心 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t3",
+      "name": "防御装备·防弹背心 图纸 T3",
+      "description": "防御装备·防弹背心 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t4",
+      "name": "防御装备·防弹背心 图纸 T4",
+      "description": "防御装备·防弹背心 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t5",
+      "name": "防御装备·防弹背心 图纸 T5",
+      "description": "防御装备·防弹背心 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t6",
+      "name": "防御装备·防弹背心 图纸 T6",
+      "description": "防御装备·防弹背心 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t7",
+      "name": "防御装备·防弹背心 图纸 T7",
+      "description": "防御装备·防弹背心 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t8",
+      "name": "防御装备·防弹背心 图纸 T8",
+      "description": "防御装备·防弹背心 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t9",
+      "name": "防御装备·防弹背心 图纸 T9",
+      "description": "防御装备·防弹背心 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-vest-t10",
+      "name": "防御装备·防弹背心 图纸 T10",
+      "description": "防御装备·防弹背心 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t1",
+      "name": "防御装备·护甲靴 图纸 T1",
+      "description": "防御装备·护甲靴 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t2",
+      "name": "防御装备·护甲靴 图纸 T2",
+      "description": "防御装备·护甲靴 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t3",
+      "name": "防御装备·护甲靴 图纸 T3",
+      "description": "防御装备·护甲靴 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t4",
+      "name": "防御装备·护甲靴 图纸 T4",
+      "description": "防御装备·护甲靴 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t5",
+      "name": "防御装备·护甲靴 图纸 T5",
+      "description": "防御装备·护甲靴 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t6",
+      "name": "防御装备·护甲靴 图纸 T6",
+      "description": "防御装备·护甲靴 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t7",
+      "name": "防御装备·护甲靴 图纸 T7",
+      "description": "防御装备·护甲靴 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t8",
+      "name": "防御装备·护甲靴 图纸 T8",
+      "description": "防御装备·护甲靴 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t9",
+      "name": "防御装备·护甲靴 图纸 T9",
+      "description": "防御装备·护甲靴 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-defense-shoes-t10",
+      "name": "防御装备·护甲靴 图纸 T10",
+      "description": "防御装备·护甲靴 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t1",
+      "name": "特殊装备·徽章 图纸 T1",
+      "description": "特殊装备·徽章 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t2",
+      "name": "特殊装备·徽章 图纸 T2",
+      "description": "特殊装备·徽章 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t3",
+      "name": "特殊装备·徽章 图纸 T3",
+      "description": "特殊装备·徽章 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t4",
+      "name": "特殊装备·徽章 图纸 T4",
+      "description": "特殊装备·徽章 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t5",
+      "name": "特殊装备·徽章 图纸 T5",
+      "description": "特殊装备·徽章 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t6",
+      "name": "特殊装备·徽章 图纸 T6",
+      "description": "特殊装备·徽章 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t7",
+      "name": "特殊装备·徽章 图纸 T7",
+      "description": "特殊装备·徽章 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t8",
+      "name": "特殊装备·徽章 图纸 T8",
+      "description": "特殊装备·徽章 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t9",
+      "name": "特殊装备·徽章 图纸 T9",
+      "description": "特殊装备·徽章 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-badge-t10",
+      "name": "特殊装备·徽章 图纸 T10",
+      "description": "特殊装备·徽章 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t1",
+      "name": "特殊装备·腕表 图纸 T1",
+      "description": "特殊装备·腕表 的第 1 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t2",
+      "name": "特殊装备·腕表 图纸 T2",
+      "description": "特殊装备·腕表 的第 2 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t3",
+      "name": "特殊装备·腕表 图纸 T3",
+      "description": "特殊装备·腕表 的第 3 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t4",
+      "name": "特殊装备·腕表 图纸 T4",
+      "description": "特殊装备·腕表 的第 4 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t5",
+      "name": "特殊装备·腕表 图纸 T5",
+      "description": "特殊装备·腕表 的第 5 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t6",
+      "name": "特殊装备·腕表 图纸 T6",
+      "description": "特殊装备·腕表 的第 6 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t7",
+      "name": "特殊装备·腕表 图纸 T7",
+      "description": "特殊装备·腕表 的第 7 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "epic",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t8",
+      "name": "特殊装备·腕表 图纸 T8",
+      "description": "特殊装备·腕表 的第 8 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t9",
+      "name": "特殊装备·腕表 图纸 T9",
+      "description": "特殊装备·腕表 的第 9 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-bp-special-watch-t10",
+      "name": "特殊装备·腕表 图纸 T10",
+      "description": "特殊装备·腕表 的第 10 阶图纸，用于装配或升级该装备。",
+      "maxStack": 999,
+      "rarity": "legendary",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-exp-basic",
+      "name": "初级装备强化石",
+      "description": "为装备提供 100 点装备经验。",
+      "maxStack": 999,
+      "rarity": "common",
+      "type": "material"
+    },
+    {
+      "id": "base:item:gear-exp-advanced",
+      "name": "高级装备强化石",
+      "description": "为装备提供 500 点装备经验。",
+      "maxStack": 999,
+      "rarity": "rare",
+      "type": "material"
+    }
+  ]
+}

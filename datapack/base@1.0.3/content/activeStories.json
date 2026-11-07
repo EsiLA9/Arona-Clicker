@@ -1,0 +1,497 @@
+{
+  "activeStories": [
+    {
+      "id": "base:activestory:shiroko_drink",
+      "storyId": "base:story:shiroko_drink",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "openingTitle": "白子 · 出发前的饮料",
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 1
+      },
+      "activation": {
+        "kind": "active"
+      }
+    },
+    {
+      "id": "base:activestory:shiroko_rooftop",
+      "storyId": "base:story:shiroko_rooftop",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "openingTitle": "白子 · 天台上的约定",
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 3
+      },
+      "activation": {
+        "kind": "active"
+      }
+    },
+    {
+      "id": "base:activestory:schale_welcome",
+      "storyId": "base:story:schale_welcome",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_1",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active"
+      }
+    },
+    {
+      "id": "base:activestory:schale_flow_show",
+      "storyId": "base:story:schale_flow_show",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_2",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:schale_theme_lite_test",
+      "storyId": "base:story:schale_theme_lite_test",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_2",
+        "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:abydos_welcome",
+      "storyId": "base:story:abydos_welcome",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "main",
+        "part": "part_2",
+        "chapter": "ch_1",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:millennium_welcome",
+      "storyId": "base:story:millennium_welcome",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_3",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:millennium_game_crisis",
+      "storyId": "base:story:millennium_game_crisis_intro",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:millennium"
+      ],
+      "replayable": true,
+      "completionStrategy": "conditional",
+      "conditionalRewards": [
+        {
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "visitedStoryInChain",
+                "key": "base:story:millennium_game_crisis_debug",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          },
+          "effects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:pyroxene",
+              "value": 40
+            }
+          ]
+        },
+        {
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "visitedStoryInChain",
+                "key": "base:story:millennium_game_crisis_bribe",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          },
+          "effects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:pyroxene",
+              "value": 15
+            }
+          ]
+        }
+      ],
+      "branchGuards": [
+        {
+          "storyId": "base:story:millennium_game_crisis_bribe",
+          "prerequisites": [
+            {
+              "storyId": "base:story:millennium_game_crisis_bribe",
+              "talkletIndex": -1
+            }
+          ],
+          "denialMessage": "你还没有真正走过这条路线，无法回顾该分歧。"
+        }
+      ],
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_3",
+        "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:serika_side_1",
+      "storyId": "base:story:serika_side_1",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:serika_side_2",
+      "storyId": "base:story:serika_side_2",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "hasReadStory",
+            "key": "base:story:serika_side_1",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStory",
+                "key": "base:story:serika_side_1",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStory",
+                "key": "base:story:serika_side_1",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:run_chain_1",
+      "storyId": "base:story:run_chain_1",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 0
+      },
+      "activation": {
+        "kind": "active"
+      }
+    },
+    {
+      "id": "base:activestory:run_chain_2",
+      "storyId": "base:story:run_chain_2",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "hasReadStoryInRun",
+            "key": "base:story:run_chain_1",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStoryInRun",
+                "key": "base:story:run_chain_1",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStoryInRun",
+                "key": "base:story:run_chain_1",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:run_chain_3",
+      "storyId": "base:story:run_chain_3",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "hasReadStoryInRun",
+            "key": "base:story:run_chain_2",
+            "comparator": "==",
+            "value": 1
+          }
+        ]
+      },
+      "availableInits": [
+        "base:init:schale_office"
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStoryInRun",
+                "key": "base:story:run_chain_1",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "hasReadStoryInRun",
+                "key": "base:story:run_chain_2",
+                "comparator": "==",
+                "value": 1
+              }
+            ]
+          }
+        }
+      ],
+      "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 2
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      }
+    },
+    {
+      "id": "base:activestory:bond_hoshino_1",
+      "storyId": "base:story:bond_hoshino_1",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [
+        "base:init:abydos"
+      ],
+      "replayable": true,
+      "openingTitle": "星野 · 午后的堤防",
+      "activation": {
+        "kind": "active"
+      },
+      "owner": "Hoshino"
+    },
+    {
+      "id": "base:activestory:bond_hoshino_evening",
+      "storyId": "base:story:bond_hoshino_evening",
+      "triggerCondition": {
+        "type": "AND",
+        "conditions": []
+      },
+      "availableInits": [],
+      "replayable": true,
+      "openingTitle": "星野 · 傍晚的河堤",
+      "activation": {
+        "kind": "active"
+      },
+      "owner": "Hoshino"
+    }
+  ]
+}

@@ -35,11 +35,22 @@ export class AreaMapController {
     if (!c.started || normalizeWorkspaceRoute(c.workspaceLocation().route).kind !== 'game' || c.panelState.workspace || !this.allowed('openAreaMap')) return;
     const state = c.game.state;
     if (state.currentAreaId !== areaId || !state.activeInit) return;
-    const entry = c.game.areaMap.getEntryView(areaId);
-    if (!entry.ready) return;
-    const view = c.game.areaMap.getView(entry.mapId);
-    if (!view?.unlocked) return;
+    const opened = c.commands.openAreaMapFromArea(areaId);
+    if (!opened.success) return;
+    const view = c.game.areaMap.getView(opened.mapId);
+    if (!view) return;
     c.panelState.areaMapSession = createAreaMapSession(`area-map-${++sequence}`, state.activeInit, areaId, view, c.game.inits.getRuntimeGeneration());
+    c.enterWorkspaceRoute({ kind: 'area-map', sessionId: this.session!.sessionId });
+    c.render();
+  }
+
+  openCollected(index: number): void {
+    const c = this.ctrl, state = c.game.state;
+    if (!c.started || !state.currentAreaId || !state.activeInit || !this.allowed('openAreaMap')) return;
+    const opened = c.commands.openCollectedAreaMap(index);
+    const view = opened.success ? c.game.areaMap.getView(opened.mapId) : null;
+    if (!view) return;
+    c.panelState.areaMapSession = createAreaMapSession(`area-map-${++sequence}`, state.activeInit, state.currentAreaId, view, c.game.inits.getRuntimeGeneration());
     c.enterWorkspaceRoute({ kind: 'area-map', sessionId: this.session!.sessionId });
     c.render();
   }
@@ -48,6 +59,7 @@ export class AreaMapController {
     const c = this.ctrl, session = this.session;
     if (!session) return;
     const navigation = c.panelState.workspaceNavigation;
+    c.commands.closeAreaMapSession();
     this.release();
     if (navigation?.current.kind === 'area-map') {
       const location = navigation.returnTo;
@@ -83,23 +95,29 @@ export class AreaMapController {
     if (!c.started || c.game.state.activeInit !== s.originInitId || c.game.state.currentAreaId !== s.originAreaId ||
       c.game.inits.getRuntimeGeneration() !== s.runtimeGeneration || !this.allowed('openAreaMap')) { this.close(false); return; }
     if (!reconcileAreaMap(s, c.game.areaMap)) {
-      const entry = c.game.areaMap.getEntryView(c.game.state.currentAreaId!);
-      const view = entry.ready ? c.game.areaMap.getView(entry.mapId) : null;
+      const opened = c.commands.openAreaMapFromArea(c.game.state.currentAreaId!);
+      const view = opened.success ? c.game.areaMap.getView(opened.mapId) : null;
       if (!view) { this.close(false); return; }
       openAreaMap(s, view, true);
     }
   }
 
   /** Returns whether this refresh belongs to the map (even if it just closed). */
+  private syncObservedMaps(): void {
+    const session = this.session;
+    if (session) this.ctrl.commands.observeAreaMapSession([...session.history.map(item => item.mapId), session.currentMapId]);
+  }
+
   refresh(force = false): boolean {
     const before = this.session;
     if (!before) { this.refreshEntry(); return false; }
     if (before.submitting) return true;
     this.beforeRender();
     if (!this.session) { this.ctrl.scheduleRender(); return true; }
+    this.syncObservedMaps();
     this.refreshLeft();
     const s = this.session;
-    const fingerprint = `${s.revision}:${s.selectedNodeId}:${s.submitting}:${this.allowed('attemptAreaTravel')}:${JSON.stringify(s.feedback)}`;
+    const fingerprint = `${s.revision}:${s.selectedNodeId}:${s.submitting}:${this.allowed('attemptAreaTravel')}:${JSON.stringify(s.feedback)}:${JSON.stringify(this.ctrl.game.areaMap.getCollectedMapEntries())}`;
     if (force || fingerprint !== this.painted) {
       this.ctrl.requestUIUpdate({ type: 'region', hostId: AREA_MAP_REGION, reason: 'area-map-state' });
     }
@@ -111,7 +129,7 @@ export class AreaMapController {
     if (!s) return false;
     const applied = reconcileAreaMapDOM(this.ctrl.root, createUIContext(this.ctrl.game), this.ctrl.panelState, s, this.ctrl.popovers, this.allowed('attemptAreaTravel'));
     if (applied) {
-      this.painted = `${s.revision}:${s.selectedNodeId}:${s.submitting}:${this.allowed('attemptAreaTravel')}:${JSON.stringify(s.feedback)}`;
+      this.painted = `${s.revision}:${s.selectedNodeId}:${s.submitting}:${this.allowed('attemptAreaTravel')}:${JSON.stringify(s.feedback)}:${JSON.stringify(this.ctrl.game.areaMap.getCollectedMapEntries())}`;
       this.bindViewport();
     }
     return applied;
@@ -146,16 +164,25 @@ export class AreaMapController {
     hero.disabled = !allowed;
     if (allowed) { hero.removeAttribute('aria-disabled'); hero.removeAttribute('title'); }
     else { hero.setAttribute('aria-disabled', 'true'); hero.title = '请先完成当前交互'; }
-    let button = c.root.querySelector<HTMLButtonElement>('[data-area-map-open]');
+    let button = c.root.querySelector<HTMLButtonElement>('[data-area-map-open], [data-area-map-open-collected]');
     const entry = c.game.areaMap.getEntryView(c.game.state.currentAreaId!);
-    if (!entry.ready) {
+    const collectedIndex = c.game.areaMap.getCollectedMapEntries().findIndex(item => item.available);
+    if (!entry.ready && collectedIndex < 0) {
       if (button) { c.popovers.dismissBeforeRootMutation(button); button.remove(); c.popovers.retainIfAnchored(); }
       return;
     }
     if (!button) {
       button = document.createElement('button'); button.type = 'button'; button.className = 'area-map-entry';
-      button.dataset.areaMapOpen = c.game.state.currentAreaId!; button.textContent = '区域地图';
       hero.closest('.area-hero')?.insertAdjacentElement('afterend', button);
+    }
+    if (entry.ready) {
+      button.dataset.areaMapOpen = c.game.state.currentAreaId!;
+      delete button.dataset.areaMapOpenCollected;
+      button.textContent = '区域地图';
+    } else {
+      delete button.dataset.areaMapOpen;
+      button.dataset.areaMapOpenCollected = String(collectedIndex);
+      button.textContent = '地图册';
     }
     button.disabled = !allowed || route.kind !== 'game';
     if (route.kind !== 'game') button.title = '请先返回游戏';
@@ -188,6 +215,10 @@ export class AreaMapController {
     if (!target) return;
     const open = target.closest<HTMLElement>('[data-area-map-open]');
     if (open) { event.preventDefault(); event.stopImmediatePropagation(); this.open(open.dataset.areaMapOpen!); return; }
+    const openCollected = target.closest<HTMLElement>('[data-area-map-open-collected]');
+    if (openCollected) { event.preventDefault(); event.stopImmediatePropagation(); this.openCollected(Number(openCollected.dataset.areaMapOpenCollected)); return; }
+    const mapSwitch = target.closest<HTMLElement>('[data-area-map-switch]');
+    if (mapSwitch) { event.preventDefault(); event.stopImmediatePropagation(); this.switchCollected(Number(mapSwitch.dataset.areaMapSwitch)); return; }
     const node = target.closest<SVGElement>('[data-area-map-node]');
     const action = target.closest<HTMLElement>('[data-area-map-action]');
     const rail = target.closest<HTMLElement>('[data-area]');
@@ -198,6 +229,18 @@ export class AreaMapController {
     else if (action) this.action(action.dataset.areaMapAction!, action);
     else if (rail && rail.getAttribute('aria-disabled') !== 'true') this.travelFromRail(rail.dataset.area!);
   };
+
+  private switchCollected(index: number): void {
+    const session = this.session;
+    if (!session || session.submitting || !this.allowed('openAreaMap')) return;
+    const opened = this.ctrl.commands.openCollectedAreaMap(index);
+    const view = opened.success ? this.ctrl.game.areaMap.getView(opened.mapId) : null;
+    if (!view) {
+      session.feedback = { mapId: session.currentMapId, nodeId: null, text: areaMapReason(opened.success ? 'Unavailable' : opened.error) };
+    } else openAreaMap(session, view);
+    this.syncObservedMaps();
+    this.refresh(true); this.ctrl.flushUIUpdates();
+  }
   private keydown = (event: KeyboardEvent): void => {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     const node = event.target instanceof Element ? event.target.closest<SVGElement>('[data-area-map-node]') : null;
@@ -213,9 +256,11 @@ export class AreaMapController {
     if (!node) return;
     s.selectedNodeId = node.id; s.feedback = null;
     if (node.actionKind === 'openMap') {
-      const target = node.ready && node.action?.kind === 'openMap' ? this.ctrl.game.areaMap.getView(node.action.mapId) : null;
-      if (target?.unlocked) openAreaMap(s, target);
-      else s.feedback = { mapId: s.currentMapId, nodeId: node.id, text: areaMapReason(node.reason ?? 'Unavailable') };
+      const opened = node.ready && node.action?.kind === 'openMap'
+        ? this.ctrl.commands.openAreaMapFromNode(s.currentMapId, node.id) : null;
+      const target = opened?.success ? this.ctrl.game.areaMap.getView(opened.mapId) : null;
+      if (target) openAreaMap(s, target);
+      else s.feedback = { mapId: s.currentMapId, nodeId: node.id, text: areaMapReason(opened && !opened.success ? opened.error : node.reason ?? 'Unavailable') };
     }
     this.refresh(true); this.ctrl.flushUIUpdates();
   }
@@ -227,15 +272,16 @@ export class AreaMapController {
     if (s.submitting || !this.allowed('openAreaMap')) return;
     if (action === 'back') previousAreaMap(s, this.ctrl.game.areaMap);
     else if (action === 'current') {
-      const entry = this.ctrl.game.areaMap.getEntryView(this.ctrl.game.state.currentAreaId!);
-      const target = entry.ready ? this.ctrl.game.areaMap.getView(entry.mapId) : null;
-      if (target?.unlocked) openAreaMap(s, target, true);
+      const opened = this.ctrl.commands.openAreaMapFromArea(this.ctrl.game.state.currentAreaId!);
+      const target = opened.success ? this.ctrl.game.areaMap.getView(opened.mapId) : null;
+      if (target) openAreaMap(s, target, true);
       else s.feedback = { mapId: s.currentMapId, nodeId: null, text: '当前区域地图不可用' };
     } else if (action === 'fit' || action === 'reset') {
       s.viewports.set(s.currentMapId, action === 'fit' ? fitAreaMap(s.view) : { scale: 1, x: 500, y: 350 });
       applyAreaMapCamera(this.ctrl.root, s); return;
     } else if (action === 'travel') { this.travel(element); return; }
     else return;
+    this.syncObservedMaps();
     this.refresh(true); this.ctrl.flushUIUpdates();
   }
 

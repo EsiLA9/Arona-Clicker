@@ -25,7 +25,7 @@ export const hoshinoConversationStories: PassiveStoryEntry[] = [
     .weight(1)
     .replayable()
     .leaveArea(false)
-    .interruptible(false)
+    .interruptible(false).catalog({"category":"side","part":"part_3","order":0})
     .build(),
   passiveStory('base:passivestory:hoshino_bond_invite', 'base:story:hoshino_bond_invite')
     .owner('Hoshino')

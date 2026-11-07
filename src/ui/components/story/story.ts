@@ -10,6 +10,7 @@ import { renderAttachedCardFace } from '../../cards/card-face';
 import { renderMapActionCardButton, stableMapActionCardAngle } from '../../cards/action-card';
 import type { StoryClickInteraction } from '../../../data-services/contracts/story-node';
 import type { StoryOutputContent } from '../../../engine/contracts/story-playback-state';
+import { storyPerformanceIssues } from '../../../data-services/validation/story-performance';
 
 export const storyErrorText: Record<string, string> = {
   AlreadyActive: '已有剧情流程进行中',
@@ -60,6 +61,7 @@ export interface ChatEntry {
   storyPageKey?: string;
   /** Stable Runtime output identity; numeric id remains local to the display projection. */
   storyOutputId?: string;
+  performance?: import('../../../engine/contracts/chat-presentation').StoryNodePerformance;
   choice?: StoryOutputContent['choice'];
   /** A local notice belongs after this already committed Runtime output position. */
   afterStoryOutput?: { epoch: number; sequence: number };
@@ -230,10 +232,10 @@ function renderChatImage(ctx: UIContext, ref: string): string {
 /** 场间旁白：横跨聊天流宽度，支持 center/left/right 对齐。 */
 function renderNarration(ctx: UIContext, entry: FlowContent, options: RenderChatEntryOptions = {}): string {
   const align = entry.align ?? 'center';
-  return `<div class="chat-narration chat-narration-${align}"${entryAttributes(ctx, entry, options.instanceKey)}><span class="chat-narration-text">${ctx.escapeHtml(entry.text)}</span></div>`;
+  return `<div class="chat-narration chat-narration-${align}"${entryAttributes(ctx, entry, options.instanceKey)}><span class="chat-narration-text"${options.inlineStyle?` style="${options.inlineStyle}"`:''}>${ctx.escapeHtml(entry.text)}</span></div>`;
 }
 
-/** Choice 选项卡：保留不可用项，并沿用剧情运行态左右方向。 */
+/** Choice 选项卡：运行态只显示当前候选，编辑预览与已完成记录保留各自的选项。 */
 function renderChoiceCard(
   ctx: UIContext,
   choices: readonly NonNullable<StoryView['page']['choices']>[number][],
@@ -248,13 +250,14 @@ function renderChoiceCard(
   const rows = choices
     .map((choice, index) => {
       const available = availableIndexes.includes(index);
+      if (!preview && !completed && !available) return '';
       const bindings = completed ? '' : preview ? ' data-story-editor-click-option'
         : ` data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''}`;
-      let indicator = preview || available ? '<span class="choice-option-arrow">↗</span>' : '<small class="choice-option-locked">LOCKED</small>';
+      let indicator = '<span class="choice-option-arrow">↗</span>';
       if (completed) indicator = choice.id === selectedOptionId ? '<small class="choice-option-locked">已选择</small>' : '';
       const tag = preview ? 'div' : 'button';
       const button = `
-      <${tag} class="choice-option"${bindings} ${!preview && (completed || !available) ? 'disabled' : ''}>
+      <${tag} class="choice-option"${bindings} ${completed ? 'disabled' : ''}>
         <span class="choice-option-text">${ctx.escapeHtml(choice.text)}</span>
         ${indicator}
       </${tag}>`;
@@ -429,6 +432,14 @@ export function renderChatEntry(
   entry: FlowContent,
   options: RenderChatEntryOptions = {},
 ): string {
+  if (entry.performance) {
+    const {performance,...content}=entry;
+    const inline=nodeInlineStyle(performance);
+    const alignment=entry.align&&['left','center','right'].includes(entry.align)?entry.align:undefined;
+    if (performance.template && performance.template!=='message' && ['default','title','badge','note'].includes(performance.template)) return renderOverlayText(ctx,{id:'node',text:entry.text,x:0,y:0,align:'left',timestamp:0,kind:performance.template},`${inline}${alignment?`;text-align:${alignment}`:''}`).replace(/^<([a-z0-9-]+)/,(_match,tag)=>`<${tag}${entryAttributes(ctx,entry,options.instanceKey)}`);
+    const body=renderChatEntry(ctx,content,{...options,inlineStyle:inline});
+    return entry.choice ? renderStoryClickAppearance(body,performance) : body;
+  }
   if (entry.choice) return `<div class="chat-current"${entryAttributes(ctx, entry, options.instanceKey)}>${renderChoiceCard(ctx, entry.choice.options, [], entry.align ?? 'right', undefined, false, undefined, entry.choice.selectedOptionId)}</div>`;
   if (entry.mapCards?.length) return renderMapCards(ctx, entry, options);
   if (entry.kind === 'map') return renderMapTalklet(ctx, entry, options);
@@ -451,7 +462,7 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
     return '<div class="chat-empty">还没有对话记录。点击下方按钮开始一次聊天。</div>';
   }
   let prev: ChatEntry | undefined;
-  return entries
+  return entries.filter(entry=>entry.performance?.layout?.mode!=='positioned')
     .map(entry => {
       // showAvatar 强制完整显示；否则仅当上一条同属同人连发时隐藏头像/名称
       const hideIdentity = !entry.showAvatar && sameChainGroup(prev, entry);
@@ -469,9 +480,53 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
  * 页体（旁白/对话）由聊天流呈现，推进交互统一由底部 send-button 承担。
  */
 export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
+  const body=renderStoryInput(ctx,story);
+  if (!body) return '';
+  const styled=renderStoryClickAppearance(body,story.performance);
+  return story.performance?.layout?.mode==='positioned' ? renderStoryNodePlacement(ctx,styled,story.performance,story.nodeId) : styled;
+}
+
+export function renderStoryClickAppearance(body: string, performance?: import('../../../engine/contracts/chat-presentation').StoryNodePerformance): string {
+  const inline=nodeInlineStyle(performance);
+  if(performance?.style?.background===false) body=body.replace('class="yuzu-kizuna-heart"','class="yuzu-kizuna-heart" hidden');
+  return inline ? body.replace(/class="(send-bubble[^"]*|choice-option(?: [^"]*)?|choice-card(?: [^"]*)?|yuzu-kizuna-item[^"]*)"/g,`$& style="${inline}"`) : body;
+}
+
+function nodeInlineStyle(performance?:import('../../../engine/contracts/chat-presentation').StoryNodePerformance):string {
+  if(!performance?.style||storyPerformanceIssues({style:performance.style}).length) return '';
+  return overlayInlineStyle(performance.style.background===true&&!performance.style.backgroundColor?{...performance.style,backgroundColor:'var(--panel-light)'}:performance.style);
+}
+
+/** Placement is shared by live input, retained output and the author canvas. */
+export function renderStoryNodePlacement(ctx:UIContext, body:string, performance:import('../../../engine/contracts/chat-presentation').StoryNodePerformance, id:string):string {
+  const layout=performance.layout;
+  if (layout?.mode!=='positioned') return body;
+  const pixels = layout.unit === 'px';
+  const anchor = layout.anchor;
+  const coordinate = (value: number): string => {
+    const number = Number(value);
+    if (pixels) return `${Number.isFinite(number) ? (anchor ? number : Math.max(0, number)) : 0}px`;
+    return `${Number.isFinite(number) ? Math.min(1, Math.max(anchor ? -1 : 0, number)) * 100 : (anchor ? 0 : 50)}%`;
+  };
+  const horizontal = anchor?.x ?? layout.align;
+  const align = horizontal === 'left' || horizontal === 'right' ? horizontal : 'center';
+  const baseX = { left: 0, center: 50, right: 100 }[align];
+  const baseY = anchor?.y === 'top' ? 100 : anchor?.y === 'bottom' ? 0 : 50;
+  const baseStyle = anchor ? `;--story-overlay-base-x:${baseX}%;--story-overlay-base-y:${baseY}%` : '';
+  return `<div class="chat-text-overlay story-node-positioned align-${align}" data-chat-text="${ctx.escapeHtml(id)}" style="--story-overlay-x:${coordinate(layout.x)};--story-overlay-y:${coordinate(layout.y)}${baseStyle}">${body}</div>`;
+}
+
+export function renderPositionedStoryHistory(entries:ChatEntry[],ctx:UIContext):string {
+  return entries.filter(entry=>entry.performance?.layout?.mode==='positioned').map(entry=>renderStoryNodePlacement(ctx,renderChatEntry(ctx,chatEntryToFlowContent(entry),{instanceKey:chatInstanceKey(entry.id)}),entry.performance!,entry.storyOutputId??String(entry.id))).join('');
+}
+
+function renderStoryInput(ctx: UIContext, story: StoryView): string {
   if (story.phase === 'delivery') return '';
+  if (!story.page.choices?.length && !story.page.kizuna && story.performance?.layout?.mode==='positioned') return `<button class="send-button" data-send data-story-token="${ctx.escapeHtml(story.token)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(story.page.text || '继续')}${story.press?`（${story.press.done}/${story.press.total}）`:''}</span><span class="send-arrow">↗</span></span></button>`;
   const choices = story.page.choices ?? [];
-  if (choices.length > 0) return `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`;
+  if (choices.length > 0) return story.availableChoiceIndexes.length
+    ? `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`
+    : '';
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
     return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token, false, story.continuationBlocked)}</div>`;
@@ -480,7 +535,7 @@ export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
 }
 
 /** 渲染演出专用文本覆盖层（showChatText）：以聊天窗格百分比坐标定位（0,0=左下，1,1=右上）。 */
-export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[]): string {
+export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[], options: {readonly preview?:boolean} = {}): string {
   if (entries.length === 0) return '';
   return entries
     .map(entry => {
@@ -489,10 +544,10 @@ export function renderChatTexts(ctx: UIContext, entries: ChatTextEntry[]): strin
       const alignCls = entry.align === 'right' ? 'align-right' : entry.align === 'center' ? 'align-center' : 'align-left';
       const inline = overlayInlineStyle(entry.style);
       const body = entry.talklet
-        ? renderOverlayTalklet(ctx, entry.talklet, entry.targetStoryId, inline)
-        : renderOverlayText(ctx, entry, inline);
+        ? renderOverlayTalklet(ctx, entry.talklet, entry.targetStoryId, inline, options.preview)
+        : renderOverlayText(ctx, entry, inline, options.preview);
       return `
-      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}"${entry.cardRequest ? ` data-story-card-owner="${ctx.escapeHtml(entry.cardRequest.owner ?? '')}"` : ''}${entry.runId ? ` data-story-source-run="${ctx.escapeHtml(entry.runId)}" data-story-source-owner="${ctx.escapeHtml(entry.sourceOwner ?? '')}"` : ''}${entry.replayId ? ` data-story-source-replay="${ctx.escapeHtml(entry.replayId)}"` : ''} style="left: ${pctX}%; bottom: ${pctY}%;">
+      <div class="chat-text-overlay ${alignCls}" data-chat-text="${ctx.escapeHtml(entry.id)}"${entry.cardRequest ? ` data-story-card-owner="${ctx.escapeHtml(entry.cardRequest.owner ?? '')}"` : ''}${entry.runId ? ` data-story-source-run="${ctx.escapeHtml(entry.runId)}" data-story-source-owner="${ctx.escapeHtml(entry.sourceOwner ?? '')}"` : ''}${entry.replayId ? ` data-story-source-replay="${ctx.escapeHtml(entry.replayId)}"` : ''} style="--story-overlay-x:${pctX}%;--story-overlay-y:${pctY}%">
         ${body}
       </div>`;
     })
@@ -512,7 +567,7 @@ function overlayInlineStyle(style: ChatTextEntry['style']): string {
     parts.push(`border-color:transparent`);
     parts.push(`box-shadow:none`);
   }
-  return parts.join(';');
+  return parts.join(';').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 }
 
 /** 字型类别 → CSS font-family 栈。 */
@@ -527,7 +582,7 @@ function chatTextFontStack(font: import('../../../engine/contracts/chat-presenta
 }
 
 /** 覆盖层直接文本：按 kind 选择视觉模板（default 简洁气泡 / title 大标题 / badge 标签 / note 弱化 / kizuna 羁绊卡片）。样式以内联属性直接挂在展示元素上。 */
-function renderOverlayText(ctx: UIContext, entry: ChatTextEntry, inline: string): string {
+function renderOverlayText(ctx: UIContext, entry: ChatTextEntry, inline: string, preview = false): string {
   const text = ctx.escapeHtml(entry.text ?? '');
   const styleAttr = inline ? ` style="${inline}"` : '';
   switch (entry.kind) {
@@ -542,18 +597,18 @@ function renderOverlayText(ctx: UIContext, entry: ChatTextEntry, inline: string)
         storyId: entry.targetStoryId ?? '',
         title: entry.title,
         buttonText: entry.buttonText,
-      });
+      },undefined,preview);
     default:
       return `<span class="chat-text-overlay-inner"${styleAttr}>${text}</span>`;
   }
 }
 
 /** 覆盖层嵌入标准 Talklet：复用 talk/narration/kizuna 渲染管线。样式以内联属性挂在气泡/旁白上。 */
-function renderOverlayTalklet(ctx: UIContext, tl: import('../../../data-services/contracts/story').Talklet, targetStoryId?: string, inline?: string): string {
+function renderOverlayTalklet(ctx: UIContext, tl: import('../../../data-services/contracts/story').Talklet, targetStoryId?: string, inline?: string, preview = false): string {
   const styleAttr = inline ? ` style="${inline}"` : '';
   if (tl.kizuna || targetStoryId) {
     const kizuna = tl.kizuna ?? { storyId: targetStoryId ?? '' };
-    return renderKizunaCard(ctx, { storyId: kizuna.storyId, title: kizuna.title, buttonText: kizuna.buttonText });
+    return renderKizunaCard(ctx, { storyId: kizuna.storyId, title: kizuna.title, buttonText: kizuna.buttonText, align:kizuna.align },undefined,preview);
   }
   if (tl.kind === 'narration') {
     return `<div class="chat-narration chat-narration-${tl.align ?? 'center'}"><span class="chat-narration-text"${styleAttr}>${ctx.escapeHtml(tl.text)}</span></div>`;
@@ -568,6 +623,8 @@ function renderOverlayTalklet(ctx: UIContext, tl: import('../../../data-services
     image: tl.image,
     side: tl.side,
     noAvatar: tl.noAvatar,
+    showAvatar: tl.showAvatar,
+    align: tl.align,
   }, { inlineStyle: inline });
 }
 

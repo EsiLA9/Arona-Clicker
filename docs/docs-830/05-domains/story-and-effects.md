@@ -20,7 +20,7 @@ StoryEntry / StoryDef → StoryService / StoryNodePlayer → 当前逻辑等待�
 
 `StoryNodePlayer` 为每次启动创建独立 `Map<name, value>`。`startActiveStory(entryId, owner, initialFlags)`、`startCardStory(...)` 与对应 GameCommands 可投入初始 JSON 字典；底层 Player 的 start 第三个参数同样接收字典。`StoryService.startStory` 的 options.initialFlags 可供其他类型的入口调用。启动先验证并复制，坏参数不会替换当前会话。name 需要非空，推荐 `StoryName-flagid`，不限制前缀；值为有限 JSON 数据，不提供值比较。
 
-StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。Click 提交先形成结果等待点，结果通知和临时演出按序完成后再执行已接纳的后继；连续 Click 分别成为当前输入。Operation 正常播放时先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接；重播跳过持久 Operation，但保留 localFlag、覆盖层及本次运行的临时表现动作。`moveToArea` 与 `moveToCharaspace` 是独立移动节点：正常播放分别强制旅行或切换通讯录 owner，重播只改变演出空间并保留一次性输出。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
+StoryPlayer 只按 StoryDef 的 `nodes` 数组顺序执行；旧 `stageId` / `stages` 字段继续随定义保存，但不再分组节点、规定 Click 数量或影响推进。Talklet 送达后，如果紧邻的下一节点是当前可用 Click，表现步骤完成后自动衔接到该 Click；否则等待用户自由继续。单按钮 Click 只提供文案与按击次数，完成后继续后继节点，不接受 result。奖励、局部写入和表现由后续 Operation 承担，控制流由 Transfer 承担，场景变化可使用独立移动节点；连续 Click 分别成为当前输入。剧情入口卡仍通过专用 Entry 请求处理邀请与接续。Operation 正常播放时先预检和执行一次，再停在动作结果等待点，由 Runtime 顺序展示实际效果、执行临时演出，完成后自动衔接；重播跳过持久 Operation，但保留 localFlag、覆盖层及本次运行的临时表现动作。`moveToArea` 与 `moveToCharaspace` 是独立移动节点：正常播放分别强制旅行或切换通讯录 owner，重播只改变演出空间并保留一次性输出。Transfer、局部条件跳过及 `insert` 返回栈保持作者顺序与有界执行保护。
 
 ## 有限表现步骤与交接
 
@@ -30,17 +30,29 @@ Runtime 输出有稳定逻辑 ID、递增序号、时间戳与 historyId，正�
 
 完成链进入 `finishing`：先结算奖励、记录完成及相关冷却，再顺序呈现实际奖励通知。当前 owner 的运行槽在尾通知完成后释放，随后才安装已接纳的后继 Entry；角色剧情完成时会请求已达标的羁绊尾巴，交接后自动启动，不必再次由 UI 手动推送。同步动作或完成通知中提出的新启动先取得明确准入结果与请求身份，延后目标播放器的执行，避免监听器在当前动作批次中递归启动新链。待交接请求随快照保存，并受队列和因果链交接次数上限约束。恢复 finishing 不重发已结算奖励或完成事件。执行中发生晚拒绝或通知异常时保留已提交回执并进入失败状态，不声称回滚已有状态。
 
-所有四类 StoryNode 都可声明一个 `requiresFlag?: string`。到达时用 Map.has 检查，false、0、空字符串、null 都表示键存在；未声明则正常执行。缺键时直接跳过整个节点：正文不投递，Click 不等待、不取随机也不触发结果，Operation 不执行，Transfer 不跳转。Talklet 后续 Click 若被条件跳过，则该 Talklet 按无紧邻可用 Click 处理，等待用户自由继续。已经接受的等待点不会在查询或恢复时重复判断。
+所有四类 StoryNode 都可声明一个 `requiresFlag?: string`。到达时用 Map.has 检查，false、0、空字符串、null 都表示键存在；未声明则正常执行。缺键时直接跳过整个节点：正文不投递，Click 不等待、不取随机，Operation 不执行，Transfer 不跳转。Talklet 后续 Click 若被条件跳过，则该 Talklet 按无紧邻可用 Click 处理，等待用户自由继续。已经接受的等待点不会在查询或恢复时重复判断。
 
-局部写入使用 StoryAction `{ kind: 'localFlag', op: 'set', name, value }`，同名覆盖；移除使用 `{ kind: 'localFlag', op: 'remove', name }`，不存在时无操作。可用于 Operation、Click 共享动作或结果动作；保持作者顺序，由播放器直接处理，不调用 EffectEngine。需要选项触发不同后续 Talklet 时，可在各选项结果写入各自的局部标记，并在对应 Talklet 上声明 `requiresFlag`；该条件只检查键存在，不比较值。若 Choice 可能在同一 Entry 中重复到达，共享动作应先清除旧分支标记，再由所选结果写入当前标记。goto/insert 沿用同一张表；启动另一 Entry、另一个 owner 或重新开始时不自动继承。
+局部写入使用 StoryAction `{ kind: 'localFlag', op: 'set', name, value }`，同名覆盖；移除使用 `{ kind: 'localFlag', op: 'remove', name }`，不存在时无操作。用于 Operation，保持作者顺序，由播放器直接处理，不调用 EffectEngine。Choice 使用下述专用选择标记，不声明通用动作。goto/insert 沿用同一张表；启动另一 Entry、另一个 owner 或重新开始时不自动继承。
 
 本次表随播放等待点的 `run.localFlags` 保存恢复，完成时捕获至 finishing；除明确的父子返回外，不供后续 Run 使用。它与 `PlayerState.flags` 的持久 setFlag，以及 `session.flags` 的“本次执行过哪些持久 setFlag”名称记录相互独立。局部标记不会写入这两处，条件系统的普通 flag 目标也不读取局部表。快照必须包含有效 localFlags；不为旧的活动会话快照补默认值或编写迁移。
 
-Story Editor 的 Choice 绑定卡自动维护这组标准字段：把 Choice 后的节点拖到某个选项左侧卡片，会在该 option result 中追加 `localFlag set true`，并给目标节点设置同名 `requiresFlag`。每次目标节点使用独立的 `Story-choiceId-num` 名称；再次到达该 Choice 时，`sharedActions` 先清理本 Choice 的已绑定标记。编辑器可级联重命名标记，统一更新写入、移除和节点条件；Runtime 不需要专用绑定数据。
+Story Editor 的 Choice 绑定卡维护声明式关联：把 Choice 后的节点拖到某个选项左侧卡片，会在该 option 的 `marks` 中追加标记名称，并给目标节点设置同名 `requiresFlag`。每次目标节点使用独立的 `Story-choiceId-num` 名称；编辑器可级联重命名标记，统一更新选择声明、普通局部写入 / 移除与节点条件。Choice 不再显示共同局部动作、通用结果动作、任意标记值或内嵌转移控件。
 
-内置内容与编辑器新建的多选 Choice 采用「条件 + 局部标记」作者规则：选项仅配置可行性 `condition` 和 `localFlag` 结果，共享动作负责清理旧分支标记；业务效果在后续带 `requiresFlag` 的 Operation 执行，goto / insert 则由受同一标记控制的顶层 Transfer 执行。已有持久 `setFlag` 仍由 Operation 写入持久状态，不与 Entry 局部标记混用。共同业务效果放在选择成功后的节点，不提前到 Choice 之前；每个分支的效果批次和转移保持原顺序。
+Choice 只提供选项、出现条件与选择记录：option 保留 `id/text`，`showWhen` 读取普通持久条件组，`requiresFlag` 检查本次 Entry 局部键存在，两者同时满足才显示；省略条件表示始终出现。`marks` 声明选中时成立的局部标记名称，可为空，不带任意值或动作类型。成功接纳选择后，播放器先清除本组所有 marks，再将当前选项的 marks 写为 true；其他组与普通局部标记不受影响。同一 Transfer 可达链中的不同 Choice 不能声明同名 marks；父子 Entry 若通过 returnFlags 回传双方不同 Choice 自有的同名标记，也会拒绝，普通局部回传仍沿用显式白名单规则。提交时复核候选与 token，失败不清理或消费输入。运行态隐藏不满足条件的选项，完成记录只保留当时可见候选，编辑预览仍展示所有作者选项。
 
-正式 Choice 合同仍接受旧包的结果动作与转移，运行时继续按原规则执行；本轮未收紧 Schema，也不自动改写外部内容或本地草稿。迁出的效果使用既有 Operation 等待点：到达时独立预检，失败会终止当前运行，先前已完成的独立 Operation 不自动回滚；不能将此模式理解成整个选项的一次原子事务。运行中旧游标与修改后的定义失配时，沿用现有显式失配与 Entry 重启路径，不补写旧快照。
+到达 Choice 时若没有可见选项，播放器在本次显式推进中清除本组 marks 并跳过整个节点，避免旧分支残留。已经等待输入时条件变为零候选，查询只更新候选；底部提供“继续故事”，显式空选项提交才清理并跳过。有候选时空提交仍被拒绝。重要说明应放在前置 Talklet，不能依赖被跳过的 Choice 正文。该过程不创建额外选择历史状态，局部表照常保存与恢复。
+
+业务效果在后续带 `requiresFlag` 的 Operation 执行，goto / insert 则由受同一标记控制的顶层 Transfer 执行。已有持久 `setFlag` 仍由 Operation 写入持久状态，不与 Entry 局部标记混用。共同业务效果放在选择成功后的节点，不提前到 Choice 之前；每个分支的效果批次和转移保持原顺序。
+
+正式 Choice 合同不再接受 `sharedActions`、option `condition/result` 等旧字段；作者投影与结构校验报告具体路径，不静默丢弃后保存。内置标准 set true / remove 模式已改为 marks；外部内容与本地旧草稿需要显式处理，旧可选条件改为隐藏条件也需作者确认语义。迁出的效果使用既有 Operation 等待点：到达时独立预检，失败会终止当前运行，先前已完成的独立 Operation 不自动回滚；不能将此模式理解成整个选项的一次原子事务。独立 Transfer 的重读分支守卫同样在到达转移时检查；若被拒绝，运行进入带 BranchGuardDenied 详情的失败状态，需要显式重新开始，不再允许复用已消费的 Choice token 改选。运行中旧游标与修改后的定义失配时，沿用现有显式失配与 Entry 重启路径，不补写旧快照。
+
+## 节点局部演出与定点清理
+
+Talklet / Click 的 `performance` 保存有限样式与 `layout`（flow / positioned）；Talklet 另有正文 template。省略即沿用原流内表现。`layout.anchor` 将内容与聊天窗格的同名九宫格点对齐。X 向右、Y 向上为正，默认使用相对窗格宽高的 −1..1 比例，`layout.unit: px` 使用有符号 CSS 像素。旧定义缺省 anchor，仍按左下原点、非负坐标和 align 横向锚点呈现。模板不复制正文，输入 / 思考仍由 Runtime 执行原有等待后投递，不变成逐字动画。
+
+输出以 historyId 隔离逻辑运行，并携带真实 storyId / nodeId。流内每次到达追加；同一次运行再次到达某定位节点替换其旧展示。流内正文与完成 Choice 留历史；定位内容在完成、取消、失败、替换或换场时移除。Button / EntryCard 仅在当前输入等待点存在，Choice 完成后只留禁用记录；重访定位 Choice 时先移除其旧完成卡。位置与样式不绕过条件、标记、按击工作量或 token，也不提供脱离当前 Click 的 Entry 启动能力。
+
+Operation `clearNode` 以 storyId / nodeId 清除发起运行中该节点的全部现存输出，包括流历史和定位展示；同名节点的其他 Story / 运行不受影响。未展示的有效目标为无操作。它不回退节点、不撤销 flags、已读或业务效果。clearFlow 清除输出并保留原有待投递抑制，clearAllTexts 也清理本运行的定位输出；当前输入等待点仍保留，避免清理展示改变执行状态。Coordinator 持有唯一输出真相；快照只保存清理后的内容，读档不补投已清输出。恢复保留逻辑 historyId，分配新运行凭据，使旧输入 token 失效；不另建 UI 业务状态或存档迁移层。
 
 ## 地点续播与一层羁绊调用
 
@@ -78,13 +90,15 @@ Area 邀请由当前父 historyId 与等待序号派生，保存的是父游标�
 
 ## 输入后的作者回应
 
-Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事件自动造一条老师消息。若需要老师回应，作者在输入节点后追加右侧 Talklet；它遵循普通 Story 节点顺序、投递与确认节奏。若不同选项需要不同回应，各 option 的结果写入独立 Entry 局部标记，后续 Talklet 用 `requiresFlag` 选择；条件仅判断标记是否存在，不比较值。存在跳转时，需把 Transfer 放在希望显示的回应 Talklet 之后，否则被跳转的节点不会执行。
+Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事件自动造一条老师消息。若需要老师回应，作者在输入节点后追加右侧 Talklet；它遵循普通 Story 节点顺序、投递与确认节奏。若不同选项需要不同回应，各 option 的 marks 声明独立 Entry 局部标记，后续 Talklet 用 `requiresFlag` 选择；条件仅判断标记是否存在，不比较值。存在跳转时，需把 Transfer 放在希望显示的回应 Talklet 之后，否则被跳转的节点不会执行。
 
 验证入口：`tests/engine/story-run-flags.test.ts`、`story-run-flags.integration.test.ts`。编辑器配置与草稿边界见 [[runtime-editor-and-project-checks]]。
 
 ## 效果协作
 
 剧情节点或奖励可以请求执行 Effects。状态变更仍由相应状态写入服务提交；`EffectEngine.applyEffectsWithReceipts()` 保留整批先解析表达式、再按序写入的规则。每项 `EffectReceipt` 在对应目标写入后、同步通知前固化，携带 effectIndex、op、target、changed/noop 及实际前后值、差值或结果明细。玩家通知据实际回执生成，不把请求量当作实得量；noop、内部 flag 与 Extra 不播报为奖励。通知抛错也保留已提交前缀，不通过重试重复发放。
+
+Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 `revealInformation(target)`。地图动作只把地图加入当前 Init 的地图册，不打开地图或移动玩家；信息动作必须指向 Area、AreaMap 或本地 Node 上声明为 `explicit` 的单个信息面。Story 投影和执行预检都检查引用及该显式规则，再由受保护的 Effect / 信息写入口提交。重复收录或重复告知不重复改变状态；重读跳过持久状态动作，隔离试播不会污染真实存档。
 
 分支提交前校验转移目标和动作能否解析，再消费输入 token 并执行。静态非法内容在执行前拒绝；动态执行和外部同步通知仍可能在部分状态已提交后失败，回执负责保留真实结果。Story 旅行也返回实际旅行回执，不另发一条由 UI 抢先插入的剧情移动通知。
 
@@ -105,6 +119,12 @@ Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事
 状态与事件边界见 [[state-and-events]]；UI 查询见 [[read-model-and-ui]]。
 
 ## 定义、入口与会话
+
+StoryEntry 将正文引用 `storyId`、归属角色 `owner`、历史编排 `catalog` 与正式激活 `activation` 分开。公共资格、重读和完结能力保存在公共记录；激活配置有且只有三类：`active` 为主动接取，可省略地区兜底，或声明 `current-area` / `fixed-area` 投放；`random` 保存基础权重、重复触发及冷却；`affection` 要求角色 owner，以等级或前置 Story 完成触发单次角色阶段，尾段仍优先。原顶层 type、weight、affectionRequired、pushAfterStory 不再是作者字段，active/passive 启动通道由 `storyEntryType()` 派生。Datapack 保留 activeStories 与 passiveStories 两个分区，后者容纳 random / affection；ID 和运行完成记录的身份保持不变。
+
+历史目录位置提升为 `catalog.category/part/chapter/order`，三类入口均可编排，不赋予首次播放资格，也不写入完成或已读状态；原 Extra.storyCatalog 与产品目录的逐条归属已转写，目录分组名称和顺序继续由产品模型维护。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
+
+合同／导入边界见 `contracts/story-entry.ts`、`validation/story-entry.ts` 和 Registry；运行消费见 `story-entry-selection.ts`、`story-availability-delivery-mount.ts`、`passive-pool-system.ts`。回归入口为 `tests/data/story-entry-activation.test.ts`、`tests/engine/story-entry-fallback.test.ts` 及既有 Entry／池／重读测试。
 
 | 对象 | 负责什么 | 不能替代什么 |
 | --- | --- | --- |

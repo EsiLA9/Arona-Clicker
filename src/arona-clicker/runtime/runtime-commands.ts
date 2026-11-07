@@ -1,4 +1,4 @@
-import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult } from '../contracts/runtime/story-authoring';
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryIdentityChange } from '../contracts/runtime/story-authoring';
 import type { GameCommands } from '../contracts/index';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
@@ -14,6 +14,7 @@ import type { GachaService } from '../services/economy/gacha-service';
 import type { AreaId } from '../../engine/types/index';
 import type { TickResult } from '../../engine/contracts/tick';
 import type { TravelResult } from '../contracts/runtime/results';
+import type { AreaMapOpenResult } from '../contracts/world/area-map-query';
 import type { SaveData } from '../contracts/runtime/save-data';
 import type { RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeWorldApplyResult, RuntimeWorldDraft } from '../contracts/runtime/runtime-content';
 import type { RuntimeDefinitionEditorCommands } from '../contracts/runtime/runtime-content';
@@ -36,6 +37,7 @@ export interface GameCommandSource {
   applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
   createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
+  renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
@@ -65,6 +67,11 @@ export interface GameCommandSource {
   commitMapEncounterRound(command: MapRunEncounterCommitCommand): MapRun;
   readonly themeContentEditor?: ThemeContentEditorService;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
+  openAreaMapFromArea(areaId: string): AreaMapOpenResult;
+  openCollectedAreaMap(index: number): AreaMapOpenResult;
+  openAreaMapFromNode(mapId: string, nodeId: string): AreaMapOpenResult;
+  observeAreaMapSession(mapIds: readonly string[]): void;
+  closeAreaMapSession(): void;
   tick(): TickResult;
   start(): void;
   stop(): void;
@@ -103,11 +110,17 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
     applyStoryAuthoring: patch => game.applyStoryAuthoring(patch),
     createStoryAuthoringPreview: (patch, entryId) => game.createStoryAuthoringPreview(patch, entryId),
     ...(game.saveStoryAuthoringToPack ? { saveStoryAuthoringToPack: (id: string, patch: StoryAuthoringPatch) => game.saveStoryAuthoringToPack!(id, patch) } : {}),
+    ...(game.renameStoryInPack ? { renameStoryInPack: (id: string, change: StoryIdentityChange) => game.renameStoryInPack!(id, change) } : {}),
     saveStoryDefinition: story => game.saveStoryDefinition(story),
     restoreStoryDefinition: storyId => game.restoreStoryDefinition(storyId),
     variantTraining: game.variantTraining,
     enterVariantTraining: (spotId, functionalityId) => game.enterVariantTraining(spotId, functionalityId),
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),
+    openAreaMapFromArea: areaId => game.openAreaMapFromArea(areaId),
+    openCollectedAreaMap: index => game.openCollectedAreaMap(index),
+    openAreaMapFromNode: (mapId, nodeId) => game.openAreaMapFromNode(mapId, nodeId),
+    observeAreaMapSession: mapIds => game.observeAreaMapSession(mapIds),
+    closeAreaMapSession: () => game.closeAreaMapSession(),
     tick: () => game.tick(),
     start: () => game.start(),
     stop: () => game.stop(),

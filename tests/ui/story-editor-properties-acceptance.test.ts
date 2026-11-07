@@ -1,7 +1,8 @@
+import {copyStoryIdentity} from '../../src/ui/story-editor/authoring-model';
 import { describe, expect, it } from 'vitest';
 import type { StoryDef } from '../../src/data-services/contracts/story';
 import { createStoryEditorState, currentDraft, selectStory, storyDefinitionFromDraft } from '../../src/ui/story-editor/model';
-import { editProperty, editStoryNodeBody, moveRow, readProperty, readStoryNodeBody, removeRow, rowIdAt, selectBranch, selectDiscriminant, selectNodeType, toggleOptional } from '../../src/ui/story-editor/property-model';
+import { editProperty, editStoryNodeBody, moveRow, readProperty, readStoryNodeBody, removeProperty, removeRow, rowIdAt, selectBranch, selectDiscriminant, selectNodeType, toggleOptional } from '../../src/ui/story-editor/property-model';
 import { StoryDraftPersistence } from '../../src/ui/story-editor/persistence';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
 
@@ -128,21 +129,36 @@ describe('0336 independent draft acceptance', () => {
   });
 
   it('tracks enabled-but-empty optional fields through row moves and suspends them with their branch', () => {
-    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:rows', name: 'Rows', stages: { input: { advance: 'input' } }, nodes: [{ id: 'node', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', result: { actions: [
-      { kind: 'travel', areaId: 'test:area:one' }, { kind: 'travel', areaId: 'test:area:two' },
-    ] } } }] };
+    const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:rows', name: 'Rows', stages: {}, nodes: [{ id: 'node', type: 'operation', action: {kind:'state',effects:[
+      {op:'addResource',resourceId:'test:resource:one',amount:1}, {op:'addResource',resourceId:'test:resource:two',amount:2},
+    ]} }] };
     const { draft } = open(story);
-    const rows = ['interaction', 'result', 'actions'] as const;
+    const rows = ['action', 'effects'] as const;
     const first = rowIdAt(draft, 'node', rows, 0)!;
-    toggleOptional(draft, 'node', [...rows, 0, 'notice'], true);
+    removeProperty(draft, 'node', [...rows, 0, 'amount']);
+    toggleOptional(draft, 'node', [...rows, 0, 'amount'], true);
     moveRow(draft, 'node', rows, first, 1);
     const incomplete = storyDefinitionFromDraft(draft);
     expect(incomplete.ok).toBe(false);
-    if (!incomplete.ok) expect(incomplete.issues.some(issue => issue.path === 'nodes[0].interaction.result.actions[1].notice')).toBe(true);
-    selectBranch(draft, 'node', [...rows, 1], 'localFlag');
-    editProperty(draft, 'node', [...rows, 1, 'op'], 'set');
-    editProperty(draft, 'node', [...rows, 1, 'name'], 'ready');
-    editProperty(draft, 'node', [...rows, 1, 'value'], false);
+    if (!incomplete.ok) expect(incomplete.issues.some(issue => issue.path === 'nodes[0].action.effects[1].amount')).toBe(true);
+    selectDiscriminant(draft, 'node', [...rows, 1], 'op', 'setFlag');
+    editProperty(draft, 'node', [...rows, 1, 'flagId'], 'ready');
+    editProperty(draft, 'node', [...rows, 1, 'value'], true);
     expect(storyDefinitionFromDraft(draft).ok).toBe(true);
   });
+  it('rebinds copied display clears to the new Story while leaving the source and external references intact',()=>{
+    const {state,draft}=open({...operation,nodes:[
+      {id:'body',type:'talklet',stageId:'body',content:{kind:'narration',text:'body'},performance:{template:'title',style:{fontSize:'2rem'}}},
+      {id:'clear',type:'operation',action:{kind:'clearNode',storyId:operation.id,nodeId:'body'}},
+    ],stages:{body:{advance:'auto'}}});
+    selectDiscriminant(draft,'clear',['action'],'kind','localFlag');
+    expect(copyStoryIdentity(state,draft,'test:story:copy',new Set())).toBe(true);
+    const copy=currentDraft(state)!;
+    selectDiscriminant(copy,'clear',['action'],'kind','clearNode');
+    expect(readProperty(copy,'clear',['action'])).toEqual({kind:'clearNode',storyId:'test:story:copy',nodeId:'body'});
+    expect(readProperty(copy,'body',['performance'])).toEqual({template:'title',style:{fontSize:'2rem'}});
+    selectDiscriminant(draft,'clear',['action'],'kind','clearNode');
+    expect(readProperty(draft,'clear',['action','storyId'])).toBe(operation.id);
+  });
+
 });

@@ -13054,9 +13054,6 @@
           }
         }
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13073,7 +13070,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_tea",
@@ -13091,9 +13093,6 @@
           "daily"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13110,7 +13109,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_printer",
@@ -13128,9 +13132,6 @@
           "office"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13147,7 +13148,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_archive",
@@ -13165,9 +13171,6 @@
           "office"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13184,7 +13187,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_sunset",
@@ -13202,9 +13210,6 @@
           "daily"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13221,7 +13226,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_planner",
@@ -13239,9 +13249,6 @@
           "daily"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13258,7 +13265,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_vending",
@@ -13276,9 +13288,6 @@
           "office"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13295,7 +13304,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:schale_night",
@@ -13313,9 +13327,6 @@
           "night"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13332,7 +13343,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:abydos_daily_committee",
@@ -13344,9 +13360,6 @@
       "availableInits": [
         "base:init:abydos"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13363,7 +13376,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:abydos_siesta",
@@ -13375,9 +13393,6 @@
       "availableInits": [
         "base:init:abydos"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13394,7 +13409,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:abydos_serika_shift",
@@ -13406,9 +13426,6 @@
       "availableInits": [
         "base:init:abydos"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13425,7 +13442,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:abydos_money",
@@ -13437,9 +13459,6 @@
       "availableInits": [
         "base:init:abydos"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13456,7 +13475,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:millennium_calculation",
@@ -13468,9 +13492,6 @@
       "availableInits": [
         "base:init:millennium"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13487,7 +13508,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:millennium_game_dev",
@@ -13499,9 +13525,6 @@
       "availableInits": [
         "base:init:millennium"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13518,7 +13541,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:millennium_hack",
@@ -13530,9 +13558,6 @@
       "availableInits": [
         "base:init:millennium"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13549,7 +13574,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:millennium_server",
@@ -13561,9 +13591,6 @@
       "availableInits": [
         "base:init:millennium"
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "completionReward": {
         "first": [
           {
@@ -13580,7 +13607,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:hoshino_conv_1",
@@ -13590,12 +13622,14 @@
         "conditions": []
       },
       "availableInits": [],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
       "owner": "Hoshino",
-      "cooldownFrames": 600,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true,
+        "cooldownFrames": 600
+      }
     },
     {
       "id": "base:passivestory:hoshino_conv_2",
@@ -13608,12 +13642,19 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Hoshino",
       "interruptible": false,
-      "leaveArea": false
+      "leaveArea": false,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": false
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_3",
+        "order": 0
+      }
     },
     {
       "id": "base:passivestory:hoshino_bond_invite",
@@ -13624,11 +13665,13 @@
       },
       "availableInits": [],
       "replayable": true,
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Hoshino",
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": false
+      }
     },
     {
       "id": "base:passivestory:shiroko_drink_invite",
@@ -13641,12 +13684,20 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Shiroko",
-      "affectionRequired": 1,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 0
+      }
     },
     {
       "id": "base:passivestory:shiroko_rooftop_invite",
@@ -13666,12 +13717,20 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Shiroko",
-      "affectionRequired": 1,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 2
+      }
     },
     {
       "id": "base:passivestory:cooldown_demo_1",
@@ -13681,10 +13740,12 @@
         "conditions": []
       },
       "availableInits": [],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:hoshino_selfie",
@@ -13702,9 +13763,6 @@
           "daily"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 2,
       "completionReward": {
         "first": [
           {
@@ -13721,7 +13779,12 @@
           }
         ]
       },
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      }
     },
     {
       "id": "base:passivestory:affinity_hoshino_1",
@@ -13731,12 +13794,15 @@
         "conditions": []
       },
       "availableInits": [],
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Hoshino",
-      "affectionRequired": 1,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 1
+        }
+      }
     },
     {
       "id": "base:passivestory:affinity_hoshino_2",
@@ -13746,12 +13812,15 @@
         "conditions": []
       },
       "availableInits": [],
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Hoshino",
-      "affectionRequired": 3,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 3
+        }
+      }
     },
     {
       "id": "base:passivestory:affinity_hoshino_bond_tail",
@@ -13764,12 +13833,15 @@
         "base:init:abydos"
       ],
       "replayable": true,
-      "type": "passive",
-      "repeatable": false,
-      "weight": 1,
       "owner": "Hoshino",
-      "affectionRequired": 3,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "affection",
+        "when": {
+          "kind": "level",
+          "level": 3
+        }
+      }
     },
     {
       "id": "base:passivestory:theme_showcase",
@@ -13787,10 +13859,12 @@
           "showcase"
         ]
       ],
-      "type": "passive",
-      "repeatable": true,
-      "weight": 1,
-      "interruptible": true
+      "interruptible": true,
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      }
     }
   ],
   "stories": [
@@ -13893,46 +13967,20 @@
           "stageId": "p6",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "schale-welcome-p6-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "schale-welcome-p6-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "从整理办公室开始",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "schale-welcome-p6-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "schale-welcome-p6-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "先查看生产设备",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "schale-welcome-p6-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "schale-welcome-p6-option2"
+                ]
               }
             ]
           }
@@ -14065,21 +14113,21 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "了解，阿罗娜。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 2
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "了解，阿罗娜。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 2
+              }
+            ]
           }
         },
         {
@@ -14174,24 +14222,24 @@
           "stageId": "p3",
           "interaction": {
             "kind": "button",
-            "text": "我看到了，位置很精准。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:cast",
-                    "x": 0.12,
-                    "y": 0.7,
-                    "align": "left",
-                    "content": {
-                      "kind": "text",
-                      "text": "—— 出演：阿罗娜 ——"
-                    }
-                  }
-                }
-              ]
+            "text": "我看到了，位置很精准。"
+          }
+        },
+        {
+          "id": "p3-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:cast",
+              "x": 0.12,
+              "y": 0.7,
+              "align": "left",
+              "content": {
+                "kind": "text",
+                "text": "—— 出演：阿罗娜 ——"
+              }
             }
           }
         },
@@ -14224,67 +14272,75 @@
           "stageId": "p4",
           "interaction": {
             "kind": "button",
-            "text": "很雅致。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:gold",
-                    "x": 0.5,
-                    "y": 0.75,
-                    "align": "center",
-                    "content": {
-                      "kind": "text",
-                      "text": "—— 深夜剧场 · 开幕 ——",
-                      "style": {
-                        "font": "serif",
-                        "fontSize": "26px",
-                        "color": "#ffd700",
-                        "backgroundColor": "#3a2a00"
-                      }
-                    }
-                  }
-                },
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:noBg",
-                    "x": 0.3,
-                    "y": 0.6,
-                    "align": "left",
-                    "content": {
-                      "kind": "text",
-                      "text": "（无背景的弱化注释）",
-                      "style": {
-                        "background": false,
-                        "color": "#8a8a8a"
-                      }
-                    }
-                  }
-                },
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:small",
-                    "x": 0.8,
-                    "y": 0.85,
-                    "align": "right",
-                    "content": {
-                      "kind": "text",
-                      "text": "极小字号 · mono 等宽",
-                      "style": {
-                        "font": "mono",
-                        "fontSize": "10px",
-                        "color": "#7fb3ff"
-                      }
-                    }
-                  }
+            "text": "很雅致。"
+          }
+        },
+        {
+          "id": "p4-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:gold",
+              "x": 0.5,
+              "y": 0.75,
+              "align": "center",
+              "content": {
+                "kind": "text",
+                "text": "—— 深夜剧场 · 开幕 ——",
+                "style": {
+                  "font": "serif",
+                  "fontSize": "26px",
+                  "color": "#ffd700",
+                  "backgroundColor": "#3a2a00"
                 }
-              ]
+              }
+            }
+          }
+        },
+        {
+          "id": "p4-button-effect-2",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:noBg",
+              "x": 0.3,
+              "y": 0.6,
+              "align": "left",
+              "content": {
+                "kind": "text",
+                "text": "（无背景的弱化注释）",
+                "style": {
+                  "background": false,
+                  "color": "#8a8a8a"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "p4-button-effect-3",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:small",
+              "x": 0.8,
+              "y": 0.85,
+              "align": "right",
+              "content": {
+                "kind": "text",
+                "text": "极小字号 · mono 等宽",
+                "style": {
+                  "font": "mono",
+                  "fontSize": "10px",
+                  "color": "#7fb3ff"
+                }
+              }
             }
           }
         },
@@ -14317,30 +14373,30 @@
           "stageId": "p5",
           "interaction": {
             "kind": "button",
-            "text": "一目了然。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:multiline",
-                    "x": 0.5,
-                    "y": 0.7,
-                    "align": "center",
-                    "content": {
-                      "kind": "text",
-                      "text": "—— 第一幕 · 开场 ——\n月光洒进夏莱的落地窗。\n远处传来学生的脚步声。",
-                      "style": {
-                        "font": "sans",
-                        "fontSize": "16px",
-                        "color": "#e8e0d0",
-                        "backgroundColor": "#26324a"
-                      }
-                    }
-                  }
+            "text": "一目了然。"
+          }
+        },
+        {
+          "id": "p5-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:multiline",
+              "x": 0.5,
+              "y": 0.7,
+              "align": "center",
+              "content": {
+                "kind": "text",
+                "text": "—— 第一幕 · 开场 ——\n月光洒进夏莱的落地窗。\n远处传来学生的脚步声。",
+                "style": {
+                  "font": "sans",
+                  "fontSize": "16px",
+                  "color": "#e8e0d0",
+                  "backgroundColor": "#26324a"
                 }
-              ]
+              }
             }
           }
         },
@@ -14373,24 +14429,24 @@
           "stageId": "p6",
           "interaction": {
             "kind": "button",
-            "text": "好，期待你的操作。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:note",
-                    "x": 0.85,
-                    "y": 0.18,
-                    "align": "right",
-                    "content": {
-                      "kind": "text",
-                      "text": "TIP · 右下角提示"
-                    }
-                  }
-                }
-              ]
+            "text": "好，期待你的操作。"
+          }
+        },
+        {
+          "id": "p6-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:note",
+              "x": 0.85,
+              "y": 0.18,
+              "align": "right",
+              "content": {
+                "kind": "text",
+                "text": "TIP · 右下角提示"
+              }
             }
           }
         },
@@ -14446,16 +14502,16 @@
           "stageId": "p8",
           "interaction": {
             "kind": "button",
-            "text": "见证一下。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "clearFlow"
-                  }
-                }
-              ]
+            "text": "见证一下。"
+          }
+        },
+        {
+          "id": "p8-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearFlow"
             }
           }
         },
@@ -14500,24 +14556,24 @@
           "stageId": "p10",
           "interaction": {
             "kind": "button",
-            "text": "比想象中干净利落。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:act2",
-                    "x": 0.5,
-                    "y": 0.5,
-                    "align": "center",
-                    "content": {
-                      "kind": "text",
-                      "text": "第二幕 · 重新开始"
-                    }
-                  }
-                }
-              ]
+            "text": "比想象中干净利落。"
+          }
+        },
+        {
+          "id": "p10-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:act2",
+              "x": 0.5,
+              "y": 0.5,
+              "align": "center",
+              "content": {
+                "kind": "text",
+                "text": "第二幕 · 重新开始"
+              }
             }
           }
         },
@@ -14550,31 +14606,31 @@
           "stageId": "p11",
           "interaction": {
             "kind": "button",
-            "text": "连头像和名字都有。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:talklet",
-                    "x": 0.1,
-                    "y": 0.15,
-                    "align": "left",
-                    "content": {
-                      "kind": "message",
-                      "content": {
-                        "kind": "talk",
-                        "text": "定位气泡：这是被贴到窗格左下角的完整对话。",
-                        "speaker": "阿罗娜"
-                      },
-                      "presentation": {
-                        "side": "left"
-                      }
-                    }
-                  }
+            "text": "连头像和名字都有。"
+          }
+        },
+        {
+          "id": "p11-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:talklet",
+              "x": 0.1,
+              "y": 0.15,
+              "align": "left",
+              "content": {
+                "kind": "message",
+                "content": {
+                  "kind": "talk",
+                  "text": "定位气泡：这是被贴到窗格左下角的完整对话。",
+                  "speaker": "阿罗娜"
+                },
+                "presentation": {
+                  "side": "left"
                 }
-              ]
+              }
             }
           }
         },
@@ -14607,33 +14663,33 @@
           "stageId": "p12",
           "interaction": {
             "kind": "button",
-            "text": "我来点。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "show",
-                    "id": "perf:kizuna",
-                    "x": 0.5,
-                    "y": 0.35,
-                    "align": "center",
-                    "content": {
-                      "kind": "entryCard",
-                      "card": {
-                        "request": {
-                          "entryId": "base:activestory:run_chain_1",
-                          "entryType": "active",
-                          "owner": null,
-                          "intent": "card"
-                        },
-                        "title": "羁绊剧情 · 深夜巡逻（一）",
-                        "buttonText": "进入羁绊剧情"
-                      }
-                    }
-                  }
+            "text": "我来点。"
+          }
+        },
+        {
+          "id": "p12-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "show",
+              "id": "perf:kizuna",
+              "x": 0.5,
+              "y": 0.35,
+              "align": "center",
+              "content": {
+                "kind": "entryCard",
+                "card": {
+                  "request": {
+                    "entryId": "base:activestory:run_chain_1",
+                    "entryType": "active",
+                    "owner": null,
+                    "intent": "card"
+                  },
+                  "title": "羁绊剧情 · 深夜巡逻（一）",
+                  "buttonText": "进入羁绊剧情"
                 }
-              ]
+              }
             }
           }
         },
@@ -14666,16 +14722,16 @@
           "stageId": "p13",
           "interaction": {
             "kind": "button",
-            "text": "辛苦了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "clearFlow"
-                  }
-                }
-              ]
+            "text": "辛苦了。"
+          }
+        },
+        {
+          "id": "p13-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearFlow"
             }
           }
         },
@@ -14910,27 +14966,27 @@
           "stageId": "p4",
           "interaction": {
             "kind": "button",
-            "text": "继续。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "presentation",
-                  "command": {
-                    "command": "theme",
-                    "value": {
-                      "colorGroupId": "base:colorgroup:momotalk-pink",
-                      "tokens": {
-                        "primary": "#db2777",
-                        "bg": "#fff1f7",
-                        "playerBubble": "#9d174d"
-                      },
-                      "nodes": {
-                        "active": "#be185d"
-                      }
-                    }
-                  }
+            "text": "继续。"
+          }
+        },
+        {
+          "id": "p4-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
+              "value": {
+                "colorGroupId": "base:colorgroup:momotalk-pink",
+                "tokens": {
+                  "primary": "#db2777",
+                  "bg": "#fff1f7",
+                  "playerBubble": "#9d174d"
+                },
+                "nodes": {
+                  "active": "#be185d"
                 }
-              ]
+              }
             }
           }
         },
@@ -15021,46 +15077,20 @@
           "stageId": "p7",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "schale-theme-lite-p7-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "schale-theme-lite-p7-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "插入一段短演出，之后回到主线",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "schale-theme-lite-p7-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "schale-theme-lite-p7-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "直接切换到收束分支",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "schale-theme-lite-p7-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "schale-theme-lite-p7-option2"
+                ]
               }
             ]
           }
@@ -15129,30 +15159,30 @@
           "stageId": "p8",
           "interaction": {
             "kind": "button",
-            "text": "我记下了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "presentation",
-                  "command": {
-                    "command": "theme",
-                    "value": {
-                      "colorGroupId": "base:colorgroup:sky",
-                      "background": [
-                        {
-                          "id": "scene",
-                          "kind": "gradient",
-                          "value": "linear-gradient(135deg, #e0f2fe, #dbeafe)",
-                          "opacity": 1,
-                          "position": "center",
-                          "size": "cover",
-                          "attachment": "fixed"
-                        }
-                      ]
-                    }
+            "text": "我记下了。"
+          }
+        },
+        {
+          "id": "p8-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
+              "value": {
+                "colorGroupId": "base:colorgroup:sky",
+                "background": [
+                  {
+                    "id": "scene",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #e0f2fe, #dbeafe)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "attachment": "fixed"
                   }
-                }
-              ]
+                ]
+              }
             }
           }
         },
@@ -15197,30 +15227,38 @@
           "stageId": "p10",
           "interaction": {
             "kind": "button",
-            "text": "测试完成。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "clearId",
-                    "id": "theme-test:banner"
-                  }
-                },
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "clearId",
-                    "id": "theme-test:hidden"
-                  }
-                },
-                {
-                  "kind": "overlay",
-                  "command": {
-                    "command": "clearAllTexts"
-                  }
-                }
-              ]
+            "text": "测试完成。"
+          }
+        },
+        {
+          "id": "p10-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearId",
+              "id": "theme-test:banner"
+            }
+          }
+        },
+        {
+          "id": "p10-button-effect-2",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearId",
+              "id": "theme-test:hidden"
+            }
+          }
+        },
+        {
+          "id": "p10-button-effect-3",
+          "type": "operation",
+          "action": {
+            "kind": "overlay",
+            "command": {
+              "command": "clearAllTexts"
             }
           }
         },
@@ -15506,21 +15544,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "那就麻烦你了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 3
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "那就麻烦你了。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 3
+              }
+            ]
           }
         },
         {
@@ -15570,21 +15608,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "让它休息一下吧。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 4
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "让它休息一下吧。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 4
+              }
+            ]
           }
         },
         {
@@ -15634,21 +15672,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "明天再说吧。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 3
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "明天再说吧。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 3
+              }
+            ]
           }
         },
         {
@@ -15698,21 +15736,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "很适合停下来看看。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "很适合停下来看看。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -15762,21 +15800,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "说得这么直白真的好吗。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 3
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "说得这么直白真的好吗。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 3
+              }
+            ]
           }
         },
         {
@@ -15808,26 +15846,26 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "那就这么定了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 2
-                    },
-                    {
-                      "op": "setFlag",
-                      "flagId": "night_mode",
-                      "value": "1"
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "那就这么定了。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 2
+              },
+              {
+                "op": "setFlag",
+                "flagId": "night_mode",
+                "value": "1"
+              }
+            ]
           }
         },
         {
@@ -15883,21 +15921,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "谁干的？",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 4
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "谁干的？"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 4
+              }
+            ]
           }
         },
         {
@@ -15947,21 +15985,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "再十分钟就好。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 6
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "再十分钟就好。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 6
+              }
+            ]
           }
         },
         {
@@ -16099,46 +16137,20 @@
           "stageId": "p5",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "abydos-welcome-p5-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "abydos-welcome-p5-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "先去对策委员会室看看",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "abydos-welcome-p5-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "abydos-welcome-p5-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "去泳池那边巡逻",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "abydos-welcome-p5-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "abydos-welcome-p5-option2"
+                ]
               }
             ]
           }
@@ -16254,21 +16266,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "做得好，彩奈。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 4
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "做得好，彩奈。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 4
+              }
+            ]
           }
         },
         {
@@ -16318,29 +16330,33 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "不行，工作还没做完。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 6
-                    }
-                  ]
-                },
-                {
-                  "kind": "presentation",
-                  "command": {
-                    "command": "theme",
-                    "value": {
-                      "colorGroupId": "base:colorgroup:hoshino-swim"
-                    }
-                  }
-                }
-              ]
+            "text": "不行，工作还没做完。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "p1-button-effect-2",
+          "type": "operation",
+          "action": {
+            "kind": "presentation",
+            "command": {
+              "command": "theme",
+              "value": {
+                "colorGroupId": "base:colorgroup:hoshino-swim"
+              }
             }
           }
         },
@@ -16391,21 +16407,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "辛苦了，芹香。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 3
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "辛苦了，芹香。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 3
+              }
+            ]
           }
         },
         {
@@ -16455,21 +16471,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "一步一步来。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 7
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "一步一步来。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 7
+              }
+            ]
           }
         },
         {
@@ -16519,21 +16535,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "放心，优香。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "放心，优香。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -16583,21 +16599,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "需要帮忙调试吗？",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 6
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "需要帮忙调试吗？"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 6
+              }
+            ]
           }
         },
         {
@@ -16647,21 +16663,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "记得报告给乃爱。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 8
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "记得报告给乃爱。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 8
+              }
+            ]
           }
         },
         {
@@ -16711,21 +16727,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "让优香批一下。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 7
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "让优香批一下。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 7
+              }
+            ]
           }
         },
         {
@@ -16831,46 +16847,20 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "millennium-welcome-p4-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "millennium-welcome-p4-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "让优香负责财务优化",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "millennium-welcome-p4-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "millennium-welcome-p4-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "去游戏开发部看看",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "millennium-welcome-p4-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "millennium-welcome-p4-option2"
+                ]
               }
             ]
           }
@@ -17042,46 +17032,20 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "millennium-game-crisis-p4-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "millennium-game-crisis-p4-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "亲自上手调试",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "millennium-game-crisis-p4-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "millennium-game-crisis-p4-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "买冰淇淋犒劳大家",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "millennium-game-crisis-p4-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "millennium-game-crisis-p4-option2"
+                ]
               }
             ]
           }
@@ -17519,21 +17483,21 @@
           "stageId": "p4-confirm",
           "interaction": {
             "kind": "button",
-            "text": "（调查中……）",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "（调查中……）"
+          }
+        },
+        {
+          "id": "p4-confirm-click-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         }
       ],
@@ -17617,26 +17581,26 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "不用谢，这是老师应该做的。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 8
-                    },
-                    {
-                      "op": "addItem",
-                      "itemId": "base:item:tactical_kit",
-                      "amount": 1
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "不用谢，这是老师应该做的。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 8
+              },
+              {
+                "op": "addItem",
+                "itemId": "base:item:tactical_kit",
+                "amount": 1
+              }
+            ]
           }
         },
         {
@@ -17736,21 +17700,21 @@
           "stageId": "p3",
           "interaction": {
             "kind": "button",
-            "text": "走吧，阿罗娜。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "走吧，阿罗娜。"
+          }
+        },
+        {
+          "id": "p3-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -17841,21 +17805,21 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "虚惊一场。关好窗户吧。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 6
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "虚惊一场。关好窗户吧。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 6
+              }
+            ]
           }
         },
         {
@@ -17943,26 +17907,26 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "晚安（早安），阿罗娜。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 10
-                    },
-                    {
-                      "op": "addItem",
-                      "itemId": "base:item:energy_drink",
-                      "amount": 2
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "晚安（早安），阿罗娜。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 10
+              },
+              {
+                "op": "addItem",
+                "itemId": "base:item:energy_drink",
+                "amount": 2
+              }
+            ]
           }
         },
         {
@@ -18018,21 +17982,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "那我不客气了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "那我不客气了。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18064,21 +18028,21 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "我也是。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "我也是。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18134,21 +18098,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "想去看看。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "想去看看。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18180,21 +18144,21 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "这就来。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "这就来。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18235,21 +18199,21 @@
           "stageId": "p3",
           "interaction": {
             "kind": "button",
-            "text": "我答应过你呀。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 10
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "我答应过你呀。"
+          }
+        },
+        {
+          "id": "rooftop-arrival-response-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 10
+              }
+            ]
           }
         },
         {
@@ -18281,26 +18245,30 @@
           "stageId": "p4",
           "interaction": {
             "kind": "button",
-            "text": "以后也要一起来。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 10
-                    }
-                  ]
-                },
-                {
-                  "kind": "travel",
-                  "areaId": "base:area:schale_main",
-                  "notice": true
-                }
-              ]
-            }
+            "text": "以后也要一起来。"
+          }
+        },
+        {
+          "id": "rooftop-evening-response-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rooftop-evening-response-effect-2",
+          "type": "operation",
+          "action": {
+            "kind": "travel",
+            "areaId": "base:area:schale_main",
+            "notice": true
           }
         },
         {
@@ -18332,21 +18300,21 @@
           "stageId": "p5",
           "interaction": {
             "kind": "button",
-            "text": "好，边走边讲。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 10
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "好，边走边讲。"
+          }
+        },
+        {
+          "id": "rooftop-goodbye-response-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 10
+              }
+            ]
           }
         },
         {
@@ -18424,21 +18392,21 @@
           "stageId": "p1",
           "interaction": {
             "kind": "button",
-            "text": "哦？我看看。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "哦？我看看。"
+          }
+        },
+        {
+          "id": "p1-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18470,21 +18438,21 @@
           "stageId": "p2",
           "interaction": {
             "kind": "button",
-            "text": "好呀，那就说定了。",
-            "result": {
-              "actions": [
-                {
-                  "kind": "state",
-                  "effects": [
-                    {
-                      "op": "addResource",
-                      "resourceId": "base:resource:credit",
-                      "amount": 5
-                    }
-                  ]
-                }
-              ]
-            }
+            "text": "好呀，那就说定了。"
+          }
+        },
+        {
+          "id": "p2-button-effect-1",
+          "type": "operation",
+          "action": {
+            "kind": "state",
+            "effects": [
+              {
+                "op": "addResource",
+                "resourceId": "base:resource:credit",
+                "amount": 5
+              }
+            ]
           }
         },
         {
@@ -18724,46 +18692,20 @@
           "stageId": "main",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "shiroko-drink-coffee"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "shiroko-drink-juice"
-              }
-            ],
             "options": [
               {
                 "id": "coffee",
                 "text": "来杯热咖啡。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "shiroko-drink-coffee",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "shiroko-drink-coffee"
+                ]
               },
               {
                 "id": "juice",
                 "text": "选冰果汁吧。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "shiroko-drink-juice",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "shiroko-drink-juice"
+                ]
               }
             ]
           }
@@ -18910,46 +18852,20 @@
           "stageId": "main",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "shiroko-rooftop-photo"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "shiroko-rooftop-route"
-              }
-            ],
             "options": [
               {
                 "id": "photo",
                 "text": "先一起拍张合照。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "shiroko-rooftop-photo",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "shiroko-rooftop-photo"
+                ]
               },
               {
                 "id": "route",
                 "text": "一起记下下一次骑行的路线。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "shiroko-rooftop-route",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "shiroko-rooftop-route"
+                ]
               }
             ]
           }
@@ -19097,68 +19013,22 @@
           "stageId": "p4",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "hoshino-remembers"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "hoshino-new-memories"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "bond-hoshino-p4-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "bond-hoshino-p4-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "当然记得，就在对策委员会室。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "bond-hoshino-p4-option1",
-                      "value": true
-                    },
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "hoshino-remembers",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "bond-hoshino-p4-option1",
+                  "hoshino-remembers"
+                ]
               },
               {
                 "id": "option2",
                 "text": "抱歉……有点记不清了。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "bond-hoshino-p4-option2",
-                      "value": true
-                    },
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "hoshino-new-memories",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "bond-hoshino-p4-option2",
+                  "hoshino-new-memories"
+                ]
               }
             ]
           }
@@ -19333,46 +19203,20 @@
           "stageId": "p3",
           "interaction": {
             "kind": "choice",
-            "sharedActions": [
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "bond-hoshino-evening-p3-option1"
-              },
-              {
-                "kind": "localFlag",
-                "op": "remove",
-                "name": "bond-hoshino-evening-p3-option2"
-              }
-            ],
             "options": [
               {
                 "id": "option1",
                 "text": "回忆过去也很重要呢。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "bond-hoshino-evening-p3-option1",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "bond-hoshino-evening-p3-option1"
+                ]
               },
               {
                 "id": "option2",
                 "text": "那就多创造新的回忆吧。",
-                "result": {
-                  "actions": [
-                    {
-                      "kind": "localFlag",
-                      "op": "set",
-                      "name": "bond-hoshino-evening-p3-option2",
-                      "value": true
-                    }
-                  ]
-                }
+                "marks": [
+                  "bond-hoshino-evening-p3-option2"
+                ]
               }
             ]
           }
@@ -19668,7 +19512,14 @@
       ],
       "replayable": true,
       "openingTitle": "白子 · 出发前的饮料",
-      "type": "active"
+      "activation": {
+        "kind": "active"
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 1
+      }
     },
     {
       "id": "base:activestory:shiroko_rooftop",
@@ -19682,7 +19533,14 @@
       ],
       "replayable": true,
       "openingTitle": "白子 · 天台上的约定",
-      "type": "active"
+      "activation": {
+        "kind": "active"
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 3
+      }
     },
     {
       "id": "base:activestory:schale_welcome",
@@ -19695,7 +19553,15 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active"
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_1",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:schale_flow_show",
@@ -19708,7 +19574,18 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_2",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:schale_theme_lite_test",
@@ -19721,7 +19598,18 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_2",
+        "order": 1
+      }
     },
     {
       "id": "base:activestory:abydos_welcome",
@@ -19734,7 +19622,18 @@
         "base:init:abydos"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_2",
+        "chapter": "ch_1",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:millennium_welcome",
@@ -19747,7 +19646,18 @@
         "base:init:millennium"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_3",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:millennium_game_crisis",
@@ -19815,7 +19725,18 @@
           "denialMessage": "你还没有真正走过这条路线，无法回顾该分歧。"
         }
       ],
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "main",
+        "part": "part_1",
+        "chapter": "ch_3",
+        "order": 1
+      }
     },
     {
       "id": "base:activestory:serika_side_1",
@@ -19828,7 +19749,17 @@
         "base:init:abydos"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:serika_side_2",
@@ -19878,7 +19809,17 @@
         }
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 1
+      }
     },
     {
       "id": "base:activestory:run_chain_1",
@@ -19891,7 +19832,14 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active"
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 0
+      }
     },
     {
       "id": "base:activestory:run_chain_2",
@@ -19941,7 +19889,17 @@
         }
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 1
+      }
     },
     {
       "id": "base:activestory:run_chain_3",
@@ -19991,7 +19949,17 @@
         }
       ],
       "replayable": true,
-      "type": "active"
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
+      },
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 2
+      }
     },
     {
       "id": "base:activestory:bond_hoshino_1",
@@ -20005,8 +19973,10 @@
       ],
       "replayable": true,
       "openingTitle": "星野 · 午后的堤防",
-      "type": "active",
-      "owner": "Hoshino"
+      "owner": "Hoshino",
+      "activation": {
+        "kind": "active"
+      }
     },
     {
       "id": "base:activestory:bond_hoshino_evening",
@@ -20018,8 +19988,10 @@
       "availableInits": [],
       "replayable": true,
       "openingTitle": "星野 · 傍晚的河堤",
-      "type": "active",
-      "owner": "Hoshino"
+      "owner": "Hoshino",
+      "activation": {
+        "kind": "active"
+      }
     }
   ],
   "affectorPacks": [

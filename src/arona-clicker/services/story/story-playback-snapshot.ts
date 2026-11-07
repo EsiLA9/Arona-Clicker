@@ -1,9 +1,11 @@
+import { storyEntryType } from '../../../data-services/contracts/story-entry';
 import { isDeferredStoryPresentationEffect } from './story-node-action-host';
-import type { StoryNodeDocument, StoryNodeResult } from '../../../data-services/contracts/story-node';
+import type { StoryNodeDocument } from '../../../data-services/contracts/story-node';
 import type { StoryCursorCollection, StoryCursorSnapshot } from '../../../engine/contracts/story-cursor';
 import type { StoryOutputContent, StoryPlaybackStep } from '../../../engine/contracts/story-playback-state';
 import type { Registry } from '../../../data-services/registry/registry';
 import { isStoryFlagValue, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
+import { isStoryNodePerformance } from '../../../data-services/validation/story-performance';
 
 export const STORY_PLAYBACK_MAX_OUTPUTS = 200;
 export const STORY_PLAYBACK_MAX_STEPS = 4096;
@@ -54,13 +56,8 @@ export function documentFingerprints(documents: ReadonlyMap<string, StoryNodeDoc
     const document = documents.get(id);
     if (!document || document.id !== id || !Array.isArray(document.nodes)) return fail(`DocumentMissing:${id}`);
     found.set(id, fingerprint(document));
-    const add = (result: StoryNodeResult | undefined) => { if (result?.transfer) pending.push(result.transfer.storyId); };
     for (const node of document.nodes) {
       if (node.type === 'transfer') pending.push(node.transfer.storyId);
-      if (node.type === 'click') {
-        if (node.interaction.kind === 'button') add(node.interaction.result);
-        if (node.interaction.kind === 'choice') for (const option of node.interaction.options) add(option.result);
-      }
     }
   }
   return Object.fromEntries([...found].sort(([left], [right]) => left.localeCompare(right)));
@@ -68,7 +65,10 @@ export function documentFingerprints(documents: ReadonlyMap<string, StoryNodeDoc
 
 function checkContent(value: unknown): asserts value is StoryOutputContent {
   if (!record(value) || !['talk', 'narration', 'reward', 'travel'].includes(String(value.kind)) || typeof value.text !== 'string') return fail('OutputContent');
-  const allowed = new Set(['kind', 'text', 'speaker', 'characterId', 'displayName', 'avatar', 'image', 'side', 'align', 'noAvatar', 'showAvatar', 'storyType', 'storyPageKey', 'choice']);
+  const allowed = new Set(['kind', 'text', 'speaker', 'characterId', 'displayName', 'avatar', 'image', 'side', 'align', 'noAvatar', 'showAvatar', 'storyType', 'storyPageKey', 'choice','node','performance']);
+  if (value.performance!==undefined && !isStoryNodePerformance(value.performance)) return fail('NodePerformance');
+  if (value.performance!==undefined && value.node===undefined) return fail('NodeDisplayIdentity');
+  if (value.node!==undefined && (!record(value.node)||Object.keys(value.node).some(key=>!['storyId','nodeId'].includes(key))||!nonEmpty(value.node.storyId)||!nonEmpty(value.node.nodeId))) return fail('NodeDisplayIdentity');
   if (Object.keys(value).some(key => !allowed.has(key))) return fail('OutputContentKeys');
   for (const key of ['speaker', 'characterId', 'displayName', 'avatar', 'image', 'storyPageKey']) if (value[key] !== undefined && typeof value[key] !== 'string') return fail('OutputContent');
   for (const key of ['noAvatar', 'showAvatar']) if (value[key] !== undefined && typeof value[key] !== 'boolean') return fail('OutputContent');
@@ -197,7 +197,7 @@ export function validateStoryDeferredStarts(collection: StoryCursorCollection, r
       if (!isStoryFlagValue(options)) return fail('DeferredStartOptionsJSON');
     }
     const entry = registry.storyEntries.get(request.entryId);
-    if (!entry || entry.type !== request.expectedType || !registry.stories.has(entry.storyId)) return fail('DeferredStartEntry');
+    if (!entry || storyEntryType(entry) !== request.expectedType || !registry.stories.has(entry.storyId)) return fail('DeferredStartEntry');
     documentFingerprints(registry.stories, entry.storyId);
     const target = request.owner === null ? collection.global : collection.chats[`variant:${request.owner}`];
     const finishing = target?.finishing;

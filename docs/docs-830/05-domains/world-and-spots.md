@@ -28,6 +28,8 @@ Spot 的基础功能由是否要求持有和声明的条件决定；等级、区
 
 信息揭示和 Milestone 采用“派生 Watch + Trigger Adapter”的模式：领域逻辑根据当前 Init、已访问区域和条件生成需要监听的事件源；Adapter 将 Watch 注册为 Trigger，并在内容/Init/状态变化时重建。事件命中后仍重新核对当前条件，再通过状态写入服务记录揭示或完成事实。Milestone 完成后还可由 Achievement View 投影为区域发现与成就进度。
 
+Area 的四面世界信息通过 `reveal` 分别控制存在、身份、用途和方法；Area 的当前进入门槛独立放在 `enterCondition`。成功到访后才按 `onVisitReveal` 记录知识，默认只记住存在和身份。地图收录属于 Init 快照，Area / Map / Node 的已知信息属于 Save 级事实，细节见 [[world-reveal-and-milestones]] 与 [[area-map-overview]]。
+
 关键入口：`services/world/spot-functionality.ts`、`information-reveal-domain.ts`、`information-reveal-adapter.ts`、`milestone-domain.ts`、`milestone-adapter.ts`。
 
 源码入口：`src/arona-clicker/services/world/init-service.ts`、`spot-service.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/def-factory/spot.test.ts`、`tests/engine/spot-payment.test.ts`。

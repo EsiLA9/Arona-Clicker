@@ -1,6 +1,6 @@
 # 世界信息揭示、Milestone 与 Achievement
 
-本文解释条件如何成为信息揭示或里程碑完成事实，以及成就界面如何读取这些事实。Init 和 Area 的进入流程见 [[world-and-spots]]；条件与 Trigger 基础见 [[conditions-and-visibility]]、[[trigger-mechanism]]。
+本文解释条件如何成为信息揭示或里程碑完成事实，以及成就界面如何读取这些事实。Area / AreaMap 的信息知识与旅行 / 地图动作能力分开保存。Init 和 Area 的进入流程见 [[world-and-spots]]；地图信息与动作定义见 [[area-map-overview]]；条件与 Trigger 基础见 [[conditions-and-visibility]]、[[trigger-mechanism]]。
 
 ## 数据、监听与事实
 
@@ -16,7 +16,13 @@ Domain 计算需要观察什么，不直接写进度或注册事件。Adapter �
 
 ## 信息揭示：目标和当前状态
 
-一个信息目标由实体种类、完整实体 ID 和目标名共同标识。支持的实体包括 Init、Area、Spot、Enhancement、Item 和主动/被动 Story Entry；适用范围依当前 Init 与定义确定。`existence` 和 `unlock` 不属于该信息进度记录，不能混同为名称等信息已揭示。
+一般信息目标由实体种类、完整实体 ID 和目标名共同标识；区域地图节点使用结构化 mapId + nodeId，防止不同地图中同名节点冲突。原有进度支持 Init、Spot、Enhancement、Item 和主动 / 被动 Story Entry；世界信息另支持 Area、AreaMap 和 AreaMap Node。
+
+Area、AreaMap 和 Node 共用 `WorldInformationDef` 的四个信息面：`existence`、`name`、`utility`、`condition`。单面省略表示公开；`{ mode: 'condition', condition }` 表示条件满足后记住；`{ mode: 'explicit' }` 表示只允许剧情或效果明确告知。区域的 `enterCondition`、地图的 `openCondition`、节点的 `actionCondition` 是当前动作门槛，不属于知识事实。获得地图不代表到访其中地点；可以旅行也不代表已经旅行。
+
+世界信息事实保存在 Save 级 `informationRevealProgress`。实际 Area 进入会按 `onVisitReveal` 写入知识，未设置时写入该 Area 的 `existence` 和 `name`；只查询、预检或开图不会伪造 Area 到访。地图节点事实的身份同时包含地图与节点 ID。条件揭示达到后记住进度，即使后续资源减少也不会让已知文字重新隐藏；显式授予只能指向 Registry 中确实声明为 `explicit` 的信息面。
+
+`hasAreaMap` 条件检查当前 Init 是否收录指定地图；收录 ID 随 Init 快照保存、切线恢复并在重置时清空。此条件不表示地图当前可浏览，也不代表地图中的地点已到访。
 
 `queryInformationReveal()` 给出下列状态：
 
@@ -28,7 +34,7 @@ Domain 计算需要观察什么，不直接写进度或注册事件。Adapter �
 | `known-progress` | 该目标的揭示事实已记录。 |
 | `pending-gate` | 有门禁但尚未记录事实；有条件门禁可产生 Watch，无条件门禁需在准入对账时处理。 |
 
-同一目标的多条条件按 OR 组合。只有前置要求成立后才派生对应 Watch；条件达到后，Adapter 会复查目标、当前 Init、Watch 描述和完整条件，再由 `StateMutationService.revealInformationTarget()` 写入。成功后撤销该监听并重新推导，可能使依赖它的后续目标开始观察。
+旧式 Reveal 目标的多条触发仍按 OR 组合。世界信息每个信息面由一个 Condition / ConditionGroup 表达，可在组内写 AND / OR。只有前置要求成立后才派生对应 Watch；条件达到后，Adapter 会复查目标、当前 Init、Watch 描述和完整条件，再由 `StateMutationService.revealInformationTarget()` 写入。成功后撤销该监听并重新推导，可能使依赖它的后续目标开始观察。
 
 ### 事件覆盖不是全部条件都自动监听
 

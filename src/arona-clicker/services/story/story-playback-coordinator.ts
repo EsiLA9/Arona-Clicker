@@ -166,7 +166,7 @@ export class StoryPlaybackCoordinator {
     const sequence = store.sequence + 1;
     this.outputs.set(key, {
       ...store, sequence,
-      entries: [...store.entries, { ...structuredClone(content), id, sequence, historyId, timestamp: this.clock.now() }].slice(-MAX_OUTPUTS),
+      entries: [...store.entries.filter(entry=>!(content.performance?.layout?.mode==='positioned' && content.node && entry.historyId===historyId && entry.node?.storyId===content.node.storyId && entry.node.nodeId===content.node.nodeId)), { ...structuredClone(content), id, sequence, historyId, timestamp: this.clock.now() }].slice(-MAX_OUTPUTS),
     });
   }
 
@@ -177,6 +177,14 @@ export class StoryPlaybackCoordinator {
     const barrier = this.barriers.get(key);
     if (barrier?.steps[barrier.index]?.kind === 'delay' && !barrier.delivered) barrier.suppressed = true;
     this.notify(owner, replayId);
+  }
+
+  clearNode(historyId: string, target: {storyId:string;nodeId:string}): void {
+    for (const [key,store] of this.outputs) this.outputs.set(key,{...store,entries:store.entries.filter(entry=>entry.historyId!==historyId||entry.node?.storyId!==target.storyId||entry.node.nodeId!==target.nodeId)});
+  }
+
+  clearPositioned(historyId: string): void {
+    for (const [key,store] of this.outputs) this.outputs.set(key,{...store,entries:store.entries.filter(entry=>entry.historyId!==historyId||entry.performance?.layout?.mode!=='positioned')});
   }
 
   end(owner: string | null, replayId?: string): void {

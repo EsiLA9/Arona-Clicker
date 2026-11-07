@@ -10,8 +10,8 @@ export type CreateAvailableStoryDelivery = (
 ) => boolean;
 
 /**
- * Turns Story-page-only ActiveStoryEntry availability into durable Area offers.
- * The first Area where an entry is eligible owns its delivery for this Init.
+ * Turns explicitly configured ActiveStoryEntry availability into durable Area offers.
+ * The configured fallback selects the current or fixed Area in the active Init.
  */
 export class StoryAvailabilityDeliveryMount {
   private currentInitId: string | null = null;
@@ -21,7 +21,6 @@ export class StoryAvailabilityDeliveryMount {
     private readonly conditionSystem: ConditionSystem,
     eventBus: EventBus,
     private readonly getState: () => PlayerState,
-    private readonly entryIds: readonly string[],
     private readonly createDelivery: CreateAvailableStoryDelivery,
   ) {
     eventBus.on('storyCompleted', () => this.reconcileCurrentArea());
@@ -40,16 +39,17 @@ export class StoryAvailabilityDeliveryMount {
   reconcileCurrentArea(): void {
     const state = this.getState();
     const initId = this.currentInitId;
-    const areaId = state.currentAreaId;
-    if (!initId || state.activeInit !== initId || !areaId) return;
+    const currentAreaId = state.currentAreaId;
+    if (!initId || state.activeInit !== initId || !currentAreaId) return;
 
-    const area = this.registry.areas.get(areaId);
-    if (!area || area.initId !== initId) return;
-
-    for (const entryId of this.entryIds) {
-      const entry = this.registry.activeStories.get(entryId);
-      const story = entry ? this.registry.stories.get(entry.storyId) : undefined;
-      if (!entry || !story || story.nodes.length === 0) continue;
+    for (const entry of this.registry.activeStories.values()) {
+      const fallback = entry.activation.fallback;
+      if (!fallback) continue;
+      const areaId = fallback.kind === 'fixed-area' ? fallback.areaId : currentAreaId;
+      const area = this.registry.areas.get(areaId);
+      if (!area || area.initId !== initId) continue;
+      const story = this.registry.stories.get(entry.storyId);
+      if (!story || story.nodes.length === 0) continue;
       if (entry.availableInits.length > 0 && !entry.availableInits.includes(initId)) continue;
       if (state.storyLog.some(completed => completed.storyId === entry.storyId)) continue;
       if (entry.triggerCondition && !this.conditionSystem.evaluateGroup(entry.triggerCondition, state)) continue;

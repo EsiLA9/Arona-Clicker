@@ -6,7 +6,8 @@ import type { StoryNodeSnapshot } from '../../src/engine/contracts/story-node-sn
 
 const root: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:root', name: 'Root', stages: { click: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
   { id: 'write', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 1 }] } },
-  { id: 'click', type: 'click', stageId: 'click', interaction: { kind: 'button', text: '按', press: { base: 2, rand: 3 }, result: { transfer: { mode: 'insert', storyId: 'story:child' } } } },
+  { id: 'click', type: 'click', stageId: 'click', interaction: { kind: 'button', text: '按', press: { base: 2, rand: 3 } } },
+  { id: "click-transfer", type: 'transfer', transfer: { mode: 'insert', storyId: 'story:child' } },
   { id: 'end', type: 'talklet', stageId: 'end', content: { kind: 'talk', text: '返回。' } },
 ] };
 const child: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:child', name: 'Child', stages: { body: { advance: 'auto' } }, nodes: [

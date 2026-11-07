@@ -153,7 +153,7 @@ function entryRow(ctx: UIContext, entry: PassiveStoryEntry, collected: Map<strin
     <div class="coll-entry hover-wrap ${done ? 'is-done' : 'is-missed'}" data-tooltip="passive:${esc(entry.id)}">
       <span class="coll-mark">${done ? '✓' : '✗'}</span>
       <span class="coll-name">${esc(name)}</span>
-      <span class="coll-meta">w${entry.weight}</span>
+      <span class="coll-meta">${entry.activation.kind === 'random' ? `w${entry.activation.weight}` : '好感／角色阶段'}</span>
       ${done ? `<span class="coll-count">×${info!.count}</span>` : '<span class="coll-count coll-new">未收集</span>'}
     </div>`;
 }

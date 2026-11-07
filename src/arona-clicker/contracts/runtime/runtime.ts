@@ -1,4 +1,4 @@
-import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult } from './story-authoring';
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryIdentityChange } from './story-authoring';
 import type { AreaId, EntityThemeSlot, SpotId, ThemeOrderScope, VariantId } from '../../../engine/types/index';
 import type { MapActionRelation, MapDeclaredEffectSummary } from '../map/map-relations';
 import type { MapRunCardInstance, MapRunCardRef } from '../map/map-cards';
@@ -11,8 +11,12 @@ import type { SaveData } from './save-data';
 import type { DevLogEntry } from '../../../engine/core/dev-log';
 import type { ContentCatalogQueryPort } from './content-catalog';
 import type { StoryDef } from '../../../data-services/contracts/story';
+import type { ConditionGroup } from '../../../engine/types/expression';
+import type { AreaMapEdgeDef, AreaMapNodeDef } from '../../../data-services/contracts/area-map';
+import type { WorldInformationDef } from '../../../data-services/contracts/world-reveal';
 import type { StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import type { AreaMapQueryPort } from '../world/area-map-query';
+import type { AreaMapOpenResult } from '../world/area-map-query';
 import type { RuntimeContentBrowserQueryPort } from '../../../data-services/contracts/runtime-content-browser';
 import type { ValueQueryPort } from './value-query';
 import type { ConditionQueryPort } from './condition-query';
@@ -170,11 +174,13 @@ export interface RuntimeModDraft {
   /** Runtime Editor 的 reload 型内容：仅保存临时 Mod 自有的草稿记录。 */
   readonly inits?: readonly RuntimeInitDraft[];
   readonly areas?: readonly RuntimeAreaDraft[];
+  readonly areaMaps?: readonly RuntimeAreaMapDraft[];
   readonly enhancements?: readonly RuntimeEnhancementDraft[];
   /** Draft 中保留但当前 Runtime Preview 不物化的 Spot。 */
   readonly suspendedSpotIds?: readonly string[];
   readonly suspendedInitIds?: readonly string[];
   readonly suspendedAreaIds?: readonly string[];
+  readonly suspendedAreaMapIds?: readonly string[];
   readonly suspendedEnhancementIds?: readonly string[];
 }
 
@@ -206,7 +212,20 @@ export interface RuntimeAreaDraft {
   readonly adjacentAreaIds?: readonly string[];
   readonly topology?: readonly RuntimeAreaTopologyDraft[];
   readonly tags?: readonly string[];
-  readonly revealTriggers?: readonly RuntimeSpotRevealTriggerDraft[];
+  readonly reveal?: WorldInformationDef;
+  readonly enterCondition?: ConditionGroup;
+  readonly onVisitReveal?: readonly ('existence' | 'name' | 'utility' | 'condition')[];
+}
+
+export interface RuntimeAreaMapDraft {
+  readonly idName: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly reveal?: WorldInformationDef;
+  readonly openCondition?: ConditionGroup;
+  readonly collection?: 'onOpen' | 'explicit';
+  readonly nodes: readonly AreaMapNodeDef[];
+  readonly edges: readonly AreaMapEdgeDef[];
 }
 
 export interface RuntimeEnhancementDraft {
@@ -680,6 +699,7 @@ export interface GameCommands {
   applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
   createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
+  renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
   /** Restore the loaded source definition, or remove a Story created only in the current Registry. */
   restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
@@ -687,6 +707,11 @@ export interface GameCommands {
   /** Validate the Spot and enter/resume the fixed three-battle translated scenario. */
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   travelToArea(areaId: AreaId, allowDuringStory?: boolean, checkAdjacency?: boolean): TravelResult;
+  openAreaMapFromArea(areaId: string): AreaMapOpenResult;
+  openCollectedAreaMap(index: number): AreaMapOpenResult;
+  openAreaMapFromNode(mapId: string, nodeId: string): AreaMapOpenResult;
+  observeAreaMapSession(mapIds: readonly string[]): void;
+  closeAreaMapSession(): void;
   tick(): TickResult;
   start(): void;
   stop(): void;

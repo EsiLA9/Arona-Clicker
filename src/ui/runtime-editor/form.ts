@@ -40,8 +40,10 @@ export function runtimeEditorFieldViews(
 ): RuntimeEditorFieldView[] {
   const raw = values as Record<string, unknown>;
   return policy.fields.map(field => {
-    const candidates = field.kind === 'ref' ? refOptions(ctx, field) : [];
-    const control: RuntimeEditorFieldView['control'] = field.kind === 'ref'
+    const candidates = field.options
+      ? field.options.map(option => ({ ...option, source: 'policy' as const }))
+      : field.kind === 'ref' ? refOptions(ctx, field) : [];
+    const control: RuntimeEditorFieldView['control'] = field.options || field.kind === 'ref'
       ? 'select'
       : field.kind === 'boolean' ? 'checkbox'
         : isNumericAuthoringKind(field.kind) ? 'number' : 'text';

@@ -58,6 +58,46 @@ describe('AreaMap real Controller flow', () => {
     expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('b'));
     expect(game.state.currentAreaId).toBe(area('a'));
   });
+  test('图册按收录顺序切图，并在当前 Area 没有入口图时仍可打开', () => {
+    click('[data-area-map-open]'); click('[data-area-map-node="portal"]');
+    expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('b'));
+    expect(game.state.collectedAreaMapIds).not.toContain(map('b'));
+    const firstMapButton = root.querySelector('[data-area-map-switch="0"]');
+    expect(game.mutations.acquireAreaMap(map('b'))).toBe(true);
+    ctrl.flushUIUpdates();
+    expect(root.querySelectorAll('[data-area-map-switch]')).toHaveLength(2);
+    expect(root.querySelector('[data-area-map-switch="0"]')).toBe(firstMapButton);
+    click('[data-area-map-switch="0"]');
+    expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('a'));
+    expect(game.state.currentAreaId).toBe(area('a'));
+    click('[data-area-map-action="close"]');
+    game.registry.areas.get(area('a'))!.navigationMapId = undefined;
+    ctrl.refreshLight();
+    expect(root.querySelector('[data-area-map-open]')).toBeNull();
+    expect(root.querySelector('[data-area-map-open-collected]')?.textContent).toBe('地图册');
+    click('[data-area-map-open-collected]');
+    expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('a'));
+    expect(game.state.currentAreaId).toBe(area('a'));
+  });
+  test('匿名地图直达在未到访时显示安全名称与来源，并在提交后记录真实到访', () => {
+    expect(game.story.startStory('area-map-demo:activestory:arrival', 'active').success).toBe(true);
+    game.story.clearAllCurrentStories();
+    expect(game.travelToArea(area('mall_entrance')).success).toBe(true);
+    expect(game.areaMap.getView(map('mall'))?.nodes.some(node => node.id === 'floor')).toBe(true);
+    ctrl.refreshLight();
+    ctrl.render();
+    click(`[data-area-map-open="${area('mall_entrance')}"]`);
+    expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('mall'));
+    click('[data-area-map-node="floor"]');
+    click('[data-area-map-node="quiet_lounge"]');
+
+    expect(root.querySelector('[data-area-map-detail]')?.textContent).toContain('尚未到访');
+    expect(root.querySelector('[data-area-map-action="travel"]')?.textContent).toBe('导览直达');
+    expect(root.querySelector('[data-area-map-detail]')?.textContent).not.toContain('松林深处的休息处');
+    click('[data-area-map-action="travel"]');
+    expect(game.state.currentAreaId).toBe(area('quiet_lounge'));
+    expect(game.areaMap.getAreaInfo(area('quiet_lounge'))).toMatchObject({ nameKnown: true });
+  });
   test('Hero/map entry admission updates in place when Story ends or the Map association changes', () => {
     const button = root.querySelector<HTMLButtonElement>('[data-area-map-open]')!;
     const hero = root.querySelector<HTMLButtonElement>('[data-area-workspace-open]')!;
@@ -98,8 +138,8 @@ describe('AreaMap real Controller flow', () => {
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '暂时留在这里。' } },
 ] }],
       passiveStories: [
-        { id: 'area-map-demo:passivestory:safe', storyId: 'area-map-demo:story:passive', type: 'passive', repeatable: true, weight: 1, availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, leaveArea: false },
-        { id: 'area-map-demo:passivestory:owner', storyId: 'area-map-demo:story:passive', type: 'passive', repeatable: true, weight: 1, availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, owner: 'student', blocksInteraction: true },
+        { id: 'area-map-demo:passivestory:safe', storyId: 'area-map-demo:story:passive', availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, leaveArea: false, activation: { kind: 'random' as const, weight: 1, repeatable: true } },
+        { id: 'area-map-demo:passivestory:owner', storyId: 'area-map-demo:story:passive', availableInits: ['area-map-demo:init:demo'], triggerCondition: { type: 'AND', conditions: [] }, owner: 'student', blocksInteraction: true, activation: { kind: 'random' as const, weight: 1, repeatable: true } },
       ] });
     expect(game.story.startStory('area-map-demo:passivestory:safe', 'passive').success).toBe(true);
     ctrl.render(); click('[data-area-map-open]'); click('[data-area-map-node="plaza"]');
@@ -111,9 +151,9 @@ describe('AreaMap real Controller flow', () => {
     click('[data-area-map-open]');
     expect(ctrl.panelState.areaMapSession).toBeUndefined();
   });
-  test('browse/select/cycle/back/current/close never travels and preserves DOM and source game location', () => {
+  test('browse/select/cycle/back/current/close collects opened maps without moving and preserves DOM', () => {
     ctrl.panelState.rightTab = 'enh'; ctrl.render();
-    const state = JSON.stringify(game.state);
+    const state = { ...game.state, collectedAreaMapIds: undefined };
     const travel = vi.spyOn(ctrl.commands, 'travelToArea');
     click('[data-area-map-open]');
     const frame = root.querySelector('[data-workspace-frame="area-map"]');
@@ -129,6 +169,11 @@ describe('AreaMap real Controller flow', () => {
     ctrl.panelState.areaMapSession!.viewports.set(map('a'), camera);
     for (const target of ['b', 'c', 'a']) {
       click('[data-area-map-node="portal"]');
+      if (target === 'b') {
+        expect(game.state.collectedAreaMapIds).not.toContain(map('b'));
+        expect(game.mutations.acquireAreaMap(map('b'))).toBe(true);
+        ctrl.flushUIUpdates();
+      }
       expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map(target));
       expect(game.state.currentAreaId).toBe(area('a'));
     }
@@ -145,7 +190,8 @@ describe('AreaMap real Controller flow', () => {
     expect(ctrl.panelState.areaMapSession).toBeUndefined();
     expect(ctrl.panelState.rightTab).toBe('enh');
     expect(document.activeElement?.hasAttribute('data-area-map-open')).toBe(true);
-    expect(JSON.stringify(game.state)).toBe(state);
+    expect({ ...game.state, collectedAreaMapIds: undefined }).toEqual(state);
+    expect(game.state.collectedAreaMapIds).toEqual([map('a'), map('b'), map('c')]);
     expect(travel).not.toHaveBeenCalled();
   });
 
@@ -188,7 +234,7 @@ describe('AreaMap real Controller flow', () => {
     const priorEntry = 'area-map-demo:activestory:before-travel';
     game.registry.load({ ...mergeFragments([]), stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: priorStory, name: 'Before travel', stages: { unused: { advance: 'auto' } }, nodes: [
       { id: 'body', type: 'talklet', stageId: 'unused', content: { kind: 'narration', text: '移动前已有的正文' } },
-    ] }], activeStories: [{ id: priorEntry, storyId: priorStory, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }] });
+    ] }], activeStories: [{ id: priorEntry, storyId: priorStory, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } }] });
     expect(game.story.startActiveStory(priorEntry).success).toBe(true);
     ctrl.refreshChatPanel();
     game.story.clearAllCurrentStories();
@@ -249,10 +295,10 @@ describe('AreaMap real Controller flow', () => {
     expect(ctrl.panelState.areaMapSession).toBeUndefined();
     ctrl.modal.close(); click('[data-area-map-open]'); click('[data-area-map-node="portal"]');
     const current = game.registry.areaMaps.get(map('b'))!;
-    current.revealTriggers = [{ reveal: 'existence', condition: { target: 'resource', key: 'permit', comparator: '>=', value: 1 } }];
+    current.openCondition = { type: 'AND', conditions: [{ target: 'resource', key: 'permit', comparator: '>=', value: 1 }] };
     ctrl.refreshLight(); ctrl.flushUIUpdates();
     expect(ctrl.panelState.areaMapSession?.currentMapId).toBe(map('a'));
-    game.registry.areaMaps.get(map('a'))!.revealTriggers = current.revealTriggers;
+    game.registry.areaMaps.get(map('a'))!.openCondition = current.openCondition;
     ctrl.refreshLight(); await settle();
     expect(ctrl.panelState.areaMapSession).toBeUndefined();
   });

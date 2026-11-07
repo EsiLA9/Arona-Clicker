@@ -1,5 +1,5 @@
 import type { UIContext } from '../runtime/context';
-import { renderChatHistory, renderCurrentStory, renderChatTexts, type ChatEntry, type ChatTextEntry } from '../components/story/story';
+import { renderChatHistory, renderCurrentStory, renderChatTexts, renderPositionedStoryHistory, renderStoryClickAppearance, type ChatEntry, type ChatTextEntry } from '../components/story/story';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../flow/flow-entry';
 import { renderOpeningBanner, renderStoryGate } from '../components/story/story-gate';
 import type { SendState } from '../../arona-clicker/contracts/runtime/results';
@@ -27,12 +27,13 @@ export function renderChatContent(
   // choice 页：仅已确认文本（confirmed）后才渲染选项卡片；未确认时 text 已在聊天流中，
   // 底部按钮为“继续”（点击确认，见 renderSendButton）
   // kizuna 页：羁绊卡片在流内渲染，底部按钮变灰
+  const positioned=story?.performance?.layout?.mode==='positioned';
   const current = !readOnly && story && (
-    (sendState.mode === 'choice' && sendState.confirmed) ||
+    (positioned && story.phase==='input') || (sendState.mode === 'choice' && sendState.confirmed) ||
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
   const launcher = story || readOnly ? '' : renderChatLauncher(ctx, activeStory?.id ?? '', activeCompleted);
-  const send = readOnly ? '' : renderSendButton(sendState, sendGate);
+  const send = readOnly || positioned&&story?.phase==='input' ? '' : renderStoryClickAppearance(renderSendButton(sendState, sendGate),story?.phase==='input'&&sendState.mode==='advance'?story.performance:undefined);
 
   // 聊天流与推进按钮分离：流是独立滚动区，按钮固定在聊天区底部外侧。
   // 演出专用文本渲染在 .chat-pane 层（.chat-stream 之上），不随滚动位移，保持界面定位。
@@ -41,9 +42,11 @@ export function renderChatContent(
     <div class="chat-pane" data-chat-owner=""${replayId ? ` data-story-replay-id="${ctx.escapeHtml(replayId)}"` : ''}>
       <div class="chat-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="chat:global" ${FLOW_STREAM_KEY_ATTRIBUTE}="chat:global" role="log" aria-label="聊天信息">
         ${history}
-        ${current}
+        ${positioned?'':current}
         ${launcher}
       </div>
+      ${renderPositionedStoryHistory(chatEntries,ctx)}
+      ${positioned?current:''}
       ${renderChatTexts(ctx, chatTexts)}
       ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}

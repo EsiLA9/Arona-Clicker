@@ -1,0 +1,14 @@
+{
+  "gearConfig": {
+    "expItems": [
+      {
+        "itemId": "base:item:gear-exp-basic",
+        "exp": 100
+      },
+      {
+        "itemId": "base:item:gear-exp-advanced",
+        "exp": 500
+      }
+    ]
+  }
+}

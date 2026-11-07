@@ -4,7 +4,13 @@
 
 ## 复用模式
 
+Story 编辑器的单按钮 Click 属性只编辑正文与按击次数，不嵌套结果动作或转移表单。行为通过后续独立节点编辑；旧 result 仅展示原始值诊断和显式移除入口，不提供编辑或发布。入口为 `story-editor/property-fields.ts`，行为由 `tests/ui/story-editor-properties.test.ts` 核验。
+
+Story 编辑器的左侧目录栏通过 `view.ts` 的 `baseColumn` 固定为 300px，为 Story / Entry 名称、目录与发出方列表留出空间；中栏继续占用剩余宽度，右栏沿用共享属性栏宽度。列宽由既有 WorkspaceColumnSpec 交给共享 Frame，不新增布局容器或改变滚动宿主。适用于 Story 与 Entry 两种查看目标；复验入口为 `tests/ui/story-editor-workspace.test.ts`，未做浏览器视觉验收。
+
 Story / Entry 中栏的历史按钮与 workspace-heading 共用一行，按钮组位于左侧且不收缩，标题占余下宽度。仅 `story-editor.css` 对中栏 titlebar-layout 进行横排与历史组排序，不增加 DOM 包装，不改变其他工作区标题栏或刷新范围。
+
+Story 文档新建 / 改 ID 沿用 ModalManager、story-editor-property 与 mini-action：每次新建必须确认编辑态 Mod，改名限定同 Mod 并在弹窗内列出引用影响。输入只更新弹窗预览，确认沿既有 Story 编辑区域协调；草稿身份、选中节点、输入缓存与 Flag 页保持，身份相关导航键随之更新。无编辑态 Mod、目标过期、重名、跨包引用及存储失败显示原地错误；取消不创建 / 改名。入口 `story-editor/controller.ts`、`identity.ts`、`view.ts`，验证见 `tests/ui/story-editor-identity.test.ts`；未做浏览器验收。
 
 Story 新建节点的可见 ID 默认采用 `talk-001` / `click-001` / `operation-001` / `transfer-001` / `move-area-001` / `move-chara-001`，按 Story 内同类型未占用序号分配；已有节点与手写 ID 保持稳定，复制沿用 `-copy-编号`。节点信息和更改 ID 控件沿用原 DOM 与区域协调，不增加命名设置或刷新范围。入口 `story-editor/model.ts`，验证见 `tests/ui/story-editor-model.test.ts`；未做浏览器验收。
 
@@ -26,15 +32,21 @@ Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡
 
 Story 编辑器的顶部主题浮窗沿用现有 `.theme-palette` / `.theme-swatches` / `.theme-editor-entry`，列出全部色组，标记当前编辑器主题，并复用用户主题表单编辑本会话自定义主题。Area / 通讯录场景卡片以 title 提示可双击应用目标完整主题；单击仍查看属性。选择色组、双击和颜色预览只更新主题变量、背景、表现宿主与浮窗选中属性，保留顶部按钮、浮窗、Workspace、输入焦点和滚动；组件位置修改沿用既有表单结构刷新。来源、隔离和会话边界见 [[runtime-editor-and-project-checks]]，实现为 `story-editor/theme.ts`、`controller-theme.ts` 与共享 header / theme actions；验证为 `tests/ui/story-editor-theme.test.ts`，未做浏览器人工验收。
 
-StoryDef 属性沿现有 renderTabs 分为概述、关系、Flag表、其他工具包四个常驻面板；切换只更新 hidden / 激活态，保留控件节点，并按 Story / 页签记忆原右栏滚动。节点属性仅保留自己的局部条件和 Navi，完整 Flag 表归入 StoryDef 的 Flag 页；Entry 信息栏显式保留其 Flag 表。局部 Flag 行沿用 Choice 投放的虚线边框与有效 / 无效反馈，接受同 Story 编辑流的节点，绑定 requiresFlag 并留在 Flag 页；全局、其他 Entry 私有及无提供方的名称给出不可绑定原因。跨 Entry 获取继续复用 ModalManager 确认，来源导航独立。入口为 `view.ts`、`flag-catalog-view.ts`、`flag-table-binding.ts` 与 `controller.ts`；面板/字段/滚动及拖放由 `tests/ui/story-editor-inspector-tabs.test.ts` 验证，未做浏览器验收。
+StoryDef 属性沿现有 renderTabs 分为概述、关系、Flag表、其他工具包四个常驻面板；切换只更新 hidden / 激活态，保留控件节点，并按 Story / 页签记忆原右栏滚动。节点属性仅保留自己的局部条件和 Navi，完整 Flag 表归入 StoryDef 的 Flag 页；Entry 信息栏显式保留其 Flag 表。Flag 项默认以沿用 Choice 标记配色的 summary 色块收起，原生 details 展开后用浅底卡片展示作用域、提供方、需求方及单独的移除操作；提供方 / 需求方的条目不重复标注写入 / 读取，回传声明保留独立文字；来源 ID 与节点分行呈现，沿用主题文字色与长文本换行；来源按钮保持独立导航，定位节点后右栏仍显示 Flag 表；从 Flag 页切换 Story 和前后浏览同样保持该页，并恢复目标 Story 的 Flag 页滚动。展开仅改变当前项的 open，按稳定 key 协调时保留，不写入草稿或触发刷新。局部 Flag 项收起时仍接受同 Story 编辑流的节点，沿用有效 / 无效投放反馈，绑定 requiresFlag 并留在 Flag 页；全局、其他 Entry 私有及无提供方的名称给出不可绑定原因。跨 Entry 获取继续复用 ModalManager 确认，来源导航独立。入口为 `view.ts`、`flag-catalog-view.ts`、`flag-table-binding.ts` 与 `controller.ts`；面板/字段/滚动及拖放由 `tests/ui/story-editor-inspector-tabs.test.ts` 验证，未做浏览器验收。
+
+概述的 Story ID 复用 `.story-editor-readonly` 与主题表面，当前值旁提供“更改 ID”；不重复显示相同来源 ID，只有来源与当前值不同时显示同样式的“原 Story ID”。身份字段使用分组而非无关联控件的 label。入口为 `view.ts`、`.story-editor-identity-field`；三种来源状态由 `tests/ui/story-editor-identity.test.ts` 核验。
+
+更改 Story ID 弹窗只允许修改名称部分，ModId 在创建后固定并以只读字段显示；“保存到编辑副本”只列出同一 Mod 的可用目标。入口为 `controller.ts` 的 `changeStoryId`，跨 Mod 请求仍由身份规划校验拒绝。
+
+关系页的调用、被调用与关联 Entry 统一使用 `.story-editor-list-item.story-editor-relation-item`：沿用只读字段的浅底、边框与圆角，名称、完整 ID、调用说明分行显示，长 ID 自动折行；关联 Entry 的新增按钮与组标题同行。条目保留原 target / key，整条可跳转，缺失目标禁用；右栏继续使用原滚动宿主，不增设关系表内滚动。入口为 `relations-view.ts`、`authoring-view.ts` 和 `story-editor.css`；导航与原位更新由 `tests/ui/story-editor-authoring.test.ts` 验证。
 
 Story 编辑器的移动场景预览复用 `.area-hero` 与 `.story-editor-scene-card`：移动到 Area 显示「前往区域名」，按目标 Area 声明主题构建局部 ThemeTree 渐变；移动到通讯录显示「前往角色名的通讯录」，取角色对话主题 / 默认色组主色绘制单色面并用 `readableOnColor` 确定字色。未配置与缺失目标保留文字占位。首个插入点之前的起始场景使用相同外观，显示「起始于……」并打开 Story 属性；它不属于 StoryNode，不参与拖动、排序或序列化。入口为 `story-editor/scene-view.ts`、`view.ts`；节点和起始占位沿稳定 key 更新，保留现有 flow 与滚动宿主，局部更新仍走编辑器 region。自动化证据为 `tests/ui/story-editor-scene.test.ts` 与 workspace 用例；未做浏览器视觉验收。
 
-Choice 属性沿用现有 `.story-editor-list-block` / `.story-editor-property-row`，条件与局部标记逐项平铺；新建行为固定为 localFlag，Operation / Button 继续使用原行为表单。旧 Choice 业务动作、内嵌转移与畸形值以 `.story-editor-error` 显示类型和原始内容，危险操作只显式移除对应项。`property-fields.ts` 的 Choice 标记列表与现有路径 / rowId 协调，不增加滚动宿主，`controller.ts` 仍经编辑器区域更新和统一 popover 生命周期保留焦点、滚动及其他行。验证入口为 `tests/ui/story-editor-properties.test.ts`；未做浏览器视觉验收。
+Choice 属性沿用现有 `.story-editor-list-block` / `.story-editor-property-row`，逐项编辑文案、`showWhen` 持久条件、`requiresFlag` Entry 局部出现标记与 `marks[]` 选择标记；Choice 不再有共享正文输入、共同动作或单项通用结果表单。拖放后续节点仍在选项预览卡建立绑定；解绑只清除该节点读取条件，选择标记声明保留，作者可在属性栏显式移除。旧 `sharedActions`、option `condition` / `result` 原样显示诊断并阻止 Runtime 投影；旧 `condition` 的禁用语义不会转作 `showWhen`。`property-fields.ts` 沿用路径与 rowId，`controller.ts` 经 `workspace.story-editor` 区域更新保留焦点、滚动和其余行。验证入口为 `tests/ui/story-editor-properties.test.ts`；未做浏览器视觉验收。
 
 Story / Entry 的调用关系复用 `.story-editor-list` 与 `.story-editor-list-item`，在既有属性栏内以「调用表 / 潜在调用集」及「被调用表」分区，不新增滚动宿主。每项显示对象类型、名称、ID 和调用来源；缺失目标禁用。`relations-view.ts` 使用原有 Story / Entry 目标按钮属性与浏览历史，`patchEditorDOM` 按目标和调用位置 key 协调关系行，保留三栏、输入焦点与滚动容器。机制见 [[runtime-editor-and-project-checks]]，行为证据见 `tests/ui/story-editor-relations-model.test.ts`、`tests/ui/story-editor-authoring.test.ts`；未做浏览器视觉验收。
 
-Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 与 `.workspace-back` 控件，按钮位于既有 `panel-tabs-region`，不新增滚动宿主。Transfer 目标使用 `transfer-view.ts` 的统一方式 / 名称 / ID 行与 `.mini-action`，顶层节点、结果分支及属性栏共用；缺失目标禁用。切换走 `workspace.story-editor` 区域协调，保留顶部和正文滚动宿主，历史返回后恢复对应位置。状态边界见 [[runtime-editor-and-project-checks]]，DOM 与导航行为见 `tests/ui/story-editor-workspace.test.ts`；未做浏览器视觉验收。
+Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 与 `.workspace-back` 控件，按钮位于既有 `panel-tabs-region`，不新增滚动宿主。Transfer 目标使用 `transfer-view.ts` 的统一方式 / 名称 / ID 行与 `.mini-action`，顶层节点及属性栏共用；缺失目标禁用。切换走 `workspace.story-editor` 区域协调，保留顶部和正文滚动宿主，历史返回后恢复对应位置。状态边界见 [[runtime-editor-and-project-checks]]，DOM 与导航行为见 `tests/ui/story-editor-workspace.test.ts`；未做浏览器视觉验收。
 
 正式羁绊调用与地点续播复用 `story.ts` 的 `.kizuna-card / .yuzu-kizuna-*` 爱心卡片，标题来自关联 Entry / Story，目的地来自 Area。赴约或等待态没有可提交 token，避免远程开播；正式子结束停在最终场景，恢复该场景原有合法 `.send-button` / Choice，不另设召回按钮。结果已回到当前父空间时使用普通“继续故事”Click。沿用原聊天滚动宿主和区域刷新，不新增页面或卡片皮肤。行为验证见 `tests/ui/story-space-history.test.ts`、`story-continuation.test.ts`；尚未做浏览器视觉验收。
 
@@ -46,17 +58,22 @@ Story 编辑器固定输入区沿用 Talklet 的头像、姓名与气泡层级�
 
 节点的可选局部标记条件沿用右栏 label/input；Operation 的局部标记作为“行为类型”下的分支，操作方式、名称和值与其他行为字段处于同一属性组。写入/移除使用浅层 select，仅写入分支显示值控件，移除分支收起值。控件按语义 key 局部协调，不隐藏编辑态节点，不重建三栏或流滚动容器。
 
-Choice 编辑预览的每个选项左侧有紧凑 `.story-editor-choice-flag-card`，拖入后续节点创建一组 option 写入与 node 条件；每个拖入目标拥有独立名称，重复 Choice 先清理该 Choice 的配对标记。卡片只显示局部标记 ID。读取该标记的 StoryNode 在最左侧显示固定宽度、同 ID 稳定配色的记录；把其他节点拖到记录即可复用标记。只在编辑态预览启用，不改 Runtime Choice 卡片；节点数据仍是常规 StoryAction / requiresFlag，详见 [[runtime-editor-and-project-checks]]。
+Choice 编辑预览的每个选项旁保留紧凑 `.story-editor-choice-flag-card`，拖入后续节点在该选项 `marks[]` 声明选择标记，并给目标节点写入 `requiresFlag`；同一个选择标记可服务多个后续读取者，重复拖放保持幂等。显式解绑只移除指定节点的读取条件，声明可继续供选项局部条件或 continuation 回传使用。每组 marks 由 Runtime 在成功选择时整体替换。读取标记的 StoryNode 在最左侧显示固定宽度、同 ID 稳定配色的记录；其他节点仍可拖到该记录复用标记。只在编辑态预览启用，不改 Runtime Choice 卡片；标记不是通用 StoryAction，详见 [[runtime-editor-and-project-checks]]。
 
-Click 剧情入口卡和 insert / goto 转移共用右侧独立 `.story-editor-target-card` 小按钮，显示目标名称与 ID，沿用局部标记按 ID 稳定生成的随机深色与 104px 宽度；长文本截断并保留完整 title，缺失目标禁用。主体只选择 StoryNode 查看属性；Transfer 主体沿用 `.story-editor-action-node`，展示转移方式与目标说明，Button / 旧 Choice 结果中的转移使用同一结构。目标按钮复用统一 Story / Entry 浏览历史。复用入口为 `story-editor/target-view.ts`、`transfer-view.ts`、`view.ts` 与 `story-editor.css`，行为见 `tests/ui/story-editor-workspace.test.ts`；不增加滚动宿主，未做浏览器视觉验收。
+Click 剧情入口卡和 insert / goto 转移共用右侧独立 `.story-editor-target-card` 小按钮，显示目标名称与 ID，沿用局部标记按 ID 稳定生成的随机深色与 104px 宽度；长文本截断并保留完整 title，缺失目标禁用。主体只选择 StoryNode 查看属性；Transfer 主体沿用 `.story-editor-action-node`，展示转移方式与目标说明。Button 完成后进入后续独立节点；Choice 不内嵌 Transfer。目标按钮复用统一 Story / Entry 浏览历史。复用入口为 `story-editor/target-view.ts`、`transfer-view.ts`、`view.ts` 与 `story-editor.css`，行为见 `tests/ui/story-editor-workspace.test.ts`；不增加滚动宿主，未做浏览器视觉验收。
 
-Story 编辑器的属性栏顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara；当前分支、可选能力、诊断与节点操作在 Switch 下方排列。节点流按 `nodes` 顺序自由组合；旧 stage 字段隐藏在兼容数据中，不作为编辑步骤。Talklet 后紧邻可用 Click 时自动衔接输入，否则送达后提供自由继续；连续 Click 逐个呈现。Runtime Operation 的可读状态效果按声明顺序以独立奖励条目加入聊天流；效果逐条显示期间，底部用橙色处理中状态短暂禁用推进，播完后自动衔接后续节点。标记与 Extra 控制状态不播报，Operation 不伪造聊天台词。其他字段沿用右栏既有 label / input / select / textarea 与 `.mini-action`，不引入独立表单框架或新配色。Talklet/Click 的“正文”独立于子类型字段呈现，并在节点草稿中跨对话/旁白、按钮、入口卡与类型切换保留；切入空 Choice 时只初始化第一项，已有选项不被正文覆盖。Click 交互选项与正文平铺，不再共用小型属性容器。可选能力是一个带复选框的 `.story-editor-toggle` 区块，未启用只收起子项、保留开关；启用后的字段放进左侧竖线的 `.story-editor-optional-content`，与父级形成层级而不是弹窗。有序列表使用 `.story-editor-list-heading`（标题＋添加）与 `.story-editor-property-row` 浅底虚线行，行操作按钮固定在行尾；只读复杂值使用 `.story-editor-readonly` 展示原值并提供显式清理按钮，不用输入框伪装可编辑。字段诊断沿用 `.story-editor-error`，每条诊断右挂“清理该字段”危险操作，作者可见地决定是否丢弃来源字段。样式入口为 `src/ui/css/story-editor.css`，属性 DOM 行为见 `tests/ui/story-editor-properties.test.ts`。
+Story 编辑器的属性栏顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara；当前分支、可选能力、诊断与节点操作在 Switch 下方排列。节点流按 `nodes` 顺序自由组合；旧 stage 字段隐藏在兼容数据中，不作为编辑步骤。Talklet 后紧邻可用 Click 时自动衔接输入，否则送达后提供自由继续；连续 Click 逐个呈现。Runtime Operation 的可读状态效果按声明顺序以独立奖励条目加入聊天流；效果逐条显示期间，底部用橙色处理中状态短暂禁用推进，播完后自动衔接后续节点。标记与 Extra 控制状态不播报，Operation 不伪造聊天台词。其他字段沿用右栏既有 label / input / select / textarea 与 `.mini-action`，不引入独立表单框架或新配色。Talklet、Button 与入口卡的共享正文仍在子类型字段上方编辑；Choice 只编辑各自选项文案，不显示不能代表候选的共享“正文”输入。Click 交互选项与属性平铺，不再共用小型属性容器。可选能力是一个带复选框的 `.story-editor-toggle` 区块，未启用只收起子项、保留开关；启用后的字段放进左侧竖线的 `.story-editor-optional-content`，与父级形成层级而不是弹窗。有序列表使用 `.story-editor-list-heading`（标题＋添加）与 `.story-editor-property-row` 浅底虚线行，行操作按钮固定在行尾；只读复杂值使用 `.story-editor-readonly` 展示原值并提供显式清理按钮，不用输入框伪装可编辑。字段诊断沿用 `.story-editor-error`，每条诊断右挂“清理该字段”危险操作，作者可见地决定是否丢弃来源字段。样式入口为 `src/ui/css/story-editor.css`，属性 DOM 行为见 `tests/ui/story-editor-properties.test.ts`。
 
 Story 编辑器的“呈现”使用常显大标题，下方平铺“气泡位置、文字对齐、头像显示、头像引用”四项，每项以 label、控件和用途说明组成。不套可选区块、竖线缩进或内部卡片；未设置时沿用默认，下拉框选值后仍可切回默认。复用 `property-fields.ts` 的 `presentationEditor`、`.story-editor-property` 与 `.story-editor-hint`，仅 `.story-editor-presentation` 负责标题和字段间距。字段使用原有路径 key 局部协调，保留输入焦点、光标与属性栏滚动；行为证据见 `tests/ui/story-editor-properties.test.ts`。
 
+Talklet / Click 基础设计器复用 `.story-editor-property-content`，增加一个以 node.id 为 key 的语义 section（`data-story-basic-properties`），供基础表单独立挂载；现由“基础｜演出”常驻页签切换，不新增滚动宿主。按击基础次数、随机增量直接平铺，输入节奏在适用的对话下同样直接填写，空白省略与数值 0 分开处理。入口卡续接与 Choice 出现条件在缺省时只显示创建 / 恢复按钮，存在时显示原有可关闭区块。沿用 `workspace.story-editor` region 和 `patchEditorDOM`，普通输入保留基础区、控件、光标及其他栏滚动；相关分支改变时只协调其字段，沿用既有浮层清理。入口为 `renderStoryNodeBasicProperties()` / `controller.ts`，行为见 `tests/ui/story-editor-properties.test.ts`；未做浏览器视觉验收。
+
+节点演出页沿用 `renderTabs()` 与现有属性 label / select / input，两个 page 按稳定 key 挂载，切换仅更新 hidden / 激活态；已配置时显示轻量标记及恢复默认按钮。中栏视口浮层提供纵向基准、横向基准与单位。仅当前选中节点已开启定位演出时显示一组工具，右栏保留 X/Y 输入。流中的定位节点保持正常渲染，附带超迷你“演出 / 结束演出”按钮，逐节点切换会话内编辑态；开启时选中该节点并显示演出属性页（旧 Operation 显示原属性页）。开启的预览通过共享 `bodyOverlay` 位于中栏正文视口，脱离流的滚动，切换属性对象不关闭其他节点；不再使用顶部小画布。拖拽命中区与蓝框随内容使用同一锚点平移，保留抓取偏移并写回所属节点的同一 performance.layout；取消拖拽不写入，九宫格基准同时对齐窗格和内容的同名点，百分比与 CSS 像素共用一组有符号偏移。旧定义继续读取左下原点与横向锚点。内容按自然宽度和锚点实际剩余空间排版，极贴边时保留可读空间。局部样式用于流内与定位内容；普通旁白、标题和 Choice 完成记录均走共用渲染。运行态定位展示在 `.chat-pane` 非滚动层，当前输入使用原 token，历史记录禁用。没有新的配色体系或滚动容器；新增视口包装层保留原 body、作者节点和表单身份，仍走 `workspace.story-editor` region 与 `patchEditorDOM`。入口为 `property-fields.ts` / `controller.ts`、`components/story/story.ts`，证据见 `tests/ui/story-editor-properties.test.ts`、`tests/ui/workspace-frame.test.ts` 与 `tests/ui/story-performance.test.ts`；浏览器视觉验收未运行。
+
+
 Story 作者配置沿用右栏原滚动宿主：概述保留基本字段，关系页放置关联 Entry，其他工具包按文档身份、扩展、检查 / 试播 / 保存的大标题平铺；结构值的路径标题标识实际数据关系，不套多层卡片或竖线缩进。类型构造、字段增删、列表换序与引用候选复用普通 label / select / input 与 mini-action；切换构造说明会替换本项。编辑器不提供 Entry 羁绊绑定字段，旧绑定只在兼容数据和运行时保留；跨 Entry 内容通过剧情入口卡选目标 StoryEntry。结构值输入和行沿稳定 key 更新，编辑 Entry ID、换序和错误输入不重建输入或滚动宿主。隔离试播只在投影变化时刷新，离开即释放。入口为 `authoring-view.ts` / `structured-value.ts` 与 `.story-editor-authoring/.story-editor-value/.story-editor-preview`；状态与接口边界见 [[runtime-editor-and-project-checks]]，DOM 证据见 `tests/ui/story-editor-authoring.test.ts`。当前未做浏览器视觉验收。
 
-Story 主题 / 覆盖层作者控件沿用同一右栏字段与中栏节点流，不再嵌套滚动容器。`presentation.theme` 的色板、token、语义颜色与背景层按具体合同呈现；空字段显示继承来源，显式覆盖可恢复继承。引用的 ColorGroup / 实体 ThemeDef 通过 `ThemeContentEditorService` 在选定编辑态包打开会话，使用其 preview / save / cancel 路径。`overlay.show` 的位置画布位于中栏，重用 `renderChatTexts`，归一化 x/y 双向映射到同一草稿字段；拖动过程中只更新画布与数值输入，释放时合并到 `workspace.story-editor` 区域刷新。稳定动作路径识别覆盖层，不以坐标或数组索引作 DOM 身份；浮层锚点仍由 `patchEditorDOM` 的 mutation range 生命周期处理。执行影响说明跟随 Overlay / Transfer / Entry 动作字段。自动化行为入口为 `tests/ui/story-editor-properties.test.ts`、`tests/engine/story-authoring.test.ts` 与 `tests/engine/theme-content-editor-service.test.ts`；本轮未完成桌面浏览器手动验收。
+Story 主题 / 覆盖层作者控件沿用同一右栏字段与中栏节点流，不再嵌套滚动容器。`presentation.theme` 的色板、token、语义颜色与背景层按具体合同呈现；空字段显示继承来源，显式覆盖可恢复继承。引用的 ColorGroup / 实体 ThemeDef 通过 `ThemeContentEditorService` 在选定编辑态包打开会话，使用其 preview / save / cancel 路径。旧 `overlay.show` 也通过所属节点的迷你按钮进入同一固定演出编辑层，重用 `renderChatTexts` 的作者预览模式，归一化 x/y 双向映射到同一草稿字段；拖动过程中只更新预览与所属节点当前表单的数值，释放时合并到 `workspace.story-editor` 区域刷新。稳定动作路径识别覆盖层，浮层锚点仍由 `patchEditorDOM` 的 mutation range 生命周期处理。执行影响说明跟随 Overlay / Transfer / Entry 动作字段。自动化行为入口为 `tests/ui/story-editor-properties.test.ts`、`tests/engine/story-authoring.test.ts` 与 `tests/engine/theme-content-editor-service.test.ts`；本轮未完成桌面浏览器手动验收。
 
 Story 编辑器中栏在每个节点前及列表末尾提供轻量插入空位，只有当前空位或拖拽目标显示横线。空位以稳定节点锚点协调，点击不会选择或创建 StoryNode；拖放通过中栏根委托接收带版本和种类的载荷，当前只移动本草稿内的 StoryNode。拖动悬停只更新目标提示，不触发整栏刷新；落点更新节点顺序时沿用节点 key，保留未变更节点 DOM 与正文滚动。当前投放目标与拖动载荷使用分型入口，后续增加向节点内元素投放和绑定时再扩展其分派，不把将来的绑定语义提前写入 Story。样式入口为 `.story-editor-insertion-point` 与 `.story-editor-node.is-dragging` / `.is-drop-target`，机制及数据边界见 [[runtime-editor-and-project-checks]]。
 
@@ -83,6 +100,8 @@ Story 编辑器中栏在每个节点前及列表末尾提供轻量插入空位�
 | 宿主与实体表现 | `src/ui/presentation/presentation-service.ts` 的 `renderUIHost`；`src/ui/components/presentation/entity-presentation.ts` 与 `src/ui/runtime/context.ts` 的查询 | 经只读上下文解析适用表现，不自行拼接全套主题规则或绕过实体揭示条件 |
 | 弹窗与提示层 | `src/ui/interaction/modal.ts`、`src/ui/interaction/popovers.ts`；`src/ui/css/modal.css`、`src/ui/css/popover.css` | 先查共享生命周期、锚点与焦点处理入口，再扩展内容，不复制独立浮层管理系统 |
 
+ModalManager 的普通弹窗沿用 panel / panel-light / ink-on-* 主题角色：标题 18px、正文与表单 14px、辅助说明及内容区小操作 13px；共享外壳提供 24px 内容留白、42px 表单高度、40px 底部按钮、可换行操作区和焦点反馈。原生表单元素保留语义，以背景、边框、圆角与继承字体消除浏览器默认外观差异；危险操作保留危险变体，checkbox / radio / range 不套文本框尺寸。主题编辑器与 Runtime Datapack 专用表单继续自主管理布局。仅修改 `css/modal.css`，不改变 DOM、业务字段、滚动宿主和关闭生命周期；验证见 Modal / Story 身份 / 商店 / Spot 支付共 22 项定向测试，以及 `.test-artifacts/modal-layout-preview.png` 样例截图。
+
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 
 Map 的相邻地点选择由类型化 `FlowMapLocations` 投影到标准 Talklet。Talklet 只提供一个静态卡牌落点宿主；`renderMapActionCardButton()` 共用角色当前行动卡与 Flow 地点选择卡的卡面骨架，地点卡保持 82×58 固定尺寸，并按宿主的左右对齐、间距配置排列。卡片角度从稳定实例身份派生，刷新不会改变。宿主 / 插槽通过 `mapCardHostAttributes()` 与 `mapCardAttachmentAttributes()` 静态表达。地点卡只提供 `selectLocation` 入口，通过点击或键盘选中，再由 Map Workspace 统一 Click 按钮调用 Controller 和现有 MapRun 移动命令；空选择时该按钮阻塞。地点卡不提供卡牌目标或目标编辑入口。静态 DOM 附着、Hover 状态与作用关系保持为不同信息。当前地点与路线状态来自 Map View；锁定边不可选。遭遇或活动阻挡期间不显示；成功移动后回收旧选择条目并留下斜体旁白“从……移动到了……”。待选项只在当前 Workspace 交互会话中保留，不进入存档或历史。
@@ -99,7 +118,7 @@ CardRef Modifier 目标复用同一 keyed 目标按钮组：Runtime 只投影另
 
 转译演练场 Spot 沿用 `.mini-action`，点击后直接进入现有 MapWorkspace，不打开训练 Modal 或 MapEntry。战次、来源和构筑说明来自可信节点的 title/description；Hand、Prepared、目标、AG-1预览及回执复用既有卡牌区域与局部更新。返回保留来源场所位置，再入续行。旧 `components/character/variant-training-panel.ts` 仅供开发诊断。证明入口为 `tests/ui/variant-training-spot-entry.test.ts`；开发面板验证独立见 `variant-training-panel.test.ts`。
 
-区域导航图复用游戏三栏 Frame/Titlebar 和左侧真实 Area rail；中栏为平面 SVG 节点画布，右栏为独立详情滚动区与操作反馈。point/landmark/portal 仅区分外观，选中/Focus 用既有 cyan 与主题文字色，行为来自领域脱敏投影。复用入口：src/ui/components/map/area-map-workspace.ts、src/ui/css/area-map.css；当前状态为已实现并经桌面浏览器验收。稳定节点/刷新与会话语义见 [[area-map-overview]]；不复制 Init/GlobalEnh 的母子图层级。
+区域导航图复用游戏三栏 Frame/Titlebar 和左侧真实 Area rail；中栏为平面 SVG 节点画布，右栏为独立详情滚动区与操作反馈。point/landmark/portal 仅区分外观，选中/Focus 用既有 cyan 与主题文字色，行为来自领域脱敏投影。图册切换复用中栏工具条，更新只协调图册控件与地图区域，保留现有地图节点和视口。复用入口：`src/ui/components/map/area-map-workspace.ts`、`src/ui/workspace/area-map-dom.ts`、`src/ui/css/area-map.css`；既有地图基线已做桌面验收，Task0361 新增图册动态刷新与直达流程已自动化覆盖，本次桌面手工确认待完成。稳定节点 / 刷新与会话语义见 [[area-map-overview]]；不复制 Init / GlobalEnh 的母子图层级。
 
 选择页右侧详情通过稳定的收起／展开按钮切换 `hidden` 与 `aria-expanded`，不替换工作台、滚动容器或画布。Init 的进入 CTA 先打开左侧世界线概览中转页（`renderInitOverview`），隐藏星图与右侧详情，保留顶栏、相机、子图历史和选中项；背景沿用 Init 投影，不叠加恢复区域的 Area 背景。概览只读取当前 View 或对应 Init 快照，确认进入才调用既有新建／恢复命令；返回星图或 Escape 恢复原按钮焦点与原画布。从世界线的结束游戏或硬重置入口离开时，也先停留在刚离开的 Init 概览；玩家主动返回星图后再展开节点图，排队的页面刷新保留该停留状态。该状态只由 `SelectorPage` 持有，不进入存档。复用与行为入口：`src/ui/components/world/init-select.ts`、`src/ui/controller/controller-panels.ts`、`tests/ui/controller-init-select.test.ts`、`tests/ui/selector-graph-navigation.test.ts`。
 
@@ -117,3 +136,5 @@ Map 的单位关系检查使用 `src/ui/workspace/map-relation-presentation.ts` 
 
 
 超级图鉴的中文分类与类型标签由 `src/ui/runtime-editor/codex/content-labels.ts` 提供；名称、说明、关系与可靠来源来自只读内容查询。主路径为资料／被引用，完整出向关系、字段树和 JSON 进入技术详情；未知字段仍可展开。`tests/ui/workspace-frame.test.ts` 验证内容工具 Frame 的直接子项、`pane-switch`、无游戏主题 Host，以及有操作内容时才输出 footer。更新边界与来源限制见 [[ui-refresh-focus-scroll]]、[[read-model-and-ui]]。此为已采用的工具特例，不改变游戏工作区默认主题规则。
+
+StoryEntry 基础配置复用原中栏表单和右栏关系／Flag 卡片：激活方式、历史归档独立成组，只显示当前三类分支的合法字段，公共高级内容仍使用原结构编辑器。切换用 ModalManager 展示含义并确认，候选草稿先保存成功再提交；错误、取消和过期确认保留原分支。抽取池只列直接关联项，以稳定结构行 key 的 details 展开；编辑中解除关联保留本次面板，离开 Entry 后重新反查，展开状态随局部协调保持，不增加滚动宿主。入口为 entry-activation.ts、authoring-view.ts 与 dom.ts；DOM／存储失败回归见 tests/ui/story-editor-authoring.test.ts。

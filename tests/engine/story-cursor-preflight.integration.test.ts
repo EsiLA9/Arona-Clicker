@@ -61,16 +61,16 @@ describe('Story cursor save preflight', () => {
     const rootId = 'test:story:choice_insert_root';
     const childId = 'test:story:choice_insert_child';
     const entry: ActiveStoryEntry = {
-      id: 'test:activestory:choice_insert_root', storyId: rootId, type: 'active', availableInits: [], triggerCondition: and(),
-    };
+      id: 'test:activestory:choice_insert_root', storyId: rootId, availableInits: [], triggerCondition: and(), activation: { kind: 'active' as const } };
     const root: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' },
       id: rootId, name: 'choice insert root',
       stages: { choose: { advance: 'input' }, after: { advance: 'auto' } },
       nodes: [
         { id: 'prompt', type: 'talklet', stageId: 'choose', content: { kind: 'narration', text: 'Choose.' } },
         { id: 'choose', type: 'click', stageId: 'choose', interaction: { kind: 'choice', options: [
-          { id: 'insert-child', text: 'Continue', result: { transfer: { mode: 'insert', storyId: childId } } },
+          { id: 'insert-child', text: 'Continue', marks: ['insert-child'] },
         ] } },
+        { id: 'insert-child', type: 'transfer', requiresFlag: 'insert-child', transfer: { mode: 'insert', storyId: childId } },
         { id: 'root-return', type: 'talklet', stageId: 'after', content: { kind: 'narration', text: 'Back in root.' } },
       ],
     };
@@ -106,7 +106,7 @@ describe('Story cursor save preflight', () => {
     const completion = game.story.advanceStory(undefined, null, rootDelivery.token);
     expect(completion).toMatchObject({
       success: true, finished: true, storyId: rootId,
-      completed: { type: 'active', storyId: rootId, choiceIndex: 0 },
+      completed: { storyId: rootId, choiceIndex: 0, type: 'active' },
     });
   });
 });

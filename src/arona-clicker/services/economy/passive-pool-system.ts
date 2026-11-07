@@ -76,20 +76,20 @@ export class PassivePoolSystem extends EventDrivenReactor {
         return;
       }
       const entry = this.registry.passiveStories.get(nodeId);
-      if (!entry || !eligible(entry)) return;
+      if (!entry || entry.activation.kind !== 'random' || !eligible(entry)) return;
       const effectiveOwner = entry.owner ?? inheritedOwner;
       if (!ownerOk(effectiveOwner)) return;
       if (effectiveOwner && blocks[effectiveOwner]) return;
-      if (inCooldown(entry.id, entry.cooldownFrames)) return;
-      leaves.push({ id: entry.id, weight: Math.max(0, entry.weight) * pathWeight });
+      if (inCooldown(entry.id, entry.activation.cooldownFrames)) return;
+      leaves.push({ id: entry.id, weight: Math.max(0, entry.activation.weight) * pathWeight });
     };
     const referenced = this.referencedEntryIds();
     for (const rootId of this.rootPoolIds()) walk(rootId, 1, undefined, undefined);
     for (const entry of this.registry.passiveStories.values()) {
-      if (referenced.has(entry.id) || !eligible(entry) || !ownerOk(entry.owner)) continue;
+      if (entry.activation.kind !== 'random' || referenced.has(entry.id) || !eligible(entry) || !ownerOk(entry.owner)) continue;
       if (entry.owner && blocks[entry.owner]) continue;
-      if (inCooldown(entry.id, entry.cooldownFrames)) continue;
-      leaves.push({ id: entry.id, weight: Math.max(0, entry.weight) });
+      if (inCooldown(entry.id, entry.activation.cooldownFrames)) continue;
+      leaves.push({ id: entry.id, weight: Math.max(0, entry.activation.weight) });
     }
     const total = leaves.reduce((sum, leaf) => sum + leaf.weight, 0);
     if (!(total > 0)) return null;

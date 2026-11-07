@@ -37,12 +37,12 @@ describe('Entry run-local flag map and node gates', () => {
     expect(f.host.random).not.toHaveBeenCalled();
   });
 
-  it('sets, overwrites and removes in ordered choice actions, shared through insert and goto', () => {
+  it('writes choice marks and updates them through ordered Operations, insert and goto', () => {
     const f = fixture(doc('root', [
-      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', sharedActions: [{ kind: 'localFlag', op: 'set', name: 'route', value: true }], options: [{ id: 'go', text: 'go', result: { actions: [
-        { kind: 'localFlag', op: 'set', name: 'route', value: false },
-        { kind: 'localFlag', op: 'remove', name: 'missing' },
-      ], transfer: { mode: 'insert', storyId: 'child' } } }] } },
+      { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{ id: 'go', text: 'go', marks: ['route'] }] } },
+      { id: 'overwrite', type: 'operation', requiresFlag: 'route', action: { kind: 'localFlag', op: 'set', name: 'route', value: false } },
+      { id: 'remove-missing', type: 'operation', requiresFlag: 'route', action: { kind: 'localFlag', op: 'remove', name: 'missing' } },
+      { id: 'insert', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'insert', storyId: 'child' } },
       talk('returned', 'route'),
       { id: 'goto', type: 'transfer', transfer: { mode: 'goto', storyId: 'end' } },
     ]), doc('child', [talk('inChild', 'route')]), doc('end', [

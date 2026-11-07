@@ -5,14 +5,13 @@ import type { ActiveStoryEntry } from '../../src/data-services/contracts/story-e
 import { createStoryEditorState, currentDraft, selectStory } from '../../src/ui/story-editor/model';
 import { buildStoryRelations } from '../../src/ui/story-editor/relations-model';
 import { buildStoryFlagCatalog, storyFlagNames } from '../../src/ui/story-editor/flag-catalog';
-import { moveRowBy, rowIdAt } from '../../src/ui/story-editor/property-model';
 import { StoryDraftPersistence } from '../../src/ui/story-editor/persistence';
 import type { StorageAdapter } from '../../src/data-services/persistence/storage-adapter';
 import { bindFlagTableNode, canBindFlagTableNode } from '../../src/ui/story-editor/flag-table-binding';
 
 const story = (id: string, nodes: StoryNode[] = []): StoryDef => ({ id, name: id, startContext: {type:'area',areaId:'test:area:home'}, nodes, stages: {} });
 const flag = (id: string, name: string): StoryNode => ({id,type:'operation',action:{kind:'localFlag',op:'set',name,value:false}});
-const entry = (id: string, storyId: string): ActiveStoryEntry => ({id,storyId,type:'active',availableInits:[],triggerCondition:{type:'AND',conditions:[{target:'flag',key:'unlocked',comparator:'==',value:1}]},completionReward:{first:[{op:'setFlag',target:'rewarded',value:1}]}});
+const entry = (id: string, storyId: string): ActiveStoryEntry => ({id,storyId,availableInits:[],triggerCondition:{type:'AND',conditions:[{target:'flag',key:'unlocked',comparator:'==',value:1}]},completionReward:{first:[{op:'setFlag',target:'rewarded',value:1}]}, activation: { kind: 'active' as const } });
 const card = (entryId: string): StoryNode => ({id:'card',type:'click',stageId:'input',interaction:{kind:'entryCard',card:{request:{entryId,entryType:'active',owner:null,intent:'card'},continuation:{returnFlags:['returned']}}}});
 const setup = (stories: StoryDef[], entries: ActiveStoryEntry[] = []) => {
   const state = createStoryEditorState(), sources = new Map(stories.map(item=>[item.id,item])), entrySources = new Map(entries.map(item=>[item.id,item]));
@@ -63,7 +62,7 @@ describe('Story flag author information', () => {
   it('collects active operations, branches and transferred documents, bounds cycles and reports missing stories', () => {
     const root = story('test:story:root', [flag('write','route'),
       {id:'reader',type:'talklet',stageId:'one',requiresFlag:'route',content:{kind:'talk',text:'text'}},
-      {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',sharedActions:[{kind:'localFlag',op:'remove',name:'route'}],options:[{id:'a',text:'a',condition:{type:'AND',conditions:[{target:'flag',key:'global',comparator:'==',value:1}]},result:{actions:[{kind:'localFlag',op:'set',name:'branch',value:true}]}}]}},
+      {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[{id:'a',text:'a',showWhen:{type:'AND',conditions:[{target:'flag',key:'global',comparator:'==',value:1}]},marks:['branch']}]}},
       {id:'next',type:'transfer',transfer:{mode:'goto',storyId:'test:story:next'}},
       {id:'missing',type:'transfer',transfer:{mode:'insert',storyId:'test:story:missing'}},
     ]);
@@ -72,7 +71,8 @@ describe('Story flag author information', () => {
     currentDraft(state)!.document = {...currentDraft(state)!.document, extra:{t:'dict',v:{example:{t:'str',v:'{"kind":"localFlag","op":"set","name":"fake"}'}}}};
     currentDraft(state)!.editorState!.branches['write|inactive'] = {kind:'localFlag',op:'set',name:'dormant',value:true};
     expect(storyFlagNames(catalog(),'local')).toEqual(['branch','external','route']);
-    expect(catalog().uses.filter(use=>use.name==='route').map(use=>use.usage)).toEqual(['write','read','remove']);
+    expect(catalog().uses.filter(use=>use.name==='route').map(use=>use.usage)).toEqual(['write','read']);
+    expect(catalog().uses.filter(use=>use.name==='branch').map(use=>use.usage)).toEqual(['write']);
     expect(storyFlagNames(catalog(),'global')).toEqual(['global']);
     expect(catalog().missing).toEqual([{kind:'story',id:'test:story:missing'}]);
     selectStory(state,`source:${next.id}`,sources);
@@ -103,13 +103,13 @@ describe('Story flag author information', () => {
     expect(catalog().boundaries[0].missing).toBe(true);
   });
 
-  it('preserves per-call decisions across node/action reordering and draft reload without publishing metadata', () => {
-    const root = story('test:story:root',[{id:'button',type:'click',stageId:'one',interaction:{kind:'button',text:'go',result:{actions:[{kind:'localFlag',op:'remove',name:'old'},{kind:'entryRequest',request:{entryId:'test:activestory:child',entryType:'active',owner:null,intent:'ordinary'}}]}}},flag('own','root')]);
+  it('preserves per-call decisions across node reordering and draft reload without publishing metadata', () => {
+    const root = story('test:story:root',[{id:'button',type:'click',stageId:'one',interaction:{ kind:'button', text:'go' }},
+  { id: "button-effect-1", type: 'operation', action: {kind:'localFlag',op:'remove',name:'old'} },
+  { id: "button-effect-2", type: 'operation', action: {kind:'entryRequest',request:{entryId:'test:activestory:child',entryType:'active',owner:null,intent:'ordinary'}} },flag('own','root')]);
     const {state,sources,entrySources,catalog} = setup([root,story('test:story:child',[flag('private','private')])],[entry('test:activestory:child','test:story:child')]);
     const draft = currentDraft(state)!;
     draft.flagImports = {[catalog().boundaries[0].key]:true}; draft.dirty = true;
-    const path = ['interaction','result','actions'];
-    expect(moveRowBy(draft,'button',path,rowIdAt(draft,'button',path,1)!,-1)).toBe(true);
     draft.document.nodes.reverse();
     expect(catalog().boundaries[0].included).toBe(true);
     let raw: string | null = null;

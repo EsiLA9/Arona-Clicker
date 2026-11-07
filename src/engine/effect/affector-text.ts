@@ -152,6 +152,8 @@ export function describeEffect(effect: Effect, nameOf: NameResolver): string {
     case 'clearIdChatFlow': return `擦除演出文本 ${target}`;
     case 'clearAllChatText': return `清空全部演出文本`;
     case 'showOpeningTitle': return `呼出开幕标题「${valueText}」`;
+    case 'acquireAreaMap': return `获得区域地图 ${target}`;
+    case 'revealInformation': return '获知一项区域地图信息';
     default: {
       // 穷尽性守卫：EffectOp 新增成员而未补文案时编译报错
       const never: never = effect.op;

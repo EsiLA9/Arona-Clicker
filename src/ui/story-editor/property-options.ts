@@ -1,7 +1,8 @@
+import { storyEntryType } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
 import { storyEntries, type StoryEditorState } from './model';
 
-export type StoryReferenceKind = 'story' | 'entry' | 'activeEntry' | 'passiveEntry' | 'resource' | 'spot' | 'area' | 'init' | 'enhancement' | 'item' | 'character' | 'variant' | 'image' | 'colorGroup' | 'funclet';
+export type StoryReferenceKind = 'story' | 'entry' | 'activeEntry' | 'passiveEntry' | 'resource' | 'spot' | 'area' | 'areaMap' | 'init' | 'enhancement' | 'item' | 'character' | 'variant' | 'image' | 'colorGroup' | 'funclet';
 
 /** Full content registry choices for Story authoring; player unlock state is never consulted. */
 export function storyReferenceOptions(ctx: UIContext, kind: StoryReferenceKind, state?: StoryEditorState): Array<{ value: string; label: string }> {
@@ -13,10 +14,11 @@ export function storyReferenceOptions(ctx: UIContext, kind: StoryReferenceKind, 
     case 'story': return [...stories.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'entry':
     case 'activeEntry':
-    case 'passiveEntry': return [...(state ? storyEntries(state,registry.storyEntries) : registry.storyEntries).values()].filter(x => kind === 'entry' || x.type === (kind === 'activeEntry' ? 'active' : 'passive')).map(x => ({ value: x.id, label: `${x.type === 'active' ? '主动' : '被动'} · ${x.openingTitle || stories.get(x.storyId)?.name || x.id}` }));
+    case 'passiveEntry': return [...(state ? storyEntries(state,registry.storyEntries) : registry.storyEntries).values()].filter(x => kind === 'entry' || storyEntryType(x) === (kind === 'activeEntry' ? 'active' : 'passive')).map(x => ({ value: x.id, label: `${storyEntryType(x) === 'active' ? '主动' : '被动'} · ${x.openingTitle || stories.get(x.storyId)?.name || x.id}` }));
     case 'resource': return [...registry.resourceDisplays.values()].map(x => ({ value: x.resourceId, label: x.label || x.resourceId }));
     case 'spot': return [...registry.spots.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'area': return [...registry.areas.values()].map(x => ({ value: x.id, label: x.name || x.id }));
+    case 'areaMap': return [...registry.areaMaps.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'init': return [...registry.inits.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'enhancement': return [...registry.enhancements.values()].map(x => ({ value: x.id, label: x.name || x.id }));
     case 'item': return [...registry.items.values()].map(x => ({ value: x.id, label: x.name || x.id }));

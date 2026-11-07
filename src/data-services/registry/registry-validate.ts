@@ -1,3 +1,4 @@
+import { validateStoryEntryActivation } from '../validation/story-entry';
 import { validateStoryContinuations } from '../validation/story-continuations';
 import type { AchievementDef, Datapack, MilestoneListenerDef } from '../contracts/datapack';
 import { validateOperationDatapackContent, type OperationContentValidationContext } from './operation-content-validation';
@@ -16,6 +17,7 @@ import { assertValidExtra, expandFlatKeys, ExtraError } from '../../engine/extra
 import type { EntityPresentationDef } from '../contracts/entity-presentation';
 import type { GameplayMapDef } from '../contracts/gameplay-map';
 import { validateAreaMapShapes } from './area-map-validation';
+import { isWorldCondition, validateWorldReveal } from './world-reveal-validation';
 import type { ItemDef } from '../contracts/item';
 import type { EffectOp } from '../../engine/types/expression';
 import { validateGameplayMapEffectContext } from '../validation/gameplay-map-effect-context';
@@ -1135,6 +1137,10 @@ function checkEntityPresentation(items: Array<{ id: string; presentation?: Entit
 
 /** 校验数据包；非法即抛 RegistryError。 */
 export interface DatapackValidationContext extends OperationContentValidationContext {
+  readonly storyEntries?: ReadonlyMap<string, import('../contracts/story-entry').StoryEntryDef>;
+  readonly passivePools?: ReadonlyMap<string, import('../contracts/passive-pool').PassivePoolDef>;
+  readonly characterVariantIds?: ReadonlySet<string>;
+  readonly storyIds?: ReadonlySet<string>;
   readonly itemTypes?: ReadonlyMap<string, ItemDef['type']>;
   readonly areaIds?: ReadonlySet<string>;
   readonly storyEntryIds?: ReadonlySet<string>;
@@ -1147,6 +1153,9 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   validateAreaMapShapes(dp.areaMaps, message => { throw new RegistryError(`[${dp.modName ?? dp.name}] ${message}`); });
   for (const area of dp.areas ?? []) {
     if (area.quickPassage !== undefined && typeof area.quickPassage !== 'boolean') throw new RegistryError(`Area "${area.id}" quickPassage 必须是布尔值`);
+    validateWorldReveal(area.reveal, `Area "${area.id}" reveal`, message => { throw new RegistryError(message); });
+    if (area.enterCondition !== undefined && !isWorldCondition(area.enterCondition)) throw new RegistryError(`Area "${area.id}" enterCondition 必须是有效条件`);
+    if (area.onVisitReveal !== undefined && (!Array.isArray(area.onVisitReveal) || area.onVisitReveal.some(target => !['existence', 'name', 'utility', 'condition'].includes(target)))) throw new RegistryError(`Area "${area.id}" onVisitReveal 含非法信息面`);
   }
   if (dp.modName !== undefined && !/^[a-z0-9-]+$/.test(dp.modName)) {
     throw new RegistryError(`Datapack modName "${dp.modName}" 格式无效`);
@@ -1446,12 +1455,24 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
       }
     }
   }
+  for (const entry of dp.activeStories) validateStoryEntryActivation(entry,'active');
+  for (const entry of dp.passiveStories) validateStoryEntryActivation(entry,'passive');
+  const knownEntries=new Map(context.storyEntries),knownPools=new Map(context.passivePools);
+  for(const entry of [...dp.activeStories,...dp.passiveStories])knownEntries.set(entry.id,entry);
+  for(const pool of dp.passivePools ?? [])knownPools.set(pool.id,pool);
+  for (const pool of knownPools.values()) for (const child of pool.children) {
+    if (!knownPools.has(child.id) && knownEntries.get(child.id)?.activation.kind!=='random') throw new RegistryError('闲聊池只能引用随机入口或池：'+child.id);
+  }
   // StoryEntry.storyId 引用完整性：必须能解析到 stories 表中的纯演出 Story
-  const storyIds = new Set(dp.stories.map(s => s.id));
+  const storyIds = new Set([...(context.storyIds ?? []),...dp.stories.map(s => s.id)]);
+  const ownerIds=new Set([...(context.characterVariantIds ?? []),...(dp.characterVariants ?? []).map(role=>role.id)]);
   for (const entry of [...dp.activeStories, ...dp.passiveStories]) {
+    if(entry.activation.kind==='affection'&&!ownerIds.has(entry.owner!))throw new RegistryError(entry.id+'.owner 未知角色差分');
     if (!storyIds.has(entry.storyId)) {
       throw new RegistryError(`Story entry "${entry.id}" references unknown story: "${entry.storyId}"`);
     }
+    if (entry.activation.kind==='active' && entry.activation.fallback?.kind==='fixed-area' && !areaIds.has(entry.activation.fallback.areaId)) throw new RegistryError(entry.id+'.activation.fallback.areaId 未知地区');
+    if (entry.activation.kind==='affection' && entry.activation.when.kind==='after-story' && !storyIds.has(entry.activation.when.storyId)) throw new RegistryError(entry.id+'.activation.when.storyId 未知故事');
     const followUpIds = new Set<string>();
     for (const followUp of entry.followUps ?? []) {
       if (!followUp.id || followUpIds.has(followUp.id)) {

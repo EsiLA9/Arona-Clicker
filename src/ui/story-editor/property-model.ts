@@ -3,7 +3,7 @@ import type { StoryDraft, StoryDraftNode } from './model';
 /** Paths are relative to the selected node. Numeric segments address the current row position only. */
 export type PropertyPath = readonly (string | number)[];
 export type StoryNodeType = 'talklet' | 'click' | 'operation' | 'transfer' | 'moveToArea' | 'moveToCharaspace';
-export type Discriminator = 'kind' | 'command' | 'op' | 'entryType' | 'mode' | 'valueKind' | 'type';
+export type Discriminator = 'kind' | 'command' | 'op' | 'entryType' | 'mode' | 'valueKind' | 'type' | 'entityKind';
 
 type PropertyEditorState = NonNullable<StoryDraft['editorState']>;
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -162,6 +162,7 @@ export function selectBranch(draft: StoryDraft, nodeId: string, path: PropertyPa
 /** New branches carry only contract-fixed structure; text, options, effects and targets are never invented. */
 function branchSeed(discriminator: Discriminator, branch: string): Record<string, unknown> {
   const base: Record<string, unknown> = { [discriminator]: branch };
+  if (discriminator==='mode'&&branch==='positioned') return {...base,x:0,y:0,anchor:{x:'center',y:'center'}};
   // An entry card always requests an active/card entry, so that combination is structure, not author data.
   if (discriminator === 'kind' && branch === 'entryCard') return { ...base, card: { request: { entryType: 'active', intent: 'card', owner: null } } };
   return base;
@@ -258,7 +259,7 @@ export function toggleOptional(draft: StoryDraft, nodeId: string, path: Property
     const prefix = path.slice(0, length);
     const value = valueAt(node, prefix);
     if (object(value)) {
-      const discriminator = (['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type'] as const).find(name => typeof value[name] === 'string');
+      const discriminator = (['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type', 'entityKind'] as const).find(name => typeof value[name] === 'string');
       if (discriminator) guards.push({ path: pathSegments(draft, nodeId, prefix), discriminator, value: String(value[discriminator]) });
     }
   }
@@ -466,8 +467,13 @@ export function removeProperty(draft: StoryDraft, nodeId: string, path: Property
   if (!path.length || !selectedNode(draft, nodeId)) return false;
   if (!mutateNode(draft, nodeId, node => assignAt(node, path, undefined, true))) return false;
   const state = editorState(draft);
-  delete state.rawInputs[propertyKey(draft, nodeId, path)];
-  delete literalKinds(draft)[propertyKey(draft, nodeId, path)];
+  const key = propertyKey(draft, nodeId, path);
+  delete state.rawInputs[key];
+  delete literalKinds(draft)[key];
+  state.optionals[key] = false;
+  delete state.branches[`${key}|optional`];
+  const node = selectedNode(draft, nodeId);
+  if (path.length===2 && path[0]==='presentation' && path[1]==='side' && node?.type==='talklet' && record(node.content).kind==='talk') restorePacing(draft,nodeId,node,state);
   return true;
 }
 

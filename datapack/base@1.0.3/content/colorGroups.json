@@ -1,0 +1,524 @@
+{
+  "colorGroups": [
+    {
+      "id": "base:colorgroup:schale-solid",
+      "name": "夏莱蓝",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#3b9eff"
+        }
+      ],
+      "description": "什亭之匣的标准配色。获得阿罗娜后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "arona",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:abydos-sand",
+      "name": "阿比多斯黄沙",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#eab308"
+        }
+      ],
+      "description": "被沙漠侵蚀的学园配色。拥有星野（任一差分）后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "hoshino",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:momotalk-pink",
+      "name": "Momotalk 粉",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ec4899"
+        }
+      ],
+      "description": "聊天软件的主题色。完成欢迎剧情（flag）后解锁。",
+      "unlock": {
+        "target": "flag",
+        "key": "momotalk_pink_unlocked",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:hoshino-swim",
+      "name": "星野·泳装",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#3ec6e0"
+        }
+      ],
+      "description": "夏日泳池的清凉蓝调。拥有星野（任一差分）后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "hoshino",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:rose",
+      "name": "玫瑰",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ff5d8f"
+        }
+      ],
+      "description": "获得白子后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "shiroko",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:emerald",
+      "name": "翡翠",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#10b981"
+        }
+      ],
+      "description": "获得芹香后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "serika",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:violet",
+      "name": "紫罗兰",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#8b5cf6"
+        }
+      ],
+      "description": "获得优香后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "yuuka",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:amber",
+      "name": "琥珀",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#f59e0b"
+        }
+      ],
+      "description": "获得未花后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "mika",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:crimson",
+      "name": "绯红",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#e11d48"
+        }
+      ],
+      "description": "获得伊织后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "iori",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:teal",
+      "name": "青碧",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#14b8a6"
+        }
+      ],
+      "description": "获得都子后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "miyako",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:indigo",
+      "name": "靛蓝",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#6366f1"
+        }
+      ],
+      "description": "获得纱织后解锁。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "saori",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:sky",
+      "name": "晴空",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#38bdf8"
+        }
+      ],
+      "description": "获得阿罗娜后解锁（浅蓝变体）。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "arona",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:lime",
+      "name": "青柠",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#a3e635"
+        }
+      ],
+      "description": "完成欢迎剧情（flag）后解锁。",
+      "unlock": {
+        "target": "flag",
+        "key": "momotalk_pink_unlocked",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:ink",
+      "name": "墨蓝",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#1e3a5f"
+        }
+      ],
+      "description": "拥有星野（任一差分）后解锁（深底变体）。",
+      "theme": {
+        "panel": "#101828"
+      },
+      "unlock": {
+        "target": "protoStat",
+        "key": "hoshino",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:coral",
+      "name": "珊瑚",
+      "compositionType": "solid",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ff7a59"
+        }
+      ],
+      "description": "完成欢迎剧情（flag）后解锁（全量自定义覆盖示例）。",
+      "theme": {
+        "primary": "#ff7a59",
+        "bg": "#fff3ee",
+        "bgAlt": "#ffe6dc",
+        "text": "#3a1f17",
+        "textDim": "#8a6a5c",
+        "border": "#ffd0c0",
+        "accent": "#ff9e80",
+        "panel": "#fff7f2"
+      },
+      "unlock": {
+        "target": "flag",
+        "key": "momotalk_pink_unlocked",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:hoshino-gradient",
+      "name": "星野·渐变",
+      "compositionType": "gradient",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#3ec6e0"
+        },
+        {
+          "role": "secondary",
+          "color": "#38bdf8"
+        }
+      ],
+      "description": "泳装蓝调的柔滑渐变。",
+      "theme": {
+        "playerBubble": "#0e3a4d"
+      }
+    },
+    {
+      "id": "base:colorgroup:abydos-duotone",
+      "name": "阿比多斯·双色",
+      "compositionType": "duotone",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#eab308"
+        },
+        {
+          "role": "shadow",
+          "color": "#1e3a5f"
+        }
+      ],
+      "description": "黄沙主色 + 墨蓝阴影的阶调层次。"
+    },
+    {
+      "id": "base:colorgroup:prism-pie",
+      "name": "棱镜·饼图",
+      "compositionType": "pie",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ff5d8f"
+        },
+        {
+          "role": "secondary",
+          "color": "#10b981"
+        },
+        {
+          "role": "accent",
+          "color": "#8b5cf6"
+        },
+        {
+          "role": "highlight",
+          "color": "#f59e0b"
+        }
+      ],
+      "description": "四色分区构成的抽象头像。"
+    },
+    {
+      "id": "base:colorgroup:radial-dawn",
+      "name": "黎明·径向",
+      "compositionType": "radial",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ff7a59"
+        },
+        {
+          "role": "edge",
+          "color": "#ff5d8f"
+        }
+      ],
+      "description": "珊瑚中心向绯红边缘的径向渐变。"
+    },
+    {
+      "id": "base:colorgroup:shiroko-duotone",
+      "name": "白子·双色",
+      "compositionType": "duotone",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#ff5d8f"
+        },
+        {
+          "role": "shadow",
+          "color": "#1e3a5f"
+        }
+      ],
+      "description": "白子的玫瑰主色叠墨蓝阴影。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "shiroko",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:serika-gradient",
+      "name": "芹香·渐变",
+      "compositionType": "gradient",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#10b981"
+        },
+        {
+          "role": "secondary",
+          "color": "#a3e635"
+        }
+      ],
+      "description": "芹香的翡翠色滑向青柠色。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "serika",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:yuuka-radial",
+      "name": "优香·径向",
+      "compositionType": "radial",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#8b5cf6"
+        },
+        {
+          "role": "edge",
+          "color": "#38bdf8"
+        }
+      ],
+      "description": "优香的紫罗兰色中心向晴空色散射。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "yuuka",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:mika-pie",
+      "name": "未花·饼图",
+      "compositionType": "pie",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#f59e0b"
+        },
+        {
+          "role": "secondary",
+          "color": "#ff5d8f"
+        },
+        {
+          "role": "accent",
+          "color": "#8b5cf6"
+        },
+        {
+          "role": "highlight",
+          "color": "#10b981"
+        }
+      ],
+      "description": "未花的多彩扇形分区。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "mika",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:iori-gradient",
+      "name": "伊织·渐变",
+      "compositionType": "gradient",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#e11d48"
+        },
+        {
+          "role": "secondary",
+          "color": "#1e3a5f"
+        }
+      ],
+      "description": "伊织的绯红向墨蓝渐沉。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "iori",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:miyako-duotone",
+      "name": "都子·双色",
+      "compositionType": "duotone",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#14b8a6"
+        },
+        {
+          "role": "shadow",
+          "color": "#1e3a5f"
+        }
+      ],
+      "description": "都子的青碧主色叠墨蓝阴影。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "miyako",
+        "comparator": ">=",
+        "value": 1
+      }
+    },
+    {
+      "id": "base:colorgroup:saori-radial",
+      "name": "纱织·径向",
+      "compositionType": "radial",
+      "slots": [
+        {
+          "role": "primary",
+          "color": "#6366f1"
+        },
+        {
+          "role": "edge",
+          "color": "#38bdf8"
+        }
+      ],
+      "description": "纱织的靛蓝中心向晴空色散射。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "saori",
+        "comparator": ">=",
+        "value": 1
+      }
+    }
+  ]
+}

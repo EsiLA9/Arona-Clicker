@@ -10,9 +10,9 @@ const source = { entryId: 'test:activestory:source', owner: 'variant:source' } a
 const talk = (id: string, stageId: string): StoryTalkletNode => ({
   id, type: 'talklet', stageId, content: { kind: 'talk', text: id },
 });
-const button = (id: string, stageId: string, press?: { base: number; rand?: number }, actions: readonly StoryAction[] = []): StoryClickNode => ({
+const button = (id: string, stageId: string, press?: { base: number; rand?: number }): StoryClickNode => ({
   id, type: 'click', stageId,
-  interaction: { kind: 'button', text: id, ...(press ? { press } : {}), ...(actions.length ? { result: { actions } } : {}) },
+  interaction: { kind: 'button', text: id, ...(press ? { press } : {}) },
 });
 const documentOf = (id: string, nodes: StoryNodeDocument['nodes'], stages: StoryNodeDocument['stages']): StoryNodeDocument => ({ id, name: id, startContext: { type: 'area', areaId: 'base:area:schale_main' }, nodes, stages });
 const documents = (...items: StoryNodeDocument[]): StoryNodeDocuments => new Map(items.map(item => [item.id, item]));
@@ -78,19 +78,24 @@ describe('StoryNodePlayer', () => {
     const temporary: StoryAction = { kind: 'presentation', command: { command: 'theme', value: { tokens: { primary: '#111111' } } } };
     const root = documentOf(ROOT, [
       { id: 'world', type: 'operation', action: persistent },
-      button('choice', 'main', undefined, [addResource('credit', 10), persistent,
-        { kind: 'localFlag', op: 'set', name: 'chosen', value: false }, temporary]),
+      button('choice', 'main'),
+      { id: 'credit', type: 'operation', action: addResource('credit', 10) },
+      { id: 'persistent', type: 'operation', action: persistent },
+      { id: 'local', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'chosen', value: false } },
+      { id: 'temporary', type: 'operation', action: temporary },
     ], { main: { advance: 'input' } });
     const { host, state } = makeHost({ rejectPreflight: action => action === persistent });
     const player = new StoryNodePlayer(documents(root), host);
     const started = player.start(ROOT, { ...source, replayId: 'private' });
-    const result = player.submit(input(started.view).token);
+    const operation = player.submit(input(started.view).token);
+    if (operation.view.status !== 'operation') throw new Error('Expected Operation');
+    const result = player.ackDelivery(operation.view.token);
     expect(result.ok).toBe(true);
     expect(state.applied).toEqual([temporary]);
     expect(result.view).toMatchObject({ status: 'completed', completion: { localFlags: { chosen: false } } });
   });
   it('delivers Talklets one at a time and uses fresh tickets for press work', () => {
-    const root = documentOf(ROOT, [talk('one', 'dialogue'), talk('two', 'dialogue'), button('work', 'press', { base: 2, rand: 2 }, [addResource('credit', 5)])], {
+    const root = documentOf(ROOT, [talk('one', 'dialogue'), talk('two', 'dialogue'), button('work', 'press', { base: 2, rand: 2 }), { id: 'reward', type: 'operation', action: addResource('credit', 5) }], {
       dialogue: { advance: 'auto' }, press: { advance: 'input' },
     });
     const { host, state } = makeHost({ randomValues: [0.75] });
@@ -112,7 +117,8 @@ describe('StoryNodePlayer', () => {
     const two = input(player.submit(one.token).view);
     expect(two.press).toEqual({ total: 3, done: 2 });
     const done = player.submit(two.token);
-    expect(done.view.status).toBe('completed');
+    expect(done.view.status).toBe('operation');
+    if (done.view.status === 'operation') expect(player.ackDelivery(done.view.token).view.status).toBe('completed');
     expect(state.resources.credit).toBe(5);
     expect(state.applied).toHaveLength(1);
     expect(state.randomCalls).toBe(1);
@@ -123,9 +129,9 @@ describe('StoryNodePlayer', () => {
     const root = documentOf(ROOT, [{ id: 'jump', type: 'transfer', transfer: { mode: 'goto', storyId: branchId } }], {});
     const seen = (key: string): ConditionGroup => ({ type: 'AND', conditions: [{ target: 'visitedStoryInChain', key, comparator: '==', value: 1 }] });
     const branch = documentOf(branchId, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [
-      { id: 'yes', text: '是', condition: seen(ROOT), result: { actions: [addResource('credit', 9)] } },
-      { id: 'no', text: '否', condition: seen('test:story:unvisited') },
-    ] } }], { pick: { advance: 'input' } });
+      { id: 'yes', text: '是', showWhen: seen(ROOT), marks: ['visited-route'] },
+      { id: 'no', text: '否', showWhen: seen('test:story:unvisited') },
+    ] } }, { id: 'award', type: 'operation', requiresFlag: 'visited-route', action: addResource('credit', 9) }], { pick: { advance: 'input' } });
     const { host, state } = makeHost();
     const player = new StoryNodePlayer(documents(root, branch), host);
     const choice = input(player.start(ROOT, source).view);
@@ -139,35 +145,40 @@ describe('StoryNodePlayer', () => {
     expect(state.applied).toHaveLength(0);
   });
 
-  it('preflights all branch actions and the transfer target before effects', () => {
-    const root = documentOf(ROOT, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice',
-      sharedActions: [addResource('credit', 1)], options: [{ id: 'go', text: '走', result: {
-        actions: [addResource('credit', 2)], transfer: { mode: 'goto', storyId: 'test:story:missing' },
-      } }],
-    } }], { pick: { advance: 'input' } });
+  it('executes preceding Operations before checking a later Transfer target', () => {
+    const root = documentOf(ROOT, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'button', text: '走' } },
+  { id: "pick-effect-1", type: 'operation', action: addResource('credit', 1) },
+  { id: "pick-effect-2", type: 'operation', action: addResource('credit', 2) },
+  { id: "pick-transfer", type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:missing' } }], { pick: { advance: 'input' } });
     const { host, state } = makeHost();
     const player = new StoryNodePlayer(documents(root), host);
     const waiting = input(player.start(ROOT, source).view);
-    const result = player.submit(waiting.token, 'go');
+    const one = player.submit(waiting.token).view;
+    if (one.status !== 'operation') throw new Error('Expected first Operation');
+    const two = player.ackDelivery(one.token).view;
+    if (two.status !== 'operation') throw new Error('Expected second Operation');
+    const result = player.ackDelivery(two.token);
     expect(result.ok).toBe(false);
-    expect(result.view.status).toBe('input');
-    expect(state.resources).toEqual({});
-    expect(state.applied).toHaveLength(0);
+    expect(result.view.status).toBe('failed');
+    expect(state.resources).toEqual({credit:3});
+    expect(state.applied).toHaveLength(2);
   });
 
   it('makes an unexpected execute rejection terminal and never retries prior actions', () => {
-    const root = documentOf(ROOT, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{
-      id: 'go', text: '执行', result: { actions: [addResource('credit', 1), addResource('late', 1)] },
-    }] } }], { pick: { advance: 'input' } });
+    const root = documentOf(ROOT, [{ id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'button', text: '执行' } },
+  { id: "pick-effect-1", type: 'operation', action: addResource('credit', 1) },
+  { id: "pick-effect-2", type: 'operation', action: addResource('late', 1) }], { pick: { advance: 'input' } });
     const { host, state } = makeHost({ rejectExecute: action => action.kind === 'state' && action.effects.some(effect => effect.op === 'addResource' && effect.resourceId === 'late') });
     const player = new StoryNodePlayer(documents(root), host);
     const waiting = input(player.start(ROOT, source).view);
-    const failed = player.submit(waiting.token, 'go');
+    const operation = player.submit(waiting.token).view;
+    if (operation.status !== 'operation') throw new Error('Expected Operation');
+    const failed = player.ackDelivery(operation.token);
     expect(failed.ok).toBe(false);
     expect(failed.view.status).toBe('failed');
     expect(state.resources.credit).toBe(1);
     expect(state.resources.late).toBeUndefined();
-    expect(player.submit(waiting.token, 'go').ok).toBe(false);
+    expect(player.submit(waiting.token).ok).toBe(false);
     expect(state.resources.credit).toBe(1);
     expect(state.applied).toHaveLength(1);
   });
@@ -176,7 +187,8 @@ describe('StoryNodePlayer', () => {
     const subId = 'test:story:inserted';
     const targetId = 'test:story:target';
     const root = documentOf(ROOT, [
-      { id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', result: { transfer: { mode: 'insert', storyId: subId } } }] } },
+      { id: 'pick', type: 'click', stageId: 'pick', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', marks: ['insert-route'] }] } },
+      { id: 'insert', type: 'transfer', requiresFlag: 'insert-route', transfer: { mode: 'insert', storyId: subId } },
       talk('root-tail', 'tail'),
     ], { pick: { advance: 'input' }, tail: { advance: 'auto' } });
     const sub = documentOf(subId, [{ id: 'jump', type: 'transfer', transfer: { mode: 'goto', storyId: targetId } }], {});
@@ -198,9 +210,9 @@ describe('StoryNodePlayer', () => {
   });
 
   it('rejects nested commands but lets cancel stop the remaining old action loop', () => {
-    const root = documentOf(ROOT, [{ id: 'press', type: 'click', stageId: 'press', interaction: { kind: 'button', text: '执行', result: {
-      actions: [addResource('credit', 1), { kind: 'state', effects: [{ op: 'setFlag', flagId: 'later', value: true }] }],
-    } } }], { press: { advance: 'input' } });
+    const root = documentOf(ROOT, [{ id: 'press', type: 'click', stageId: 'press', interaction: { kind: 'button', text: '执行' } },
+  { id: "press-effect-1", type: 'operation', action: addResource('credit', 1) },
+  { id: "press-effect-2", type: 'operation', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'later', value: true }] } }], { press: { advance: 'input' } });
     let player!: StoryNodePlayer;
     let token = '';
     let nested: boolean[] = [];

@@ -16,11 +16,10 @@ import type { StoryDef } from '../../src/data-services/contracts/story';
 import type { PassivePoolDef } from '../../src/data-services/contracts/passive-pool';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 
-function entry(id: string, weight = 1): PassiveStoryEntry {
+function entry(id: string, weight = 1): import('../../src/data-services/contracts/story-entry').RandomStoryEntry {
   return {
-    id, storyId: id, type: 'passive', availableInits: [], repeatable: true,
-    weight, triggerCondition: { type: 'AND', conditions: [] },
-  };
+    id, storyId: id, availableInits: [],
+    triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'random' as const, weight, repeatable: true } };
 }
 
 function makeState(): PlayerState {
@@ -171,7 +170,7 @@ describe('PassivePoolSystem 壁垒·冷却·阻断', () => {
   test('冷却：entry 被抽取后 cooldownFrames 帧内剪除，过期后恢复', () => {
     const entries = [entry('chat_a'), entry('chat_b')];
     // chat_a 冷却 100 帧
-    const { system } = setup([], [{ ...entries[0], cooldownFrames: 100 }, entries[1]]);
+    const { system } = setup([], [{ ...entries[0], activation: {...entries[0].activation,cooldownFrames:100} }, entries[1]]);
     const state = makeState();
     // 模拟 chat_a 被抽中并写入冷却帧
     state.passiveCooldowns = { chat_a: 0 };
@@ -280,7 +279,7 @@ describe('基础数据包池树（schale_office）', () => {
   const pickable = (times = 200): Set<string> => {
     const seen = new Set<string>();
     for (let i = 0; i < times; i++) {
-      const id = game.passivePoolSystem.pick(game.state, e => e.weight > 0);
+      const id = game.passivePoolSystem.pick(game.state, e => (e.activation.kind === 'random' ? e.activation.weight : 0) > 0);
       if (id) seen.add(id);
     }
     return seen;
@@ -463,19 +462,13 @@ describe('基础数据包池树（schale_office）', () => {
     const parallelActive: ActiveStoryEntry = {
       id: 'test:activestory:parallel_offer',
       storyId: parallelStory.id,
-      type: 'active',
       availableInits: ['base:init:schale_office'],
-      triggerCondition: { type: 'AND', conditions: [] },
-    };
+      triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } };
     const parallelPassive: PassiveStoryEntry = {
       id: 'test:passivestory:parallel_follow_up',
       storyId: 'base:story:schale_sunset',
-      type: 'passive',
       availableInits: ['base:init:schale_office'],
-      repeatable: true,
-      weight: 1,
-      triggerCondition: { type: 'AND', conditions: [] },
-    };
+      triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'random' as const, weight: 1, repeatable: true } };
     registrySet(g.registry.stories, parallelStory.id, parallelStory);
     registrySet(g.registry.activeStories, parallelActive.id, parallelActive);
     registrySet(g.registry.passiveStories, parallelPassive.id, parallelPassive);
@@ -540,10 +533,8 @@ describe('基础数据包池树（schale_office）', () => {
     const entry: ActiveStoryEntry = {
       id: 'test:activestory:condition_gate',
       storyId: story.id,
-      type: 'active',
       availableInits: ['base:init:schale_office'],
-      triggerCondition: { type: 'AND', conditions: [{ target: 'flag', key: 'delivery_ready', comparator: '==', value: 1 }] },
-    };
+      triggerCondition: { type: 'AND', conditions: [{ target: 'flag', key: 'delivery_ready', comparator: '==', value: 1 }] }, activation: { kind: 'active' as const } };
     registrySet(g.registry.stories, story.id, story);
     registrySet(g.registry.activeStories, entry.id, entry);
     registrySet(g.registry.storyEntries, entry.id, entry);
@@ -574,10 +565,8 @@ describe('基础数据包池树（schale_office）', () => {
     const makeEntry = (id: string): ActiveStoryEntry => ({
       id,
       storyId: story.id,
-      type: 'active',
       availableInits: ['base:init:schale_office'],
-      triggerCondition: { type: 'AND', conditions: [] },
-    });
+      triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } });
     const first = makeEntry('test:activestory:shared_first');
     const second = makeEntry('test:activestory:shared_second');
     registrySet(g.registry.stories, story.id, story);

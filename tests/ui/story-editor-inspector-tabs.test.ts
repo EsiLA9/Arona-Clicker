@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -29,7 +30,7 @@ describe('StoryDef inspector pages and flag drops', () => {
   beforeEach(() => {
     localStorage.clear(); document.body.innerHTML = '<div id="app"></div>'; root = find('#app');
     game = new GameInstance(); game.init([structuredClone(baseDatapack)]); ctrl = new UIController(game,root);
-    ctrl.render(); ctrl.storyEditor.open(); find('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    ctrl.render(); ctrl.storyEditor.open(); createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     draft = currentDraft(ctrl.storyEditor.state)!;
     draft.document = {...draft.document,startContext:{type:'area',areaId:[...game.registry.areas.keys()][0]},stages:{one:{advance:'auto'}},nodes:[
       {id:'writer',type:'operation',action:{kind:'localFlag',op:'set',name:'local',value:true}},
@@ -38,8 +39,8 @@ describe('StoryDef inspector pages and flag drops', () => {
       {id:'global',type:'operation',action:{kind:'state',effects:[{op:'setFlag',flagId:'global',value:true}]}},
     ]};
     const authoring = emptyStoryAuthoring();
-    authoring.activeStories.push({id:'local:activestory:parent',type:'active',storyId:'local:story:parent',availableInits:[],triggerCondition:{type:'AND',conditions:[]}},
-      {id:'local:activestory:private',type:'active',storyId:'local:story:private',availableInits:[],triggerCondition:{type:'AND',conditions:[]}});
+    authoring.activeStories.push({id:'local:activestory:parent',storyId:'local:story:parent',availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } },
+      {id:'local:activestory:private',storyId:'local:story:private',availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
     const parent: StoryDraft = {...structuredClone(draft),draftId:'parent',sourceId:null,authoring,document:{...structuredClone(draft.document),id:'local:story:parent',name:'上游 Story',nodes:[
       {id:'parent-flag',type:'operation',action:{kind:'localFlag',op:'set',name:'from-parent',value:true}},
       {id:'into-current',type:'transfer',transfer:{mode:'insert',storyId:draft.document.id}},
@@ -83,10 +84,41 @@ describe('StoryDef inspector pages and flag drops', () => {
     draft.dirty = false; drag(source,'dragstart',data); drag(target,'drop',data); drag(source,'dragend',data); expect(draft.dirty).toBe(false);
   });
 
+  it('discloses coloured flags in place, groups their uses and keeps disclosure through a refresh', () => {
+    draft.document.nodes = draft.document.nodes.map(node=>node.id==='reader' ? {...node,requiresFlag:'local'} : node);
+    draft.document.nodes.push({id:'remove',type:'operation',action:{kind:'localFlag',op:'remove',name:'local'}});
+    refresh(); tab('flags');
+    const item = row('local') as HTMLDetailsElement, summary = item.querySelector('summary')!;
+    const flow = find('.story-editor-flow'), full = vi.spyOn(ctrl,'render'), refreshEditor = vi.spyOn(ctrl.storyEditor,'requestRefresh');
+    const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 48;
+    expect(item.tagName).toBe('DETAILS'); expect(item.open).toBe(false);
+    expect(summary.textContent).toBe('局部 · local'); expect(summary.getAttribute('style')).toContain('--story-editor-choice-flag-color:hsl(');
+    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).toContain('writer');
+    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('remove');
+    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).toContain('reader');
+    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('写入');
+    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).not.toContain('读取');
+    expect(item.querySelector('.story-editor-flag-scope')!.textContent).toContain('作用域 · Entry');
+    expect(item.querySelector('.story-editor-flag-scope code')!.textContent).toBe('local:activestory:parent');
+    expect(item.querySelector('[data-story-flag-role="removers"]')!.textContent).toContain('remove');
+    summary.click(); expect(item.open).toBe(true);
+    expect(refreshEditor).not.toHaveBeenCalled(); expect(full).not.toHaveBeenCalled();
+    expect(body.scrollTop).toBe(48); expect(find('.story-editor-flow')).toBe(flow);
+    draft.document.nodes.push({id:'another-reader',type:'talklet',stageId:'one',requiresFlag:'local',content:{kind:'talk',text:'另一需求方'}});
+    refresh();
+    expect(row('local')).toBe(item); expect(item.open).toBe(true);
+    expect(item.querySelector('summary')).toBe(summary);
+    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).toContain('another-reader');
+    expect((row('global',false) as HTMLDetailsElement).open).toBe(false);
+    summary.click(); expect(item.open).toBe(false); refresh(); expect(item.open).toBe(false);
+    const global = row('global',false) as HTMLDetailsElement;
+    global.querySelector('summary')!.click(); expect(global.open).toBe(true);
+  });
+
   it('remembers each Story page and does not apply pending tab scroll to another document', () => {
     tab('flags'); const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 96;
     const other = find<HTMLButtonElement>('[data-editor-story="parent"]'); other.click(); ctrl.flushUIUpdates();
-    expect(panel('overview').hidden).toBe(false);
+    expect(panel('flags').hidden).toBe(false); expect(body.scrollTop).toBe(0);
     tab('tools'); body.scrollTop = 22;
     find<HTMLButtonElement>(`[data-editor-story="${draft.draftId}"]`).click(); ctrl.flushUIUpdates();
     expect(panel('flags').hidden).toBe(false); expect(body.scrollTop).toBe(96);
@@ -118,10 +150,19 @@ describe('StoryDef inspector pages and flag drops', () => {
     const data = transfer(), source = find('[data-editor-node="reader"]'); drag(source,'dragstart',data); drag(privateFlag,'drop',data);
     expect(draft.document.nodes.find(node => node.id === 'reader')?.requiresFlag).toBeUndefined();
     const history = ctrl.storyEditor.state.visitIndex;
+    row('from-parent').querySelector('summary')!.click();
     row('from-parent').querySelector<HTMLButtonElement>('[data-editor-story-target]')!.click(); ctrl.flushUIUpdates();
     expect(ctrl.storyEditor.state.target).toEqual({kind:'story',id:'local:story:parent'});
-    expect(ctrl.storyEditor.state.selectedNodeId).toBe('parent-flag'); expect(ctrl.storyEditor.state.inspectorView).toBe('node');
+    expect(ctrl.storyEditor.state.selectedNodeId).toBe('parent-flag'); expect(ctrl.storyEditor.state.inspectorView).toBe('story');
+    expect(panel('flags').hidden).toBe(false);
     expect(ctrl.storyEditor.state.visitIndex).toBeGreaterThan(history);
     expect(currentRelatedFlagCatalog(createUIContext(game),ctrl.storyEditor.state).uses.length).toBeGreaterThan(0);
+    find<HTMLButtonElement>('[data-editor-action="history-back"]').click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target?.id).toBe(draft.document.id);
+    expect(panel('flags').hidden).toBe(false);
+    find<HTMLButtonElement>('[data-editor-action="history-forward"]').click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target?.id).toBe('local:story:parent'); expect(panel('flags').hidden).toBe(false);
+    find('[data-editor-node="parent-flag"]').click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.inspectorView).toBe('node');
   });
 });

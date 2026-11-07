@@ -19,7 +19,7 @@ export interface StoryEditorDraftState {
   branches: Record<string, unknown>;
   optionals: Record<string, boolean | string>;
   optionalPaths: Record<string, readonly (string | number)[]>;
-  optionalBranches: Record<string, readonly { path: readonly string[]; discriminator: 'kind' | 'command' | 'op' | 'entryType' | 'mode' | 'valueKind' | 'type'; value: string }[]>;
+  optionalBranches: Record<string, readonly { path: readonly string[]; discriminator: 'kind' | 'command' | 'op' | 'entryType' | 'mode' | 'valueKind' | 'type' | 'entityKind'; value: string }[]>;
   rows: Record<string, string[]>;
   rawInputs: Record<string, string>;
   /** Author-chosen literal type for flag/extra values; projected into the candidate only at submit time. */
@@ -33,6 +33,9 @@ export interface StoryEditorDraftState {
 export interface StoryDraft {
   draftId: string;
   sourceId: string | null;
+  /** The chosen editing record owns new content independently of the current UI selection. */
+  targetPackId?: string;
+  renamedFromId?: string;
   document: StoryDraftDocument;
   savedAt: number | null;
   dirty: boolean;
@@ -66,6 +69,9 @@ export interface StoryEditorState {
   target: StoryEditorTarget | null;
   selectedNodeId: string | null;
   inspectorView?: 'story' | 'node';
+  nodeDesignerTab?: 'basic' | 'performance';
+  /** Session-only positioned previews, independently toggled per draft and node. */
+  performanceEditing?: Record<string, string[]>;
   storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
   /** Transient gap anchor before a node; null means the end of the current Story. */
   insertionBeforeNodeId: string | null;
@@ -80,6 +86,7 @@ export interface StoryEditorState {
   targetPackId?: string;
   copyStoryId?: string;
   previewEntryId?: string;
+  entryPoolContext?: { entryId: string; poolKeys: string[] };
   preview?: { playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null; story: import('../../arona-clicker/contracts/runtime/results').StoryView | null; projection: import('../../arona-clicker/contracts/runtime/story-authoring').StoryAuthoringPreviewProjection | null };
   themeContentEdit?: { session: import('../../arona-clicker/services/presentation/theme-content-editor-service').ThemeContentEditSession; draft: import('../../arona-clicker/services/presentation/theme-content-editor-service').EditableThemeContent; previewing: boolean; rows: Record<string,string[]>; error?: string };
 }
@@ -120,8 +127,47 @@ export function currentNode(state: StoryEditorState): StoryDraftNode | undefined
   return currentDraft(state)?.document.nodes.find(node => node.id === state.selectedNodeId);
 }
 /** Narrow draft-only missing payloads before crossing the typed Runtime command. */
-export interface StoryDraftProjectionIssue { path: string; message: string; nodeId?: string }
+export interface StoryDraftProjectionIssue { path: string; message: string; nodeId?: string; removable?: boolean }
 export type StoryDraftProjectionResult = { ok: true; story: StoryDef } | { ok: false; message: string; issues: readonly StoryDraftProjectionIssue[] };
+function choiceDraftIssues(document: unknown): StoryDraftProjectionIssue[] {
+  const root = mutableRecord(document) ? document : undefined;
+  const nodes = Array.isArray(root?.nodes) ? root.nodes : [];
+  const issues: StoryDraftProjectionIssue[] = [];
+  const markOwners = new Map<string, { nodeIndex: number; nodeId: string }>();
+  for (const [nodeIndex, rawNode] of nodes.entries()) {
+    if (!mutableRecord(rawNode) || rawNode.type !== 'click' || !mutableRecord(rawNode.interaction)) continue;
+    if (rawNode.interaction.kind === 'button' && Object.prototype.hasOwnProperty.call(rawNode.interaction, 'result')) issues.push({
+      path: `nodes[${nodeIndex}].interaction.result`, message: '旧按钮 result 不再执行；请先移至后续节点，再显式移除。',
+    });
+    if (rawNode.interaction.kind !== 'choice') continue;
+    const interaction = rawNode.interaction;
+    if (Object.prototype.hasOwnProperty.call(interaction, 'sharedActions')) issues.push({
+      path: `nodes[${nodeIndex}].interaction.sharedActions`, message: '旧 Choice sharedActions 不支持；请在属性栏显式移除后再保存。',
+    });
+    if (!Array.isArray(interaction.options)) continue;
+    for (const [optionIndex, rawOption] of interaction.options.entries()) {
+      if (!mutableRecord(rawOption)) continue;
+      const optionPath = `nodes[${nodeIndex}].interaction.options[${optionIndex}]`;
+      if (Object.prototype.hasOwnProperty.call(rawOption, 'condition')) issues.push({
+        path: `${optionPath}.condition`, message: '旧 Choice condition 的禁用语义与 showWhen 的隐藏语义不同；请显式移除或重新配置。',
+      });
+      if (Object.prototype.hasOwnProperty.call(rawOption, 'result')) issues.push({
+        path: `${optionPath}.result`, message: '旧 Choice result 不再执行；请先处理其中的动作或转移，再显式移除。',
+      });
+      if (!Array.isArray(rawOption.marks)) continue;
+      for (const name of rawOption.marks) {
+        if (typeof name !== 'string' || !name) continue;
+        const previous = markOwners.get(name);
+        if (previous && previous.nodeIndex !== nodeIndex) issues.push({
+          path: `${optionPath}.marks`, removable: false,
+          message: `局部选择标记「${name}」已由 Choice「${previous.nodeId}」提供；请为复制的 Choice 改名或移除该标记。`,
+        });
+        else markOwners.set(name, { nodeIndex, nodeId: String(rawNode.id ?? nodeIndex) });
+      }
+    }
+  }
+  return issues;
+}
 /** Rebuild and validate only active draft content. Side caches and raw buffers never cross this boundary. */
 export function storyDefinitionFromDraft(draft: StoryDraft): StoryDraftProjectionResult;
 /** E0 compatibility entry point. New callers should pass the whole draft to include editorState. */
@@ -140,6 +186,12 @@ export function storyDefinitionFromDraft(input: StoryDraft | StoryDraftDocument,
   }
   if (draft && hasActiveStructuredErrors(draft)) {
     return { ok: false, message: '结构化值仍有无效输入，请先修正。', issues: [{ path: '$', message: '结构化值仍有无效输入' }] };
+  }
+  const choiceIssues = choiceDraftIssues(document);
+  if (choiceIssues.length) {
+    const issues = choiceIssues.map(issue => ({ ...issue, nodeId: draft?.document.nodes[Number(issue.path.match(/^nodes\[(\d+)\]/)?.[1])]?.id }));
+    if (draft) draft.editorIssues = issues;
+    return { ok: false, message: `${issues[0].path}：${issues[0].message}`, issues };
   }
   const candidate = cloneStory(document) as Record<string, unknown>;
   stripLegacyStoryReplies(candidate);
@@ -205,11 +257,11 @@ export function composer(state: StoryEditorState): StoryComposer {
 }
 export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>): StoryListItem[] {
   const entries = [...sources.values()].map(source => {
-    const draft = state.drafts.find(item => item.sourceId === source.id);
-    return { key: draft?.draftId ?? `source:${source.id}`, name: draft?.document.name ?? source.name, storyId: source.id, draft };
+    const draft = state.drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
+    return { key: draft?.draftId ?? `source:${source.id}`, name: draft?.document.name ?? source.name, storyId: draft?.document.id ?? source.id, draft };
   });
   for (const draft of state.drafts) {
-    if (!draft.sourceId || !sources.has(draft.sourceId)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, draft });
+    if (!entries.some(item=>item.draft===draft)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, draft });
   }
   const search = state.search.trim().toLocaleLowerCase();
   return entries.filter(item => !search || `${item.name}\n${item.storyId}`.toLocaleLowerCase().includes(search));
@@ -219,7 +271,7 @@ export function selectStory(state: StoryEditorState, key: string, sources: Reado
   if (!draft && key.startsWith('source:')) {
     const source = sources.get(key.slice(7));
     if (!source) return false;
-    draft = state.drafts.find(item => item.sourceId === source.id);
+    draft = state.drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
     if (!draft) {
       const document = cloneStory({ ...source, nodes: [...source.nodes] }) as StoryDraftDocument;
       stripLegacyStoryReplies(document);
@@ -243,9 +295,17 @@ export function selectStory(state: StoryEditorState, key: string, sources: Reado
   state.insertionBeforeNodeId = null;
   return true;
 }
-export function newStory(state: StoryEditorState): StoryDraft {
-  const id = identity('story');
-  const draft: StoryDraft = { draftId: id, sourceId: null, document: { id: `local:story:${id}`, name: '未命名 Story', nodes: [], stages: {} }, dirty: true, persisted: false, savedAt: null };
+export function newStory(state: StoryEditorState, modId = 'local', existing: Iterable<string> = [], targetPackId?: string): StoryDraft {
+  if (!/^[a-z0-9_-]+$/.test(modId)) throw new Error('Mod ID 无效。');
+  const prefix = `${modId}:story:story_`;
+  const ids = new Set([...existing,...state.drafts.map(draft=>draft.document.id)]);
+  let maximum = 0;
+  for (const id of ids) if (id.startsWith(prefix) && /^\d+$/.test(id.slice(prefix.length))) {
+    const number = Number(id.slice(prefix.length));
+    if (Number.isSafeInteger(number)) maximum = Math.max(maximum,number);
+  }
+  if (!Number.isSafeInteger(maximum + 1)) throw new Error('Story 编号已超出可用范围。');
+  const draft: StoryDraft = { draftId: identity('draft'), sourceId: null, ...(targetPackId ? {targetPackId} : {}), document: { id: `${prefix}${maximum + 1}`, name: '未命名 Story', nodes: [], stages: {} }, dirty: true, persisted: false, savedAt: null };
   state.drafts.push(draft);
   state.target = { kind: 'story', id: draft.document.id };
   state.selectedNodeId = null;
@@ -333,19 +393,19 @@ export function editNode(state: StoryEditorState, field: 'text' | 'sender', valu
   if (node.type === 'talklet') {
     if (field === 'text') next = { ...node, content: { ...node.content, text: value } };
     else {
-      const sender = senders.find(item => item.id === value);
+      const sender = value === 'anonymous' ? { id: 'anonymous', label: '不指定角色' } : senders.find(item => item.id === value);
       if (!sender || !senderChangeAllowed(node, sender)) return false;
       const oldText = node.content.text;
       if (!selectDiscriminant(draft, node.id, ['content'], 'kind', sender.id === 'narrator' ? 'narration' : 'talk')) return false;
       if (readStoryProperty(draft, node.id, ['content', 'text']) === undefined) editStoryProperty(draft, node.id, ['content', 'text'], oldText);
       if (sender.id !== 'narrator') {
-        removeProperty(draft, node.id, ['content', 'displayName']);
         if (sender.id.startsWith('character:')) {
           editStoryProperty(draft, node.id, ['content', 'characterId'], sender.id.slice('character:'.length));
           removeProperty(draft, node.id, ['content', 'speaker']);
         } else {
           removeProperty(draft, node.id, ['content', 'characterId']);
-          editStoryProperty(draft, node.id, ['content', 'speaker'], sender.speaker ?? '');
+          if (sender.id==='anonymous') removeProperty(draft,node.id,['content','speaker']);
+          else editStoryProperty(draft, node.id, ['content', 'speaker'], sender.speaker ?? '');
         }
         editStoryProperty(draft, node.id, ['presentation', 'side'], sender.id === 'teacher' ? 'right' : 'left');
       }
@@ -392,17 +452,65 @@ export function moveNodeToInsertionPoint(state: StoryEditorState, nodeId: string
 }
 type MutableRecord = Record<string, unknown>;
 const mutableRecord = (value: unknown): value is MutableRecord => typeof value === 'object' && value !== null && !Array.isArray(value);
-function storyLocalFlagNames(document: StoryDraftDocument, editorState?: StoryEditorDraftState): Set<string> {
-  const names = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) { value.forEach(visit); return; }
-    if (!mutableRecord(value)) return;
-    if (value.kind === 'localFlag' && typeof value.name === 'string') names.add(value.name);
-    if (typeof value.requiresFlag === 'string') names.add(value.requiresFlag);
-    Object.values(value).forEach(visit);
+type StoryLocalFlagUsage = 'read' | 'write' | 'remove' | 'return';
+type StoryLocalFlagVisitor = (name: string, usage: StoryLocalFlagUsage, replace: (name: string) => void) => void;
+function visitLocalFlagAction(value: unknown, visit: StoryLocalFlagVisitor): void {
+  if (!mutableRecord(value) || value.kind !== 'localFlag' || (value.op !== 'set' && value.op !== 'remove') || typeof value.name !== 'string') return;
+  visit(value.name, value.op === 'set' ? 'write' : 'remove', name => { value.name = name; });
+}
+function visitStoryLocalFlagReferences(document: StoryDraftDocument, editorState: StoryEditorDraftState | undefined, authoring: StoryDraft['authoring'], visit: StoryLocalFlagVisitor): void {
+  const visitContinuation = (value: unknown): void => {
+    if (!mutableRecord(value) || !Array.isArray(value.returnFlags)) return;
+    const flags = value.returnFlags;
+    flags.forEach((name, index) => { if (typeof name === 'string') visit(name, 'return', replacement => { flags[index] = replacement; }); });
   };
-  visit(document.nodes);
-  visit(editorState);
+  const visitAction = (value: unknown): void => {
+    visitLocalFlagAction(value, visit);
+    if (!mutableRecord(value) || value.kind !== 'overlay' || !mutableRecord(value.command) || value.command.command !== 'show'
+      || !mutableRecord(value.command.content) || value.command.content.kind !== 'entryCard' || !mutableRecord(value.command.content.card)) return;
+    visitContinuation(value.command.content.card.continuation);
+  };
+  const visitInteraction = (value: unknown): void => {
+    if (!mutableRecord(value)) return;
+    if (value.kind === 'choice' && Array.isArray(value.options)) for (const option of value.options) if (mutableRecord(option)) {
+      if (typeof option.requiresFlag === 'string') visit(option.requiresFlag, 'read', name => { option.requiresFlag = name; });
+      if (Array.isArray(option.marks)) {
+        const marks = option.marks;
+        marks.forEach((name, index) => { if (typeof name === 'string') visit(name, 'write', replacement => { marks[index] = replacement; }); });
+      }
+    }
+    if (value.kind === 'entryCard' && mutableRecord(value.card)) visitContinuation(value.card.continuation);
+  };
+  for (const node of document.nodes) {
+    const record = node as unknown as MutableRecord;
+    if (typeof record.requiresFlag === 'string') visit(record.requiresFlag, 'read', name => { record.requiresFlag = name; });
+    if (record.type === 'operation' && mutableRecord(record.action)) visitAction(record.action);
+    if (record.type === 'click') visitInteraction(record.interaction);
+  }
+  for (const entry of [...(authoring?.activeStories ?? []), ...(authoring?.passiveStories ?? [])]) {
+    const kizuna = entry.kizuna as unknown as MutableRecord | undefined;
+    visitContinuation(kizuna);
+  }
+  for (const [key, value] of Object.entries(editorState?.branches ?? {})) {
+    if (key.endsWith('|node:operation') && mutableRecord(value)) visitAction(value.action);
+    else if (key.endsWith('|node:click') && mutableRecord(value)) visitInteraction(value.interaction);
+    const first = key.indexOf('|'), last = key.lastIndexOf('|');
+    if (first < 0 || last <= first) continue;
+    let path: unknown;
+    try { path = JSON.parse(key.slice(first + 1, last)); } catch { continue; }
+    if (!Array.isArray(path)) continue;
+    if (path.length === 1 && path[0] === 'action') visitAction(value);
+    else if (path.length === 1 && path[0] === 'interaction') visitInteraction(value);
+    else if (path[0] === 'interaction' && path[1] === 'card') {
+      if (path.length === 2 && mutableRecord(value)) visitContinuation(value.continuation);
+      else if (path.length === 3 && path[2] === 'continuation') visitContinuation(value);
+      else if (path.length === 4 && path[2] === 'continuation' && path[3] === 'returnFlags') visitContinuation({ returnFlags: value });
+    }
+  }
+}
+function storyLocalFlagNames(document: StoryDraftDocument, editorState?: StoryEditorDraftState, authoring?: StoryDraft['authoring']): Set<string> {
+  const names = new Set<string>();
+  visitStoryLocalFlagReferences(document, editorState, authoring, name => { names.add(name); });
   return names;
 }
 export function storyNodesRequiringFlag(draft: StoryDraft, flagName: string): StoryDraftNode[] {
@@ -410,14 +518,9 @@ export function storyNodesRequiringFlag(draft: StoryDraft, flagName: string): St
 }
 function storyLocalFlagWriters(draft: StoryDraft): Set<string> {
   const names = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) { value.forEach(visit); return; }
-    if (!mutableRecord(value)) return;
-    if (value.kind === 'localFlag' && value.op === 'set' && typeof value.name === 'string') names.add(value.name);
-    Object.values(value).forEach(visit);
-  };
-  visit(draft.document.nodes);
-  visit(draft.editorState);
+  visitStoryLocalFlagReferences(draft.document, draft.editorState, draft.authoring, (name, usage) => {
+    if (usage === 'write' || usage === 'return') names.add(name);
+  });
   return names;
 }
 export function canBindStoryNodeToFlagReader(draft: StoryDraft, flagName: string, targetNodeId: string): StoryFlagReaderBindResult {
@@ -446,8 +549,7 @@ export function choiceOptionFlagBindings(draft: StoryDraft, choiceNodeId: string
   if (click?.type !== 'click' || click.interaction.kind !== 'choice') return [];
   const option = click.interaction.options?.[optionIndex];
   if (!option || option.id !== optionId) return [];
-  const actions: unknown = option.result?.actions;
-  const names = [...new Set((Array.isArray(actions) ? actions : []).filter(mutableRecord).filter(action => action.kind === 'localFlag' && action.op === 'set' && typeof action.name === 'string').map(action => action.name as string))];
+  const names = [...new Set(Array.isArray(option.marks) ? option.marks.filter((name): name is string => typeof name === 'string') : [])];
   return names.flatMap(flagName => {
     const nodeIds = draft.document.nodes.filter(node => node.requiresFlag === flagName).map(node => node.id);
     return nodeIds.length ? [{ flagName, nodeIds }] : [];
@@ -458,7 +560,7 @@ function storyFlagSlug(value: string): string {
 }
 function nextChoiceFlagName(draft: StoryDraft, optionId: string): string {
   const prefix = `${storyFlagSlug(draft.document.id)}-${storyFlagSlug(optionId)}-`;
-  const names = storyLocalFlagNames(draft.document, draft.editorState);
+  const names = storyLocalFlagNames(draft.document, draft.editorState, draft.authoring);
   let maximum = 0;
   for (const name of names) {
     if (!name.startsWith(prefix)) continue;
@@ -475,49 +577,32 @@ function choiceOptionPath(document: StoryDraftDocument, choiceNodeId: string, op
   const option = options?.[optionIndex];
   return choice?.type === 'click' && mutableRecord(option) && option.id === optionId ? { choiceIndex, option } : undefined;
 }
-function syncChoiceFlagClears(document: StoryDraftDocument, choiceNodeId: string): void {
-  const choice = document.nodes.find(node => node.id === choiceNodeId) as unknown as MutableRecord | undefined;
-  const interaction = choice && mutableRecord(choice.interaction) ? choice.interaction : undefined;
-  if (!choice || interaction?.kind !== 'choice' || !Array.isArray(interaction.options)) return;
-  if (interaction.sharedActions !== undefined && !Array.isArray(interaction.sharedActions)) return;
-  const written = new Set<string>();
-  for (const optionValue of interaction.options) {
-    if (!mutableRecord(optionValue) || !mutableRecord(optionValue.result) || !Array.isArray(optionValue.result.actions)) continue;
-    for (const action of optionValue.result.actions) if (mutableRecord(action) && action.kind === 'localFlag' && action.op === 'set' && typeof action.name === 'string') written.add(action.name);
-  }
-  const readers = new Set(document.nodes.flatMap(node => typeof node.requiresFlag === 'string' ? [node.requiresFlag] : []));
-  const active = [...written].filter(name => readers.has(name));
-  if (!active.length && !Array.isArray(interaction.sharedActions)) return;
-  const shared = Array.isArray(interaction.sharedActions) ? interaction.sharedActions : [];
-  const activeSet = new Set(active);
-  const preserved = shared.filter(action => !mutableRecord(action) || action.kind !== 'localFlag' || action.op !== 'remove' || typeof action.name !== 'string' || !activeSet.has(action.name));
-  const existingNames = new Set(preserved.filter(mutableRecord).filter(action => action.kind === 'localFlag' && action.op === 'remove').map(action => action.name));
-  const cleanup = active.filter(name => !existingNames.has(name)).map(name => ({ kind: 'localFlag', op: 'remove', name }));
-  if (preserved.length || cleanup.length) interaction.sharedActions = [...preserved, ...cleanup];
-  else delete interaction.sharedActions;
+function choiceMarkHasOtherOwner(document: StoryDraftDocument, choiceNodeId: string, flagName: string): boolean {
+  if (!flagName) return false;
+  return document.nodes.some(node => node.id !== choiceNodeId && node.type === 'click' && node.interaction.kind === 'choice'
+    && node.interaction.options.some(option => option.marks?.includes(flagName)));
 }
 export function canBindStoryNodeToChoiceOption(draft: StoryDraft, choiceNodeId: string, optionIndex: number, optionId: string, targetNodeId: string): StoryChoiceFlagBindResult {
   const choiceIndex = draft.document.nodes.findIndex(node => node.id === choiceNodeId);
   const choice = draft.document.nodes[choiceIndex];
   if (choice?.type !== 'click' || choice.interaction.kind !== 'choice') return { ok: false, reason: '这个节点不再是选项 Click。' };
   const interaction = choice.interaction as unknown as MutableRecord;
-  if (interaction.sharedActions !== undefined && !Array.isArray(interaction.sharedActions)) return { ok: false, reason: 'Choice 共同动作结构不完整，请先修复该字段。' };
+  if (Object.prototype.hasOwnProperty.call(interaction, 'sharedActions')) return { ok: false, reason: 'Choice 含有旧 sharedActions，请先在属性栏显式移除。' };
   const option = choice.interaction.options?.[optionIndex];
   if (!option || option.id !== optionId) return { ok: false, reason: '这个选项已变化，请重新拖放。' };
   const optionRecord = option as unknown as MutableRecord;
-  if (optionRecord.result !== undefined && !mutableRecord(optionRecord.result)) return { ok: false, reason: '选项结果结构不完整，请先修复该字段。' };
-  const optionResult = mutableRecord(optionRecord.result) ? optionRecord.result : undefined;
-  if (optionResult?.actions !== undefined && !Array.isArray(optionResult.actions)) return { ok: false, reason: '选项结果动作不是列表，请先修复该字段。' };
-  if (option.result?.transfer?.mode === 'goto') return { ok: false, reason: '该选项会跳转离开当前 Story，后续节点不会执行。' };
+  if (Object.prototype.hasOwnProperty.call(optionRecord, 'condition')) return { ok: false, reason: '该选项含有旧 condition，请先显式处理；不能直接转成 showWhen。' };
+  if (Object.prototype.hasOwnProperty.call(optionRecord, 'result')) return { ok: false, reason: '该选项含有旧 result，请先显式处理其中的动作或转移。' };
+  if (optionRecord.marks !== undefined && (!Array.isArray(optionRecord.marks) || !optionRecord.marks.every(name => typeof name === 'string'))) return { ok: false, reason: '该选项的选择标记结构无效，请先修复。' };
   const targetIndex = draft.document.nodes.findIndex(node => node.id === targetNodeId);
   const target = draft.document.nodes[targetIndex];
   if (!target) return { ok: false, reason: '目标节点已不存在。' };
+  if (target.requiresFlag && choiceMarkHasOtherOwner(draft.document, choiceNodeId, target.requiresFlag)) return { ok: false, reason: `局部标记「${target.requiresFlag}」已属于另一个 Choice，不能建立跨组关联。` };
   if (targetIndex <= choiceIndex) return { ok: false, reason: '目标节点必须位于这个 Choice 之后。' };
   if (draft.document.nodes.slice(choiceIndex + 1, targetIndex).some(node => node.type === 'transfer' && node.transfer?.mode === 'goto' && !node.requiresFlag)) {
     return { ok: false, reason: '目标节点之前有无条件 goto，当前 Story 后续不会执行。' };
   }
-  const optionActions = Array.isArray(optionResult?.actions) ? optionResult.actions as unknown[] : [];
-  const optionNames = new Set(optionActions.filter(mutableRecord).filter(action => action.kind === 'localFlag' && action.op === 'set' && typeof action.name === 'string').map(action => action.name as string));
+  const optionNames = new Set(Array.isArray(optionRecord.marks) ? optionRecord.marks as string[] : []);
   if (target.requiresFlag && optionNames.has(target.requiresFlag)) return { ok: true, flagName: target.requiresFlag, created: false };
   if (target.requiresFlag) return { ok: false, reason: `节点已有局部标记条件「${target.requiresFlag}」，请先清除或改用现有条件。` };
   return { ok: true, flagName: nextChoiceFlagName(draft, optionId), created: true };
@@ -532,12 +617,10 @@ export function bindStoryNodeToChoiceOption(state: StoryEditorState, choiceNodeI
   const targetIndex = document.nodes.findIndex(node => node.id === targetNodeId);
   const target = document.nodes[targetIndex] as unknown as MutableRecord | undefined;
   if (!path || !target) return { ok: false, reason: 'Story 在拖放完成前发生了变化，请重试。' };
-  const result = mutableRecord(path.option.result) ? path.option.result : {};
-  const actions = Array.isArray(result.actions) ? result.actions : [];
-  path.option.result = { ...result, actions: [...actions, { kind: 'localFlag', op: 'set', name: plan.flagName, value: true }] };
+  const marks = Array.isArray(path.option.marks) ? path.option.marks : [];
+  path.option.marks = [...marks, plan.flagName];
   target.requiresFlag = plan.flagName;
   draft.document = document;
-  syncChoiceFlagClears(document, choiceNodeId);
   draft.dirty = true;
   state.selectedNodeId = targetNodeId;
   return plan;
@@ -546,26 +629,9 @@ export function unbindStoryNodeFromChoiceOption(draft: StoryDraft, choiceNodeId:
   const document = cloneStory(draft.document) as StoryDraftDocument;
   const path = choiceOptionPath(document, choiceNodeId, optionIndex, optionId);
   const target = document.nodes.find(node => node.id === targetNodeId) as unknown as MutableRecord | undefined;
-  if (!path || !target || target.requiresFlag !== flagName) return false;
+  if (!path || !target || target.requiresFlag !== flagName || !Array.isArray(path.option.marks) || !path.option.marks.includes(flagName)) return false;
   delete target.requiresFlag;
-  const hasReaders = document.nodes.some(node => node.id !== targetNodeId && node.requiresFlag === flagName);
-  if (!hasReaders) {
-    const result = mutableRecord(path.option.result) ? path.option.result : undefined;
-    if (result && Array.isArray(result.actions)) {
-      const actions = (result.actions as unknown[]).filter(action => !mutableRecord(action) || action.kind !== 'localFlag' || action.op !== 'set' || action.name !== flagName);
-      result.actions = actions;
-      if (!actions.length) delete result.actions;
-      if (!Object.keys(result).length) delete path.option.result;
-    }
-    const choice = document.nodes.find(node => node.id === choiceNodeId) as unknown as MutableRecord | undefined;
-    const interaction = choice && mutableRecord(choice.interaction) ? choice.interaction : undefined;
-    if (interaction?.kind === 'choice' && Array.isArray(interaction.sharedActions)) {
-      const sharedActions = (interaction.sharedActions as unknown[]).filter(action => !mutableRecord(action) || action.kind !== 'localFlag' || action.op !== 'remove' || action.name !== flagName);
-      interaction.sharedActions = sharedActions;
-      if (!sharedActions.length) delete interaction.sharedActions;
-    }
-  }
-  syncChoiceFlagClears(document, choiceNodeId);
+  // Keep the declared mark: another option condition or continuation may still consume it.
   draft.document = document;
   draft.dirty = true;
   return true;
@@ -573,20 +639,14 @@ export function unbindStoryNodeFromChoiceOption(draft: StoryDraft, choiceNodeId:
 export function renameStoryLocalFlag(draft: StoryDraft, oldName: string, newName: string): { ok: true; changed: boolean } | { ok: false; reason: string } {
   if (!validStoryFlagName(newName)) return { ok: false, reason: '标记名称不能为空。' };
   if (oldName === newName) return { ok: true, changed: false };
-  const names = storyLocalFlagNames(draft.document, draft.editorState);
+  const names = storyLocalFlagNames(draft.document, draft.editorState, draft.authoring);
   if (!names.has(oldName)) return { ok: false, reason: `找不到局部标记「${oldName}」。` };
   if (names.has(newName)) return { ok: false, reason: `局部标记「${newName}」已存在，不能合并标记。` };
   const document = cloneStory(draft.document) as StoryDraftDocument;
   let changed = false;
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) { value.forEach(visit); return; }
-    if (!mutableRecord(value)) return;
-    if (value.kind === 'localFlag' && value.name === oldName) { value.name = newName; changed = true; }
-    if (value.requiresFlag === oldName) { value.requiresFlag = newName; changed = true; }
-    Object.values(value).forEach(visit);
-  };
-  visit(document.nodes);
-  visit(draft.editorState);
+  visitStoryLocalFlagReferences(document, draft.editorState, draft.authoring, (name, _usage, replace) => {
+    if (name === oldName) { replace(newName); changed = true; }
+  });
   if (changed) { draft.document = document; draft.dirty = true; }
   return { ok: true, changed };
 }
@@ -620,8 +680,21 @@ export function renameStoryNodeId(state: StoryEditorState, oldId: string, newId:
     delete draft.localFlagInputs[oldId];
   }
   draft.document = { ...draft.document, nodes: draft.document.nodes.map((node, nodeIndex) => nodeIndex === index ? { ...node, id: newId } as StoryDraftNode : node) };
+  const rewriteDisplayTarget=(value:unknown):boolean=>{
+    if(!value||typeof value!=='object') return false;
+    let changed=false;
+    const row=value as Record<string,unknown>;
+    if(row.kind==='clearNode'&&row.storyId===draft.document.id&&row.nodeId===oldId){row.nodeId=newId;changed=true;}
+    for(const child of Object.values(row)) changed=rewriteDisplayTarget(child)||changed;
+    return changed;
+  };
+  for(const other of state.drafts) {
+    const documentChanged=rewriteDisplayTarget(other.document),cacheChanged=rewriteDisplayTarget(other.editorState?.branches);
+    if(documentChanged||cacheChanged) other.dirty=true;
+  }
   if (draft.editorIssues) draft.editorIssues = draft.editorIssues.map(issue => issue.nodeId === oldId ? { ...issue, nodeId: newId } : issue);
   if (state.selectedNodeId === oldId) state.selectedNodeId = newId;
+  if (state.performanceEditing?.[draft.draftId]) state.performanceEditing[draft.draftId] = state.performanceEditing[draft.draftId].map(id => id === oldId ? newId : id);
   if (state.insertionBeforeNodeId === oldId) state.insertionBeforeNodeId = newId;
   draft.dirty = true;
   return true;
@@ -710,6 +783,7 @@ export function deleteNode(state: StoryEditorState): void {
   const oldNodes = draft.document.nodes;
   const oldIndex = oldNodes.findIndex(item => item.id === node.id);
   const nodes = oldNodes.filter(item => item.id !== node.id);
+  if (state.performanceEditing?.[draft.draftId]) state.performanceEditing[draft.draftId] = state.performanceEditing[draft.draftId].filter(id => id !== node.id);
   if (state.insertionBeforeNodeId === node.id) state.insertionBeforeNodeId = nodes[oldIndex]?.id ?? null;
   const stages = { ...draft.document.stages };
   if ((node.type === 'talklet' || node.type === 'click') && !nodes.some(item => (item.type === 'talklet' || item.type === 'click') && item.stageId === node.stageId)) delete stages[node.stageId];

@@ -1,0 +1,83 @@
+{
+  "gachaPools": [
+    {
+      "id": "base:gachapool:regular",
+      "name": "常规招募",
+      "mode": "ba-classic",
+      "currency": "base:resource:pyroxene",
+      "costPerPull": 120,
+      "rates": [
+        {
+          "rarity": "common",
+          "weight": 79
+        },
+        {
+          "rarity": "rare",
+          "weight": 18
+        },
+        {
+          "rarity": "super_rare",
+          "weight": 3
+        }
+      ],
+      "members": [
+        "Arona",
+        "Shiroko",
+        "Hoshino",
+        "Serika",
+        "Yuuka",
+        "Mika",
+        "Iori",
+        "Miyako",
+        "Saori"
+      ],
+      "description": "常驻开放的招募池。",
+      "dupRewards": {
+        "shards": 5,
+        "bonusResources": {
+          "base:resource:credit": 200
+        }
+      }
+    },
+    {
+      "id": "base:gachapool:swimsuit-up",
+      "name": "夏日限定 Pick Up",
+      "mode": "ba-classic",
+      "currency": "base:resource:pyroxene",
+      "costPerPull": 120,
+      "rates": [
+        {
+          "rarity": "common",
+          "weight": 77
+        },
+        {
+          "rarity": "rare",
+          "weight": 18
+        },
+        {
+          "rarity": "super_rare",
+          "weight": 5
+        }
+      ],
+      "members": [
+        "HoshinoSwimsuit",
+        "Shiroko",
+        "Hoshino",
+        "Serika"
+      ],
+      "description": "泳装星野概率提升！重复获得返还其专属碎片。",
+      "featured": [
+        "HoshinoSwimsuit"
+      ],
+      "pity": {
+        "guaranteedAt": 50
+      },
+      "dupRewards": {
+        "shards": 10,
+        "bonusResources": {
+          "base:resource:credit": 500
+        }
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import type { AreaMapDef } from '../contracts/area-map';
 import type { AreaDef } from '../contracts/world';
 import { parseEntityId } from '../../engine/core/entity-id';
 import { parsePicId } from '../contracts/pic';
+import { isWorldCondition, validateWorldReveal } from './world-reveal-validation';
 
 type Fail = (message: string) => never;
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -18,13 +19,8 @@ export function validateAreaMapShapes(input: unknown, fail: Fail): void {
   const text = (value: unknown, path: string): void => {
     if (value !== undefined && typeof value !== 'string') fail(`${path} 必须是字符串`);
   };
-  const reveal = (value: unknown, path: string): void => {
-    if (value === undefined) return;
-    if (!Array.isArray(value)) fail(`${path} 必须是数组`);
-    for (const trigger of value) {
-      if (!record(trigger) || !['existence', 'name', 'condition', 'utility', 'unlock'].includes(String(trigger.reveal)) ||
-        (trigger.condition !== undefined && !record(trigger.condition))) fail(`${path} 含非法 RevealTrigger`);
-    }
+  const condition = (value: unknown, path: string): void => {
+    if (value !== undefined && !isWorldCondition(value)) fail(`${path} 必须是有效条件`);
   };
   for (const [index, value] of input.entries()) {
     const path = `areaMaps[${index}]`;
@@ -34,7 +30,9 @@ export function validateAreaMapShapes(input: unknown, fail: Fail): void {
     maps.add(value.id as string);
     if (typeof value.name !== 'string' || !value.name.trim()) fail(`${path}.name 不能为空`);
     text(value.description, `${path}.description`);
-    reveal(value.revealTriggers, `${path}.revealTriggers`);
+    validateWorldReveal(value.reveal, `${path}.reveal`, fail);
+    condition(value.openCondition, `${path}.openCondition`);
+    if (value.collection !== undefined && value.collection !== 'onOpen' && value.collection !== 'explicit') fail(`${path}.collection 非法`);
     if (!Array.isArray(value.nodes) || !Array.isArray(value.edges)) fail(`${path}.nodes / edges 必须是数组`);
     const nodes = new Set<string>();
     for (const [n, node] of value.nodes.entries()) {
@@ -45,7 +43,8 @@ export function validateAreaMapShapes(input: unknown, fail: Fail): void {
       if (!record(node.position) || typeof node.position.x !== 'number' || typeof node.position.y !== 'number' ||
         !Number.isFinite(node.position.x) || !Number.isFinite(node.position.y)) fail(`${at}.position 必须是有限坐标`);
       text(node.name, `${at}.name`); text(node.description, `${at}.description`);
-      reveal(node.revealTriggers, `${at}.revealTriggers`);
+      validateWorldReveal(node.reveal, `${at}.reveal`, fail);
+      condition(node.actionCondition, `${at}.actionCondition`);
       if (node.appearance !== undefined) {
         if (!record(node.appearance)) fail(`${at}.appearance 非法`);
         if (node.appearance.kind !== undefined && !['point', 'landmark', 'portal'].includes(String(node.appearance.kind))) fail(`${at}.appearance.kind 非法`);
@@ -57,7 +56,8 @@ export function validateAreaMapShapes(input: unknown, fail: Fail): void {
         if (action.kind === 'openMap') ref(action.mapId, 'area-map', `${at}.action.mapId`);
         else if (action.kind === 'attemptAreaTravel') ref(action.areaId, 'area', `${at}.action.areaId`);
         else if (action.kind !== 'inspect') fail(`${at}.action.kind 非法`);
-        const keys = action.kind === 'openMap' ? ['kind', 'mapId'] : action.kind === 'attemptAreaTravel' ? ['kind', 'areaId'] : ['kind'];
+        if (action.kind === 'attemptAreaTravel' && action.travelMode !== undefined && action.travelMode !== 'route' && action.travelMode !== 'mapDirect') fail(`${at}.action.travelMode 非法`);
+        const keys = action.kind === 'openMap' ? ['kind', 'mapId'] : action.kind === 'attemptAreaTravel' ? ['kind', 'areaId', 'travelMode'] : ['kind'];
         if (Object.keys(action).some(key => !keys.includes(key))) fail(`${at}.action 含未允许字段`);
       }
     }

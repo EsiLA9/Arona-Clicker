@@ -5,9 +5,9 @@ import type { UIController } from '../../src/ui/controller/controller';
 import type { StoryView } from '../../src/arona-clicker/contracts/runtime/results';
 function fixture() {
   document.body.innerHTML = '<div id="root"><div data-story-card-token="ticket"></div><button data-story-gate-confirm>确认</button></div>';
-  let view: StoryView = { storyId: 'entry:source', storyDefId: 'story:source', type: 'active', pageIndex: 1, totalPages: 2,
+  let view: StoryView = { storyId: 'entry:source', storyDefId: 'story:source', pageIndex: 1, totalPages: 2,
     phase: 'input', nodeId: 'card', runId: 'source-run', token: 'ticket', availableChoiceIndexes: [],
-    page: { kind: 'click', text: '', kizuna: { storyId: 'entry:next' } } };
+    page: { kind: 'click', text: '', kizuna: { storyId: 'entry:next' } }, type: 'active' };
   const commands = { submitStoryInput: vi.fn(() => ({ success: true })), startCardStory: vi.fn() };
   const controller = { root: document.querySelector('#root'), panelState: { conversationVariantId: 'guest', storyGate: null },
     chat: { bannerBlocking: () => false, activeGate: () => null }, commands,

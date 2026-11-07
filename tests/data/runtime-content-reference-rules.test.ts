@@ -75,6 +75,24 @@ describe('collectDefinitionReferences', () => {
     expect(atPath(collect('storyEntries', { followUps: [{ outcome: { kind: 'start-story-entry', storyEntryId: 'base:passivestory:coffee' } }] }), '$.followUps[0].outcome.storyEntryId')).toMatchObject({ targetKinds: ['activeStories', 'passiveStories'] });
   });
 
+  it('recognizes collected-map conditions and Story / Effect grants without exposing node IDs as references', () => {
+    const conditions = collect('areas', { enterCondition: { type: 'AND', conditions: [{ target: 'hasAreaMap', key: 'world:area-map:guide', comparator: '==', value: 1 }] } });
+    const story = collect('stories', { nodes: [{ id: 'grant', type: 'operation', action: { kind: 'state', effects: [
+      { op: 'acquireAreaMap', mapId: 'world:area-map:guide' },
+      { op: 'revealInformation', target: { entityKind: 'areaMapNode', mapId: 'world:area-map:guide', nodeId: 'shortcut', target: 'existence' } },
+    ] } }] });
+    const effect = collect('areas', { enterEffects: [{ effects: [
+      { op: 'acquireAreaMap', target: 'world:area-map:guide', value: 0 },
+      { op: 'revealInformation', target: '', value: { entityKind: 'area', entityId: 'world:area:hall', target: 'name' } },
+    ] }] });
+    expect(atPath(conditions, '$.enterCondition.conditions[0].key')).toMatchObject({ targetKinds: ['areaMaps'] });
+    expect(atPath(story, '$.nodes[0].action.effects[0].mapId')).toMatchObject({ targetKinds: ['areaMaps'] });
+    expect(atPath(story, '$.nodes[0].action.effects[1].target.mapId')).toMatchObject({ targetKinds: ['areaMaps'] });
+    expect(atPath(story, '$.nodes[0].action.effects[1].target.nodeId')).toBeUndefined();
+    expect(atPath(effect, '$.enterEffects[0].effects[0].target')).toMatchObject({ targetKinds: ['areaMaps'] });
+    expect(atPath(effect, '$.enterEffects[0].effects[1].value.entityId')).toMatchObject({ targetKinds: ['areas'] });
+  });
+
   it('covers character and pool member references plus declared presentation assets', () => {
     const characterRequests = collect('characterVariants', {
       proto: 'world:character:alice',
@@ -110,7 +128,7 @@ describe('collectDefinitionReferences', () => {
     expect(atPath(cardStory, '$.nodes[0].interaction.card.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
     expect(atPath(cardStory, '$.nodes[0].interaction.card.request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
     expect(atPath(collect('activeStories', { storyId: 'world:story:active', pushAfterStory: 'world:story:prologue' }), '$.storyId')).toMatchObject({ targetKinds: ['stories'] });
-    expect(atPath(collect('passiveStories', { pushAfterStory: 'world:story:prologue' }), '$.pushAfterStory')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(collect('passiveStories', { activation: {kind:'affection',when:{kind:'after-story',storyId:'world:story:prologue'}} }), '$.activation.when.storyId')).toMatchObject({ targetKinds: ['stories'] });
     expect(atPath(poolRequests, '$.members[0]')).toMatchObject({ targetKinds: ['characterVariants'] });
     expect(atPath(poolRequests, '$.featured[0]')).toMatchObject({ targetKinds: ['characterVariants'] });
     expect(atPath(poolRequests, '$.currency')).toMatchObject({ targetKinds: ['resourceDisplays'] });
@@ -203,37 +221,45 @@ describe('collectDefinitionReferences', () => {
   it('scans Story transfer, condition, named state, travel, and entry request paths under nodes', () => {
     const requests = collect('stories', { nodes: [
       { id: 'direct', type: 'transfer', transfer: { mode: 'goto', storyId: 'world:story:direct' } },
-      { id: 'button', type: 'click', stageId: 'button', interaction: { kind: 'button', text: 'Continue', result: {
-        actions: [
-          { kind: 'state', effects: [
+      { id: 'button', type: 'click', stageId: 'button', interaction: { kind: 'button', text: 'Continue' } },
+  { id: "button-effect-1", type: 'operation', action: { kind: 'state', effects: [
             { op: 'setResource', resourceId: 'world:resource:credit', amount: 1 },
             { op: 'setManager', spotId: 'world:spot:desk', managerId: 'world:character:arona' },
-          ] },
-          { kind: 'travel', areaId: 'world:area:office' },
-          { kind: 'entryRequest', request: { entryId: 'world:activestory:system', entryType: 'active', owner: 'world:variant:arona', intent: 'system' } },
-        ],
-        transfer: { mode: 'insert', storyId: 'world:story:insert' },
-      } } },
+          ] } },
+  { id: "button-effect-2", type: 'operation', action: { kind: 'travel', areaId: 'world:area:office' } },
+  { id: "button-effect-3", type: 'operation', action: { kind: 'entryRequest', request: { entryId: 'world:activestory:system', entryType: 'active', owner: 'world:variant:arona', intent: 'system' } } },
+  { id: "button-transfer", type: 'transfer', transfer: { mode: 'insert', storyId: 'world:story:insert' } },
       { id: 'choice', type: 'click', stageId: 'choice', interaction: { kind: 'choice', options: [{
-        id: 'route', text: 'Route',
-        condition: { type: 'AND', conditions: [{ target: 'hasReadStory', key: 'world:story:condition', comparator: '==', value: 1 }] },
-        result: { transfer: { mode: 'goto', storyId: 'world:story:choice' } },
+        id: 'route', text: 'Route', marks: ['route'],
+        showWhen: { type: 'AND', conditions: [{ target: 'hasReadStory', key: 'world:story:condition', comparator: '==', value: 1 }] },
       }] } },
+      { id: 'choice-state', type: 'operation', requiresFlag: 'route', action: { kind: 'state', effects: [
+        { op: 'setResource', resourceId: 'world:resource:credit', amount: 1 },
+        { op: 'setManager', spotId: 'world:spot:desk', managerId: 'world:character:arona' },
+      ] } },
+      { id: 'choice-travel', type: 'operation', requiresFlag: 'route', action: { kind: 'travel', areaId: 'world:area:office' } },
+      { id: 'choice-entry', type: 'operation', requiresFlag: 'route', action: { kind: 'entryRequest', request: { entryId: 'world:activestory:system', entryType: 'active', owner: 'world:variant:arona', intent: 'system' } } },
+      { id: 'choice-transfer', type: 'transfer', requiresFlag: 'route', transfer: { mode: 'goto', storyId: 'world:story:choice' } },
       { id: 'overlay-card', type: 'operation', action: { kind: 'overlay', command: {
         command: 'show', id: 'card', content: { kind: 'entryCard', card: { request: { entryId: 'world:activestory:card', entryType: 'active', owner: null, intent: 'card' } } },
       } } },
     ] });
 
     expect(atPath(requests, '$.nodes[0].transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.actions[0].effects[0].resourceId')).toMatchObject({ targetKinds: ['resourceDisplays'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.actions[0].effects[1].managerId')).toMatchObject({ targetKinds: ['characters'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.actions[1].areaId')).toMatchObject({ targetKinds: ['areas'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.actions[2].request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
-    expect(atPath(requests, '$.nodes[1].interaction.result.actions[2].request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
-    expect(atPath(requests, '$.nodes[2].interaction.options[0].condition.conditions[0].key')).toMatchObject({ targetKinds: ['stories'] });
-    expect(atPath(requests, '$.nodes[2].interaction.options[0].result.transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
-    expect(atPath(requests, '$.nodes[3].action.command.content.card.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
+    expect(atPath(requests, '$.nodes[5].transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[2].action.effects[0].resourceId')).toMatchObject({ targetKinds: ['resourceDisplays'] });
+    expect(atPath(requests, '$.nodes[2].action.effects[1].managerId')).toMatchObject({ targetKinds: ['characters'] });
+    expect(atPath(requests, '$.nodes[3].action.areaId')).toMatchObject({ targetKinds: ['areas'] });
+    expect(atPath(requests, '$.nodes[4].action.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
+    expect(atPath(requests, '$.nodes[4].action.request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
+    expect(atPath(requests, '$.nodes[6].interaction.options[0].showWhen.conditions[0].key')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[7].action.effects[0].resourceId')).toMatchObject({ targetKinds: ['resourceDisplays'] });
+    expect(atPath(requests, '$.nodes[7].action.effects[1].managerId')).toMatchObject({ targetKinds: ['characters'] });
+    expect(atPath(requests, '$.nodes[8].action.areaId')).toMatchObject({ targetKinds: ['areas'] });
+    expect(atPath(requests, '$.nodes[9].action.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
+    expect(atPath(requests, '$.nodes[9].action.request.owner')).toMatchObject({ targetKinds: ['characterVariants'] });
+    expect(atPath(requests, '$.nodes[10].transfer.storyId')).toMatchObject({ targetKinds: ['stories'] });
+    expect(atPath(requests, '$.nodes[11].action.command.content.card.request.entryId')).toMatchObject({ targetKinds: ['activeStories'] });
   });
 
   it('skips accessors and terminates safely on cyclic input', () => {

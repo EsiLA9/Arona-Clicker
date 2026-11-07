@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createStoryNodeActionHost, executeStoryPresentationEffect, type StoryNodeActionHostOptions, type StoryNodeActionRegistry } from '../../src/arona-clicker/services/story/story-node-action-host';
+import { createStoryNodeActionHost, executeStoryPresentationEffect, formatStoryEffectReceipt, type StoryNodeActionHostOptions, type StoryNodeActionRegistry } from '../../src/arona-clicker/services/story/story-node-action-host';
 import type { StoryNodeSource } from '../../src/arona-clicker/contracts/runtime/story-node-playback';
 import type { StoryAction, StoryEntryRequest } from '../../src/data-services/contracts/story-node-actions';
 import type { ActiveStoryEntry, PassiveStoryEntry } from '../../src/data-services/contracts/story-entry';
@@ -10,6 +10,7 @@ import type { ItemDef } from '../../src/data-services/contracts/item';
 import type { CharacterData } from '../../src/data-services/contracts/character-data';
 import type { CharacterVariantDef } from '../../src/data-services/contracts/character-variant';
 import type { ColorGroupDef } from '../../src/data-services/contracts/color';
+import type { AreaMapDef } from '../../src/data-services/contracts/area-map';
 import type { ConditionGroup, Effect, GameEvent } from '../../src/engine/types';
 import type { PlayerState } from '../../src/arona-clicker/types/state';
 import type { StoryStartResult } from '../../src/arona-clicker/contracts/runtime/results';
@@ -18,6 +19,7 @@ import { extra } from '../../src/engine/extra';
 import { EventBus } from '../../src/engine/core/event-bus';
 import { EffectEngine } from '../../src/engine/effect/effect-engine';
 import { StateMutationService } from '../../src/arona-clicker/state/state-mutation-service';
+import { Registry } from '../../src/data-services/registry/registry';
 
 const source: StoryNodeSource = { entryId: 'entry:source', rootStoryId: 'story:source', owner: 'variant:owner', runId: 'run:source' };
 const globalSource: StoryNodeSource = { ...source, owner: null };
@@ -25,16 +27,13 @@ const emptyCondition: ConditionGroup = { type: 'AND', conditions: [] };
 
 function activeEntry(id: string, overrides: Partial<ActiveStoryEntry> = {}): ActiveStoryEntry {
   return {
-    id, storyId: `${id}:story`, type: 'active', availableInits: [], triggerCondition: emptyCondition,
-    ...overrides,
-  };
+    id, storyId: `${id}:story`, availableInits: [], triggerCondition: emptyCondition,
+    ...overrides, activation: { kind: 'active' as const } };
 }
 
 function passiveEntry(id: string, overrides: Partial<PassiveStoryEntry> = {}): PassiveStoryEntry {
   return {
-    id, storyId: `${id}:story`, type: 'passive', availableInits: [], triggerCondition: emptyCondition,
-    repeatable: true, weight: 1, ...overrides,
-  };
+    id, storyId: `${id}:story`, availableInits: [], triggerCondition: emptyCondition, ...overrides, activation: { kind: 'random' as const, weight: 1, repeatable: true } };
 }
 
 function makeRegistry(entries = [activeEntry('entry:target'), passiveEntry('entry:blocked', { blocksInteraction: true })]) {
@@ -47,6 +46,7 @@ function makeRegistry(entries = [activeEntry('entry:target'), passiveEntry('entr
     storyEntries, stories,
     inits: new Map([['init:test', { id: 'init:test' } as InitDef]]),
     areas: new Map([['area:test', { id: 'area:test', initId: 'init:test' } as AreaDef]]),
+    areaMaps: new Map(),
     spots: new Map([['spot:test', { id: 'spot:test' } as SpotDef]]),
     spotsOfInit: () => ['spot:test'],
     enhancements: new Map([['enh:test', { id: 'enh:test' } as EnhancementDef]]),
@@ -97,6 +97,34 @@ function harness(entries?: Array<ActiveStoryEntry | PassiveStoryEntry>) {
 }
 
 describe('StoryNodeActionHost', () => {
+  test('world-information receipts use safe text instead of serializing their internal key', () => {
+    const receipt = { effectIndex: 0, op: 'revealInformation', target: JSON.stringify({
+      entityKind: 'areaMapNode', mapId: 'map:hidden', nodeId: 'node:hidden', target: 'utility',
+    }), status: 'changed' as const };
+    expect(formatStoryEffectReceipt(receipt, new Registry())).toBe('得知地图节点用途信息');
+  });
+
+  test('preflights explicit information grants and collects map grants through the shared Effect path', () => {
+    const h = harness();
+    (h.options.registry.areas as Map<string, AreaDef>).set('area:test', {
+      id: 'area:test', initId: 'init:test', name: 'Test', description: '', defaultSpots: [],
+      reveal: { name: { mode: 'explicit' } },
+    });
+    (h.options.registry.areaMaps as Map<string, AreaMapDef>).set('map:test', {
+      id: 'map:test', name: 'Test map', reveal: { existence: { mode: 'explicit' } },
+      nodes: [{ id: 'node:test', position: { x: 0, y: 0 }, reveal: { utility: { mode: 'explicit' } } }], edges: [],
+    });
+    const target = { entityKind: 'areaMapNode', mapId: 'map:test', nodeId: 'node:test', target: 'utility' } as const;
+    const action: StoryAction = { kind: 'state', effects: [
+      { op: 'acquireAreaMap', mapId: 'map:test' },
+      { op: 'revealInformation', target },
+    ] };
+    expect(h.host.execute(action, source)).toEqual({ status: 'applied' });
+    expect(h.batches).toEqual([[{ op: 'acquireAreaMap', target: 'map:test', value: 0 }, { op: 'revealInformation', target: '', value: target }]]);
+    expect(h.host.execute({ kind: 'state', effects: [{ op: 'revealInformation', target: { entityKind: 'areaMap', entityId: 'map:test', target: 'name' } }] }, source))
+      .toEqual({ status: 'rejected', error: 'InformationTargetNotExplicit' });
+  });
+
   test('把14种状态op原样映射为一个EffectEngine批次', () => {
     const h = harness();
     const composite = extra.dict({ nested: extra.int(7) });

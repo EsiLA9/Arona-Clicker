@@ -141,7 +141,7 @@ describe('GameInstance (integration)', () => {
     expect(game.state.flags.welcome_choice).toBe('production');
     finishCurrentStory(game);
     expect(game.state.resources['base:resource:credit']).toBe(10);
-    expect(game.state.storyLog).toContainEqual({ type: 'active', storyId: 'base:story:schale_welcome', choiceIndex: 1 });
+    expect(game.state.storyLog).toContainEqual({ storyId: 'base:story:schale_welcome', choiceIndex: 1, type: 'active' });
     expect(game.story.startActiveStory('base:activestory:schale_welcome')).toMatchObject({ success: false, error: 'AlreadyCompleted' });
   });
 
@@ -280,7 +280,7 @@ describe('GameInstance (integration)', () => {
     game.state.spotLevels['base:spot:credit_printer'] = 3;
 
     const saveData = game.save();
-    expect(saveData.version).toBe('3.0.0');
+    expect(saveData.version).toBe('3.1.0');
     expect(saveData.playerState.resources['base:resource:credit']).toBe(500);
 
     // 加载到新实例
@@ -557,21 +557,16 @@ describe('GameInstance (integration)', () => {
   test('should reject travel to a locked area', () => {
     game.init([baseDatapack]);
     finishCurrentStory(game);
-    // 给资料室临时加一个永假 existence 门槛，模拟锁定区域（结束需还原，避免污染共享数据）
+    // 给资料室临时加一个永假进入条件，模拟锁定区域（结束需还原，避免污染共享数据）
     const area = game.registry.areas.get('base:area:schale_library');
-    const original = (area as { revealTriggers?: unknown } | undefined)?.revealTriggers;
-    (area as { revealTriggers?: unknown }).revealTriggers = [
-      { reveal: 'existence', condition: {
-        type: 'AND',
-        conditions: [{ target: 'resource', key: 'base:resource:credit', comparator: '>=', value: 99999 }],
-      } },
-    ];
+    const original = area?.enterCondition;
+    if (area) area.enterCondition = { type: 'AND', conditions: [{ target: 'resource', key: 'base:resource:credit', comparator: '>=', value: 99999 }] };
 
     // 资料室是主厅的相邻区域，但被锁定 → 拒绝移动
     expect(game.travelToArea('base:area:schale_library')).toMatchObject({ success: false, error: 'Locked' });
     expect(game.state.currentAreaId).toBe('base:area:schale_main');
 
-    (area as { revealTriggers?: unknown }).revealTriggers = original;
+    if (area) area.enterCondition = original;
   });
 
   test('should purchase an enhancement and apply production multiplier', () => {
@@ -736,10 +731,8 @@ describe('GameInstance (integration)', () => {
       activeStories: [{
         id: 'test:story:click_flow',
         storyId: 'test:story:click_flow',
-        type: 'active',
         availableInits: [],
-        triggerCondition: and(),
-      }],
+        triggerCondition: and(), activation: { kind: 'active' as const } }],
       passiveStories: [],
       stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_flow', name: 'click flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '请按下按钮。', speaker: '阿罗娜' } },
@@ -783,10 +776,8 @@ describe('GameInstance (integration)', () => {
       activeStories: [{
         id: 'test:story:auto_flow',
         storyId: 'test:story:auto_flow',
-        type: 'active',
         availableInits: [],
-        triggerCondition: and(),
-      }],
+        triggerCondition: and(), activation: { kind: 'active' as const } }],
       passiveStories: [],
       stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:auto_flow', name: 'auto flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p4-confirm': { advance: 'input' }, 'p5': { advance: 'input' }, 'p5-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '过渡一', speaker: '阿罗娜' } },
@@ -840,10 +831,8 @@ describe('GameInstance (integration)', () => {
       activeStories: [{
         id: 'test:story:plain_flow',
         storyId: 'test:story:plain_flow',
-        type: 'active',
         availableInits: [],
-        triggerCondition: and(),
-      }],
+        triggerCondition: and(), activation: { kind: 'active' as const } }],
       passiveStories: [],
       stories: [{ startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:plain_flow', name: 'plain flow', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '没有后续 click 页的旁白' } },
@@ -1194,16 +1183,23 @@ describe('Extra 引擎消费（M4）', () => {
       {
         id: 'test:story:story_a',
         storyId: 'test:story:story_a',
-        type: 'active',
         availableInits: ['test:init:init_a'],
-        triggerCondition: and(cond('extra', 'meta/constant', '==', 1000)), // 恒真（常量表兜底）
-      },
+        triggerCondition: and(cond('extra', 'meta/constant', '==', 1000)), activation: { kind: 'active' as const } },
     ],
     passiveStories: [],
     stories: [
       { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:story_a', name: 'Extra Story', stages: { 'p1': { advance: 'input' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: 'page0' } },
-  { id: 'p1-choice', type: 'click', stageId: 'p1', interaction: { kind: 'choice', sharedActions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 2 }, { op: 'addExtra', path: 'meta/power', amount: Expr.val(value('data', { path: 'meta/kills' })) }] }], options: [{ id: 'option1', text: 'A', condition: and(cond('extra', 'meta/kills', '>=', 5)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 3 }] }] } }, { id: 'option2', text: 'B', condition: and(cond('extra', 'meta/kills', '>=', 100)), result: { actions: [{ kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 99 }] }] } }] } },
+  { id: 'p1-choice', type: 'click', stageId: 'p1', interaction: { kind: 'choice', options: [
+    { id: 'option1', text: 'A', showWhen: and(cond('extra', 'meta/kills', '>=', 5)), marks: ['extra-choice', 'extra-choice-a'] },
+    { id: 'option2', text: 'B', showWhen: and(cond('extra', 'meta/kills', '>=', 100)), marks: ['extra-choice', 'extra-choice-b'] },
+  ] } },
+  { id: 'p1-common-op', type: 'operation', requiresFlag: 'extra-choice', action: { kind: 'state', effects: [
+    { op: 'addExtra', path: 'meta/kills', amount: 2 },
+    { op: 'addExtra', path: 'meta/power', amount: Expr.val(value('data', { path: 'meta/kills' })) },
+  ] } },
+  { id: 'p1-option1-op', type: 'operation', requiresFlag: 'extra-choice-a', action: { kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 3 }] } },
+  { id: 'p1-option2-op', type: 'operation', requiresFlag: 'extra-choice-b', action: { kind: 'state', effects: [{ op: 'addExtra', path: 'meta/kills', amount: 99 }] } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: 'end' } },
   { id: 'p2-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'removeExtra', path: 'meta/power' }] } },
 ] },
@@ -1229,9 +1225,10 @@ describe('Extra 引擎消费（M4）', () => {
     settleStoryPresentation(game); // body delivery precedes the choice input
     // 必须显式选择
     expect(game.story.advanceStory()).toMatchObject({ success: false, error: 'ChoiceRequired' });
-    // 不满足 extra 条件的选项被拒（kills=5 < 100）
+    expect(game.story.getCurrentStoryView()?.availableChoiceIndexes).toEqual([0]);
+    // 不满足出现条件的选项不可提交（kills=5 < 100）。
     expect(game.story.advanceStory(1)).toMatchObject({ success: false, error: 'ChoiceConditionNotMet' });
-    // 满足 extra 条件的选项推进：页面 effects（kills 5→7、power 0+5）+ 选项 effects（kills 7→10）
+    // 选择后先执行共同 Operation（kills 5→7、power 0+5），再按顺序执行分支 Operation。
     expect(game.story.advanceStory(0)).toMatchObject({ success: true });
     expect(game.getExtra('meta/power')).toEqual(extra.int(5));
 
@@ -1372,7 +1369,7 @@ function withStoryNodes(storyId: string, nodes: StoryNode[]): Datapack {
     stories: [...baseDatapack.stories, { id: storyId, name: storyId, startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { input: { advance: 'input' }, response: { advance: 'auto' } }, nodes }],
     passiveStories: [
       ...baseDatapack.passiveStories,
-      { id: storyId, storyId, type: 'passive', triggerCondition: and(), repeatable: true, weight: 1, availableInits: [] },
+      { id: storyId, storyId, triggerCondition: and(), availableInits: [], activation: { kind: 'random' as const, weight: 1, repeatable: true } },
     ],
   };
 }

@@ -31,6 +31,7 @@ function harness() {
     storyEntries: new Map<string, StoryEntryDef>(), stories: new Map<string, StoryDef>(),
     inits: new Map([['init:one', { id: 'init:one' } as InitDef], ['init:two', { id: 'init:two' } as InitDef]]),
     areas: new Map([['area:test', { id: 'area:test', initId: 'init:one', presentation: areaPresentation } as AreaDef]]),
+    areaMaps: new Map(),
     spots: new Map([
       ['spot:one', { id: 'spot:one', global: false } as SpotDef],
       ['spot:two', { id: 'spot:two', global: false } as SpotDef],
@@ -107,15 +108,17 @@ describe('StoryNodeActionHost execute admission', () => {
       return h.batches.length;
     });
     const document: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:sequence', name: 'Sequence', stages: { ask: { advance: 'input' } }, nodes: [
-      { id: 'ask', type: 'click', stageId: 'ask', interaction: { kind: 'button', text: '获得并加好感', result: { actions: [
-        { kind: 'state', effects: [{ op: 'grantCharacter', variantId: 'variant:test' }] },
-        { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'variant:test', amount: 2 }] },
-      ] } } },
+      { id: 'ask', type: 'click', stageId: 'ask', interaction: { kind: 'button', text: '获得并加好感' } },
+  { id: "ask-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'grantCharacter', variantId: 'variant:test' }] } },
+  { id: "ask-effect-2", type: 'operation', action: { kind: 'state', effects: [{ op: 'addAffectionExp', variantId: 'variant:test', amount: 2 }] } },
     ] };
     const player = new StoryNodePlayer(new Map([[document.id, document]]), { ...h.host, evaluate: () => true, random: () => 0 });
     const started = player.start(document.id, { entryId: ownerSource.entryId, owner: ownerSource.owner });
     if (started.view.status !== 'input') throw new Error('Expected input');
-    expect(player.submit(started.view.token)).toMatchObject({ ok: true, view: { status: 'completed' } });
+    let current = player.submit(started.view.token);
+    expect(current).toMatchObject({ok:true,view:{status:'operation',node:{id:'ask-effect-1'}}});
+    while(current.view.status==='operation') current=player.ackDelivery(current.view.token);
+    expect(current).toMatchObject({ ok: true, view: { status: 'completed' } });
     expect(h.batches.map(batch => batch.map(effect => effect.op))).toEqual([['grantCharacter'], ['addAffectionExp']]);
   });
 

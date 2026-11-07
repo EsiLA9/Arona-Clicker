@@ -1,0 +1,3795 @@
+{
+  "inits": [
+    {
+      "id": "base:init:schale_office",
+      "name": "夏莱办公室",
+      "description": "一切故事的起点。作为 Schale 的老师，从这间办公室开始，与学生们一起书写日常。适合新玩家建立第一座经营阵地。",
+      "defaultAreas": [
+        "base:area:schale_main"
+      ],
+      "startStoryId": "base:activestory:schale_welcome",
+      "worldTilt": "0.999",
+      "triggers": [
+        {
+          "id": "base:trigger:schale_entered",
+          "on": {
+            "kind": "init",
+            "initId": "base:init:schale_office"
+          },
+          "effects": [
+            {
+              "op": "setFlag",
+              "target": "schale_entered",
+              "value": "1"
+            }
+          ],
+          "once": true
+        },
+        {
+          "id": "base:trigger:schale_first_upgrade",
+          "on": {
+            "kind": "spotLevel"
+          },
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "resource",
+                "key": "base:resource:credit",
+                "comparator": ">=",
+                "value": 100
+              }
+            ]
+          },
+          "effects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 10
+            }
+          ],
+          "once": true
+        }
+      ],
+      "theme": {
+        "palette": [
+          "#3b82f6",
+          "#93c5fd"
+        ],
+        "tokens": {
+          "primary": "#3b82f6",
+          "bg": "#eff6ff",
+          "bgAlt": "#93c5fd",
+          "text": "#102a56",
+          "border": "#3b82f6",
+          "accent": "#93c5fd"
+        },
+        "background": [
+          {
+            "id": "init-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #eff6ff 0%, #93c5fd 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "backgroundVariants": [
+          {
+            "id": "new",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eff6ff 0%, #93c5fd 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "active",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eff6ff 0%, #3b82f6 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "advanced",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "completed",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #3b82f6 0%, #93c5fd 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "warning",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #93c5fd 0%, #eff6ff 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b82f6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #3b82f6, #93c5fd)",
+                  "opacity": 0.94,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#93c5fd",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header-active",
+                      "kind": "solid",
+                      "value": "#93c5fd",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "centerPanel.tab",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b82f6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-tab",
+                  "kind": "solid",
+                  "value": "#eff6ff",
+                  "opacity": 0.86,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "init-tab-active",
+                      "kind": "solid",
+                      "value": "#3b82f6",
+                      "opacity": 0.92,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "leftPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b82f6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "leftPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eff6ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b82f6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "centerPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eff6ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b82f6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "rightPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eff6ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "card.action",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#93c5fd",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-action",
+                  "kind": "solid",
+                  "value": "#3b82f6",
+                  "opacity": 0.9,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "disabled": {
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "opacity": 0.5
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action-disabled",
+                      "kind": "solid",
+                      "value": "#eff6ff",
+                      "opacity": 0.46,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "夏莱办公室",
+          "description": "一切故事的起点。作为 Schale 的老师，从这间办公室开始，与学生们一起书写日常。适合新玩家建立第一座经营阵地。",
+          "theme": {
+            "palette": [
+              "#3b82f6",
+              "#93c5fd"
+            ],
+            "tokens": {
+              "primary": "#3b82f6",
+              "bg": "#eff6ff",
+              "bgAlt": "#93c5fd",
+              "text": "#102a56",
+              "border": "#3b82f6",
+              "accent": "#93c5fd"
+            },
+            "background": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eff6ff 0%, #93c5fd 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "backgroundVariants": [
+              {
+                "id": "new",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #eff6ff 0%, #93c5fd 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "active",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #eff6ff 0%, #3b82f6 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "advanced",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #93c5fd 0%, #3b82f6 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "completed",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #3b82f6 0%, #93c5fd 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "warning",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #93c5fd 0%, #eff6ff 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #3b82f6, #93c5fd)",
+                      "opacity": 0.94,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#93c5fd",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "init-header-active",
+                          "kind": "solid",
+                          "value": "#93c5fd",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "centerPanel.tab",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-tab",
+                      "kind": "solid",
+                      "value": "#eff6ff",
+                      "opacity": 0.86,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "init-tab-active",
+                          "kind": "solid",
+                          "value": "#3b82f6",
+                          "opacity": 0.92,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "leftPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "leftPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eff6ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "centerPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eff6ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b82f6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "rightPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eff6ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "card.action",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#93c5fd",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action",
+                      "kind": "solid",
+                      "value": "#3b82f6",
+                      "opacity": 0.9,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "disabled": {
+                      "decoration": {
+                        "color": "#3b82f6",
+                        "opacity": 0.5
+                      },
+                      "layers": [
+                        {
+                          "id": "init-action-disabled",
+                          "kind": "solid",
+                          "value": "#eff6ff",
+                          "opacity": 0.46,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "base:init:millennium",
+      "name": "千禧年学院",
+      "description": "科技与逻辑的学府。以高效率生产闻名，可解锁工程师长评、自动化流水线等高精尖 Spot。适合追求极致产能的玩家。",
+      "defaultAreas": [
+        "base:area:millennium_lab"
+      ],
+      "worldTilt": "0.985",
+      "purchaseCost": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 20
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 50
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 300
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 300
+              }
+            ]
+          }
+        }
+      ],
+      "theme": {
+        "palette": [
+          "#4f46e5",
+          "#22d3ee"
+        ],
+        "tokens": {
+          "primary": "#4f46e5",
+          "bg": "#eef2ff",
+          "bgAlt": "#22d3ee",
+          "text": "#172554",
+          "border": "#4f46e5",
+          "accent": "#22d3ee"
+        },
+        "background": [
+          {
+            "id": "init-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #eef2ff 0%, #22d3ee 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "backgroundVariants": [
+          {
+            "id": "new",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eef2ff 0%, #22d3ee 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "active",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eef2ff 0%, #4f46e5 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "advanced",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #22d3ee 0%, #4f46e5 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "completed",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #4f46e5 0%, #22d3ee 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "warning",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #22d3ee 0%, #eef2ff 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#4f46e5",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #4f46e5, #22d3ee)",
+                  "opacity": 0.94,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#22d3ee",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header-active",
+                      "kind": "solid",
+                      "value": "#22d3ee",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "centerPanel.tab",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#4f46e5",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-tab",
+                  "kind": "solid",
+                  "value": "#eef2ff",
+                  "opacity": 0.86,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "init-tab-active",
+                      "kind": "solid",
+                      "value": "#4f46e5",
+                      "opacity": 0.92,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "leftPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#4f46e5",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "leftPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eef2ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#4f46e5",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "centerPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eef2ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#4f46e5",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "rightPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#eef2ff",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "card.action",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#22d3ee",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-action",
+                  "kind": "solid",
+                  "value": "#4f46e5",
+                  "opacity": 0.9,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "disabled": {
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "opacity": 0.5
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action-disabled",
+                      "kind": "solid",
+                      "value": "#eef2ff",
+                      "opacity": 0.46,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "千禧年学院",
+          "description": "科技与逻辑的学府。以高效率生产闻名，可解锁工程师长评、自动化流水线等高精尖 Spot。适合追求极致产能的玩家。",
+          "theme": {
+            "palette": [
+              "#4f46e5",
+              "#22d3ee"
+            ],
+            "tokens": {
+              "primary": "#4f46e5",
+              "bg": "#eef2ff",
+              "bgAlt": "#22d3ee",
+              "text": "#172554",
+              "border": "#4f46e5",
+              "accent": "#22d3ee"
+            },
+            "background": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #eef2ff 0%, #22d3ee 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "backgroundVariants": [
+              {
+                "id": "new",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #eef2ff 0%, #22d3ee 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "active",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #eef2ff 0%, #4f46e5 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "advanced",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #22d3ee 0%, #4f46e5 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "completed",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #4f46e5 0%, #22d3ee 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "warning",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #22d3ee 0%, #eef2ff 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #4f46e5, #22d3ee)",
+                      "opacity": 0.94,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#22d3ee",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "init-header-active",
+                          "kind": "solid",
+                          "value": "#22d3ee",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "centerPanel.tab",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-tab",
+                      "kind": "solid",
+                      "value": "#eef2ff",
+                      "opacity": 0.86,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "init-tab-active",
+                          "kind": "solid",
+                          "value": "#4f46e5",
+                          "opacity": 0.92,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "leftPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "leftPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eef2ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "centerPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eef2ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#4f46e5",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "rightPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#eef2ff",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "card.action",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#22d3ee",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action",
+                      "kind": "solid",
+                      "value": "#4f46e5",
+                      "opacity": 0.9,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "disabled": {
+                      "decoration": {
+                        "color": "#4f46e5",
+                        "opacity": 0.5
+                      },
+                      "layers": [
+                        {
+                          "id": "init-action-disabled",
+                          "kind": "solid",
+                          "value": "#eef2ff",
+                          "opacity": 0.46,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "base:init:abydos",
+      "name": "阿比多斯学院",
+      "description": "沙漠中的学园，以高产出 Spot 著称但维护成本不菲。可解锁对策委员会专属设施，产出金币与稀有神名文字。适合已有经营经验的玩家。",
+      "defaultAreas": [
+        "base:area:abydos_campus"
+      ],
+      "worldTilt": "0.96",
+      "purchaseCost": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 40
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 800
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 800
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 1200
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 1200
+              }
+            ]
+          }
+        }
+      ],
+      "theme": {
+        "palette": [
+          "#d97706",
+          "#facc15"
+        ],
+        "tokens": {
+          "primary": "#d97706",
+          "bg": "#fffbeb",
+          "bgAlt": "#facc15",
+          "text": "#422006",
+          "border": "#d97706",
+          "accent": "#facc15"
+        },
+        "background": [
+          {
+            "id": "init-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #fffbeb 0%, #facc15 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "backgroundVariants": [
+          {
+            "id": "new",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fffbeb 0%, #facc15 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "active",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fffbeb 0%, #d97706 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "advanced",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #facc15 0%, #d97706 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "completed",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #d97706 0%, #facc15 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "warning",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #facc15 0%, #fffbeb 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#d97706",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #d97706, #facc15)",
+                  "opacity": 0.94,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#facc15",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header-active",
+                      "kind": "solid",
+                      "value": "#facc15",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "centerPanel.tab",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#d97706",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-tab",
+                  "kind": "solid",
+                  "value": "#fffbeb",
+                  "opacity": 0.86,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "init-tab-active",
+                      "kind": "solid",
+                      "value": "#d97706",
+                      "opacity": 0.92,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "leftPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#d97706",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "leftPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fffbeb",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#d97706",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "centerPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fffbeb",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#d97706",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "rightPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fffbeb",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "card.action",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#facc15",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-action",
+                  "kind": "solid",
+                  "value": "#d97706",
+                  "opacity": 0.9,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "disabled": {
+                  "decoration": {
+                    "color": "#d97706",
+                    "opacity": 0.5
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action-disabled",
+                      "kind": "solid",
+                      "value": "#fffbeb",
+                      "opacity": 0.46,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "阿比多斯学院",
+          "description": "沙漠中的学园，以高产出 Spot 著称但维护成本不菲。可解锁对策委员会专属设施，产出金币与稀有神名文字。适合已有经营经验的玩家。",
+          "theme": {
+            "palette": [
+              "#d97706",
+              "#facc15"
+            ],
+            "tokens": {
+              "primary": "#d97706",
+              "bg": "#fffbeb",
+              "bgAlt": "#facc15",
+              "text": "#422006",
+              "border": "#d97706",
+              "accent": "#facc15"
+            },
+            "background": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fffbeb 0%, #facc15 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "backgroundVariants": [
+              {
+                "id": "new",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fffbeb 0%, #facc15 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "active",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fffbeb 0%, #d97706 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "advanced",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #facc15 0%, #d97706 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "completed",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #d97706 0%, #facc15 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "warning",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #facc15 0%, #fffbeb 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#d97706",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #d97706, #facc15)",
+                      "opacity": 0.94,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#facc15",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "init-header-active",
+                          "kind": "solid",
+                          "value": "#facc15",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "centerPanel.tab",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#d97706",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-tab",
+                      "kind": "solid",
+                      "value": "#fffbeb",
+                      "opacity": 0.86,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "init-tab-active",
+                          "kind": "solid",
+                          "value": "#d97706",
+                          "opacity": 0.92,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "leftPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#d97706",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "leftPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fffbeb",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#d97706",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "centerPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fffbeb",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#d97706",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "rightPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fffbeb",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "card.action",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#facc15",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action",
+                      "kind": "solid",
+                      "value": "#d97706",
+                      "opacity": 0.9,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "disabled": {
+                      "decoration": {
+                        "color": "#d97706",
+                        "opacity": 0.5
+                      },
+                      "layers": [
+                        {
+                          "id": "init-action-disabled",
+                          "kind": "solid",
+                          "value": "#fffbeb",
+                          "opacity": 0.46,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "base:init:trinity",
+      "name": "崔妮蒂学院",
+      "description": "悠久传统的贵族学园，政治与社交的交汇点。可解锁修女会、正义实现委员会等势力 Spot，提供强化 buff 而非直接产出。适合寻求全局增幅的玩家。",
+      "defaultAreas": [
+        "base:area:trinity_cathedral"
+      ],
+      "worldTilt": "0.9725",
+      "purchaseCost": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 80
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "stat",
+                    "key": "$GlobalUnlockedInits",
+                    "comparator": ">=",
+                    "value": 2
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "stat",
+                    "key": "$GlobalProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 2000
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 1000
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 1500
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 1500
+              }
+            ]
+          }
+        }
+      ],
+      "theme": {
+        "palette": [
+          "#be185d",
+          "#f9a8d4"
+        ],
+        "tokens": {
+          "primary": "#be185d",
+          "bg": "#fff1f2",
+          "bgAlt": "#f9a8d4",
+          "text": "#4a1028",
+          "border": "#be185d",
+          "accent": "#f9a8d4"
+        },
+        "background": [
+          {
+            "id": "init-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #fff1f2 0%, #f9a8d4 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "backgroundVariants": [
+          {
+            "id": "new",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff1f2 0%, #f9a8d4 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "active",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff1f2 0%, #be185d 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "advanced",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #f9a8d4 0%, #be185d 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "completed",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #be185d 0%, #f9a8d4 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "warning",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #f9a8d4 0%, #fff1f2 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#be185d",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #be185d, #f9a8d4)",
+                  "opacity": 0.94,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#f9a8d4",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header-active",
+                      "kind": "solid",
+                      "value": "#f9a8d4",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "centerPanel.tab",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#be185d",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-tab",
+                  "kind": "solid",
+                  "value": "#fff1f2",
+                  "opacity": 0.86,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "init-tab-active",
+                      "kind": "solid",
+                      "value": "#be185d",
+                      "opacity": 0.92,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "leftPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#be185d",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "leftPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff1f2",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#be185d",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "centerPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff1f2",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.tabs",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#be185d",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "rightPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff1f2",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "card.action",
+              "shape": "rounded-rectangle",
+              "decoration": {
+                "color": "#f9a8d4",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-action",
+                  "kind": "solid",
+                  "value": "#be185d",
+                  "opacity": 0.9,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "disabled": {
+                  "decoration": {
+                    "color": "#be185d",
+                    "opacity": 0.5
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action-disabled",
+                      "kind": "solid",
+                      "value": "#fff1f2",
+                      "opacity": 0.46,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "崔妮蒂学院",
+          "description": "悠久传统的贵族学园，政治与社交的交汇点。可解锁修女会、正义实现委员会等势力 Spot，提供强化 buff 而非直接产出。适合寻求全局增幅的玩家。",
+          "theme": {
+            "palette": [
+              "#be185d",
+              "#f9a8d4"
+            ],
+            "tokens": {
+              "primary": "#be185d",
+              "bg": "#fff1f2",
+              "bgAlt": "#f9a8d4",
+              "text": "#4a1028",
+              "border": "#be185d",
+              "accent": "#f9a8d4"
+            },
+            "background": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff1f2 0%, #f9a8d4 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "backgroundVariants": [
+              {
+                "id": "new",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fff1f2 0%, #f9a8d4 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "active",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fff1f2 0%, #be185d 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "advanced",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #f9a8d4 0%, #be185d 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "completed",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #be185d 0%, #f9a8d4 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "warning",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #f9a8d4 0%, #fff1f2 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#be185d",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #be185d, #f9a8d4)",
+                      "opacity": 0.94,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#f9a8d4",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "init-header-active",
+                          "kind": "solid",
+                          "value": "#f9a8d4",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "centerPanel.tab",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#be185d",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-tab",
+                      "kind": "solid",
+                      "value": "#fff1f2",
+                      "opacity": 0.86,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "init-tab-active",
+                          "kind": "solid",
+                          "value": "#be185d",
+                          "opacity": 0.92,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "leftPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#be185d",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "leftPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff1f2",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#be185d",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "centerPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff1f2",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.tabs",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#be185d",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "rightPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff1f2",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "card.action",
+                  "shape": "rounded-rectangle",
+                  "decoration": {
+                    "color": "#f9a8d4",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action",
+                      "kind": "solid",
+                      "value": "#be185d",
+                      "opacity": 0.9,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "disabled": {
+                      "decoration": {
+                        "color": "#be185d",
+                        "opacity": 0.5
+                      },
+                      "layers": [
+                        {
+                          "id": "init-action-disabled",
+                          "kind": "solid",
+                          "value": "#fff1f2",
+                          "opacity": 0.46,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "base:init:gehenna",
+      "name": "盖赫纳学园",
+      "description": "自由奔放的混沌学园，以高风险高回报的 Spot 著称。可解锁美食研究会、风纪委员会等设施，产出青辉石与大量信用点，但伴随随机事件。适合追求刺激的资深玩家。",
+      "defaultAreas": [
+        "base:area:gehenna_council"
+      ],
+      "worldTilt": "0.9413",
+      "worldTiltAlias": "观测受限（伪装值）",
+      "purchaseCost": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 150
+        }
+      ],
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "stat",
+                    "key": "$GlobalUnlockedInits",
+                    "comparator": ">=",
+                    "value": 3
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "stat",
+                    "key": "$GlobalProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 4000
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 2000
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "name",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 2500
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "condition",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 3000
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "utility",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "stat",
+                "key": "$GlobalProducedAmount base:resource:credit",
+                "comparator": ">=",
+                "value": 3000
+              }
+            ]
+          }
+        }
+      ],
+      "theme": {
+        "palette": [
+          "#dc2626",
+          "#fb923c"
+        ],
+        "tokens": {
+          "primary": "#dc2626",
+          "bg": "#fff7ed",
+          "bgAlt": "#fb923c",
+          "text": "#431407",
+          "border": "#dc2626",
+          "accent": "#fb923c"
+        },
+        "background": [
+          {
+            "id": "init-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #fff7ed 0%, #fb923c 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "backgroundVariants": [
+          {
+            "id": "new",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff7ed 0%, #fb923c 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "active",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff7ed 0%, #dc2626 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "advanced",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fb923c 0%, #dc2626 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "completed",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #dc2626 0%, #fb923c 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          },
+          {
+            "id": "warning",
+            "layers": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fb923c 0%, #fff7ed 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#dc2626",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #dc2626, #fb923c)",
+                  "opacity": 0.94,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#fb923c",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header-active",
+                      "kind": "solid",
+                      "value": "#fb923c",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "centerPanel.tab",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#dc2626",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-tab",
+                  "kind": "solid",
+                  "value": "#fff7ed",
+                  "opacity": 0.86,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "init-tab-active",
+                      "kind": "solid",
+                      "value": "#dc2626",
+                      "opacity": 0.92,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "leftPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#dc2626",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "leftPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff7ed",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "centerPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#dc2626",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "centerPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff7ed",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "rightPanel.tabs",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#dc2626",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.62,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "rightPanel-tabs-background",
+                  "kind": "solid",
+                  "value": "#fff7ed",
+                  "opacity": 0.42,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ]
+            },
+            {
+              "id": "card.action",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#fb923c",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.82,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "init-action",
+                  "kind": "solid",
+                  "value": "#dc2626",
+                  "opacity": 0.9,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "disabled": {
+                  "decoration": {
+                    "color": "#dc2626",
+                    "opacity": 0.5
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action-disabled",
+                      "kind": "solid",
+                      "value": "#fff7ed",
+                      "opacity": 0.46,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "盖赫纳学园",
+          "description": "自由奔放的混沌学园，以高风险高回报的 Spot 著称。可解锁美食研究会、风纪委员会等设施，产出青辉石与大量信用点，但伴随随机事件。适合追求刺激的资深玩家。",
+          "theme": {
+            "palette": [
+              "#dc2626",
+              "#fb923c"
+            ],
+            "tokens": {
+              "primary": "#dc2626",
+              "bg": "#fff7ed",
+              "bgAlt": "#fb923c",
+              "text": "#431407",
+              "border": "#dc2626",
+              "accent": "#fb923c"
+            },
+            "background": [
+              {
+                "id": "init-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #fff7ed 0%, #fb923c 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "backgroundVariants": [
+              {
+                "id": "new",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fff7ed 0%, #fb923c 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "active",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fff7ed 0%, #dc2626 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "advanced",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fb923c 0%, #dc2626 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "completed",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #dc2626 0%, #fb923c 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              },
+              {
+                "id": "warning",
+                "layers": [
+                  {
+                    "id": "init-atmosphere",
+                    "kind": "gradient",
+                    "value": "linear-gradient(135deg, #fb923c 0%, #fff7ed 100%)",
+                    "opacity": 1,
+                    "position": "center",
+                    "size": "cover",
+                    "repeat": "no-repeat",
+                    "blendMode": "normal",
+                    "attachment": "fixed"
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#dc2626",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #dc2626, #fb923c)",
+                      "opacity": 0.94,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#fb923c",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "init-header-active",
+                          "kind": "solid",
+                          "value": "#fb923c",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "centerPanel.tab",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#dc2626",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-tab",
+                      "kind": "solid",
+                      "value": "#fff7ed",
+                      "opacity": 0.86,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "init-tab-active",
+                          "kind": "solid",
+                          "value": "#dc2626",
+                          "opacity": 0.92,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "leftPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#dc2626",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "leftPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff7ed",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "centerPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#dc2626",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "centerPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff7ed",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "rightPanel.tabs",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#dc2626",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.62,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "rightPanel-tabs-background",
+                      "kind": "solid",
+                      "value": "#fff7ed",
+                      "opacity": 0.42,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                },
+                {
+                  "id": "card.action",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#fb923c",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.82,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "init-action",
+                      "kind": "solid",
+                      "value": "#dc2626",
+                      "opacity": 0.9,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "disabled": {
+                      "decoration": {
+                        "color": "#dc2626",
+                        "opacity": 0.5
+                      },
+                      "layers": [
+                        {
+                          "id": "init-action-disabled",
+                          "kind": "solid",
+                          "value": "#fff7ed",
+                          "opacity": 0.46,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "base:init:theme_showcase",
+      "name": "主题系统展示 Init",
+      "description": "临时主题实验空间：进入后自动开放主题编辑器，并准备一组可复用的 Spot、Enhancement、角色与被动剧情展示内容。",
+      "defaultAreas": [
+        "base:area:theme_showcase"
+      ],
+      "theme": {
+        "palette": [
+          "#2563eb",
+          "#06b6d4",
+          "#8b5cf6"
+        ],
+        "tokens": {
+          "primary": "#2563eb",
+          "bg": "#dbeafe",
+          "bgAlt": "#ede9fe",
+          "panel": "#ffffff",
+          "text": "#172554",
+          "border": "#93c5fd",
+          "accent": "#8b5cf6"
+        },
+        "background": [
+          {
+            "id": "theme-showcase-atmosphere",
+            "kind": "gradient",
+            "value": "linear-gradient(135deg, #dbeafe 0%, #cffafe 44%, #ede9fe 100%)",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          },
+          {
+            "id": "theme-showcase-glow",
+            "kind": "gradient",
+            "value": "radial-gradient(circle at 78% 18%, #ffffff 0%, transparent 46%)",
+            "opacity": 0.72,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ],
+        "presentation": {
+          "hosts": [
+            {
+              "id": "header.button",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#8b5cf6",
+                "width": 1,
+                "inset": 0,
+                "opacity": 0.84,
+                "style": "solid"
+              },
+              "layers": [
+                {
+                  "id": "theme-showcase-header",
+                  "kind": "gradient",
+                  "value": "linear-gradient(135deg, #2563eb, #8b5cf6)",
+                  "opacity": 0.96,
+                  "position": "center",
+                  "size": "cover",
+                  "repeat": "no-repeat",
+                  "blendMode": "normal",
+                  "attachment": "local"
+                }
+              ],
+              "states": {
+                "active": {
+                  "decoration": {
+                    "color": "#06b6d4",
+                    "width": 2
+                  },
+                  "layers": [
+                    {
+                      "id": "theme-showcase-header-active",
+                      "kind": "solid",
+                      "value": "#06b6d4",
+                      "opacity": 0.98,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "enterEffects": [
+        {
+          "first": true,
+          "effects": [
+            {
+              "op": "addEnhancement",
+              "target": "",
+              "value": "base:enhancement:theme_showcase_a"
+            },
+            {
+              "op": "addEnhancement",
+              "target": "",
+              "value": "base:enhancement:theme_showcase_b"
+            },
+            {
+              "op": "addEnhancement",
+              "target": "",
+              "value": "base:enhancement:user-theme-editor"
+            },
+            {
+              "op": "grantCharacter",
+              "target": "Arona",
+              "value": 1
+            },
+            {
+              "op": "grantCharacter",
+              "target": "Hoshino",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "主题系统展示 Init",
+          "description": "临时主题实验空间：进入后自动开放主题编辑器，并准备一组可复用的 Spot、Enhancement、角色与被动剧情展示内容。",
+          "theme": {
+            "palette": [
+              "#2563eb",
+              "#06b6d4",
+              "#8b5cf6"
+            ],
+            "tokens": {
+              "primary": "#2563eb",
+              "bg": "#dbeafe",
+              "bgAlt": "#ede9fe",
+              "panel": "#ffffff",
+              "text": "#172554",
+              "border": "#93c5fd",
+              "accent": "#8b5cf6"
+            },
+            "background": [
+              {
+                "id": "theme-showcase-atmosphere",
+                "kind": "gradient",
+                "value": "linear-gradient(135deg, #dbeafe 0%, #cffafe 44%, #ede9fe 100%)",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              },
+              {
+                "id": "theme-showcase-glow",
+                "kind": "gradient",
+                "value": "radial-gradient(circle at 78% 18%, #ffffff 0%, transparent 46%)",
+                "opacity": 0.72,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ],
+            "presentation": {
+              "hosts": [
+                {
+                  "id": "header.button",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#8b5cf6",
+                    "width": 1,
+                    "inset": 0,
+                    "opacity": 0.84,
+                    "style": "solid"
+                  },
+                  "layers": [
+                    {
+                      "id": "theme-showcase-header",
+                      "kind": "gradient",
+                      "value": "linear-gradient(135deg, #2563eb, #8b5cf6)",
+                      "opacity": 0.96,
+                      "position": "center",
+                      "size": "cover",
+                      "repeat": "no-repeat",
+                      "blendMode": "normal",
+                      "attachment": "local"
+                    }
+                  ],
+                  "states": {
+                    "active": {
+                      "decoration": {
+                        "color": "#06b6d4",
+                        "width": 2
+                      },
+                      "layers": [
+                        {
+                          "id": "theme-showcase-header-active",
+                          "kind": "solid",
+                          "value": "#06b6d4",
+                          "opacity": 0.98,
+                          "position": "center",
+                          "size": "cover",
+                          "repeat": "no-repeat",
+                          "blendMode": "normal",
+                          "attachment": "local"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

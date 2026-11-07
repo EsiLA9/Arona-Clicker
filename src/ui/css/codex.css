@@ -307,24 +307,48 @@
 /* 演出专用文本覆盖层（showChatText）：以聊天窗格百分比坐标定位（0,0=左下，1,1=右上） */
 .chat-text-overlay {
    position: absolute;
-   max-width: 70%;
+   /* Leave enough room for readable wrapping at the outermost anchors. */
+   --overlay-readable-width: min(140px, 70%);
+   --overlay-left-room: 0px;
+   --overlay-right-room: var(--overlay-readable-width);
+   --overlay-anchor: clamp(var(--overlay-left-room), calc(var(--story-overlay-base-x, 0%) + var(--story-overlay-x)), calc(100% - var(--overlay-right-room)));
+   --overlay-available: calc(100% - var(--overlay-anchor));
+   left: var(--overlay-anchor);
+   bottom: clamp(0px, calc(var(--story-overlay-base-y, 0%) + var(--story-overlay-y)), 100%);
+   width: max-content;
+   max-width: min(70%, var(--overlay-available));
+   overflow-wrap: anywhere;
    pointer-events: none;
    z-index: 5;
 }
 
+.chat-text-overlay.align-center {
+   --overlay-shift-x: -50%;
+   --overlay-left-room: calc(var(--overlay-readable-width) / 2);
+   --overlay-right-room: var(--overlay-left-room);
+   --overlay-available: min(calc(2 * var(--overlay-anchor)), calc(2 * (100% - var(--overlay-anchor))));
+}
+
+.chat-text-overlay.align-right {
+   --overlay-shift-x: -100%;
+   --overlay-left-room: var(--overlay-readable-width);
+   --overlay-right-room: 0px;
+   --overlay-available: var(--overlay-anchor);
+}
+
+.chat-text-overlay > .chat-talk { max-width: 100%; }
+
 /* 样式覆写（font/color/background/backgroundColor）由渲染层以内联 style 直接挂在展示元素上，
    此处只保留模板默认样式与对齐位移。 */
 
-/* 对齐：对覆盖层内直接内容做位移，锚点为文本垂直中线 */
-.chat-text-overlay > * { transform: translateY(50%); }
-.chat-text-overlay.align-center > * { transform: translateX(-50%) translateY(50%); }
-.chat-text-overlay.align-right > * { transform: translateX(-100%) translateY(50%); }
+/* 同名基准点对齐。旧定义仍使用内容的垂直中线。 */
+.chat-text-overlay > * { transform: translate(var(--overlay-shift-x, 0%), var(--story-overlay-base-y, 50%)); }
 
 /* 交互式内容（羁绊卡片）需恢复点击 */
 .chat-text-overlay .kizuna-card { pointer-events: auto; }
 
 /* 覆盖层文本保留换行（旁白多行演出文本经 \n 换行显示） */
-.chat-text-overlay .chat-text-overlay-inner,
+.chat-text-overlay-inner,
 .chat-text-overlay .chat-text-title,
 .chat-text-overlay .chat-text-badge,
 .chat-text-overlay .chat-text-note,
@@ -333,7 +357,7 @@
    white-space: pre-line;
 }
 
-.chat-text-overlay .chat-text-overlay-inner {
+.chat-text-overlay-inner {
    display: inline-block;
    padding: 6px 12px;
    background: color-mix(in srgb, var(--panel-light) 88%, transparent);
@@ -381,3 +405,6 @@
 }
 
 
+
+.story-node-positioned > * { pointer-events: auto; }
+.story-node-positioned .send-button { min-width: 140px; }

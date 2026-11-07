@@ -9,7 +9,7 @@ const storyId = 'test:story:runtime_queue';
 let game: GameInstance;
 function setup(nodes: StoryDef['nodes']) {
   game = new GameInstance();
-  game.init([baseDatapack, makePack([{ id: entryId, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }],
+  game.init([baseDatapack, makePack([{ id: entryId, storyId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } }],
     [{ id: storyId, name: 'Runtime queue', startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { body: { advance: 'auto' } }, nodes }])]);
   game.story.clearAllCurrentStories();
   game.story.clearOutput(null);
@@ -108,7 +108,7 @@ describe('Runtime Story presentation has one advancement authority', () => {
         { op: 'addResource', target: 'base:resource:credit', value: 2 },
         { op: 'addResource', target: 'base:resource:credit', value: 3 },
       ] } },
-      { id: tail, storyId: 'test:story:queue_tail', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+      { id: tail, storyId: 'test:story:queue_tail', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
     ], [g.registry.stories.get(storyId)!, { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:queue_tail', name: 'Tail', stages: { body: { advance: 'auto' } }, nodes: [
       { id: 'tail', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'tail' } },
     ] }]));
@@ -162,9 +162,8 @@ describe('Runtime Story presentation has one advancement authority', () => {
 
   it('returns the committed input result failure without continuing later operations', () => {
     const g = setup([
-      { id: 'input', type: 'click', stageId: 'body', interaction: { kind: 'button', text: 'open', result: { actions: [
-        { kind: 'presentation', command: { command: 'openingTitle', title: 'failure' } },
-      ] } } },
+      { id: 'input', type: 'click', stageId: 'body', interaction: { kind: 'button', text: 'open' } },
+  { id: "input-effect-1", type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: 'failure' } } },
       { id: 'late', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 100 }] } },
     ]);
     g.story.startActiveStory(entryId);
@@ -234,4 +233,89 @@ describe('Runtime Story presentation has one advancement authority', () => {
     expect(g.story.getPlaybackView().phase).toBe('idle');
     expect(vi.getTimerCount()).toBe(0);
   });
+  it('retains positioned node identity through save/load and clears it without undoing flags', () => {
+    const g=setup([
+      {id:'body',type:'talklet',stageId:'body',content:{kind:'narration',text:'title'},performance:{template:'title',layout:{mode:'positioned',x:.2,y:.8},style:{background:false,color:'#abc'}}},
+      {id:'click',type:'click',stageId:'body',interaction:{kind:'button',text:'go',press:{base:2}},performance:{layout:{mode:'positioned',x:.5,y:.2}}},
+      {id:'flag',type:'operation',action:{kind:'localFlag',op:'set',name:'kept',value:true}},
+      {id:'clear',type:'operation',action:{kind:'clearNode',storyId,nodeId:'body'}},
+      {id:'tail',type:'talklet',stageId:'body',content:{kind:'narration',text:'after'}},
+    ]);
+    expect(g.story.startActiveStory(entryId).success).toBe(true);
+    const before=g.story.getPlaybackView();
+    expect(before.entries).toHaveLength(1);
+    expect(before.entries[0]).toMatchObject({node:{storyId,nodeId:'body'},performance:{template:'title'}});
+    const oldToken=before.token!;
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    expect(g.story.getPlaybackView().entries).toEqual(before.entries);
+    expect(g.story.submitStoryInput(null,oldToken).success).toBe(false);
+    expect(g.story.submitStoryInput(null,g.story.getPlaybackView().token!).success).toBe(true);
+    expect(g.storyService.getCurrentStoryView()?.press).toEqual({total:2,done:1});
+    expect(g.story.submitStoryInput(null,g.story.getPlaybackView().token!).success).toBe(true);
+    expect(g.story.getPlaybackView().entries.map(entry=>entry.text)).toEqual(['after']);
+    const saved=g.story.saveCursors();
+    expect(saved.global.playback.run?.localFlags).toMatchObject({kept:true});
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    expect(g.story.getPlaybackView().entries.map(entry=>entry.text)).toEqual(['after']);
+  });
+
+  it('replaces repeated positioned arrivals, preserves separate flow history, and clears on completion',()=>{
+    const g=setup([
+      {id:'body',type:'talklet',stageId:'body',content:{kind:'narration',text:'one'},performance:{layout:{mode:'positioned',x:.5,y:.5}}},
+      {id:'click',type:'click',stageId:'body',interaction:{kind:'button',text:'again'}},
+      {id:'loop',type:'transfer',transfer:{mode:'goto',storyId}},
+    ]);
+    g.story.startActiveStory(entryId);
+    const history=g.story.getPlaybackView().entries[0].historyId;
+    g.story.submitStoryInput(null,g.story.getPlaybackView().token!);
+    expect(g.story.getPlaybackView().entries).toHaveLength(1);
+    expect(g.story.getPlaybackView().entries[0].historyId).toBe(history);
+    g.story.clearAllCurrentStories();
+    expect(g.story.getPlaybackView().entries).toHaveLength(0);
+  });
+
+  it('applies scoped clearNode during isolated replay without touching formal output',()=>{
+    const g=setup([
+      {id:'body',type:'talklet',stageId:'body',content:{kind:'narration',text:'formal'}},
+      {id:'click',type:'click',stageId:'body',interaction:{kind:'button',text:'clear'}},
+      {id:'clear',type:'operation',action:{kind:'clearNode',storyId,nodeId:'body'}},
+      {id:'tail',type:'talklet',stageId:'body',content:{kind:'narration',text:'after'}},
+    ]);
+    g.story.startActiveStory(entryId);
+    g.registry.storyEntries.get(entryId)!.replayable=true;
+    const replay=g.story.replayStory(entryId);
+    if(!replay.success||!replay.replayId) throw new Error('replay failed');
+    g.story.submitReplayStoryInput(replay.replayId,g.story.getReplayPlaybackView(replay.replayId)!.token!);
+    expect(g.story.getReplayPlaybackView(replay.replayId)!.entries.map(entry=>entry.text)).toEqual(['after']);
+    expect(g.story.getPlaybackView().entries.map(entry=>entry.text)).toEqual(['formal']);
+  });
+
+  it('keeps cleared positioned typing suppressed across save/load and removes display on completion',()=>{
+    const g=setup([{id:'body',type:'talklet',stageId:'body',content:{kind:'talk',text:'never reappear'},pacing:{typing:1},performance:{layout:{mode:'positioned',x:.5,y:.5}}}]);
+    g.story.startActiveStory(entryId);
+    g.story.clearOutput(null);
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    vi.advanceTimersByTime(2000);
+    expect(g.story.getPlaybackView().entries).toHaveLength(0);
+    g.story.continueStory(null,g.story.getPlaybackView().token!);
+    expect(g.story.getPlaybackView().entries).toHaveLength(0);
+  });
+
+  it('retains a completed positioned Choice without accepting its stale ticket, then cleans the run',()=>{
+    const g=setup([
+      {id:'choice',type:'click',stageId:'body',interaction:{kind:'choice',options:[{id:'yes',text:'yes',marks:['chosen']},{id:'hidden',text:'hidden',requiresFlag:'absent'}]},performance:{layout:{mode:'positioned',x:.5,y:.5}}},
+      {id:'tail',type:'talklet',stageId:'body',requiresFlag:'chosen',content:{kind:'narration',text:'selected'}},
+    ]);
+    g.story.startActiveStory(entryId);
+    const ticket=g.story.getPlaybackView().token!;
+    expect(g.storyService.getCurrentStoryView()?.availableChoiceIndexes).toEqual([0]);
+    expect(g.story.submitStoryInput(null,ticket,'yes').success).toBe(true);
+    expect(g.story.submitStoryInput(null,ticket,'yes').success).toBe(false);
+    expect(g.story.getPlaybackView().entries[0]).toMatchObject({choice:{options:[{id:'yes'}],selectedOptionId:'yes'},node:{storyId,nodeId:'choice'}});
+    g.load(JSON.parse(JSON.stringify(g.save())));
+    expect(g.story.getPlaybackView().entries).toHaveLength(2);
+    g.story.continueStory(null,g.story.getPlaybackView().token!);
+    expect(g.story.getPlaybackView().entries.map(entry=>entry.text)).toEqual(['selected']);
+  });
+
 });

@@ -654,6 +654,13 @@ const affectorEntryObject = (): FieldDef =>
     },
   }, '条目', { required: true });
 
+
+const storyEntryCatalogField = (): FieldDef => o('catalog',[s('category','分类',{required:true}),s('part','篇章',{required:true}),s('chapter','章节'),n('order','条目排序')],'历史归档');
+const storyEntryActivationField = (passive: boolean): FieldDef => ({key:'activation',label:'激活方式',required:true,type:{kind:'union',tagField:'kind',variants:passive?[
+  {tag:'random',label:'随机抽取',fields:[n('weight','基础权重',{required:true}),b('repeatable','允许再次正式触发',{required:true}),n('cooldownFrames','冷却帧数')]},
+  {tag:'affection',label:'好感／角色阶段',fields:[{key:'when',required:true,label:'阶段来源',type:{kind:'union',tagField:'kind',variants:[{tag:'level',label:'好感等级',fields:[n('level','等级',{required:true})]},{tag:'after-story',label:'前置故事完成',fields:[r('storyId','stories','前置 Story')]}]}},n('cooldownFrames','冷却帧数')]}
+]:[{tag:'active',label:'主动接取',fields:[{key:'fallback',label:'地区兜底（省略则不投放）',type:{kind:'union',tagField:'kind',variants:[{tag:'current-area',label:'当前地区',fields:[]},{tag:'fixed-area',label:'指定地区',fields:[r('areaId','areas','接取地区')]}]}}]}]}});
+
 /** 主动故事入口（主线 / 支线）整表 */
 const activeStoriesTable = (): TableSchema => ({
   key: 'activeStories',
@@ -662,7 +669,9 @@ const activeStoriesTable = (): TableSchema => ({
   worldlineSplit: true,
   fields: [
     s('id', 'ID', { required: true }),
-    r('storyId', 'stories', '演出本体'),
+    r('storyId', 'stories', '正文 Story'),
+    storyEntryCatalogField(), storyEntryActivationField(false),
+    s('owner','归属角色'),
     o('kizuna', [r('entryId', 'activeStories', '关联子故事'), r('areaId', 'areas', '赴约地点（省略则直接进入）'), a('returnFlags', s('$'), '允许返回的局部标记')], '一层羁绊关联'),
     a('availableInits', r('$', 'inits'), '可用世界线'),
     divider('揭示与触发'),
@@ -695,16 +704,14 @@ const passiveStoriesTable = (): TableSchema => ({
   worldlineSplit: true,
   fields: [
     s('id', 'ID', { required: true }),
-    r('storyId', 'stories', '演出本体'),
+    r('storyId', 'stories', '正文 Story'),
+    storyEntryCatalogField(), storyEntryActivationField(true),
+    s('owner','归属角色（好感类必填）'),
     o('kizuna', [r('entryId', 'activeStories', '关联子故事'), r('areaId', 'areas', '赴约地点（省略则直接进入）'), a('returnFlags', s('$'), '允许返回的局部标记')], '一层羁绊关联'),
     a('availableInits', r('$', 'inits'), '可用世界线'),
     divider('揭示与触发'),
     revealTriggersField(),
     cg('triggerCondition', '触发条件'),
-    b('repeatable', '可重复'),
-    n('weight', '权重'),
-    i('affectionRequired', '好感台阶门槛', { description: '声明后退出随机抽取：好感达标即入该角色就绪队列，按需求值升序自动推送。' }),
-    s('pushAfterStory', '羁绊尾巴挂靠', { description: '引用演出本体 StoryDef id：该剧情完结后本条强制优先推送进 owner 对话空间（§3）；声明后退出随机抽取。' }),
     o('completionReward', [
       a('first', effectObject(), '首次'),
       a('repeat', effectObject(), '重复'),
@@ -735,8 +742,8 @@ const storiesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
-    a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '节点（四类原语）', { required: true,
-      description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Talklet content.characterId 引用 characters，content.displayName 仅覆盖显示名称；presentation.avatar 另行覆盖头像。Operation/结果动作支持 kind:localFlag、op:set/remove、name；set 另带 JSON value。建议名称 StoryName-flagid，不强制。' }),
+    a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '有序节点', { required: true,
+      description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Talklet content.characterId 引用 characters，content.displayName 仅覆盖显示名称；presentation.avatar 另行覆盖头像。Choice 选项只声明 id/text、showWhen（持久条件组）、requiresFlag（局部出现条件）与 marks（选择标记名称）；成功选择时替换本组标记，不接受共同动作或通用结果。Button 仅声明文案与 press，不接受 result；动作、转移与移动使用后续独立节点。Talklet / Click performance 支持 layout（flow / positioned，anchor 为横纵基准，X/Y 是偏移，unit 可选 percent 或 px，缺省 anchor 使用旧左下原点）、有限 style；Talklet 另支持正文 template。Operation 可使用 clearNode（storyId/nodeId，限当前运行展示），或 localFlag set/remove，set 另带 JSON value。建议标记名称 StoryName-flagid，不强制。' }),
     {
       key: 'stages',
       label: '呈现阶段模式',
@@ -1030,9 +1037,7 @@ export interface TableMeta {
 
 /** Editor 表元数据：结构来自 engine defs，编辑语义/复杂结构在此兜底。 */
 export const TABLE_META: TableMeta[] = [
-  { key: 'areaMaps', label: '区域导航图', type: 'AreaMapDef', idField: 'id', overrides: {
-    revealTriggers: () => revealTriggersField(),
-  } },
+  { key: 'areaMaps', label: '区域导航图', type: 'AreaMapDef', idField: 'id' },
   {
     key: 'inits',
     label: '世界线',
@@ -1058,10 +1063,8 @@ export const TABLE_META: TableMeta[] = [
     dividerAfter: { description: '揭示' },
     overrides: {
       enterEffects: () => entryEffectsArray('enterEffects', '进入条目'),
-      revealTriggers: () => revealTriggersField(),
       theme: () => themeField('theme', '场景主题'),
-      presentation: () => entityPresentationField(),
-    },
+      presentation: () => entityPresentationField()},
   },
   {
     key: 'spots',

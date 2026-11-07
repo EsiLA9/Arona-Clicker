@@ -5,18 +5,18 @@ import { validateStoryNodeStructure } from '../../src/data-services/validation/s
 import { STORY_ACTION_PARAMETER_EXAMPLES, STORY_NODE_AUTHORING_EXAMPLES } from './story-node-authoring.fixtures';
 
 describe('Story authoring primitive composition (declarations only)', () => {
-  it('uses flags-only Choice examples with effects and transfers in later nodes', () => {
+  it('uses Choice marks with effects and transfers in later nodes', () => {
     for (const document of Object.values(STORY_NODE_AUTHORING_EXAMPLES) as readonly StoryNodeDocument[]) {
       for (const node of document.nodes) {
         if (node.type !== 'click' || node.interaction.kind !== 'choice') continue;
-        expect(node.interaction.sharedActions?.every(action=>action.kind==='localFlag') ?? true).toBe(true);
+        expect(node.interaction).not.toHaveProperty('sharedActions');
         for (const option of node.interaction.options) {
-          expect(option.result?.actions?.every(action=>action.kind==='localFlag') ?? true).toBe(true);
-          expect(option.result?.transfer).toBeUndefined();
+          expect(option).not.toHaveProperty('condition');
+          expect(option).not.toHaveProperty('result');
         }
       }
     }
-    expect(STORY_NODE_AUTHORING_EXAMPLES.s02ConfirmationAndSharedActions.nodes).toContainEqual(expect.objectContaining({id:'remember-mountain',type:'operation',requiresFlag:'route-mountain'}));
+    expect(STORY_NODE_AUTHORING_EXAMPLES.s02ConfirmationAndChoiceMarks.nodes).toContainEqual(expect.objectContaining({id:'remember-mountain',type:'operation',requiresFlag:'route-mountain'}));
     expect(STORY_NODE_AUTHORING_EXAMPLES.s04InsertThenContinue.nodes).toContainEqual(expect.objectContaining({id:'explanation',type:'transfer',requiresFlag:'listen-explanation'}));
   });
   it.each(Object.entries(STORY_NODE_AUTHORING_EXAMPLES))('%s has explicit, coherent stages', (_name, document) => {

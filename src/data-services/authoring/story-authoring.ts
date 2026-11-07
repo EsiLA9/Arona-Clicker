@@ -1,3 +1,5 @@
+import { validateStoryEntryActivation } from '../validation/story-entry';
+import { storyEntryType } from '../contracts/story-entry';
 import { projectStoryDefinition } from './story-definition-projection';
 import { validateEffectList } from './content-policy-dsl';
 import type { Datapack } from '../contracts/datapack';
@@ -56,18 +58,20 @@ export function validateStoryAuthoringShape(patch: StoryAuthoringPatch, draftOnl
     if (!STORY_AUTHORING_TABLES.includes(table as never) || !Array.isArray(ids) || !ids.every(x => typeof x === 'string') || ids.some(id => patch[table as keyof Pick<StoryAuthoringPatch, 'stories' | 'activeStories' | 'passiveStories' | 'passivePools'>].some(x => x.id === id))) throw new Error('不能同时删除与更新同一内容');
   }
   for (const table of STORY_AUTHORING_TABLES) if (!patch[table].every(row=>row && typeof row==='object' && !Array.isArray(row))) throw new Error(`${table} 的行必须是对象`);
+  for (const entry of patch.activeStories) validateStoryEntryActivation(entry,'active',draftOnly);
+  for (const entry of patch.passiveStories) validateStoryEntryActivation(entry,'passive',draftOnly);
   if (draftOnly) return;
   for (const [table, type] of [['activeStories', 'active'], ['passiveStories', 'passive']] as const) for (const entry of patch[table]) {
-    if (entry.type !== type || typeof entry.storyId !== 'string' || !Array.isArray(entry.availableInits) || !entry.availableInits.every(x => typeof x === 'string')) throw new Error(`${entry.id} 的类型、Story 或 Init 列表非法`);
+    if (storyEntryType(entry) !== type || typeof entry.storyId !== 'string' || !Array.isArray(entry.availableInits) || !entry.availableInits.every(x => typeof x === 'string')) throw new Error(`${entry.id} 的类型、Story 或 Init 列表非法`);
     const condition = (c: unknown): boolean => {
       const group = c && typeof c === 'object' && 'conditions' in c ? c : { type: 'AND', conditions: [c] };
-      return projectStoryDefinition({ id: 'authoring:story:condition', name: 'condition', startContext: {type:'area',areaId:'authoring:area:context'}, stages: {s:{advance:'input'}}, nodes: [{id:'choice',type:'click',stageId:'s',interaction:{kind:'choice',options:[{id:'one',text:'one',condition:group}]}}] }).ok;
+      return projectStoryDefinition({ id: 'authoring:story:condition', name: 'condition', startContext: {type:'area',areaId:'authoring:area:context'}, stages: {s:{advance:'input'}}, nodes: [{id:'choice',type:'click',stageId:'s',interaction:{kind:'choice',options:[{id:'one',text:'one',showWhen:group}]}}] }).ok;
     };
     if (!entry.triggerCondition || !('conditions' in entry.triggerCondition) || !condition(entry.triggerCondition)) throw new Error(`${entry.id} 的触发条件非法`);
     const raw = entry as unknown as Record<string, unknown>;
-    const allowed = ['id','storyId','availableInits','tags','triggerCondition','revealTriggers','replayable','travelToStartContext','completionStrategy','conditionalRewards','branchGuards','openingTitle','extra','kizuna','reactions','followUps','type','completionReward','owner',...(type === 'passive' ? ['repeatable','weight','affectionRequired','pushAfterStory','cooldownFrames','block','interruptible','leaveArea','blocksInteraction'] : [])];
+    const allowed = ['id','storyId','availableInits','tags','triggerCondition','revealTriggers','replayable','travelToStartContext','completionStrategy','conditionalRewards','branchGuards','openingTitle','extra','kizuna','reactions','followUps','activation','catalog','completionReward','owner',...(type === 'passive' ? ['block','interruptible','leaveArea','blocksInteraction'] : [])];
     if (Object.keys(raw).some(key => !allowed.includes(key))) throw new Error(`${entry.id} 含未知的 Entry 字段`);
-    for (const key of ['owner','openingTitle','pushAfterStory']) if (raw[key] !== undefined && typeof raw[key] !== 'string') throw new Error(`${entry.id}.${key} 必须是文字`);
+    for (const key of ['owner','openingTitle']) if (raw[key] !== undefined && typeof raw[key] !== 'string') throw new Error(`${entry.id}.${key} 必须是文字`);
     if (entry.kizuna && (typeof entry.kizuna !== 'object' || Array.isArray(entry.kizuna) || Object.keys(entry.kizuna).some(key=>!['entryId','areaId','returnFlags'].includes(key)))) throw new Error(`${entry.id} 的羁绊关联只能配置目标、赴约地点和回传白名单`);
     if (entry.completionReward && (typeof entry.completionReward !== 'object' || Array.isArray(entry.completionReward) || Object.keys(entry.completionReward).some(key=>!['first','repeat'].includes(key)))) throw new Error(`${entry.id} 完成奖励结构非法`);
     if (entry.completionStrategy !== undefined && !['simple','conditional'].includes(entry.completionStrategy)) throw new Error(`${entry.id} 完成策略非法`);
@@ -85,7 +89,7 @@ export function validateStoryAuthoringShape(patch: StoryAuthoringPatch, draftOnl
       }
     };
     if (entry.completionReward) for (const key of ['first','repeat'] as const) if (entry.completionReward[key] !== undefined) effects(entry.completionReward[key],`${entry.id}.completionReward.${key}`);
-    if (entry.type === 'passive' && entry.block !== undefined && !condition(entry.block)) throw new Error(`${entry.id}.block 非法`);
+    if (storyEntryType(entry) === 'passive' && entry.block !== undefined && !condition(entry.block)) throw new Error(`${entry.id}.block 非法`);
     for (const reward of entry.conditionalRewards ?? []) { if (!condition(reward.condition)) throw new Error(`${entry.id} 条件奖励条件非法`); effects(reward.effects,`${entry.id}.conditionalRewards.effects`); }
     for (const reveal of entry.revealTriggers ?? []) if (!['existence','name','condition','utility','unlock'].includes(reveal.reveal) || reveal.condition !== undefined && !condition(reveal.condition)) throw new Error(`${entry.id} 揭示配置非法`);
     for (const guard of entry.branchGuards ?? []) if (!guard || typeof guard.storyId!=='string' || typeof guard.denialMessage!=='string' || !Array.isArray(guard.prerequisites) || !guard.prerequisites.every(x=>typeof x.storyId==='string'&&Number.isInteger(x.talkletIndex)&&x.talkletIndex>=-1)) throw new Error(`${entry.id} 分支门控结构非法`);
@@ -100,14 +104,10 @@ export function validateStoryAuthoringShape(patch: StoryAuthoringPatch, draftOnl
       if (reaction.activation !== undefined && reaction.activation !== 'after-completion' || reaction.lifetime !== undefined && !['current-init','until-consumed'].includes(reaction.lifetime) || reaction.once !== undefined && typeof reaction.once !== 'boolean') throw new Error(`${entry.id} 完结反应生命周期非法`);
       effects(reaction.effects,`${entry.id}.reactions.effects`);
     }
-    for (const name of ['replayable', 'travelToStartContext', 'repeatable', 'interruptible', 'leaveArea', 'blocksInteraction']) {
+    for (const name of ['replayable', 'travelToStartContext', 'interruptible', 'leaveArea', 'blocksInteraction']) {
       const value = (entry as unknown as Record<string, unknown>)[name];
       if (value !== undefined && typeof value !== 'boolean') throw new Error(`${entry.id}.${name} 必须是布尔值`);
     }
-    if (entry.type === 'passive' && (typeof entry.repeatable !== 'boolean' || !Number.isFinite(entry.weight) || entry.weight < 0)) throw new Error(`${entry.id} 的重复或权重配置非法`);
-    for (const name of ['affectionRequired', 'cooldownFrames']) {
-      const value = (entry as unknown as Record<string, unknown>)[name];
-      if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new Error(`${entry.id}.${name} 必须是非负数字`);
-    }
+
   }
 }

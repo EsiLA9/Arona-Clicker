@@ -1,6 +1,6 @@
 import type { StoryAction, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
-import type { StoryClickNode, StoryNodeDocument, StoryNodeResult, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
-import { validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
+import type { StoryChoiceInteraction, StoryChoiceOption, StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
+import { findStoryChoiceMarkOwnerConflict, validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
 import { isStoryFlagValue, isStoryLocalFlagAction, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { StoryFlagValue, StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import type { StoryNodePresentationData, StoryNodeSnapshot } from '../../../engine/contracts/story-node-snapshot';
@@ -12,7 +12,7 @@ import type {
 type Pending = { token: string } & (
   | { kind: 'delivery'; node: StoryTalkletNode }
   | { kind: 'operation'; node: StoryOperationNode; data: StoryNodePresentationData }
-  | { kind: 'result'; node: StoryClickNode; data: StoryNodePresentationData; continuation: { transfer?: StoryTransfer } }
+  | { kind: 'result'; node: StoryClickNode; data: StoryNodePresentationData }
   | { kind: 'input'; node: StoryClickNode; press?: { total: number; done: number } }
 );
 interface Run {
@@ -29,7 +29,7 @@ interface Run {
 }
 let nextPlayerId = 0;
 function replayActionAllowed(action: StoryAction): boolean {
-  if (action.kind === 'localFlag' || action.kind === 'overlay') return true;
+  if (action.kind === 'localFlag' || action.kind === 'overlay' || action.kind==='clearNode') return true;
   if (action.kind !== 'presentation') return false;
   const command = action.command;
   if (command.command === 'theme') return command.value.scope === undefined || command.value.scope === 'ephemeral';
@@ -88,6 +88,8 @@ export class StoryNodePlayer {
       if (this.run) return 'AlreadyActive';
       if (!isStoryRunFlags(initialFlags)) return 'InvalidLocalFlags';
       this.document(storyId);
+      const markConflict = findStoryChoiceMarkOwnerConflict(storyId, this.documents);
+      if (markConflict) return `ChoiceMarkOwnerConflict:${markConflict}`;
       this.run = {
         source: { ...source, rootStoryId: storyId }, storyId, terminalStoryId: storyId, index: 0,
         transfers: 0, waitSequence: 0, visited: new Set([storyId]), stack: [],
@@ -160,12 +162,13 @@ export class StoryNodePlayer {
       || !visited.has(saved.storyId) || !visited.has(saved.terminalStoryId)) bad();
     for (const id of visited) this.document(id);
     const document = this.document(saved.storyId);
+    if (findStoryChoiceMarkOwnerConflict(saved.source.rootStoryId, this.documents)) bad();
     const index = document.nodes.findIndex(node => node.id === saved.nodeId);
     const node = document.nodes[index];
     if (!node || node.type !== 'talklet' && node.type !== 'click' && node.type !== 'operation') return bad();
     const savedPending = saved.pending;
-    const pendingKeys = savedPending.kind === 'input' ? ['kind', 'press'] : savedPending.kind === 'result'
-      ? ['kind', 'data', 'continuation'] : savedPending.kind === 'operation' ? ['kind', 'data'] : ['kind'];
+    const pendingKeys = savedPending.kind === 'input' ? ['kind', 'press']
+      : savedPending.kind === 'result' || savedPending.kind === 'operation' ? ['kind', 'data'] : ['kind'];
     if (Object.keys(savedPending).some(key => !pendingKeys.includes(key))) bad();
     if (node.type === 'talklet' ? savedPending.kind !== 'delivery'
       : node.type === 'operation' ? savedPending.kind !== 'operation'
@@ -173,21 +176,8 @@ export class StoryNodePlayer {
     if (savedPending.kind === 'operation' || savedPending.kind === 'result') {
       if (!isPresentationData(savedPending.data)) bad();
     }
-    if (savedPending.kind === 'result') {
-      if (!hasData(savedPending.data) || !record(savedPending.continuation)) bad();
-      if (Object.keys(savedPending.continuation).some(key => key !== 'transfer')) bad();
-      const transfer = savedPending.continuation.transfer;
-      if (transfer !== undefined) {
-        if (!record(transfer) || !['goto', 'insert'].includes(transfer.mode) || typeof transfer.storyId !== 'string' || saved.transfers >= 32) bad();
-        this.document(transfer.storyId);
-      }
-      const click = node.type === 'click' ? node : bad();
-      const interaction = click.interaction;
-      const transfers = interaction.kind === 'button' ? [interaction.result?.transfer]
-        : interaction.kind === 'choice' ? interaction.options.map(option => option.result?.transfer) : [undefined];
-      if (!transfers.some(candidate => candidate === undefined ? transfer === undefined
-        : candidate.storyId === transfer?.storyId && candidate.mode === transfer.mode)) bad();
-    }
+    if (savedPending.kind === 'result' && (!hasData(savedPending.data) || node.type !== 'click'
+      || node.interaction.kind !== 'entryCard' || node.interaction.card.continuation)) bad();
     const definition = savedPending.kind === 'input' && node.type === 'click' && node.interaction.kind === 'button' ? node.interaction.press : undefined;
     const press = savedPending.kind === 'input' ? savedPending.press : undefined;
     if (Boolean(definition) !== Boolean(press)) bad();
@@ -223,8 +213,7 @@ export class StoryNodePlayer {
       if (pending.kind === 'input') return 'DeliveryNotPending';
       if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
       run.pending = undefined;
-      if (pending.kind === 'result' && pending.continuation.transfer) this.transfer(run, pending.continuation.transfer, true);
-      else run.index += 1;
+      run.index += 1;
       this.drain(run, events);
       if (this.terminal.status === 'idle') return 'Cancelled';
     });
@@ -239,18 +228,26 @@ export class StoryNodePlayer {
       const interaction = pending.node.interaction;
       if (interaction.kind === 'kizunaCard' || interaction.kind === 'areaContinue' || interaction.kind === 'entryCard' && interaction.card.continuation) return 'ContinuationHostRequired';
       let actions: readonly StoryAction[] = [];
-      let result: StoryNodeResult | undefined;
+      let selectedChoice: StoryChoiceOption | undefined;
       if (interaction.kind === 'choice') {
-        const option = interaction.options.find(candidate => candidate.id === optionId);
-        if (!option) return 'InvalidOption';
-        if (option.condition && !this.host.evaluate(option.condition, [...run.visited])) return 'OptionUnavailable';
-        result = option.result;
-        actions = [...(interaction.sharedActions ?? []), ...(result?.actions ?? [])];
+        const available = this.availableOptions(run, interaction);
+        if (available.length === 0) {
+          if (optionId !== undefined) return 'OptionUnavailable';
+          if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
+          run.pending = undefined;
+          this.replaceChoiceMarks(run, interaction);
+          run.index += 1;
+          this.drain(run, events);
+          if (this.terminal.status === 'idle') return 'Cancelled';
+          return;
+        }
+        if (optionId === undefined) return 'ChoiceRequired';
+        selectedChoice = interaction.options.find(candidate => candidate.id === optionId);
+        if (!selectedChoice) return 'InvalidOption';
+        if (!available.includes(selectedChoice)) return 'OptionUnavailable';
       } else {
         if (optionId !== undefined) return 'InvalidOption';
         if (interaction.kind === 'button') {
-          result = interaction.result;
-          actions = result?.actions ?? [];
           if (pending.press && pending.press.done + 1 < pending.press.total) {
             pending.press.done += 1;
             pending.token = this.token();
@@ -260,11 +257,6 @@ export class StoryNodePlayer {
           actions = [{ kind: 'entryRequest', request: interaction.card.request }];
         }
       }
-      // 整个被选分支先检查可解析性；拒绝不消费输入票据或执行任何动作。
-      if (result?.transfer) {
-        try { this.prepareTransfer(run, result.transfer); }
-        catch (error) { return this.errorText(error); }
-      }
       for (const action of actions) {
         const error = this.preflight(action, run.source);
         if (error) return error;
@@ -272,6 +264,7 @@ export class StoryNodePlayer {
       }
       if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
       run.pending = undefined; // 在调用同步领域服务之前消费旧输入。
+      if (interaction.kind === 'choice') this.replaceChoiceMarks(run, interaction, selectedChoice);
       const applied = this.apply(run, actions);
       if (applied.status === 'cancelled') return 'Cancelled';
       if (applied.status === 'replaced') {
@@ -280,13 +273,11 @@ export class StoryNodePlayer {
       }
       if (hasData(applied.data)) {
         run.waitSequence += 1;
-        run.pending = { kind: 'result', token: this.token(), node: pending.node, data: applied.data,
-          continuation: result?.transfer ? { transfer: structuredClone(result.transfer) } : {} };
+        run.pending = { kind: 'result', token: this.token(), node: pending.node, data: applied.data };
         events.push({ type: 'view', view: this.view() });
         return;
       }
-      if (result?.transfer) this.transfer(run, result.transfer, true);
-      else run.index += 1;
+      run.index += 1;
       this.drain(run, events);
       if (this.terminal.status === 'idle') return 'Cancelled';
     });
@@ -326,7 +317,7 @@ export class StoryNodePlayer {
     return {
       status: 'input', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node,
       availableOptionIds: interaction.kind === 'choice'
-        ? interaction.options.filter(option => !option.condition || this.host.evaluate(option.condition, [...run.visited])).map(option => option.id)
+        ? this.availableOptions(run, interaction).map(option => option.id)
         : [],
       ...(pending.press ? { press: pending.press } : {}),
     };
@@ -351,8 +342,18 @@ export class StoryNodePlayer {
     if (error) throw new Error(error);
   }
 
-  private transfer(run: Run, transfer: StoryTransfer, accepted = false): void {
-    if (!accepted) this.prepareTransfer(run, transfer);
+  private availableOptions(run: Run, interaction: StoryChoiceInteraction): StoryChoiceOption[] {
+    return interaction.options.filter(option => (!option.showWhen || this.host.evaluate(option.showWhen, [...run.visited]))
+      && (option.requiresFlag === undefined || run.localFlags.has(option.requiresFlag)));
+  }
+
+  private replaceChoiceMarks(run: Run, interaction: StoryChoiceInteraction, selected?: StoryChoiceOption): void {
+    for (const option of interaction.options) for (const mark of option.marks ?? []) run.localFlags.delete(mark);
+    for (const mark of selected?.marks ?? []) run.localFlags.set(mark, true);
+  }
+
+  private transfer(run: Run, transfer: StoryTransfer): void {
+    this.prepareTransfer(run, transfer);
     if (transfer.mode === 'insert') run.stack.push({ storyId: run.storyId, index: run.index + 1 });
     run.storyId = transfer.storyId;
     run.index = 0;
@@ -415,6 +416,11 @@ export class StoryNodePlayer {
       const node = document.nodes[run.index];
       run.terminalStoryId = run.storyId;
       if (node.requiresFlag !== undefined && !run.localFlags.has(node.requiresFlag)) { run.index += 1; continue; }
+      if (node.type === 'click' && node.interaction.kind === 'choice' && this.availableOptions(run, node.interaction).length === 0) {
+        this.replaceChoiceMarks(run, node.interaction);
+        run.index += 1;
+        continue;
+      }
       if (node.type === 'talklet' || node.type === 'click') {
         run.waitSequence += 1;
         if (node.type === 'talklet') run.pending = { kind: 'delivery', token: this.token(), node };

@@ -14,13 +14,25 @@ describe('consecutive Choice input', () => {
     vi.useFakeTimers(); localStorage.clear();
     const story: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Two choices', stages: { shared: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
       { id: 'intro', type: 'talklet', stageId: 'shared', content: { kind: 'narration', text: 'choose twice' } },
-      ...['first', 'second'].map(id => ({ id, type: 'click' as const, stageId: 'shared', interaction: { kind: 'choice' as const, options: [
-        { id: 'option1', text: id, ...(effect !== 'none' ? { result: { actions: [{ kind: 'state' as const, effects: effect === 'flag' ? [{ op: 'setFlag' as const, flagId: 'choice_check', value: id }] : [
-          { op: 'addResource' as const, resourceId: 'base:resource:credit', amount: 1 },
-          { op: 'addResource' as const, resourceId: 'base:resource:credit', amount: 2 },
-        ] }] } } : {}) },
-        { id: 'other', text: `${id} alternative` },
-      ] } })),
+      ...['first', 'second'].flatMap(id => {
+        const mark = `consecutive-${id}`;
+        const effectNode = effect === 'none' ? [] : [{
+          id: `${id}-effect`, type: 'operation' as const, requiresFlag: mark,
+          action: { kind: 'state' as const, effects: effect === 'flag' ? [
+            { op: 'setFlag' as const, flagId: 'choice_check', value: id },
+          ] : [
+            { op: 'addResource' as const, resourceId: 'base:resource:credit', amount: 1 },
+            { op: 'addResource' as const, resourceId: 'base:resource:credit', amount: 2 },
+          ] },
+        }];
+        return [
+          { id, type: 'click' as const, stageId: 'shared', interaction: { kind: 'choice' as const, options: [
+            { id: 'option1', text: id, ...(effect !== 'none' ? { marks: [mark] } : {}) },
+            { id: 'other', text: `${id} alternative` },
+          ] } },
+          ...effectNode,
+        ];
+      }),
       { id: 'end', type: 'talklet', stageId: 'end', content: { kind: 'narration', text: 'finished' } },
     ] };
     game = new GameInstance();

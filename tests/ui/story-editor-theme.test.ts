@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -18,7 +19,7 @@ describe('Story editor session theme', () => {
   const find = <T extends HTMLElement = HTMLElement>(selector: string): T => {
     const element = root.querySelector<T>(selector); expect(Boolean(element), selector).toBe(true); return element!;
   };
-  const click = (action: string): void => { find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates(); };
+  const click = (action: string): void => { if(action==='new') createStoryForTest(game,ctrl); else find<HTMLButtonElement>(`[data-editor-action="${action}"]`).click(); ctrl.flushUIUpdates(); };
   const open = (): void => {
     ctrl.render(); find<HTMLButtonElement>('#story-editor-launch').click(); ctrl.flushUIUpdates(); click('new');
   };

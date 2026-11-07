@@ -1,3 +1,4 @@
+import { storyEntryType } from '../../data-services/contracts/story-entry';
 // ============================================================
 // arona-clicker/runtime-wiring.ts — AronaClicker 领域组合根装配
 //
@@ -46,8 +47,8 @@ import { SpotService } from '../services/world/spot-service';
 import { InitService } from '../services/world/init-service';
 import { StoryEntryReactionMount } from '../services/story/story-entry-reaction-mount';
 import { StoryFollowUpMount } from '../services/story/story-follow-up-mount';
-import { baseStoryPageOnlyEntryIds } from '../content/story/story-hierarchy';
 import { InformationRevealAdapter } from '../services/world/information-reveal-adapter';
+import { AreaMapCommandService } from '../services/world/area-map-commands';
 import { MilestoneAdapter } from '../services/world/milestone-adapter';
 import { ItemService } from '../services/economy/item-service';
 import { EnhancementService } from '../services/progression/enhancement-service';
@@ -271,7 +272,7 @@ export function wireGameInstance(
       if (!entry) return false;
       // v1 使用正式 StoryService 启动入口；force 保留当前系统剧情对被动闲聊的抢占兼容，
       // Passive FollowUp 只在该同步调用返回 success 后提交 fulfilled。
-      return g.storyService.startStory(storyEntryId, entry.type, null, { force: true }).success;
+      return g.storyService.startStory(storyEntryId, storyEntryType(entry), null, { force: true }).success;
     },
     (storyEntryId, areaId, sourceId) => g.mutations.createAreaStoryDelivery({
       entryId: storyEntryId,
@@ -283,9 +284,7 @@ export function wireGameInstance(
     g.registry,
     g.conditionSystem,
     g.eventBus,
-    hooks.getState,
-    baseStoryPageOnlyEntryIds,
-    (storyEntryId, areaId, sourceId) => g.mutations.createAreaStoryDelivery({
+    hooks.getState,    (storyEntryId, areaId, sourceId) => g.mutations.createAreaStoryDelivery({
       entryId: storyEntryId,
       areaId,
       sourceId,
@@ -353,6 +352,11 @@ export function wireGameInstance(
     touchTickTimestamp: () => { g.sessionService.touchLastTick(); },
     getAreaGraph: () => g.getAreaTravelGraph(),
   });
+  g.setAreaMapCommandService(new AreaMapCommandService({
+    registry: g.registry, getState: hooks.getState, conditions: g.conditionSystem,
+    query: g.areaMap, mutations: g.mutations, informationReveal: informationRevealAdapter,
+    setObservedMapIds: mapIds => g.initService.setObservedAreaMapIds(mapIds),
+  }));
   g.mutations.setInitScopedTargetGuard(spotId => {
     const spot = g.registry.spots.get(spotId);
     if (spot?.global) return true;

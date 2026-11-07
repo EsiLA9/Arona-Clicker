@@ -1,0 +1,29 @@
+{
+  "pics": [
+    {
+      "id": "base:avatar(pic):hoshino",
+      "src": "zip:images/Hoshino.png",
+      "label": "星野头像"
+    },
+    {
+      "id": "base:sticker(pic):hoshino_selfie",
+      "src": "zip:images/Hoshino.png",
+      "label": "星野自拍"
+    },
+    {
+      "id": "base:background(pic):hoshino",
+      "src": "zip:images/Hoshino.png",
+      "label": "场景背景示例"
+    },
+    {
+      "id": "base:overlay(pic):triangles",
+      "src": "zip:images/background-triangles.svg",
+      "label": "三角形装饰叠层"
+    },
+    {
+      "id": "base:overlay(pic):ba_triangles_svg",
+      "src": "zip:images/ba_triangles.svg",
+      "label": "蔚蓝档案白色三角形叠层（SVG）"
+    }
+  ]
+}

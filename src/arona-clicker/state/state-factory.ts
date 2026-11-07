@@ -27,6 +27,7 @@ export function createDefaultState(): AronaClickerState {
     globalShopPurchaseRecords: {},
     shopPurchaseRecords: {},
     informationRevealProgress: { revealed: [] },
+    collectedAreaMapIds: [],
     milestoneProgress: { completed: [] },
   };
 }

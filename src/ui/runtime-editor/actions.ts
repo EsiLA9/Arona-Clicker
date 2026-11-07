@@ -212,6 +212,13 @@ function readRuntimeEditorModFields(ctrl: UIController, scope: ParentNode): bool
 function readRuntimeDefinitionExtensions(policy: ContentAuthoringPolicy, scope: ParentNode): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   for (const extension of policy.extensions ?? []) {
+    if (extension.editor === 'json-value') {
+      const text = scope.querySelector<HTMLTextAreaElement>(`[data-runtime-editor-extension="${extension.inputKey}"]`)?.value.trim() ?? '';
+      if (!text) { values[extension.inputKey] = undefined; continue; }
+      try { values[extension.inputKey] = JSON.parse(text) as unknown; }
+      catch { values[extension.inputKey] = text; }
+      continue;
+    }
     if (extension.editor === 'reference-list') {
       if (extension.inputKey === 'defaultAreas') {
         const rows = [...scope.querySelectorAll<HTMLElement>('[data-runtime-init-area-row]')];
@@ -480,7 +487,7 @@ function syncRuntimeEditorBrowserEntries(ctrl: UIController, scope?: ParentNode)
     const count = String(runtimeEditorDefinitions(editor, kind).length);
     const badge = button.querySelector('small');
     if (badge) badge.textContent = count;
-    button.setAttribute('aria-label', `${kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : kind === 'spots' ? 'Spot' : 'Enhancement'}，${count} 条草稿`);
+    button.setAttribute('aria-label', `${kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : kind === 'areaMaps' ? 'AreaMap' : kind === 'spots' ? 'Spot' : 'Enhancement'}，${count} 条草稿`);
   });
   const freshScroll = freshPane.querySelector<HTMLElement>('[data-runtime-editor-browser-entry-list]');
   if (freshScroll) scroll.innerHTML = freshScroll.innerHTML;
@@ -1121,7 +1128,8 @@ function saveRuntimeDefinitionDraft(ctrl: UIController, scope: ParentNode, reope
 
 function hasRuntimeWorldContent(editor: ReturnType<typeof createRuntimeDatapackEditorState>): boolean {
   return runtimeEditorPendingDefinitions(editor, 'inits').length > 0
-    || runtimeEditorPendingDefinitions(editor, 'areas').length > 0;
+    || runtimeEditorPendingDefinitions(editor, 'areas').length > 0
+    || runtimeEditorPendingDefinitions(editor, 'areaMaps').length > 0;
 }
 
 function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
@@ -1174,6 +1182,7 @@ function applyRuntimeWorldEditorDraft(ctrl: UIController): void {
     targetPackRecordId: editor.packRecordId,
     inits: editor.inits,
     areas: editor.areas,
+    areaMaps: editor.areaMaps,
   };
   const result = ctrl.commands.applyRuntimeWorldDraft(draft);
   if (!result.ok) {
@@ -1206,7 +1215,7 @@ function applyRuntimeEditorDraft(
     openRuntimeEditorPanel(ctrl, failureView === 'spot' ? 'spot' : 'browser');
     return;
   }
-  if (editor.selectedContentKind === 'inits' || editor.selectedContentKind === 'areas' || hasRuntimeWorldContent(editor)) {
+  if (editor.selectedContentKind === 'inits' || editor.selectedContentKind === 'areas' || editor.selectedContentKind === 'areaMaps' || hasRuntimeWorldContent(editor)) {
     applyRuntimeWorldEditorDraft(ctrl);
     return;
   }
@@ -1419,7 +1428,7 @@ function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEdi
   const definition = runtimeEditorDefinitions(editor, kind).find(item => item.idName === idName);
   if (!definition) return;
   const policy = getContentPolicy(kind);
-  const label = kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : 'Enhancement';
+  const label = kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : kind === 'areaMaps' ? 'AreaMap' : 'Enhancement';
   const name = definition && 'name' in definition ? definition.name : idName;
   const applied = runtimeEditorAppliedDefinitions(editor, kind).some(item => item.idName === idName);
   const impact = kind === 'inits' ? renderRuntimeInitDeletionImpact(ctrl, idName) : '';
@@ -1644,7 +1653,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       const idName = button.dataset.runtimeEditorDefinitionId;
       if (!editor || !kind || kind === 'spots' || !idName) return;
       if (!restoreRuntimeEditorDefinition(editor, kind, idName)) return;
-      ctrl.toast.show(`已撤销删除 ${kind === 'inits' ? 'Init' : 'Area'}：${idName}`, 'info');
+      ctrl.toast.show(`已撤销删除 ${kind === 'inits' ? 'Init' : kind === 'areas' ? 'Area' : 'AreaMap'}：${idName}`, 'info');
       openRuntimeDatapackEditor(ctrl);
     });
   });

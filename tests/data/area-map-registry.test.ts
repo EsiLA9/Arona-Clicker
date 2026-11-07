@@ -9,11 +9,32 @@ const map = (id = 'demo:area-map:a'): AreaMapDef => ({
 const pack = (partial: Partial<Datapack>): Datapack => ({ ...mergeFragments([]), ...partial });
 
 describe('AreaMap Registry', () => {
-  test('uses existing reveal discriminator and allows unconditional reveal', () => {
+  test('owned map batch commits cycles atomically and restores the prior registry on rollback', () => {
     const registry = new Registry();
-    registry.load(pack({ areaMaps: [{ ...map(), revealTriggers: [{ reveal: 'name' }] }] }));
+    const first = map();
+    const second = map('demo:area-map:b');
+    first.nodes[0].action = { kind: 'openMap', mapId: second.id };
+    second.nodes[0].action = { kind: 'openMap', mapId: first.id };
+    const receipt = registry.applyAreaMapMutations([
+      { operation: 'create', ownerModName: 'demo', areaMap: first },
+      { operation: 'create', ownerModName: 'demo', areaMap: second },
+    ]);
+    expect(registry.areaMaps.size).toBe(2);
+    expect(() => registry.applyAreaMapMutation({ operation: 'replace', ownerModName: 'other', areaMap: first })).toThrow(/属于 Mod/);
+    receipt.rollback();
+    expect(registry.areaMaps.size).toBe(0);
+  });
+
+  test('accepts only declared information rules and current action gates', () => {
+    const registry = new Registry();
+    registry.load(pack({ areaMaps: [{ ...map(), reveal: { name: { mode: 'explicit' } }, openCondition: { type: 'AND', conditions: [{ target: 'resource', key: 'permit', comparator: '>=', value: 1 }] } }] }));
     expect(() => registry.validateAreaMapRefs()).not.toThrow();
-    expect(() => registry.load(pack({ areaMaps: [{ ...map(), revealTriggers: [{ target: 'name' } as never] }] }))).toThrow(/RevealTrigger/);
+    const invalidCondition = { ...map(), reveal: { name: { mode: 'condition', condition: { target: 'unknown', key: 'x', comparator: '???', value: 1 } } } } as unknown as AreaMapDef;
+    const invalidTarget = { ...map(), reveal: { travel: { mode: 'explicit' } } } as unknown as AreaMapDef;
+    const invalidTravelMode = { ...map(), nodes: [{ ...map().nodes[0], action: { kind: 'attemptAreaTravel', areaId: 'demo:area:a', travelMode: 'teleport' } }] } as unknown as AreaMapDef;
+    expect(() => registry.load(pack({ areaMaps: [invalidCondition] }))).toThrow(/condition/);
+    expect(() => registry.load(pack({ areaMaps: [invalidTarget] }))).toThrow(/信息面/);
+    expect(() => registry.load(pack({ areaMaps: [invalidTravelMode] }))).toThrow(/travelMode/);
   });
   test('forward, cross and self map references finalize after all packs and clear independently', () => {
     const registry = new Registry();

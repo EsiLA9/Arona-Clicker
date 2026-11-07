@@ -78,3 +78,5 @@
 [data-area-map-feedback] { margin: 8px 0 0; color: var(--muted-on-panel); min-height: 1.5em; }
 .area-map-actions [hidden] { display: none; }
 .area-map-toolbar strong { flex: 1 1 100%; font-size: 15px; color: var(--ink-on-panel); }
+.area-map-collection { display: flex; flex: 1 1 100%; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted-on-panel); font-size: 12px; }
+.area-map-collection button { padding: 5px 8px; font-size: 12px; }

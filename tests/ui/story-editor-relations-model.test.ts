@@ -8,7 +8,7 @@ import { createStoryEditorState, selectStory, currentDraft } from '../../src/ui/
 import { buildStoryRelations, potentialStoryCalls } from '../../src/ui/story-editor/relations-model';
 
 const story = (id: string, nodes: StoryNode[] = []): StoryDef => ({ id, name: id, startContext: {type:'area',areaId:'test:area:home'}, nodes, stages: {} });
-const entry = (id: string, storyId: string): ActiveStoryEntry => ({ id, type:'active', storyId, availableInits:[], triggerCondition:{type:'AND',conditions:[]} });
+const entry = (id: string, storyId: string): ActiveStoryEntry => ({ id, storyId, availableInits:[], triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
 const request = (entryId: string): StoryAction => ({kind:'entryRequest',request:{entryId,entryType:'active',owner:null,intent:'ordinary'}});
 const card = (entryId: string) => ({request:{entryId,entryType:'active' as const,owner:null,intent:'card' as const}});
 const build = (stories: StoryDef[], entries: ActiveStoryEntry[] = []) => buildStoryRelations(createStoryEditorState(),new Map(stories.map(x=>[x.id,x])),new Map(entries.map(x=>[x.id,x])));
@@ -16,8 +16,8 @@ const build = (stories: StoryDef[], entries: ActiveStoryEntry[] = []) => buildSt
 describe('Story editor call relations', () => {
   it('records deferred branch calls at their Operation and Transfer nodes', () => {
     const relations = build([story('test:story:root',[
-      {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',sharedActions:[{kind:'localFlag',op:'remove',name:'route'}],options:[
-        {id:'go',text:'go',result:{actions:[{kind:'localFlag',op:'set',name:'route',value:true}]}},
+      {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[
+        {id:'go',text:'go',marks:['route']},
       ]}},
       {id:'invite',type:'operation',requiresFlag:'route',action:request('test:activestory:next')},
       {id:'next',type:'transfer',requiresFlag:'route',transfer:{mode:'insert',storyId:'test:story:next'}},
@@ -33,8 +33,15 @@ describe('Story editor call relations', () => {
     const overlay: StoryAction = {kind:'overlay',command:{command:'show',id:'invite',content:{kind:'entryCard',card:card(target)}}};
     const relations = build([story('test:story:root',[
       {id:'transfer',type:'transfer',transfer:{mode:'goto',storyId:next}},
-      {id:'button',type:'click',stageId:'one',interaction:{kind:'button',text:'go',result:{transfer:{mode:'insert',storyId:next},actions:[request(target),overlay]}}},
-      {id:'choice',type:'click',stageId:'two',interaction:{kind:'choice',sharedActions:[request(target)],options:[{id:'one',text:'one',result:{transfer:{mode:'goto',storyId:next},actions:[request(target),overlay]}}]}},
+      {id:'button',type:'click',stageId:'one',interaction:{ kind:'button', text:'go' }},
+  { id: "button-effect-1", type: 'operation', action: request(target) },
+  { id: "button-effect-2", type: 'operation', action: overlay },
+  { id: "button-transfer", type: 'transfer', transfer: {mode:'insert',storyId:next} },
+      {id:'choice',type:'click',stageId:'two',interaction:{kind:'choice',options:[{id:'one',text:'one',marks:['route'] }]}},
+      {id:'choice-shared-request',type:'operation',requiresFlag:'route',action:request(target)},
+      {id:'choice-request',type:'operation',requiresFlag:'route',action:request(target)},
+      {id:'choice-overlay',type:'operation',requiresFlag:'route',action:overlay},
+      {id:'choice-transfer',type:'transfer',requiresFlag:'route',transfer:{mode:'goto',storyId:next}},
       {id:'request',type:'operation',action:request(target)},
       {id:'overlay',type:'operation',action:overlay},
       {id:'card',type:'click',stageId:'three',interaction:{kind:'entryCard',card:{...card(target),continuation:{returnFlags:['answer']}}}},
@@ -42,17 +49,21 @@ describe('Story editor call relations', () => {
     expect(relations.calls.filter(x=>x.to.kind==='story')).toHaveLength(3);
     expect(relations.calls.filter(x=>x.to.kind==='entry')).toHaveLength(8);
     expect(relations.calls.every(x=>x.from.id==='test:story:root')).toBe(true);
-    expect(relations.calls.find(x=>x.path==='$.nodes[5].interaction.card.request.entryId')?.label).toContain('节点 card');
+    expect(relations.calls.find(x=>x.path==='$.nodes[12].interaction.card.request.entryId')?.label).toContain('节点 card');
   });
 
   it('expands an Entry potential set across branches and cycles, retaining missing targets once', () => {
     const root = 'test:story:root', branch = 'test:story:branch', child = 'test:story:child', missing = 'test:story:missing';
     const first = entry('test:activestory:first',root), second = entry('test:activestory:second',child);
     const relations = build([
-      story(root,[{id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[
-        {id:'yes',text:'yes',result:{transfer:{mode:'insert',storyId:branch}}},
-        {id:'no',text:'no',result:{transfer:{mode:'goto',storyId:missing}}},
-      ]}}]),
+      story(root,[
+        {id:'choice',type:'click',stageId:'one',interaction:{kind:'choice',options:[
+          {id:'yes',text:'yes',marks:['take-branch']},
+          {id:'no',text:'no',marks:['skip-branch']},
+        ]}},
+        {id:'branch',type:'transfer',requiresFlag:'take-branch',transfer:{mode:'insert',storyId:branch}},
+        {id:'missing',type:'transfer',requiresFlag:'skip-branch',transfer:{mode:'goto',storyId:missing}},
+      ]),
       story(branch,[{id:'loop',type:'transfer',transfer:{mode:'goto',storyId:root}},{id:'invite',type:'operation',action:request(second.id)}]),
       story(child,[{id:'return',type:'operation',action:request(first.id)}]),
     ],[first,second]);

@@ -4,10 +4,10 @@ import type { TravelError } from '../runtime/results';
 
 export type AreaMapBlockedReason = 'Unavailable' | 'Locked' | TravelError;
 export interface AreaMapRevealView {
+  readonly existenceKnown: boolean;
   readonly nameKnown: boolean;
   readonly utilityKnown: boolean;
   readonly conditionKnown: boolean;
-  readonly unlocked: boolean;
 }
 export interface AreaMapNodeView extends AreaMapRevealView {
   readonly id: string;
@@ -23,7 +23,7 @@ export interface AreaMapNodeView extends AreaMapRevealView {
   readonly conditions?: readonly (Condition | ConditionGroup)[];
   readonly current?: boolean;
   readonly visited?: boolean;
-  readonly travelMethod?: 'adjacent' | 'visited' | 'transit';
+  readonly travelMethod?: 'adjacent' | 'visited' | 'transit' | 'mapDirect';
 }
 export interface AreaMapView extends AreaMapRevealView {
   readonly id: string;
@@ -34,10 +34,19 @@ export interface AreaMapView extends AreaMapRevealView {
   /** Fingerprint of this public projection; never includes hidden source definitions. */
   readonly revision: string;
 }
+export interface AreaMapCollectionEntry {
+  readonly name: string;
+  readonly available: boolean;
+}
 export type AreaMapEntryView =
   | { readonly ready: true; readonly mapId: string; readonly name: string }
   | { readonly ready: false; readonly reason: 'NoEntry' | 'Unavailable' | 'Locked' };
+export type AreaMapOpenResult =
+  | { readonly success: true; readonly mapId: string; readonly collected: boolean }
+  | { readonly success: false; readonly error: 'NoEntry' | 'Unavailable' | 'Locked' };
 export interface AreaMapQueryPort {
+  getCollectedMapEntries(): readonly AreaMapCollectionEntry[];
+  getAreaInfo(areaId: string): AreaMapRevealView;
   getEntryView(areaId: string): AreaMapEntryView;
   getView(mapId: string): AreaMapView | null;
   getNodeView(mapId: string, nodeId: string): AreaMapNodeView | null;

@@ -20,6 +20,13 @@ const INIT = `${MOD}:init:demo`;
 const HOME = `${MOD}:area:home`;
 const SECOND = `${MOD}:area:second`;
 const NEW_AREA = `${MOD}:area:new-area`;
+const MAP_A = `${MOD}:area-map:a`;
+const MAP_B = `${MOD}:area-map:b`;
+
+const cyclicMaps: NonNullable<RuntimeWorldDraft['areaMaps']> = [
+  { idName: 'a', name: 'Map A', nodes: [{ id: 'to-b', position: { x: 0, y: 0 }, action: { kind: 'openMap', mapId: MAP_B } }], edges: [] },
+  { idName: 'b', name: 'Map B', nodes: [{ id: 'to-a', position: { x: 0, y: 0 }, action: { kind: 'openMap', mapId: MAP_A } }], edges: [] },
+];
 
 function worldDraft(
   inits: RuntimeWorldDraft['inits'] = [{ idName: 'demo', name: 'Demo Init', description: '', defaultAreas: [HOME, SECOND] }],
@@ -49,7 +56,7 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
       onCommitted: () => { observed.value = coordinator.getState(); },
     });
 
-    const result = coordinator.applyWorldDraft(worldDraft());
+    const result = coordinator.applyWorldDraft({ ...worldDraft(), areaMaps: cyclicMaps });
 
     expect(result).toMatchObject({ ok: true, revision: 1 });
     if (!observed.value) throw new Error('World commit callback was not invoked');
@@ -58,6 +65,7 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(observed.value.inits.has(INIT)).toBe(true);
     expect(observed.value.areas.has(HOME)).toBe(true);
     expect(observed.value.areas.has(SECOND)).toBe(true);
+    expect(observed.value.areaMaps.has(MAP_A)).toBe(true);
     expect(coordinator.getState()).toMatchObject({ modName: MOD, revision: 1 });
     game.stop();
   });
@@ -65,17 +73,19 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
   test('提交回调失败时 Registry 与 Coordinator 一并回滚', () => {
     const game = new CountingRuntime();
     game.init([defaultDatapack]);
+    const baselineAreaMaps = [...game.registry.areaMaps.keys()];
     const coordinator = new RuntimeWorldContentCoordinator({
       registry: game.registry,
       sourceId: 'runtime-world-test',
       onCommitted: () => { throw new Error('test commit notification failure'); },
     });
 
-    const result = coordinator.applyWorldDraft(worldDraft());
+    const result = coordinator.applyWorldDraft({ ...worldDraft(), areaMaps: cyclicMaps });
 
     expect(result.ok).toBe(false);
     expect(game.registry.inits.has(INIT)).toBe(false);
     expect(game.registry.areas.has(HOME)).toBe(false);
+    expect([...game.registry.areaMaps.keys()]).toEqual(baselineAreaMaps);
     expect(coordinator.getState()).toMatchObject({ modName: null, revision: 0 });
     game.stop();
   });
@@ -97,6 +107,22 @@ describe('Init / Area Runtime Editor 热 CRUD', () => {
     expect(game.registry.inits.get(INIT)?.name).toBe('Renamed Init');
     expect(game.registry.areas.get(HOME)?.description).toBe('updated');
     expect(game.registry.areasOfInit(INIT)).toEqual([HOME, SECOND]);
+  });
+
+  test('AreaMap 草稿可原子创建循环引用、替换与删除，且不重载 Runtime', () => {
+    const game = setupGame();
+    const first = game.applyRuntimeWorldDraft({ ...worldDraft(), areaMaps: cyclicMaps });
+    expect(first).toMatchObject({ ok: true, revision: 1 });
+    expect(game.registry.areaMaps.get(MAP_A)?.nodes[0].action).toEqual({ kind: 'openMap', mapId: MAP_B });
+    expect(game.registry.areaMaps.get(MAP_B)?.nodes[0].action).toEqual({ kind: 'openMap', mapId: MAP_A });
+    const replaced = game.applyRuntimeWorldDraft({ ...worldDraft(), areaMaps: [{ ...cyclicMaps[0], name: 'Updated A' }, cyclicMaps[1]] });
+    expect(replaced).toMatchObject({ ok: true, revision: 2 });
+    expect(game.registry.areaMaps.get(MAP_A)?.name).toBe('Updated A');
+    const removed = game.applyRuntimeWorldDraft({ ...worldDraft(), areaMaps: [] });
+    expect(removed).toMatchObject({ ok: true, revision: 3 });
+    expect(game.registry.areaMaps.has(MAP_A)).toBe(false);
+    expect(game.reloadCount).toBe(0);
+    game.stop();
   });
 
   test('打开并修改编辑态副本时保留未接入的顶层数据表', () => {

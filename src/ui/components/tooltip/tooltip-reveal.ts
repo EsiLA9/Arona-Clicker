@@ -129,15 +129,17 @@ export function getInitReveal(ctx: UIContext, init: InitDef): RevealResult {
   });
 }
 
-/** Area 揭示：已访问视为已拥有。 */
+/** Area knowledge and visit history remain independent. */
 export function getAreaReveal(ctx: UIContext, area: AreaDef): RevealResult {
   const { view } = ctx;
   const visited = (view.visitedAreas ?? []).includes(area.id);
-  return resolveReveal(ctx, {
-    owned: visited,
-    triggers: area.revealTriggers,
-    isAccessible: () => visited,
-  });
+  const info = ctx.game.areaMap.getAreaInfo(area.id);
+  const stage: RevealStage = visited ? 'owned'
+    : info.utilityKnown && info.conditionKnown ? 'utility'
+      : info.nameKnown && info.conditionKnown ? 'known'
+        : info.nameKnown || info.conditionKnown ? 'partial'
+          : info.existenceKnown ? 'presence' : 'invisible';
+  return { stage, nameKnown: info.nameKnown, conditionKnown: info.conditionKnown, utilityKnown: info.utilityKnown };
 }
 
 /** Story 揭示：入口已完成视为已拥有；可触发（条件满足、未完成且知晓名称）视为可达。 */

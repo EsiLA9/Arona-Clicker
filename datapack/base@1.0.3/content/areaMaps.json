@@ -1,0 +1,252 @@
+{
+  "areaMaps": [
+    {
+      "id": "base:area-map:schale_office",
+      "name": "夏莱办公室区域图",
+      "nodes": [
+        {
+          "id": "schale_main",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_main"
+          }
+        },
+        {
+          "id": "schale_library",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_library"
+          }
+        },
+        {
+          "id": "schale_hangar",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_hangar"
+          }
+        },
+        {
+          "id": "schale_rooftop",
+          "position": {
+            "x": 0,
+            "y": 180
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:schale_rooftop"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "schale_library",
+          "toNodeId": "schale_main"
+        },
+        {
+          "fromNodeId": "schale_main",
+          "toNodeId": "schale_rooftop"
+        },
+        {
+          "fromNodeId": "schale_hangar",
+          "toNodeId": "schale_library"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:millennium",
+      "name": "千禧年学院区域图",
+      "nodes": [
+        {
+          "id": "millennium_lab",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_lab"
+          }
+        },
+        {
+          "id": "millennium_canteen",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_canteen"
+          }
+        },
+        {
+          "id": "millennium_server",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:millennium_server"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_lab"
+        },
+        {
+          "fromNodeId": "millennium_canteen",
+          "toNodeId": "millennium_server"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:abydos",
+      "name": "阿比多斯学院区域图",
+      "nodes": [
+        {
+          "id": "abydos_campus",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_campus"
+          }
+        },
+        {
+          "id": "abydos_embankment",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_embankment"
+          }
+        },
+        {
+          "id": "abydos_pool",
+          "position": {
+            "x": 480,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:abydos_pool"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "abydos_campus",
+          "toNodeId": "abydos_pool"
+        },
+        {
+          "fromNodeId": "abydos_campus",
+          "toNodeId": "abydos_embankment"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:trinity",
+      "name": "崔妮蒂学院区域图",
+      "nodes": [
+        {
+          "id": "trinity_cathedral",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_cathedral"
+          }
+        },
+        {
+          "id": "trinity_tea_room",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:trinity_tea_room"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "trinity_cathedral",
+          "toNodeId": "trinity_tea_room"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:gehenna",
+      "name": "盖赫纳学园区域图",
+      "nodes": [
+        {
+          "id": "gehenna_council",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_council"
+          }
+        },
+        {
+          "id": "gehenna_district",
+          "position": {
+            "x": 240,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:gehenna_district"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "fromNodeId": "gehenna_council",
+          "toNodeId": "gehenna_district"
+        }
+      ]
+    },
+    {
+      "id": "base:area-map:theme_showcase",
+      "name": "主题系统展示 Init区域图",
+      "nodes": [
+        {
+          "id": "theme_showcase",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "action": {
+            "kind": "attemptAreaTravel",
+            "areaId": "base:area:theme_showcase"
+          }
+        }
+      ],
+      "edges": []
+    }
+  ]
+}

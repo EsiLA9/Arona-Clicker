@@ -26,6 +26,8 @@ export type SpotTagOverride = SpotTagOverrideState;
 export type InformationRevealEntityKind =
   | 'init'
   | 'area'
+  | 'areaMap'
+  | 'areaMapNode'
   | 'spot'
   | 'enhancement'
   | 'item'
@@ -34,11 +36,9 @@ export type InformationRevealEntityKind =
 
 export type InformationRevealTarget = string;
 
-export interface RevealedInformationTarget {
-  entityKind: InformationRevealEntityKind;
-  entityId: string;
-  target: InformationRevealTarget;
-}
+export type RevealedInformationTarget =
+  | { entityKind: 'areaMapNode'; mapId: string; nodeId: string; target: InformationRevealTarget }
+  | { entityKind: Exclude<InformationRevealEntityKind, 'areaMapNode'>; entityId: string; target: InformationRevealTarget };
 
 export interface InformationRevealProgress {
   revealed: RevealedInformationTarget[];
@@ -104,6 +104,8 @@ export interface PlayerState {
   shopPurchaseRecords?: Record<string, ShopPurchaseRecord>;
   /** Save 范围内单调增长的 Information Reveal 已知事实。 */
   informationRevealProgress?: InformationRevealProgress;
+  /** Current-Init map collection; viewing a map never changes Area travel history. */
+  collectedAreaMapIds?: string[];
   /** Save 范围内单调增长的 Milestone 完成事实。 */
   milestoneProgress?: MilestoneProgress;
 }
@@ -122,6 +124,7 @@ export interface InitSnapshot {
   flags: Record<string, string>;
   triggersCompleted: string[];
   currentAreaId?: AreaId;
+  collectedAreaMapIds?: string[];
   extras?: ExtraCompound;
   roster?: Record<VariantId, VariantProgress>;
   fragments?: Record<VariantId, number>;

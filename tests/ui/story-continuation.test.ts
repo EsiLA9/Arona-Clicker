@@ -12,15 +12,16 @@ let game: GameInstance, ctrl: UIController;
 function setup(invitation = false, travelChild = false) {
   game = new GameInstance();
   game.init([baseDatapack, makePack([
-    { id: parent, storyId: 'test:story:ui_parent', type: 'passive', owner: 'Hoshino', repeatable: false, weight: 1, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, kizuna: { entryId: child, ...(invitation ? { areaId: area } : {}) } },
-    { id: child, storyId: 'test:story:ui_child', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+    { id: parent, storyId: 'test:story:ui_parent', owner: 'Hoshino', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, kizuna: { entryId: child, ...(invitation ? { areaId: area } : {}) }, activation: { kind: 'random' as const, weight: 1, repeatable: false } },
+    { id: child, storyId: 'test:story:ui_child', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
   ], [
     { id: 'test:story:ui_parent', name: 'Parent', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: [
       { id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } },
       { id: 'tail', type: 'talklet', stageId: 's', content: { kind: 'talk', speaker: '星野', text: '原聊天后文' } },
     ] },
     { id: 'test:story:ui_child', name: 'Child', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: travelChild ? [
-      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回主厅', result: { actions: [{ kind: 'travel', areaId: 'base:area:schale_main' }] } } },
+      { id: 'travel', type: 'click', stageId: 's', interaction: { kind: 'button', text: '返回主厅' } },
+  { id: "travel-effect-1", type: 'operation', action: { kind: 'travel', areaId: 'base:area:schale_main' } },
       { id: 'body', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '独立子故事正文' } },
     ] : [
       { id: 'body', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '独立子故事正文' } },

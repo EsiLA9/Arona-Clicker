@@ -1,5 +1,12 @@
 import type { StorageAdapter } from '../persistence/storage-adapter';
 import type { PackManagerSnapshot } from './pack-manager';
+import { migrateLegacyStoryEntries } from '../authoring/story-entry-migration';
+
+function migrateSnapshot(snapshot: PackManagerSnapshot): boolean {
+  let changed = false;
+  for (const pack of snapshot.packs) changed = migrateLegacyStoryEntries(pack.datapack) || changed;
+  return changed;
+}
 
 export interface PackSnapshotStore {
   load(): PackManagerSnapshot | null;
@@ -23,13 +30,14 @@ export class JsonPackSnapshotStore implements PackSnapshotStore {
   load(): PackManagerSnapshot | null {
     const raw = this.storage.get(this.key);
     if (!raw) return null;
-    try {
-      const value: unknown = JSON.parse(raw);
-      if (!isSnapshot(value)) return null;
-      return value;
-    } catch {
-      return null;
+    let value: unknown;
+    try { value = JSON.parse(raw); } catch { return null; }
+    if (!isSnapshot(value)) return null;
+    if (migrateSnapshot(value)) {
+      const backupKey = `${this.key}_before_entry_activation`;
+      if (this.storage.get(backupKey) === null) this.storage.set(backupKey, raw);
     }
+    return value;
   }
 
   save(snapshot: PackManagerSnapshot): void {
@@ -81,12 +89,15 @@ export class IndexedDbPackSnapshotStore implements AsyncPackSnapshotStore {
   async load(): Promise<PackManagerSnapshot | null> {
     const raw = await this.request('readonly', objectStore => objectStore.get(this.key));
     if (typeof raw !== 'string') return null;
-    try {
-      const value: unknown = JSON.parse(raw);
-      return isSnapshot(value) ? value : null;
-    } catch {
-      return null;
+    let value: unknown;
+    try { value = JSON.parse(raw); } catch { return null; }
+    if (!isSnapshot(value)) return null;
+    if (migrateSnapshot(value)) {
+      const backupKey = `${this.key}_before_entry_activation`;
+      const existing = await this.request('readonly', objectStore => objectStore.get(backupKey));
+      if (existing === undefined) await this.request('readwrite', objectStore => objectStore.put(raw, backupKey));
     }
+    return value;
   }
 
   async save(snapshot: PackManagerSnapshot): Promise<void> {
@@ -102,8 +113,9 @@ export class IndexedDbPackSnapshotStore implements AsyncPackSnapshotStore {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(this.storeName, mode);
       const request = operation(transaction.objectStore(this.storeName));
-      request.onsuccess = () => resolve(request.result);
+      transaction.oncomplete = () => resolve(request.result);
       request.onerror = () => reject(request.error ?? new Error('IndexedDB 操作失败。'));
+      transaction.onerror = () => reject(transaction.error ?? new Error('IndexedDB 事务失败。'));
       transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB 事务中止。'));
     });
   }

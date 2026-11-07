@@ -1,16 +1,18 @@
 import type { AreaMapNodeAction, AreaMapNodeDef } from '../../../data-services/contracts/area-map';
 import type { Registry } from '../../../data-services/registry/registry';
-import type { RevealTrigger, RevealTarget } from '../../../engine/contracts/reveal';
-import { existenceMet, unlockMet } from '../../../engine/visibility/reveal';
 import type { PlayerState } from '../../types/state';
+import type { Condition, ConditionGroup } from '../../../engine/types/expression';
 import type { ConditionQueryPort } from '../../contracts/runtime/condition-query';
-import type { AreaMapEntryView, AreaMapNodeView, AreaMapQueryPort, AreaMapRevealView, AreaMapView } from '../../contracts/world/area-map-query';
+import type { AreaMapCollectionEntry, AreaMapEntryView, AreaMapNodeView, AreaMapQueryPort, AreaMapRevealView, AreaMapView } from '../../contracts/world/area-map-query';
 import type { TravelResult } from '../../contracts/runtime/results';
 import { progressHas } from './area-travel-routes';
+import { queryInformationReveal } from './information-reveal-domain';
+import { worldInformationRule } from './information-reveal-domain';
 
 interface Context {
   registry: () => Registry;
   state: () => PlayerState;
+  observedMapIds?: () => readonly string[];
   conditions: () => ConditionQueryPort;
   travelStatus: (areaId: string) => TravelResult;
   travelQuery?: () => (areaId: string) => TravelResult;
@@ -21,33 +23,80 @@ interface Context {
 export class AreaMapQuery implements AreaMapQueryPort {
   constructor(private readonly context: Context) {}
 
-  private evaluate = (condition: NonNullable<RevealTrigger['condition']>): boolean =>
+  private evaluate = (condition: Condition | ConditionGroup): boolean =>
     this.context.conditions().evaluateExpr(condition, this.context.state());
 
-  private info(triggers?: readonly RevealTrigger[]): AreaMapRevealView {
-    const met = (target: RevealTarget) => {
-      const list = triggers?.filter(t => t.reveal === target) ?? [];
-      return !list.length || list.some(t => !t.condition || this.evaluate(t.condition));
+  private known(key: Parameters<typeof queryInformationReveal>[2]): boolean {
+    const state = this.context.state(), registry = this.context.registry();
+    const status = queryInformationReveal(registry, state, key, state.activeInit, {}, new Set(this.context.observedMapIds?.() ?? [])).status;
+    if ((key.entityKind === 'areaMap' || key.entityKind === 'areaMapNode') && status === 'unresolved'
+      && !worldInformationRule(registry, key)) return true;
+    return status === 'known-no-gate' || status === 'known-progress';
+  }
+
+  private mapInfo(mapId: string): AreaMapRevealView {
+    return {
+      existenceKnown: this.known({ entityKind: 'areaMap', entityId: mapId, target: 'existence' }),
+      nameKnown: this.known({ entityKind: 'areaMap', entityId: mapId, target: 'name' }),
+      utilityKnown: this.known({ entityKind: 'areaMap', entityId: mapId, target: 'utility' }),
+      conditionKnown: this.known({ entityKind: 'areaMap', entityId: mapId, target: 'condition' }),
     };
-    return { nameKnown: met('name'), utilityKnown: met('utility'), conditionKnown: met('condition'), unlocked: unlockMet(triggers, this.evaluate) };
+  }
+
+  getAreaInfo(areaId: string): AreaMapRevealView {
+    return {
+      existenceKnown: this.known({ entityKind: 'area', entityId: areaId, target: 'existence' }),
+      nameKnown: this.known({ entityKind: 'area', entityId: areaId, target: 'name' }),
+      utilityKnown: this.known({ entityKind: 'area', entityId: areaId, target: 'utility' }),
+      conditionKnown: this.known({ entityKind: 'area', entityId: areaId, target: 'condition' }),
+    };
+  }
+
+  private nodeInfo(mapId: string, nodeId: string): AreaMapRevealView {
+    return {
+      existenceKnown: this.known({ entityKind: 'areaMapNode', mapId, nodeId, target: 'existence' }),
+      nameKnown: this.known({ entityKind: 'areaMapNode', mapId, nodeId, target: 'name' }),
+      utilityKnown: this.known({ entityKind: 'areaMapNode', mapId, nodeId, target: 'utility' }),
+      conditionKnown: this.known({ entityKind: 'areaMapNode', mapId, nodeId, target: 'condition' }),
+    };
+  }
+
+  private canOpenMap(mapId: string): boolean {
+    const map = this.context.registry().areaMaps.get(mapId);
+    return !!map && (!map.openCondition || this.evaluate(map.openCondition));
+  }
+
+  getCollectedMapEntries(): readonly AreaMapCollectionEntry[] {
+    const state = this.context.state(), registry = this.context.registry();
+    return (state.collectedAreaMapIds ?? []).map(mapId => {
+      const map = registry.areaMaps.get(mapId);
+      if (!map) return { name: '不可用地图', available: false };
+      const info = this.mapInfo(mapId);
+      return {
+        name: info.nameKnown ? map.name : '未知地图',
+        available: info.existenceKnown && this.canOpenMap(mapId),
+      };
+    });
   }
 
   getEntryView(areaId: string): AreaMapEntryView {
     const mapId = this.context.registry().areas.get(areaId)?.navigationMapId;
     if (!mapId) return { ready: false, reason: 'NoEntry' };
-    const view = this.getView(mapId);
-    if (!view) return { ready: false, reason: 'Unavailable' };
-    return view.unlocked ? { ready: true, mapId, name: view.name } : { ready: false, reason: 'Locked' };
+    const map = this.context.registry().areaMaps.get(mapId);
+    if (!map || !this.mapInfo(mapId).existenceKnown) return { ready: false, reason: 'Unavailable' };
+    if (!this.canOpenMap(mapId)) return { ready: false, reason: 'Locked' };
+    return { ready: true, mapId, name: this.mapInfo(mapId).nameKnown ? map.name : '未知地图' };
   }
 
   getView(mapId: string): AreaMapView | null {
     const map = this.context.registry().areaMaps.get(mapId);
-    if (!map || !existenceMet(map.revealTriggers, this.evaluate)) return null;
-    const info = this.info(map.revealTriggers);
+    if (!map) return null;
+    const info = this.mapInfo(mapId);
+    if (!info.existenceKnown || !this.canOpenMap(mapId)) return null;
     const travelStatus = this.context.travelQuery?.() ?? this.context.travelStatus;
     const nodes = map.nodes.flatMap(node => {
-      if (!existenceMet(node.revealTriggers, this.evaluate)) return [];
-      return [this.projectNode(node, info.unlocked, travelStatus)];
+      if (!this.nodeInfo(mapId, node.id).existenceKnown) return [];
+      return [this.projectNode(mapId, node, travelStatus)];
     });
     const visible = new Map(nodes.map(node => [node.id, node]));
     const graph = this.context.connections?.();
@@ -73,24 +122,32 @@ export class AreaMapQuery implements AreaMapQueryPort {
     return this.getView(mapId)?.nodes.find(node => node.id === nodeId) ?? null;
   }
 
-  private projectNode(node: AreaMapNodeDef, mapUnlocked: boolean, travelStatus: (areaId: string) => TravelResult): AreaMapNodeView {
+  private projectNode(mapId: string, node: AreaMapNodeDef, travelStatus: (areaId: string) => TravelResult): AreaMapNodeView {
     const registry = this.context.registry();
-    const info = this.info(node.revealTriggers);
+    const info = this.nodeInfo(mapId, node.id);
     const action: AreaMapNodeAction = node.action ?? { kind: 'inspect' };
     const target = action.kind === 'openMap' ? registry.areaMaps.get(action.mapId)
       : action.kind === 'attemptAreaTravel' ? registry.areas.get(action.areaId) : undefined;
     const requiresTarget = action.kind !== 'inspect';
-    const targetVisible = !requiresTarget || !!target && existenceMet(target.revealTriggers, this.evaluate);
-    const targetInfo = target && targetVisible ? this.info(target.revealTriggers) : null;
-    const targetUnlocked = !requiresTarget || !!targetInfo?.unlocked;
-    const travel = action.kind === 'attemptAreaTravel' && targetVisible && targetUnlocked
-      ? travelStatus(action.areaId) : null;
-    const ready = mapUnlocked && info.unlocked && targetVisible && targetUnlocked && (!travel || travel.success);
-    const reason = !targetVisible ? 'Unavailable' as const : !mapUnlocked || !info.unlocked || !targetUnlocked ? 'Locked' as const
-      : travel && !travel.success ? travel.error : undefined;
-    const conditions = info.conditionKnown && targetVisible
-      ? [...(node.revealTriggers ?? []), ...(targetInfo?.conditionKnown ? target?.revealTriggers ?? [] : [])]
-        .filter(trigger => trigger.reveal === 'unlock' && trigger.condition).map(trigger => structuredClone(trigger.condition!))
+    const targetInfo = action.kind === 'openMap' ? this.mapInfo(action.mapId)
+      : action.kind === 'attemptAreaTravel' ? this.getAreaInfo(action.areaId) : null;
+    const targetExists = !requiresTarget || !!target;
+    const mapExistenceRule = action.kind === 'openMap' ? worldInformationRule(registry, { entityKind: 'areaMap', entityId: action.mapId, target: 'existence' }) : undefined;
+    const targetExistenceKnown = !requiresTarget || (action.kind === 'openMap'
+      ? targetExists && (targetInfo?.existenceKnown || !mapExistenceRule
+        || mapExistenceRule.mode === 'condition' && this.evaluate(mapExistenceRule.condition))
+      : targetExists && !!targetInfo?.existenceKnown);
+    const targetVisible = targetExists && targetExistenceKnown;
+    const actionAllowed = !node.actionCondition || this.evaluate(node.actionCondition);
+    const travel = action.kind === 'attemptAreaTravel' && targetVisible ? travelStatus(action.areaId) : null;
+    const targetAllowed = action.kind === 'openMap' ? this.canOpenMap(action.mapId) : !travel || travel.success;
+    const ready = actionAllowed && targetVisible && targetAllowed;
+    const reason = !targetVisible ? 'Unavailable' as const : !actionAllowed || !targetAllowed
+      ? travel && !travel.success ? travel.error : 'Locked' as const : travel && !travel.success ? travel.error : undefined;
+    const targetCondition = action.kind === 'openMap' ? registry.areaMaps.get(action.mapId)?.openCondition
+      : action.kind === 'attemptAreaTravel' ? registry.areas.get(action.areaId)?.enterCondition : undefined;
+    const conditions = info.conditionKnown && targetVisible && targetInfo?.conditionKnown
+      ? [node.actionCondition, targetCondition].filter((condition): condition is NonNullable<typeof condition> => !!condition).map(condition => structuredClone(condition))
       : [];
     return {
       id: node.id, ...info,

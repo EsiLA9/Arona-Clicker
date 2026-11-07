@@ -137,6 +137,29 @@ describe('Runtime Editor Mod ZIP 导出', () => {
     expect(parsed.datapack.gearConfig).toEqual(sourceDatapack.gearConfig);
   });
 
+  test('AreaMap 的 mixed 节点随 ZIP 导出并可再次解析', async () => {
+    const editor = createEditor();
+    setRuntimeEditorDefinition(editor, 'inits', { idName: 'main', name: 'Main', description: '', defaultAreas: ['demo-mod:area:lobby'] });
+    setRuntimeEditorDefinition(editor, 'areas', {
+      idName: 'lobby', initId: 'demo-mod:init:main', navigationMapId: 'demo-mod:area-map:guide',
+      name: 'Lobby', description: '', defaultSpots: [], topology: [],
+    });
+    setRuntimeEditorDefinition(editor, 'areaMaps', {
+      idName: 'guide', name: 'Guide', nodes: [
+        { id: 'remote', position: { x: 100, y: 0 }, action: { kind: 'attemptAreaTravel', areaId: 'demo-mod:area:lobby', travelMode: 'mapDirect' } },
+      ], edges: [],
+    });
+    const compiled = compileRuntimeEditorPack(editor);
+    expect(compiled.ok).toBe(true);
+    if (!compiled.ok) return;
+    expect(compiled.archive.plan.entries.map(entry => entry.path)).toContain('data/25-area-maps.json');
+    const parsed = await parsePackFromZipBuffer(await writeRuntimeEditorPack(compiled.archive));
+    validateDatapack(parsed.datapack);
+    expect(parsed.datapack.areaMaps?.[0].nodes[0].action).toEqual({
+      kind: 'attemptAreaTravel', areaId: 'demo-mod:area:lobby', travelMode: 'mapDirect',
+    });
+  });
+
   test('检测到无法无损回写的 Spot 结构时阻止导出', () => {
     const editor = createEditor();
     setRuntimeEditorDefinition(editor, 'spots', {

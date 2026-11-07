@@ -29,10 +29,8 @@ const chatShowStory: StoryDef = { startContext: { type: 'area', areaId: 'base:ar
 const chatShowEntry: ActiveStoryEntry = {
   id: 'test:story:chat_show',
   storyId: 'test:story:chat_show',
-  type: 'active',
   availableInits: [],
-  triggerCondition: { type: 'AND', conditions: [] },
-};
+  triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } };
 
 const openingStory: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:opening_title', name: '开幕标题演示', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
@@ -43,10 +41,8 @@ const openingStory: StoryDef = { startContext: { type: 'area', areaId: 'base:are
 const openingEntry: ActiveStoryEntry = {
   id: 'test:story:opening_title',
   storyId: 'test:story:opening_title',
-  type: 'active',
   availableInits: [],
-  triggerCondition: { type: 'AND', conditions: [] },
-};
+  triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } };
 
 function makeChatPack(): import('../../src/data-services/contracts/datapack').Datapack {
   return {

@@ -25,6 +25,8 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.nodes\[\d+\]\.action\.areaId$/, '导航目标 Area', ['areas']],
     [/^\$\.nodes\[\d+\]\.action\.mapId$/, '导航目标 Map', ['areaMaps']],
     [/^\$\.nodes\[\d+\]\.appearance\.iconPicId$/, '节点图标', ['pics']],
+    [/^\$\.reveal\.[^.]+\.condition(?:\.conditions\[\d+\])*(?:\.key)?$/, '地图信息条件', ['resources', 'areas', 'areaMaps', 'stories', 'storyEntries']],
+    [/^\$\.nodes\[\d+\]\.reveal\.[^.]+\.condition(?:\.conditions\[\d+\])*(?:\.key)?$/, '节点信息条件', ['resources', 'areas', 'areaMaps', 'stories', 'storyEntries']],
   ],
   enhancements: [
     [/^\$\.price\[\d+\]\.resourceId$/, '强化价格资源', ['resourceDisplays']],
@@ -40,9 +42,8 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.nodes\[\d+\]\.areaId$/, '移动目标 Area', ['areas']],
     [/^\$\.nodes\[\d+\]\.characterId$/, '移动目标角色', ['characterVariants']],
     [/^\$\.nodes\[\d+\]\.transfer\.storyId$/, '剧情转移', ['stories']],
+    [/^\$\.nodes\[\d+\]\.action\.storyId$/, '节点展示清理目标', ['stories']],
     [/^\$\.nodes\[\d+\]\.interaction\.areaId$/, '地点续播', ['areas']],
-    [/^\$\.nodes\[\d+\]\.interaction\.result\.transfer\.storyId$/, '按钮结果剧情转移', ['stories']],
-    [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.transfer\.storyId$/, '选项结果剧情转移', ['stories']],
   ],
   storyEntries: [
     [/^\$\.storyId$/, '所属 Story', ['stories']],
@@ -51,7 +52,8 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.branchGuards\[\d+\]\.prerequisites\[\d+\]\.storyId$/, '前置 Story', ['stories']],
     [/^\$\.followUps\[\d+\]\.waitFor\.areaId$/, '后续等待 Area', ['areas']],
     [/^\$\.followUps\[\d+\]\.outcome\.storyEntryId$/, '后续 StoryEntry', ['activeStories', 'passiveStories']],
-    [/^\$\.pushAfterStory$/, '前置剧情', ['stories']],
+    [/^\$\.activation\.when\.storyId$/, '前置剧情', ['stories']],
+    [/^\$\.activation\.fallback\.areaId$/, '兜底接取地区', ['areas']],
     [/^\$\.kizuna\.entryId$/, '关联羁绊', ['activeStories']],
     [/^\$\.kizuna\.areaId$/, '赴约地点', ['areas']],
   ],
@@ -104,10 +106,11 @@ const EFFECT_PATHS: Readonly<Record<string, readonly RegExp[]>> = {
 };
 
 const CONDITION_ROOTS: Readonly<Record<string, readonly RegExp[]>> = {
-  areas: [/^\$\.enterEffects\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
+  areas: [/^\$\.enterEffects\[\d+\]\.condition$/, /^\$\.enterCondition$/, /^\$\.reveal\.[^.]+\.condition$/],
+  areaMaps: [/^\$\.openCondition$/, /^\$\.reveal\.[^.]+\.condition$/, /^\$\.nodes\[\d+\]\.actionCondition$/, /^\$\.nodes\[\d+\]\.reveal\.[^.]+\.condition$/],
   spots: [/^\$\.purchaseOptions\[\d+\]\.condition$/, /^\$\.levelUpgrades\[\d+\]\.condition$/, /^\$\.levelUpgrades\[\d+\]\.paymentOptions\[\d+\]\.condition$/, /^\$\.functionalities\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
   inits: [/^\$\.enterEffects\[\d+\]\.condition$/, /^\$\.triggers\[\d+\]\.condition$/, /^\$\.revealTriggers\[\d+\]\.condition$/],
-  stories: [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.condition$/],
+  stories: [/^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.showWhen$/],
   storyEntries: [/^\$\.triggerCondition$/, /^\$\.conditionalRewards\[\d+\]\.condition$/, /^\$\.reactions\[\d+\]\.condition$/, /^\$\.block$/],
   gachaPools: [/^\$\.closeWhen$/],
   enhancements: [/^\$\.revealTriggers\[\d+\]\.condition$/, /^\$\.addsFunctionalities\[\d+\]\.condition$/],
@@ -148,6 +151,7 @@ const TARGET_RULES: Readonly<Record<string, readonly [string, string]>> = {
   protoStat: ['原型角色统计', 'characters'],
   affectionLevel: ['好感等级', 'characterVariants'],
   area: ['当前 Area', 'areas'],
+  hasAreaMap: ['已收录地图', 'areaMaps'],
 };
 
 const EFFECT_TARGETS: Readonly<Record<string, readonly [string, string, 'target' | 'value']>> = {
@@ -166,6 +170,7 @@ const EFFECT_TARGETS: Readonly<Record<string, readonly [string, string, 'target'
   addAffectionExp: ['增加好感', 'characterVariants', 'target'],
   addEnhancement: ['获得强化', 'enhancements', 'value'],
   unlockInit: ['解锁 Init', 'inits', 'value'],
+  acquireAreaMap: ['获得区域地图', 'areaMaps', 'target'],
 };
 
 const ENTITY_KINDS: Readonly<Record<string, string>> = {
@@ -174,26 +179,19 @@ const ENTITY_KINDS: Readonly<Record<string, string>> = {
 
 const STORY_ACTION_PATHS = [
   /^\$\.nodes\[\d+\]\.action$/,
-  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]$/,
-  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]$/,
-  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]$/,
 ];
 
 const STORY_INTERACTION_PATH = /^\$\.nodes\[\d+\]\.interaction$/;
 const STORY_IMAGE_PATHS = [
+  /^\$\.nodes\[\d+\]\.presentation\.avatar$/,
+  /^\$\.nodes\[\d+\]\.action\.command\.content\.presentation\.avatar$/,
   /^\$\.nodes\[\d+\]\.content\.image$/,
   /^\$\.nodes\[\d+\]\.action\.command\.content\.content\.image$/,
-  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]\.command\.content\.content\.image$/,
-  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]\.command\.content\.content\.image$/,
-  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]\.command\.content\.content\.image$/,
 ];
 
 const STORY_CHARACTER_PATHS = [
   /^\$\.nodes\[\d+\]\.content\.characterId$/,
   /^\$\.nodes\[\d+\]\.action\.command\.content\.content\.characterId$/,
-  /^\$\.nodes\[\d+\]\.interaction\.result\.actions\[\d+\]\.command\.content\.content\.characterId$/,
-  /^\$\.nodes\[\d+\]\.interaction\.sharedActions\[\d+\]\.command\.content\.content\.characterId$/,
-  /^\$\.nodes\[\d+\]\.interaction\.options\[\d+\]\.result\.actions\[\d+\]\.command\.content\.content\.characterId$/,
 ];
 
 const STORY_STATE_REFERENCE_RULES: Readonly<Record<string, readonly [string, string, string]>> = {
@@ -205,6 +203,7 @@ const STORY_STATE_REFERENCE_RULES: Readonly<Record<string, readonly [string, str
   addEnhancement: ['enhancementId', '获得强化', 'enhancements'],
   addItem: ['itemId', '增加物品', 'items'],
   unlockInit: ['initId', '解锁Init', 'inits'],
+  acquireAreaMap: ['mapId', '获得区域地图', 'areaMaps'],
   grantCharacter: ['variantId', '获得角色差分', 'characterVariants'],
   addAffectionExp: ['variantId', '增加好感', 'characterVariants'],
 };
@@ -361,6 +360,16 @@ export function collectDefinitionReferences(
             const [field, relation, targetKind] = reference;
             add(`${path}.effects[${index}].${field}`, state[field], relation, [targetKind]);
           }
+          if (state.op === 'revealInformation' && isRecord(state.target)) {
+            const target = safeRecord(state.target);
+            if (target.entityKind === 'area' && typeof target.entityId === 'string') {
+              add(`${path}.effects[${index}].target.entityId`, target.entityId, '告知 Area 信息', ['areas']);
+            } else if (target.entityKind === 'areaMap' && typeof target.entityId === 'string') {
+              add(`${path}.effects[${index}].target.entityId`, target.entityId, '告知 AreaMap 信息', ['areaMaps']);
+            } else if (target.entityKind === 'areaMapNode' && typeof target.mapId === 'string') {
+              add(`${path}.effects[${index}].target.mapId`, target.mapId, '告知 AreaMap 节点信息', ['areaMaps']);
+            }
+          }
           if (state.op === 'setManager') add(`${path}.effects[${index}].managerId`, state.managerId, '管理者角色', ['characters']);
         }
       } else if (action.kind === 'travel') {
@@ -457,6 +466,12 @@ export function collectDefinitionReferences(
       }
       if (node.op === 'clearAllChatFlow' && typeof node.target === 'string' && node.target) {
         add(`${path}.target`, node.target, '角色聊天流', ['characterVariants']);
+      }
+      if (node.op === 'revealInformation' && isRecord(node.value)) {
+        const target = safeRecord(node.value);
+        if (target.entityKind === 'area' && typeof target.entityId === 'string') add(`${path}.value.entityId`, target.entityId, '告知 Area 信息', ['areas']);
+        else if (target.entityKind === 'areaMap' && typeof target.entityId === 'string') add(`${path}.value.entityId`, target.entityId, '告知 AreaMap 信息', ['areaMaps']);
+        else if (target.entityKind === 'areaMapNode' && typeof target.mapId === 'string') add(`${path}.value.mapId`, target.mapId, '告知 AreaMap 节点信息', ['areaMaps']);
       }
       const effectValue = isRecord(node.value) ? safeRecord(node.value) : undefined;
       if (node.op === 'setTheme' && effectValue) {

@@ -2,7 +2,7 @@
 // engine/def-factory/area.test.ts — Area 链式 Builder
 // ============================================================
 import { describe, test, expect } from 'vitest';
-import { cond, and } from '../../../src/engine/types';
+import { cond } from '../../../src/engine/types';
 import { area, AreaBuilder } from '../../../src/arona-clicker/content/def-factory/area';
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { AreaDef } from '../../../src/data-services/contracts/world';
@@ -49,18 +49,19 @@ describe('AreaBuilder', () => {
     });
   });
 
-  test('revealResource / revealCredit / reveal 糖', () => {
+  test('information gates and visit grants use world contracts', () => {
     const def = area('base:area:h', 'base:init:o')
       .name('x').desc('x')
       .revealCredit('name', 80)
       .revealResource('utility', CREDIT, 40)
       .reveal('existence')
+      .onVisitReveal('existence')
       .build();
-    expect(def.revealTriggers).toEqual([
-      { reveal: 'name', condition: and(cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 80)) },
-      { reveal: 'utility', condition: and(cond('resource', CREDIT, '>=', 40)) },
-      { reveal: 'existence' },
-    ]);
+    expect(def.reveal).toEqual({
+      name: { mode: 'condition', condition: cond('stat', '$GlobalProducedAmount base:resource:credit', '>=', 80) },
+      utility: { mode: 'condition', condition: { target: 'resource', key: CREDIT, comparator: '>=', value: 40 } },
+    });
+    expect(def.onVisitReveal).toEqual(['existence']);
   });
 
   test('onEnter* 构造 EntryEffectDef 变体', () => {
@@ -78,7 +79,7 @@ describe('AreaBuilder', () => {
     const def = area('test:area:a', 'i').name('x').desc('x').build();
     expect(def).not.toHaveProperty('adjacentAreaIds');
     expect(def).not.toHaveProperty('theme');
-    expect(def).not.toHaveProperty('revealTriggers');
+    expect(def).not.toHaveProperty('reveal');
     expect(def).not.toHaveProperty('enterEffects');
   });
 });

@@ -3,6 +3,9 @@ import type { StoryRunFlags } from './story-run-flags';
 
 /** Persisted Story output, independent of UI message IDs and mounted displays. */
 export interface StoryOutputContent {
+  /** 作者节点来源；historyId 在输出条目上隔离逻辑运行。 */
+  readonly node?: import('./chat-presentation').StoryDisplayTarget;
+  readonly performance?: import('./chat-presentation').StoryNodePerformance;
   readonly kind: 'talk' | 'narration' | 'reward' | 'travel';
   readonly text: string;
   readonly speaker?: string;

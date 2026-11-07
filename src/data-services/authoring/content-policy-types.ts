@@ -33,6 +33,7 @@ export interface WritableFieldDef {
   readonly required?: boolean;
   /** kind === 'ref'：目标实体在 mod:type:id 中的 type 段。 */
   readonly refType?: string;
+  readonly options?: readonly { readonly value: string; readonly label: string }[];
   /** 新建内容时的初始值；缺省按 kind 推导（字符串为空、数值为 0、引用取首个候选）。 */
   readonly initialValue?: unknown;
   /** 字段所属编辑页 id（编辑器描述符消费）；缺省归入默认页。 */

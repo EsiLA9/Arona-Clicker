@@ -1,4 +1,5 @@
-import type { RevealTrigger } from '../../engine/types/reveal';
+import type { ConditionGroup } from '../../engine/types/expression';
+import type { WorldInformationDef } from './world-reveal';
 
 /** 区域导航地图 ID，格式 mod:area-map:name；不属于 Gameplay MapRun。 */
 export type AreaMapId = string;
@@ -10,7 +11,11 @@ export interface AreaMapDef {
   id: AreaMapId;
   name: string;
   description?: string;
-  revealTriggers?: RevealTrigger[];
+  reveal?: WorldInformationDef;
+  /** Current condition for browsing this map; collection and travel are separate. */
+  openCondition?: ConditionGroup;
+  /** Successful opens collect by default; explicit maps must be granted. */
+  collection?: 'onOpen' | 'explicit';
   nodes: AreaMapNodeDef[];
   edges: AreaMapEdgeDef[];
 }
@@ -27,14 +32,16 @@ export interface AreaMapNodeDef {
     /** @ref pics */
     iconPicId?: string;
   };
-  revealTriggers?: RevealTrigger[];
+  reveal?: WorldInformationDef;
+  /** Current condition for this node's declared action. */
+  actionCondition?: ConditionGroup;
   /** 缺省为 inspect；每节点最多一个声明式动作。 */
   action?: AreaMapNodeAction;
 }
 
 export type AreaMapNodeAction =
   | { kind: 'inspect' }
-  | { kind: 'attemptAreaTravel'; /** @ref areas */ areaId: string }
+  | { kind: 'attemptAreaTravel'; /** @ref areas */ areaId: string; travelMode?: 'route' | 'mapDirect' }
   | { kind: 'openMap'; /** @ref areaMaps */ mapId: AreaMapId };
 
 /** 候选连线；仅当两端 Area 存在真实有向连接时才渲染，不授予移动权限。 */

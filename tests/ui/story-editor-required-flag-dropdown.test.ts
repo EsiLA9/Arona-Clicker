@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -23,8 +24,8 @@ it('offers flags in the same possible Entry/Transfer chain without global, read-
   ]);
   const child=document('local:story:child',[writer('secret','child-secret')]);
   parent.authoring=emptyStoryAuthoring();child.authoring=emptyStoryAuthoring();
-  parent.authoring.activeStories.push({id:'local:activestory:parent',type:'active',storyId:parent.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}});
-  child.authoring.activeStories.push({id:'local:activestory:child',type:'active',storyId:child.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}});
+  parent.authoring.activeStories.push({id:'local:activestory:parent',storyId:parent.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
+  child.authoring.activeStories.push({id:'local:activestory:child',storyId:child.document.id,availableInits:[],triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
   state.drafts.push(parent,body,child);state.target={kind:'story',id:body.document.id};
   const relations=buildStoryRelations(state,new Map(),new Map());
   expect(requiredFlagOptions(state,relations)).toEqual(['body-flag','parent-flag','returned']);
@@ -43,7 +44,7 @@ describe('required local flag dropdown',()=>{
   beforeEach(()=>{
     localStorage.clear();window.document.body.innerHTML='<div id="app"></div>';root=window.document.querySelector('#app')!;
     game=new GameInstance();game.init([baseDatapack]);ctrl=new UIController(game,root);ctrl.render();ctrl.storyEditor.open();
-    find<HTMLButtonElement>('[data-editor-action="new"]').click();ctrl.flushUIUpdates();draft=currentDraft(ctrl.storyEditor.state)!;
+    createStoryForTest(game,ctrl);ctrl.flushUIUpdates();draft=currentDraft(ctrl.storyEditor.state)!;
     draft.document={...draft.document,startContext:{type:'area',areaId:[...game.registry.areas.keys()][0]},nodes:[writer('alpha','alpha'),writer('beta','beta'),{id:'reader',type:'talklet',stageId:'one',requiresFlag:'beta',content:{kind:'talk',text:'text'}}]};
     ctrl.storyEditor.state.selectedNodeId='reader';refresh();
   });

@@ -399,6 +399,7 @@ h3 {
 .workspace-frame[data-ordered-columns] { overflow-x: auto; }
 .workspace-frame[data-ordered-columns] > .workspace-column { grid-column: auto; }
 .workspace-column__slot { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
+.workspace-column__viewport { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-column.is-collapsed { display: none; }
 .workspace-column__body { display: flex; flex: 1 1 0; flex-direction: column; width: 100%; min-width: 0; min-height: 0; height: auto; }
 .workspace-column__body[data-scroll='auto'] { overflow: auto; }

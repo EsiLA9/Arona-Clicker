@@ -96,7 +96,7 @@ export class StoryFollowUpMount {
     // so one delivery must not prevent another offer from being created in the same Area.
     for (const [id, followUp] of matching) {
       const target = this.registry.storyEntries.get(followUp.outcome.storyEntryId);
-      if (target?.type !== 'active') continue;
+      if (target?.activation.kind !== 'active') continue;
       const area = this.registry.areas.get(areaId);
       if (!area || area.initId !== initId || !this.isAvailableInInit(target, initId)) continue;
       const targetStory = this.registry.stories.get(target.storyId);
@@ -114,7 +114,7 @@ export class StoryFollowUpMount {
     // Passive FollowUps keep their existing direct-start behavior and one-success-per-entry-event limit.
     for (const [id, followUp] of matching) {
       const target = this.registry.storyEntries.get(followUp.outcome.storyEntryId);
-      if (target?.type === 'active') continue;
+      if (target?.activation.kind === 'active') continue;
       if (!this.startStoryEntry(followUp.outcome.storyEntryId)) continue;
       this.triggerSystem.commitOnce(id);
       this.mounted.delete(id);

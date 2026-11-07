@@ -73,7 +73,7 @@ export function renderStructuredValue(ctx: UIContext, scope: string, path: Value
   if (depth > STORY_AUTHORING_MAX_DEPTH) content = '<p class="story-editor-error">结构过深，请先简化上层值。</p>';
   else if (Array.isArray(value) || object(value)) {
     const children = Object.entries(value).map(([name, child]) => {
-      if (fixedRecord && name === 'kizuna') return '';
+      if (fixedRecord && ['kizuna','activation','catalog'].includes(name)) return '';
       const segment = Array.isArray(value) ? Number(name) : name;
       const move = Array.isArray(value) ? `<div class="story-editor-actions"><button type="button" class="mini-action" data-value-action="up" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===0 || disabled ? ' disabled' : ''}>上移</button><button type="button" class="mini-action" data-value-action="down" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===value.length-1 || disabled ? ' disabled' : ''}>下移</button></div>` : '';
       const flagNames = object(value) && (value.target === 'flag' && name === 'key' || value.op === 'setFlag' && name === 'target') ? references?.$globalFlags

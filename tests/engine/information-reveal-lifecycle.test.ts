@@ -4,6 +4,7 @@ import { baseDatapack } from '../../src/data/test-datapack';
 import type { Registry } from '../../src/data-services/registry/registry';
 import type { InitDef, AreaDef } from '../../src/data-services/contracts/world';
 import type { RevealTrigger } from '../../src/engine/types/reveal';
+import type { WorldInformationDef } from '../../src/data-services/contracts/world-reveal';
 
 const OFFICE = 'base:init:schale_office';
 const MILLENNIUM = 'base:init:millennium';
@@ -11,6 +12,7 @@ const CREDIT = 'base:resource:credit';
 const gate = (target: 'name' | 'condition', resource: string, value = 999): RevealTrigger => ({
   reveal: target, condition: { target: 'resource', key: resource, comparator: '>=', value },
 });
+const areaGate = (resource: string, value = 999) => ({ mode: 'condition' as const, condition: { target: 'resource' as const, key: resource, comparator: '>=' as const, value } });
 
 describe('Information Reveal Init lifecycle integration', () => {
   let game: GameInstance | undefined;
@@ -28,10 +30,10 @@ describe('Information Reveal Init lifecycle integration', () => {
     registry.inits.set(id, { ...current, revealTriggers });
   }
 
-  function replaceArea(id: string, revealTriggers: RevealTrigger[]): void {
+  function replaceArea(id: string, reveal: WorldInformationDef): void {
     const registry = game!.registry as unknown as { areas: Map<string, AreaDef> };
     const current = registry.areas.get(id)!;
-    registry.areas.set(id, { ...current, revealTriggers });
+    registry.areas.set(id, { ...current, reveal });
   }
 
   function revealRegistrations() {
@@ -81,7 +83,7 @@ describe('Information Reveal Init lifecycle integration', () => {
     const registry = g.registry as unknown as { inits: Map<string, InitDef>; areas: Map<string, AreaDef> };
     const areaId = registry.inits.get(OFFICE)!.defaultAreas[0];
     replaceInit(OFFICE, [gate('name', 'test:init-known', 1), gate('condition', 'test:init-old', 999)]);
-    replaceArea(areaId, [gate('name', 'test:area-known', 1), gate('condition', 'test:area-old', 999)]);
+    replaceArea(areaId, { name: areaGate('test:area-known', 1), condition: areaGate('test:area-old') });
     expect(g.inits.startNewGame(OFFICE)).toBe(true);
     g.mutations.setResource('test:init-known', 1);
     g.mutations.setResource('test:area-known', 1);
@@ -91,7 +93,7 @@ describe('Information Reveal Init lifecycle integration', () => {
     ]));
 
     replaceInit(OFFICE, [gate('name', 'test:init-known', 1), gate('condition', 'test:init-new', 999)]);
-    replaceArea(areaId, [gate('name', 'test:area-known', 1), gate('condition', 'test:area-new', 999)]);
+    replaceArea(areaId, { name: areaGate('test:area-known', 1), condition: areaGate('test:area-new') });
     g.initService.reconcileAfterWorldDefinitionChange();
     const resources = testRevealRegistrations().flatMap(def => def.on.kind === 'resource' ? [def.on.resource] : []);
     expect(resources).toContain('test:init-new');

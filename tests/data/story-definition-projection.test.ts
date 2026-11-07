@@ -17,7 +17,7 @@ describe('Story definition projection', () => {
       nodes: [
         { id: 'op', type: 'operation', requiresFlag: 'branch-ready', action: { kind: 'localFlag', op: 'set', name: 'seen', value: { nested: [null, false, 0, ''] } } },
         { id: 'theme', type: 'operation', action: { kind: 'presentation', command: { command: 'theme', value: { scope: 'ephemeral', tokens: { '--custom-token': '#abc' }, background: [{ kind: 'image', value: 'pic:scene', enabled: false }] } } } },
-        { id: 'click', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '', condition: { type: 'AND', conditions: [{ type: 'OR', conditions: [] }, { target: 'alwaysTrue', key: '', comparator: '==', value: 0 }] }, result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'answer', value: nested }] }] } }] } },
+        { id: 'click', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '', showWhen: { type: 'AND', conditions: [{ type: 'OR', conditions: [] }, { target: 'alwaysTrue', key: '', comparator: '==', value: 0 }] }, requiresFlag: 'ready', marks: ['answered'] }] } },
       ],
       stages: { input: { advance: 'input' } },
     });
@@ -37,7 +37,11 @@ describe('Story definition projection', () => {
     ['unknown action field', baseStory({ nodes: [{ id: 'op', type: 'operation', action: { kind: 'travel', areaId: 'base:area:a', request: {} } }] }), 'nodes[0].action.request'],
     ['unknown overlay command field', baseStory({ nodes: [{ id: 'op', type: 'operation', action: { kind: 'overlay', command: { command: 'clearFlow', id: 'stale' } } }] }), 'nodes[0].action.command.id'],
     ['non-finite value', baseStory({ nodes: [{ id: 'op', type: 'operation', action: { kind: 'state', effects: [{ op: 'setResource', resourceId: 'credits', amount: Number.NaN }] } }] }), 'nodes[0].action.effects[0].amount'],
-    ['leaf instead of a ConditionGroup', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', condition: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } }] } }] }), 'nodes[0].interaction.options[0].condition'],
+    ['leaf instead of a ConditionGroup', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', showWhen: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } }] } }] }), 'nodes[0].interaction.options[0].showWhen'],
+    ['legacy shared actions', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', sharedActions: [], options: [{ id: 'yes', text: '是' }] } }] }), 'nodes[0].interaction.sharedActions'],
+    ['legacy option condition', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', condition: { type: 'AND', conditions: [] } }] } }] }), 'nodes[0].interaction.options[0].condition'],
+    ['legacy option result', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', result: { actions: [] } }] } }] }), 'nodes[0].interaction.options[0].result'],
+    ['non-array Choice marks', baseStory({ stages: { input: { advance: 'input' } }, nodes: [{ id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', marks: 'route' }] } }] }), 'nodes[0].interaction.options[0].marks'],
   ])('rejects %s with a precise path', (_label, source, path) => {
     const result = projectStoryDefinition(source);
     expect(result.ok).toBe(false);
@@ -67,9 +71,9 @@ describe('Story definition projection', () => {
       { id: 'empty-state-operation', type: 'operation', action: { kind: 'state', effects: [{}] } },
       { id: 'blank-transfer', type: 'transfer', transfer: {} },
       { id: 'op', type: 'operation', action: { kind: 'state', effects: [effect] } },
-      { id: 'click', type: 'click', stageId: 'input', interaction: {
-        kind: 'button', text: '继续', press: {}, result: { actions: [{}], transfer: {} },
-      } },
+      { id: 'click', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续', press: {} } },
+  { id: "click-effect-1", type: 'operation', action: {} },
+  { id: "click-transfer", type: 'transfer', transfer: {} },
     ] });
 
     const projected = projectStoryDefinition(source);
@@ -77,7 +81,7 @@ describe('Story definition projection', () => {
       { id: 'op', type: 'operation', action: { kind: 'state', effects: [effect] } },
       { id: 'click', type: 'click', stageId: 'input', interaction: { kind: 'button', text: '继续' } },
     ] }) });
-    expect((source as unknown as { nodes: unknown[] }).nodes).toHaveLength(5);
+    expect((source as unknown as { nodes: unknown[] }).nodes).toHaveLength(7);
   });
 
   it('keeps blank execution nodes with authored guards invalid instead of discarding their data', () => {
@@ -103,15 +107,40 @@ describe('Story definition projection', () => {
       stages: { input: { advance: 'input' } },
       nodes: [
         { id: 'op', type: 'operation', action: { kind: 'state', effects: [{ op: 'setResource', resourceId: 'credits', amount: { type: 'value', value: { type: 'value', source: 'spotLevel', params: { spot: 'base:spot:missing' } } } }] } },
-        { id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', condition: { type: 'AND', conditions: [{ target: 'hasReadStory', key: 'base:story:missing', comparator: '==', value: 0 }] } }] } },
+        { id: 'pick', type: 'click', stageId: 'input', interaction: { kind: 'choice', options: [{ id: 'yes', text: '是', showWhen: { type: 'AND', conditions: [{ target: 'hasReadStory', key: 'base:story:missing', comparator: '==', value: 0 }] } }] } },
       ],
     });
     const result = projectStoryDefinition(source, { resources: new Map([['credits', {}]]), spots: new Map(), stories: new Map() });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.issues.some(issue => issue.path.endsWith('.params.spot'))).toBe(true);
-      expect(result.issues.some(issue => issue.path.endsWith('.condition.conditions[0].key'))).toBe(true);
+      expect(result.issues.some(issue => issue.path.endsWith('.showWhen.conditions[0].key'))).toBe(true);
     }
+  });
+
+  it('projects map grants and allows Story information grants only for existing explicit rules', () => {
+    const map = {
+      id: 'guide',
+      reveal: { existence: { mode: 'explicit' }, name: { mode: 'condition', condition: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } } },
+      nodes: [{ id: 'hidden', reveal: { utility: { mode: 'explicit' } } }],
+    };
+    const refs = {
+      areas: new Map([['base:area:schale_main', {}], ['area:guide', { reveal: { name: { mode: 'explicit' } } }]]),
+      areaMaps: new Map([['map:guide', map]]),
+    };
+    const actions = baseStory({ stages: {}, nodes: [{ id: 'grant', type: 'operation', action: { kind: 'state', effects: [
+      { op: 'acquireAreaMap', mapId: 'map:guide' },
+      { op: 'revealInformation', target: { entityKind: 'area', entityId: 'area:guide', target: 'name' } },
+      { op: 'revealInformation', target: { entityKind: 'areaMapNode', mapId: 'map:guide', nodeId: 'hidden', target: 'utility' } },
+    ] } }] });
+    expect(projectStoryDefinition(actions, refs).ok).toBe(true);
+
+    const publicTarget = baseStory({ stages: {}, nodes: [{ id: 'grant', type: 'operation', action: { kind: 'state', effects: [
+      { op: 'revealInformation', target: { entityKind: 'areaMap', entityId: 'map:guide', target: 'name' } },
+    ] } }] });
+    const invalid = projectStoryDefinition(publicTarget, refs);
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) expect(invalid.issues.some(issue => issue.message.includes('explicit'))).toBe(true);
   });
 
   it('accepts the active/card request variant outside the entryCard interaction', () => {

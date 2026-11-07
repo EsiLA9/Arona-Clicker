@@ -1,3 +1,5 @@
+import { storyEntryType } from '../../../data-services/contracts/story-entry';
+import { projectStoryContent } from '../../../data-services/authoring/story-content-display';
 import type { StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { StoryNodeDocument, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import type { StoryAction } from '../../../data-services/contracts/story-node-actions';
@@ -110,7 +112,7 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
     && (next.requiresFlag === undefined || session.player.hasLocalFlag(next.requiresFlag));
   return {
     storyId: session.source.entryId,
-    type: session.entry.type,
+    type: storyEntryType(session.entry),
     storyDefId: view.storyId,
     pageIndex,
     totalPages: displayNodes.length,
@@ -124,6 +126,8 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
     runId,
     historyId,
     waitSequence: view.sequence,
+    ...(view.status==='input'&&view.press ? {press:{...view.press}}:{}),
+    ...((view.node.type==='talklet'||view.node.type==='click') && view.node.performance ? {performance:structuredClone(view.node.performance)} : {}),
     ...(nextIsInput ? { nextIsInput: true } : {}),
   };
 }
@@ -135,17 +139,7 @@ function operationCheckpointPage(): Talklet {
 function talkletPage(node: StoryTalkletNode): Talklet {
   const { content, presentation, pacing } = node;
   return {
-    kind: content.kind,
-    text: content.text,
-    ...(content.kind === 'talk' && content.speaker !== undefined ? { speaker: content.speaker } : {}),
-    ...(content.kind === 'talk' && content.characterId !== undefined ? { characterId: content.characterId } : {}),
-    ...(content.kind === 'talk' && content.displayName !== undefined ? { displayName: content.displayName } : {}),
-    ...(content.kind === 'talk' && content.image !== undefined ? { image: content.image } : {}),
-    ...(presentation?.side === undefined ? {} : { side: presentation.side }),
-    ...(presentation?.align === undefined ? {} : { align: presentation.align }),
-    ...(presentation?.avatar === undefined ? {} : { avatar: presentation.avatar }),
-    ...(presentation?.avatarMode === 'hide' ? { noAvatar: true } : {}),
-    ...(presentation?.avatarMode === 'show' ? { showAvatar: true } : {}),
+    ...projectStoryContent(content,presentation),
     ...(pacing?.typing === undefined ? {} : { typing: pacing.typing }),
     ...(pacing?.thinking === undefined ? {} : { thinking: pacing.thinking }),
   };

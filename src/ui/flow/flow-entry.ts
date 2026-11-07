@@ -105,6 +105,7 @@ export interface FlowMapLocations {
 
 /** 通用呈现字段：普通 Chat 与 Map 都以它进入同一渲染入口。 */
 export interface FlowContent {
+  readonly performance?: import('../../engine/contracts/chat-presentation').StoryNodePerformance;
   readonly kind: FlowEntryKind;
   readonly speaker?: string;
   readonly characterId?: string;
@@ -317,6 +318,7 @@ export function chatEntryToFlowContent(entry: ChatEntry): FlowContent {
     ...(entry.displayName === undefined ? {} : { displayName: entry.displayName }),
     text: entry.text,
     ...(entry.choice === undefined ? {} : { choice: entry.choice }),
+    ...(entry.performance === undefined ? {} : { performance: entry.performance }),
     ...(entry.isPlayer === undefined ? {} : { isPlayer: entry.isPlayer }),
     ...(entry.align === undefined ? {} : { align: entry.align }),
     ...(entry.avatar === undefined ? {} : { avatar: entry.avatar }),

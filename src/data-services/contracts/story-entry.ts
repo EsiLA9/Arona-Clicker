@@ -24,7 +24,11 @@ export interface StoryFollowUp {
   outcome: { kind: 'start-story-entry'; storyEntryId: StoryEntryId };
 }
 export interface StoryEntryBase {
-  id: StoryId; storyId: StoryId; availableInits: InitId[]; tags?: TagPath[]; triggerCondition: ConditionGroup;
+  id: StoryEntryId; storyId: StoryId; availableInits: InitId[]; tags?: TagPath[]; triggerCondition: ConditionGroup;
+  /** 历史目录位置；与正式激活方式、角色归属和完成状态独立。 */
+  catalog?: StoryEntryCatalog;
+  owner?: string;
+  completionReward?: { first?: Effect[]; repeat?: Effect[] };
   revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';
   conditionalRewards?: ConditionalReward[]; branchGuards?: BranchGuard[]; openingTitle?: string; extra?: ExtraCompound;
   /** One bounded child Entry; areaId requires accepting its invitation at that Area. */
@@ -33,13 +37,40 @@ export interface StoryEntryBase {
   followUps?: StoryFollowUp[];
 }
 export interface ActiveStoryEntry extends StoryEntryBase {
-  type: 'active'; completionReward?: { first?: Effect[]; repeat?: Effect[] }; owner?: string;
+  activation: ActiveStoryActivation;
+  block?: never; interruptible?: never; leaveArea?: never; blocksInteraction?: never;
 }
-export interface PassiveStoryEntry extends StoryEntryBase {
-  type: 'passive'; repeatable: boolean; weight: number; completionReward?: { first?: Effect[]; repeat?: Effect[] };
-  owner?: string; affectionRequired?: number; pushAfterStory?: string; cooldownFrames?: number;
+export interface StoryEntryCatalog {
+  category: string; part: string; chapter?: string; order?: number;
+}
+/** 主动入口；fallback 只投放可接取入口，不自动开播或旅行。 */
+export interface ActiveStoryActivation {
+  kind: 'active';
+  fallback?: { kind: 'current-area' } | { kind: 'fixed-area'; areaId: AreaId };
+}
+/** 随机抽取的基础权重与正式重复规则；池成员关系由 PassivePoolDef 保存。 */
+export interface RandomStoryActivation {
+  kind: 'random'; weight: number; repeatable: boolean; cooldownFrames?: number;
+}
+/** 单次角色阶段；等级和前置故事两种来源明确互斥。 */
+export interface AffectionStoryActivation {
+  kind: 'affection';
+  when: { kind: 'level'; level: number } | { kind: 'after-story'; storyId: StoryId };
+  cooldownFrames?: number;
+}
+export interface PassiveStoryBehavior {
   block?: ConditionGroup; interruptible?: boolean; leaveArea?: boolean;
   /** 阻塞玩家交互：播放期间不被其他 Story 打断，并禁止打开 AreaHero 或手动移动区域。 */
   blocksInteraction?: boolean;
 }
+export interface RandomStoryEntry extends StoryEntryBase, PassiveStoryBehavior { activation: RandomStoryActivation; }
+export interface AffectionStoryEntry extends StoryEntryBase, PassiveStoryBehavior { owner: string; activation: AffectionStoryActivation; }
+export type PassiveStoryEntry = RandomStoryEntry | AffectionStoryEntry;
 export type StoryEntryDef = ActiveStoryEntry | PassiveStoryEntry;
+
+/** 启动通道只读派生，不在作者数据中重复存储 active/passive。 */
+export function storyEntryType(entry: Pick<StoryEntryDef, 'activation'>): 'active' | 'passive';
+export function storyEntryType(entry: Pick<StoryEntryDef, 'activation'> | undefined): 'active' | 'passive' | undefined;
+export function storyEntryType(entry: Pick<StoryEntryDef, 'activation'> | undefined): 'active' | 'passive' | undefined {
+  return entry ? entry.activation.kind === 'active' ? 'active' : 'passive' : undefined;
+}

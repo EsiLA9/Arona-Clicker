@@ -7,9 +7,8 @@ const followUpTargetStory: StoryDef = {
   stages: { s: { advance: 'input' } }, nodes: [{ id: 'arrival', type: 'talklet', stageId: 's', content: { kind: 'narration', text: 'FollowUp target' } }],
 };
 const followUpTargetEntry: ActiveStoryEntry = {
-  id: 'test:activestory:followup-target', storyId: followUpTargetStory.id, type: 'active', availableInits: ['base:init:schale_office'],
-  triggerCondition: { type: 'AND', conditions: [] }, replayable: true,
-};
+  id: 'test:activestory:followup-target', storyId: followUpTargetStory.id, availableInits: ['base:init:schale_office'],
+  triggerCondition: { type: 'AND', conditions: [] }, replayable: true, activation: { kind: 'active' as const } };
 
 /** Explicit legacy author fixtures keep independent FollowUp / tail / ordinary-card coverage after base content migrates. */
 export const legacyStoryDatapack = {
@@ -22,8 +21,8 @@ export const legacyStoryDatapack = {
       followUps: [{ id: 'rooftop-meet', waitFor: { kind: 'next-enter-area' as const, areaId: 'base:area:schale_rooftop' }, outcome: { kind: 'start-story-entry' as const, storyEntryId: followUpTargetEntry.id } }],
     };
     if (entry.id === 'base:passivestory:affinity_hoshino_bond_tail') {
-      const { kizuna: _k, affectionRequired: _a, ...rest } = entry;
-      return { ...rest, availableInits: [], pushAfterStory: 'base:story:bond_hoshino_1' };
+      const { kizuna: _k, ...rest } = entry;
+      return { ...rest, availableInits: [], owner: entry.owner!, activation: {kind:'affection' as const,when:{kind:'after-story' as const,storyId:'base:story:bond_hoshino_1'}} };
     }
     if (entry.id === 'base:passivestory:hoshino_bond_invite') {
       const { kizuna: _k, ...rest } = entry;

@@ -20,7 +20,7 @@ export type TravelError =
   | 'StoryBlocked';
 
 export type TravelResult =
-  | { success: true; areaId: AreaId; fromAreaId: AreaId | null; method?: 'adjacent' | 'visited' | 'transit' }
+  | { success: true; areaId: AreaId; fromAreaId: AreaId | null; method?: 'adjacent' | 'visited' | 'transit' | 'mapDirect' }
   | { success: false; areaId: AreaId; error: TravelError };
 
 export type EnhancementPurchaseError =
@@ -45,6 +45,10 @@ export type SpotUpgradeResult =
 // --- 剧情视图与结果 ---
 
 export interface StoryView {
+  /** 当前真实节点的局部演出；只读投影，不持有第二个输入游标。 */
+  performance?: import('../../../engine/contracts/chat-presentation').StoryNodePerformance;
+  /** 当前 Click 已接纳的工作量进度。 */
+  press?: {readonly total:number;readonly done:number};
   /** Source StoryEntry ID; stable while the playback jumps between Story definitions. */
   storyId: StoryId;
   /** Type of the source StoryEntry. */

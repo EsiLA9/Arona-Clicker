@@ -69,7 +69,7 @@ function activeView(patch: ActivePatch = {}): MapRunActiveWorkspaceView {
     }],
   } : null;
   return {
-    kind: 'active',
+    kind: 'active' as const,
     run: {
       runId: 'run-1',
       mapId: 'map-1',

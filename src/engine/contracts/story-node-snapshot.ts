@@ -13,7 +13,7 @@ export type StoryNodePendingSnapshot =
   | { readonly kind: 'delivery' }
   | { readonly kind: 'input'; readonly press?: { readonly total: number; readonly done: number } }
   | { readonly kind: 'operation'; readonly data: StoryNodePresentationData }
-  | { readonly kind: 'result'; readonly data: StoryNodePresentationData; readonly continuation: { readonly transfer?: { readonly mode: 'goto' | 'insert'; readonly storyId: string } } };
+  | { readonly kind: 'result'; readonly data: StoryNodePresentationData };
 
 /** 新节点执行快照。没有旧页式游标的兼容解释。 */
 export interface StoryNodeSnapshot {
@@ -30,7 +30,7 @@ export interface StoryNodeSnapshot {
     readonly visited: readonly string[];
     /** nextNodeId为空表示返回到该文档末尾。 */
     readonly stack: readonly { readonly storyId: string; readonly nextNodeId: string | null }[];
-    /** 结果等待点保存已提交结果与已接受续接；恢复不重新执行动作或准入。 */
+    /** 等待点保存已提交的表现数据；恢复不重新执行动作。 */
     readonly pending: StoryNodePendingSnapshot;
   } | null;
 }

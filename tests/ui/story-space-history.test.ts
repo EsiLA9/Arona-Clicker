@@ -13,8 +13,8 @@ function setup(roundTrip = true) {
   const talk = (id: string) => ({ id, type: 'talklet' as const, stageId: 's', content: { kind: 'narration' as const, text: id } });
   game = new GameInstance();
   game.init([baseDatapack, makePack([
-    { id: parent, storyId: 'test:story:history_parent', type: 'passive', owner: 'Hoshino', repeatable: false, replayable: true, weight: 1, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, kizuna: { entryId: child } },
-    { id: child, storyId: 'test:story:history_child', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+    { id: parent, storyId: 'test:story:history_parent', owner: 'Hoshino', replayable: true, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, kizuna: { entryId: child }, activation: { kind: 'random' as const, weight: 1, repeatable: false } },
+    { id: child, storyId: 'test:story:history_child', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
   ], [
     { id: 'test:story:history_parent', name: 'parent', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: [{ id: 'card', type: 'click', stageId: 's', interaction: { kind: 'kizunaCard' } }, talk('parent-tail')] },
     { id: 'test:story:history_child', name: 'child', startContext: { type: 'chara', characterId: 'Hoshino' }, stages: { s: { advance: 'input' } }, nodes: [talk('child-start'), { id: 'go', type: 'moveToArea', areaId: area }, talk('onsite'), ...(roundTrip ? [{ id: 'back', type: 'moveToCharaspace' as const, characterId: 'Hoshino' }, talk('child-return')] : [])] },
@@ -82,7 +82,7 @@ describe('formal story history and space', () => {
     setup(false);
     const existing = 'test:activestory:existing';
     game.registry.load(makePack([
-      { id: existing, storyId: 'test:story:existing', type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } },
+      { id: existing, storyId: 'test:story:existing', availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
     ], [{ id: 'test:story:existing', name: 'existing', startContext: { type: 'area', areaId: area }, stages: { s: { advance: 'input' } }, nodes: [
       { id: 'choice', type: 'click', stageId: 's', interaction: { kind: 'choice', options: [{ id: 'stay', text: '继续当前场景的故事' }] } },
     ] }]));

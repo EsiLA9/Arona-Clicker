@@ -8,10 +8,7 @@ import type { StoryNodeSnapshot } from '../../src/engine/contracts/story-node-sn
 const receipt: EffectReceipt = { effectIndex: 0, op: 'addResource', target: 'credit', status: 'changed', before: 1, after: 3, delta: 2 };
 const source = { entryId: 'entry:root', owner: null, historyId: 'history:root' };
 const root: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:root', name: 'Root', stages: { unused: { advance: 'auto' } }, nodes: [
-  { id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', result: {
-    actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] }],
-    transfer: { mode: 'insert', storyId: 'story:child' },
-  } } },
+  { id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', press: { base: 2 } } },
   { id: 'tail', type: 'talklet', stageId: 'unused', content: { kind: 'talk', text: 'Tail' } },
 ] };
 const child: StoryNodeDocument = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'story:child', name: 'Child', stages: { unused: { advance: 'auto' } }, nodes: [
@@ -28,62 +25,7 @@ function fixture(documents = [root, child], outcome: StoryNodeActionOutcome = { 
   return { player: new StoryNodePlayer(new Map(documents.map(document => [document.id, document])), host), execute, preflightTransfer };
 }
 
-describe('StoryNodePlayer committed result barriers', () => {
-  it('defers an accepted insert until result acknowledgment and never rechecks its dynamic guard', () => {
-    const f = fixture();
-    const input = f.player.start(root.id, source).view;
-    const result = f.player.submit(token(input)).view;
-    expect(result).toMatchObject({ status: 'result', storyId: root.id, node: { id: 'click' }, data: { receipts: [receipt], presentation: [] } });
-    expect(f.execute).toHaveBeenCalledTimes(1);
-    expect(f.preflightTransfer).toHaveBeenCalledTimes(1);
-    expect(f.player.submit(token(input))).toMatchObject({ ok: false, error: 'StaleToken' });
-    f.preflightTransfer.mockReturnValue('NoLongerAvailable');
-    const entered = f.player.ackDelivery(token(result));
-    expect(entered.view).toMatchObject({ status: 'delivery', storyId: child.id });
-    expect(f.preflightTransfer).toHaveBeenCalledTimes(1);
-    const returned = f.player.ackDelivery(token(entered.view));
-    expect(returned.view).toMatchObject({ status: 'delivery', storyId: root.id, node: { id: 'tail' } });
-    expect(f.execute).toHaveBeenCalledTimes(1);
-  });
-
-  it('restores an immutable result and continuation without replaying actions or transfer admission', () => {
-    const f = fixture();
-    const input = f.player.start(root.id, source).view;
-    const result = f.player.submit(token(input)).view;
-    const snapshot = JSON.parse(JSON.stringify(f.player.save()));
-    expect(snapshot).toMatchObject({ format: 'story-nodes-v2', run: { nodeId: 'click', pending: { kind: 'result', continuation: { transfer: { mode: 'insert', storyId: child.id } } } } });
-    const next = fixture();
-    next.preflightTransfer.mockReturnValue('ChangedAfterSave');
-    next.player.restore(snapshot);
-    expect(next.player.getView()).toMatchObject({ status: 'result', data: { receipts: [receipt] } });
-    expect(next.player.ackDelivery(token(result))).toMatchObject({ ok: false, error: 'StaleToken' });
-    expect(next.player.ackDelivery(token(next.player.getView())).view).toMatchObject({ status: 'delivery', storyId: child.id });
-    expect(next.execute).not.toHaveBeenCalled();
-    expect(next.preflightTransfer).not.toHaveBeenCalled();
-  });
-
-  it('waits for presentation-only results and isolates returned data', () => {
-    const f = fixture([root, child], { status: 'applied', presentation: [{ op: 'showOpeningTitle', target: '', value: 'Title' }] });
-    const input = f.player.start(root.id, source).view;
-    const result = f.player.submit(token(input)).view;
-    if (result.status !== 'result') throw new Error('Expected result');
-    (result.data.presentation[0] as { value: string }).value = 'Mutated';
-    expect(f.player.getView()).toMatchObject({ data: { presentation: [{ value: 'Title' }] } });
-    expect(f.execute).toHaveBeenCalledTimes(1);
-  });
-
-  it('continues pure local actions immediately without inventing a result barrier', () => {
-    const document: StoryNodeDocument = { ...root, nodes: [
-      { id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', result: {
-        actions: [{ kind: 'localFlag', op: 'set', name: 'ready', value: false }],
-      } } },
-      { id: 'tail', type: 'talklet', stageId: 'unused', requiresFlag: 'ready', content: { kind: 'talk', text: 'Tail' } },
-    ] };
-    const f = fixture([document]);
-    const input = f.player.start(root.id, source).view;
-    expect(f.player.submit(token(input)).view).toMatchObject({ status: 'delivery', node: { id: 'tail' } });
-    expect(f.execute).not.toHaveBeenCalled();
-  });
+describe('StoryNodePlayer independent action checkpoints', () => {
 
   it('restores an applied Operation and its data without re-executing it', () => {
     const document: StoryNodeDocument = { ...root, nodes: [{ id: 'operation', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] } }] };
@@ -112,79 +54,62 @@ describe('StoryNodePlayer committed result barriers', () => {
     expect(f.player.ackDelivery(token(second)).view.status).toBe('completed');
   });
 
-  it('retains both the prior prefix and a rejected action’s committed receipt in a failed view', () => {
-    const document: StoryNodeDocument = { ...root, nodes: [{ id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', result: { actions: [
-      { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] },
-      { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] },
-    ] } } }] };
+  it('only reaches a following Operation when the final press succeeds', () => {
+    const document: StoryNodeDocument = { ...root, nodes: [root.nodes[0],
+      { id: 'reward', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] } }, root.nodes[1],
+    ] };
     const f = fixture([document]);
-    f.execute.mockReturnValueOnce({ status: 'applied', receipts: [receipt] }).mockReturnValueOnce({ status: 'rejected', error: 'ObserverFailed', receipts: [{ ...receipt, before: 3, after: 5 }] });
-    const input = f.player.start(root.id, source).view;
-    expect(f.player.submit(token(input))).toMatchObject({ ok: false, view: { status: 'failed', error: 'ObserverFailed', data: { receipts: [receipt, { ...receipt, before: 3, after: 5 }] } } });
-    expect(f.player.submit(token(input)).ok).toBe(false);
-    expect(f.execute).toHaveBeenCalledTimes(2);
+    const input = f.player.start(document.id, source).view;
+    const partial = f.player.submit(token(input)).view;
+    expect(partial.status).toBe('input'); expect(f.execute).not.toHaveBeenCalled();
+    const operation = f.player.submit(token(partial)).view;
+    expect(operation).toMatchObject({ status: 'operation', node: { id: 'reward' } });
+    expect(f.player.ackDelivery(token(operation)).view).toMatchObject({ status: 'delivery', node: { id: 'tail' } });
+    expect(f.execute).toHaveBeenCalledTimes(1);
   });
-
-  it('keeps receipt and presentation order across a mixed action batch', () => {
-    const document: StoryNodeDocument = { ...root, nodes: [{ id: 'click', type: 'click', stageId: 'unused', interaction: { kind: 'button', text: 'Go', result: { actions: [
-      { kind: 'presentation', command: { command: 'openingTitle', title: 'Start' } },
-      { kind: 'state', effects: [{ op: 'addResource', resourceId: 'credit', amount: 2 }] },
-      { kind: 'overlay', command: { command: 'clearAllTexts' } },
-    ] } } }] };
+  it('rejects retired Button result payloads rather than silently ignoring actions', () => {
+    const document = structuredClone(root);
+    Object.assign((document.nodes[0] as { interaction: object }).interaction, { result: { actions: [{ kind: 'localFlag', op: 'set', name: 'old', value: true }] } });
     const f = fixture([document]);
-    f.execute.mockReturnValueOnce({ status: 'applied', presentation: [{ op: 'showOpeningTitle', target: '', value: 'Start' }] })
-      .mockReturnValueOnce({ status: 'applied', receipts: [receipt] })
-      .mockReturnValueOnce({ status: 'applied', presentation: [{ op: 'clearAllChatText', target: '', value: 0 }] });
-    const input = f.player.start(root.id, source).view;
-    const result = f.player.submit(token(input)).view;
-    expect(result).toMatchObject({ status: 'result', data: { order: [
-      { kind: 'presentation', index: 0 }, { kind: 'receipt', index: 0 }, { kind: 'presentation', index: 1 },
-    ] } });
-    const restored = fixture([document]);
-    restored.player.restore(JSON.parse(JSON.stringify(f.player.save())));
-    expect(restored.player.getView()).toMatchObject({ status: 'result', data: result.status === 'result' ? result.data : {} });
-    expect(restored.player.ackDelivery(token(restored.player.getView())).view.status).toBe('completed');
-    expect(restored.execute).not.toHaveBeenCalled();
+    expect(f.player.start(document.id, source).ok).toBe(false);
+    expect(f.execute).not.toHaveBeenCalled();
   });
-
-  it('preserves an already committed receipt when a synchronous host notification throws', () => {
-    const f = fixture();
-    f.execute.mockImplementation(() => { throw Object.assign(new Error('ObserverFailed'), { receipts: [receipt] }); });
-    const input = f.player.start(root.id, source).view;
-    expect(f.player.submit(token(input))).toMatchObject({ ok: false, view: { status: 'failed', data: { receipts: [receipt], order: [{ kind: 'receipt', index: 0 }] } } });
+  it('preserves the dedicated Entry card request and restores its presentation without replay', () => {
+    const document: StoryNodeDocument = { ...root, nodes: [{ id: 'card', type: 'click', stageId: 'unused', interaction: { kind: 'entryCard', card: {
+      request: { entryId: 'entry:child', entryType: 'active', owner: null, intent: 'card' },
+    } } }] };
+    const f = fixture([document]);
+    const result = f.player.submit(token(f.player.start(document.id, source).view)).view;
+    expect(result.status).toBe('result');
+    const next = fixture([document]); next.player.restore(JSON.parse(JSON.stringify(f.player.save())));
+    expect(next.player.getView()).toMatchObject({ status: 'result', data: { receipts: [receipt] } });
+    expect(next.player.ackDelivery(token(next.player.getView())).view.status).toBe('completed');
+    expect(next.execute).not.toHaveBeenCalled();
   });
-
-  it('rejects inconsistent result snapshots before replacing a live wait and rejects old idle snapshots', () => {
-    const f = fixture();
-    const input = f.player.start(root.id, source).view;
-    f.player.submit(token(input));
-    const snapshot = f.player.save();
-    const before = f.player.getView();
-    for (const pending of [
-      { kind: 'result', data: { receipts: [], presentation: [] }, continuation: {} },
-      { kind: 'result', data: { receipts: [receipt], presentation: [] }, continuation: { transfer: { mode: 'goto', storyId: 'missing' } } },
-      { kind: 'operation', data: { receipts: [receipt], presentation: [] } },
-      { kind: 'result', data: { receipts: [{ ...receipt, delta: NaN }], presentation: [] }, continuation: {} },
-      { kind: 'result', data: { receipts: [receipt], presentation: [], order: [{ kind: 'receipt', index: 0 }] }, continuation: {} },
-    ]) {
-      expect(() => f.player.restore({ ...snapshot, run: { ...snapshot.run!, pending } } as StoryNodeSnapshot)).toThrow();
-      expect(f.player.getView()).toEqual(before);
-    }
-    expect(() => f.player.restore({ format: 'story-nodes', run: null } as unknown as StoryNodeSnapshot)).toThrow('InvalidSnapshot');
+  it('rejects retired Button result snapshots without replacing the current run', () => {
+    const f = fixture(); f.player.start(root.id, source);
+    const snapshot = f.player.save(), before = f.player.getView();
+    expect(() => f.player.restore({ ...snapshot, run: { ...snapshot.run!, pending: { kind: 'result', data: { receipts: [receipt], presentation: [], order: [{ kind: 'receipt', index: 0 }] }, continuation: {} } } } as unknown as StoryNodeSnapshot)).toThrow('InvalidSnapshot');
     expect(f.player.getView()).toEqual(before);
   });
-
-  it('requires the saved presentation order to reference every item exactly once', () => {
-    const f = fixture();
-    const input = f.player.start(root.id, source).view;
-    f.player.submit(token(input));
-    const before = f.player.getView();
-    for (const order of [[], [{ kind: 'receipt', index: 1 }], [{ kind: 'presentation', index: 0 }], [{ kind: 'receipt', index: 0 }, { kind: 'receipt', index: 0 }]]) {
-      const snapshot = f.player.save();
-      if (snapshot.run?.pending.kind !== 'result') throw new Error('Expected saved result');
-      const bad = { ...snapshot, run: { ...snapshot.run, pending: { ...snapshot.run.pending, data: { ...snapshot.run.pending.data, order } } } };
-      expect(() => f.player.restore(bad as StoryNodeSnapshot)).toThrow('InvalidSnapshot');
+  it('requires each saved Operation receipt and presentation item to appear exactly once in order', () => {
+    const document: StoryNodeDocument = {...root,nodes:[{id:'reward',type:'operation',action:{kind:'state',effects:[]}}]};
+    const f=fixture([document],{status:'applied',receipts:[receipt],presentation:[{op:'clearAllChatText',target:'',value:0}]});
+    f.player.start(document.id,source);
+    const snapshot=f.player.save(),before=f.player.getView();
+    if(snapshot.run?.pending.kind!=='operation') throw new Error('Expected Operation');
+    for(const order of [[],[{kind:'receipt',index:0}],[{kind:'receipt',index:0},{kind:'receipt',index:0}]]) {
+      const bad={...snapshot,run:{...snapshot.run,pending:{...snapshot.run.pending,data:{...snapshot.run.pending.data,order}}}};
+      expect(()=>f.player.restore(bad as StoryNodeSnapshot)).toThrow('InvalidSnapshot');
       expect(f.player.getView()).toEqual(before);
     }
+  });
+  it('preserves committed Operation receipts when a synchronous observer throws', () => {
+    const document: StoryNodeDocument = {...root,nodes:[{id:'reward',type:'operation',action:{kind:'state',effects:[]}}]};
+    const f=fixture([document]);
+    f.execute.mockImplementation(()=>{throw Object.assign(new Error('ObserverFailed'),{receipts:[receipt]});});
+    const failed=f.player.start(document.id,source);
+    expect(failed.view).toMatchObject({status:'failed',data:{receipts:[receipt]}});
+    expect(f.execute).toHaveBeenCalledTimes(1);
   });
 });

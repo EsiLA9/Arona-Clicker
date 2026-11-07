@@ -1,0 +1,142 @@
+{
+  "dropTables": [
+    {
+      "id": "base:droptable:basic_field_reward",
+      "entries": [
+        {
+          "itemId": "base:item:energy_drink",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        }
+      ],
+      "maxRolls": 1,
+      "guaranteed": [
+        {
+          "itemId": "base:item:field_note",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "base:droptable:trinity_daily",
+      "entries": [
+        {
+          "itemId": "base:item:mystery_fragment",
+          "min": 1,
+          "max": 2,
+          "weight": 2
+        },
+        {
+          "itemId": "base:item:momo_friends_cookie",
+          "min": 1,
+          "max": 2,
+          "weight": 3
+        },
+        {
+          "itemId": "base:item:peroro_doll",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        }
+      ],
+      "maxRolls": 2,
+      "guaranteed": [
+        {
+          "itemId": "base:item:field_note",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "base:droptable:gehenna_daily",
+      "entries": [
+        {
+          "itemId": "base:item:tactical_kit",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        {
+          "itemId": "base:item:energy_drink",
+          "min": 1,
+          "max": 2,
+          "weight": 3
+        },
+        {
+          "itemId": "base:item:broken_core",
+          "min": 1,
+          "max": 1,
+          "weight": 2
+        }
+      ],
+      "maxRolls": 2,
+      "guaranteed": [
+        {
+          "itemId": "base:item:battle_report",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "base:droptable:millennium_research",
+      "entries": [
+        {
+          "itemId": "base:item:premium_drink",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        {
+          "itemId": "base:item:broken_core",
+          "min": 1,
+          "max": 2,
+          "weight": 3
+        },
+        {
+          "itemId": "base:item:data_chip",
+          "min": 1,
+          "max": 2,
+          "weight": 3
+        }
+      ],
+      "maxRolls": 3,
+      "guaranteed": [
+        {
+          "itemId": "base:item:data_chip",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "base:droptable:abydos_field",
+      "entries": [
+        {
+          "itemId": "base:item:tactical_kit",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        },
+        {
+          "itemId": "base:item:energy_drink",
+          "min": 1,
+          "max": 2,
+          "weight": 3
+        },
+        {
+          "itemId": "base:item:mystery_fragment",
+          "min": 1,
+          "max": 1,
+          "weight": 1
+        }
+      ],
+      "maxRolls": 2,
+      "guaranteed": [
+        {
+          "itemId": "base:item:field_note",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}

@@ -39,6 +39,21 @@ describe('StateMutationService', () => {
     expect(events).toHaveLength(1);
   });
 
+  test('collects an authorized AreaMap once and emits its exact ID', () => {
+    const bus = new EventBus();
+    const service = new StateMutationService(bus);
+    const state = emptyState();
+    service.setState(state);
+    const events: string[] = [];
+    bus.on('areaMapCollected', event => events.push(event.mapId));
+    service.setAreaMapCollectionValidator((_state, mapId) => mapId === 'demo:area-map:a');
+    expect(service.collectAreaMap('demo:area-map:b')).toBe(false);
+    expect(service.collectAreaMap('demo:area-map:a')).toBe(true);
+    expect(service.collectAreaMap('demo:area-map:a')).toBe(false);
+    expect(state.collectedAreaMapIds).toEqual(['demo:area-map:a']);
+    expect(events).toEqual(['demo:area-map:a']);
+  });
+
   test('rejects removing more items than owned', () => {
     const service = new StateMutationService(new EventBus());
     const state = emptyState();

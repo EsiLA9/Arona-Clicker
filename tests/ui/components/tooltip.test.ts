@@ -48,7 +48,7 @@ function activeMapTooltipView(options: {
     partyHp: options.partyHp ?? [], enemies: options.enemies ?? [],
   };
   return {
-    kind: 'active',
+    kind: 'active' as const,
     activities: options.kind === 'shop' ? [activity] : [activity],
     currentEncounter: encounter,
     shop: options.kind === 'shop' ? { nodeId: 'current-node', activityId: 'current', title: options.title ?? '当前商店', draftVersion: 0, offers: [], lastPurchase: null } : null,

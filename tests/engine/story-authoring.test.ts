@@ -3,17 +3,17 @@ import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-insta
 import { AronaClickerRuntime } from '../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../src/data/test-datapack';
 import { emptyStoryAuthoring } from '../../src/data-services/authoring/story-authoring';
+import type { StoryNode } from '../../src/data-services/contracts/story-node';
 import type { StoryAuthoringPreview } from '../../src/arona-clicker/contracts/runtime/story-authoring';
-import type { StoryClickNode } from '../../src/data-services/contracts/story-node';
 
 const makePatch = () => ({ ...emptyStoryAuthoring(),
   stories: [{ id: 'test:story:authoring', name: '作者故事', startContext: { type: 'area' as const, areaId: baseDatapack.areas[0].id }, stages: { s: { advance: 'input' as const } }, nodes: [
     { id: 'choice', type: 'click' as const, stageId: 's', interaction: { kind: 'choice' as const, options: [
-      { id: 'one', text: '写入本次结果', result: { actions: [{ kind: 'localFlag' as const, op: 'set' as const, name: 'answer', value: { count: 2 } }] } },
+      { id: 'one', text: '选择后续分支', marks: ['answer'] },
     ] } },
     { id: 'tail', type: 'talklet' as const, stageId: 's', requiresFlag: 'answer', content: { kind: 'narration' as const, text: '正确后续' } },
-  ] }],
-  activeStories: [{ id: 'test:activestory:authoring', type: 'active' as const, storyId: 'test:story:authoring', availableInits: [], triggerCondition: { type: 'AND' as const, conditions: [] }, replayable: true }],
+  ] as StoryNode[] }],
+  activeStories: [{ id: 'test:activestory:authoring', storyId: 'test:story:authoring', availableInits: [], triggerCondition: { type: 'AND' as const, conditions: [] }, replayable: true, activation: { kind: 'active' as const } }],
 });
 describe('Story authoring transactions', () => {
   let game: GameInstance | undefined; let preview: StoryAuthoringPreview | undefined;
@@ -58,12 +58,10 @@ describe('Story authoring transactions', () => {
   });
   it('projects isolated theme and overlay output as detached visual data', () => {
     vi.useFakeTimers(); const game=start(); const patch=makePatch();
-    const choice=patch.stories[0].nodes[0] as StoryClickNode & {interaction:Extract<StoryClickNode['interaction'],{kind:'choice'}>};
-    Object.assign(choice.interaction.options[0]!,{result:{actions:[
-      {kind:'localFlag',op:'set',name:'answer',value:{count:3}},
-      {kind:'presentation',command:{command:'theme',value:{tokens:{primary:'#123456'},background:[{kind:'solid',value:'#abcdef'}]}}},
-      {kind:'overlay',command:{command:'show',id:'preview-note',x:.25,y:.75,align:'center',content:{kind:'text',template:'note',text:'隔离覆盖层'}}},
-    ]}});
+    patch.stories[0].nodes.splice(1, 0,
+      { id: 'theme', type: 'operation', requiresFlag: 'answer', action: { kind: 'presentation', command: { command: 'theme', value: { tokens: { primary: '#123456' }, background: [{ kind: 'solid', value: '#abcdef' }] } } } },
+      { id: 'overlay', type: 'operation', requiresFlag: 'answer', action: { kind: 'overlay', command: { command: 'show', id: 'preview-note', x: .25, y: .75, align: 'center', content: { kind: 'text', template: 'note', text: '隔离覆盖层' } } } },
+    );
     const result=game.createStoryAuthoringPreview(patch,'test:activestory:authoring');expect(result.ok,JSON.stringify(result)).toBe(true);if(!result.ok)return;
     preview=result.preview;expect(preview.getProjection()?.scene).toEqual({type:'area',id:baseDatapack.areas[0].id});
     expect(preview.advance('one')).toMatchObject({ok:true});
@@ -87,7 +85,7 @@ describe('Story authoring transactions', () => {
       {id:'call',type:'click',stageId:'s',interaction:{kind:'kizunaCard'}},
       {id:'back',type:'talklet',stageId:'s',requiresFlag:'answer',content:{kind:'narration',text:'父后文'}},
     ] } as never);
-    patch.activeStories.push({id:'test:activestory:parent',type:'active',storyId:'test:story:parent',availableInits:[],triggerCondition:{type:'AND',conditions:[]},replayable:true,kizuna:{entryId:'test:activestory:authoring',returnFlags:['answer']}} as never);
+    patch.activeStories.push({id:'test:activestory:parent',storyId:'test:story:parent',availableInits:[],triggerCondition:{type:'AND',conditions:[]},replayable:true,kizuna:{entryId:'test:activestory:authoring',returnFlags:['answer']}, activation: { kind: 'active' as const } } as never);
     const result=game.createStoryAuthoringPreview(patch,'test:activestory:parent');expect(result.ok,JSON.stringify(result)).toBe(true);if(!result.ok)return;
     preview=result.preview;expect(preview.advance()).toMatchObject({ok:true});
     expect(preview.getStory()?.storyId).toBe('test:activestory:authoring');
@@ -134,5 +132,42 @@ describe('Story authoring transactions', () => {
     patch.stories[0].id='base:story:authoring';patch.activeStories[0].id='base:activestory:authoring';patch.activeStories[0].storyId='base:story:authoring';
     fail=true;expect(runtime.saveStoryAuthoringToPack(editing.id,patch)).toMatchObject({ok:false});
     expect(runtime.packManager.getPack(editing.id)?.datapack).toEqual(before);
+  });
+
+  const identityFixture=()=>{
+    const runtime=new AronaClickerRuntime();game=runtime;runtime.init([baseDatapack]);
+    const source=runtime.packManager.listPacks().find(pack=>pack.manifest.modName==='base')!;
+    const pack=runtime.packManager.cloneAsEditing(source.id).pack, patch=makePatch();
+    patch.stories[0].id='base:story:identity_old';patch.activeStories[0].id='base:activestory:identity';patch.activeStories[0].storyId=patch.stories[0].id;
+    expect(runtime.saveStoryAuthoringToPack(pack.id,patch)).toMatchObject({ok:true});
+    const entry=runtime.getPackCatalog().entries.find(entry=>entry.id===pack.id)!;
+    return {runtime,pack:runtime.packManager.getPack(pack.id)!,change:{fromId:patch.stories[0].id,toId:'base:story:identity_new',expectedDigest:entry.contentDigest!,patch:emptyStoryAuthoring()}};
+  };
+  it('renames stored Story identities and Entry references atomically without changing the live Registry',()=>{
+    const {runtime,pack,change}=identityFixture(), live=[...runtime.registry.stories.keys()];
+    const result=runtime.renameStoryInPack(pack.id,change);expect(result,result.message).toMatchObject({ok:true});
+    const saved=runtime.packManager.getPack(pack.id)!.datapack;
+    expect(saved.stories.some(story=>story.id===change.fromId)).toBe(false);
+    expect(saved.stories.some(story=>story.id===change.toId)).toBe(true);
+    expect(saved.activeStories.find(entry=>entry.id==='base:activestory:identity')?.storyId).toBe(change.toId);
+    expect([...runtime.registry.stories.keys()]).toEqual(live);
+  });
+  it('rejects stale, cross-Mod and colliding rename requests before writing',()=>{
+    const {runtime,pack,change}=identityFixture(), before=structuredClone(pack.datapack);
+    expect(runtime.renameStoryInPack(pack.id,{...change,expectedDigest:'stale'})).toMatchObject({ok:false});
+    expect(runtime.renameStoryInPack(pack.id,{...change,toId:'other:story:identity_new'})).toMatchObject({ok:false});
+    expect(runtime.renameStoryInPack(pack.id,{...change,toId:pack.datapack.stories.find(story=>story.id!==change.fromId)!.id})).toMatchObject({ok:false});
+    expect(runtime.packManager.getPack(pack.id)!.datapack).toEqual(before);
+  });
+  it('blocks known external Mod references rather than leaving a dangling Story ID',()=>{
+    const {runtime,pack,change}=identityFixture(), external=runtime.packManager.createEmptyEditing({modId:'other',versionId:'1'}).pack;
+    runtime.packManager.savePack({...external,datapack:{...external.datapack,stories:[{id:'other:story:caller',name:'调用者',startContext:{type:'area',areaId:baseDatapack.areas[0].id},stages:{},nodes:[{id:'jump',type:'transfer',transfer:{mode:'insert',storyId:change.fromId}}]}]},contentDigest:undefined});
+    const result=runtime.renameStoryInPack(pack.id,change);expect(result).toMatchObject({ok:false});expect(result.message).toContain('other:story:caller');
+    expect(runtime.packManager.getPack(pack.id)!.datapack).toEqual(pack.datapack);
+  });
+  it('rolls back a rename when package storage rejects the write',()=>{
+    const {runtime,pack,change}=identityFixture(), save=vi.spyOn(runtime.packManager as unknown as {persist():void},'persist').mockImplementationOnce(()=>{throw new Error('storage full');});
+    const result=runtime.renameStoryInPack(pack.id,change);expect(result).toMatchObject({ok:false});expect(result.message).toContain('storage full');
+    expect(runtime.packManager.getPack(pack.id)!.datapack).toEqual(pack.datapack);save.mockRestore();
   });
 });

@@ -1,0 +1,16 @@
+{
+  "extras": {
+    "meta/author": {
+      "t": "str",
+      "v": "AronaClicker Team"
+    },
+    "meta/version": {
+      "t": "str",
+      "v": "1.0.0"
+    },
+    "balance/start-credit": {
+      "t": "int",
+      "v": 0
+    }
+  }
+}

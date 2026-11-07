@@ -47,6 +47,7 @@ const TARGET_EVALUATORS: Record<ConditionTarget, TargetEvaluator> = {
   affectionLevel: (sys, cond, state) => sys.affectionLevelReader(cond.key, state),
   // 当前所在区域是否等于指定 Area（key = AreaId）
   area: (_sys, cond, state) => (state.currentAreaId === cond.key ? 1 : 0),
+  hasAreaMap: (_sys, cond, state) => state.collectedAreaMapIds?.includes(cond.key) ? 1 : 0,
 };
 
 const COMPARATORS: Record<Comparator, (actual: number, expected: number) => boolean> = {

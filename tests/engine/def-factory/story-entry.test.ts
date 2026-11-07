@@ -23,10 +23,8 @@ describe('StoryEntry builders', () => {
     expect(def).toEqual<ActiveStoryEntry>({
       id: 'base:activestory:welcome',
       storyId: 'base:story:welcome',
-      type: 'active',
       triggerCondition: and(),
-      availableInits: ['base:init:schale_office'],
-    });
+      availableInits: ['base:init:schale_office'], activation: { kind: 'active' as const } });
   });
 
   test('active：分歧链 entry（conditionalRewards / branchGuard / replayable）', () => {
@@ -50,7 +48,6 @@ describe('StoryEntry builders', () => {
     expect(def).toEqual<ActiveStoryEntry>({
       id: 'base:activestory:millennium_game_crisis',
       storyId: 'base:story:millennium_game_crisis_intro',
-      type: 'active',
       triggerCondition: and(),
       availableInits: ['base:init:millennium'],
       replayable: true,
@@ -67,8 +64,7 @@ describe('StoryEntry builders', () => {
           prerequisites: [{ storyId: 'base:story:millennium_game_crisis_bribe', talkletIndex: -1 }],
           denialMessage: '你还没有真正走过这条路线，无法回顾该分歧。',
         },
-      ],
-    });
+      ], activation: { kind: 'active' as const } });
   });
 
   test('passive：闲聊 entry（weight / 完结奖励 / tags / reveal）', () => {
@@ -83,10 +79,7 @@ describe('StoryEntry builders', () => {
     expect(def).toEqual<PassiveStoryEntry>({
       id: 'base:passivestory:schale_briefing',
       storyId: 'base:story:schale_briefing',
-      type: 'passive',
       triggerCondition: and(),
-      repeatable: true,
-      weight: 1,
       interruptible: true,
       availableInits: ['base:init:schale_office'],
       tags: [['theme', 'daily']],
@@ -96,8 +89,7 @@ describe('StoryEntry builders', () => {
       completionReward: {
         first: [{ op: 'addResource', target: Resource.Pyroxene, value: 15 }],
         repeat: [{ op: 'addResource', target: Resource.Pyroxene, value: 5 }],
-      },
-    });
+      }, activation: { kind: 'random' as const, weight: 1, repeatable: true } });
   });
 
   test('StoryEntry reaction：保留作者声明并使用局部稳定 id', () => {
@@ -136,16 +128,12 @@ describe('StoryEntry builders', () => {
     expect(def).toEqual<PassiveStoryEntry>({
       id: 'base:passivestory:hoshino_conv_2',
       storyId: 'base:story:hoshino_rooftop_hint',
-      type: 'passive',
       owner: 'Hoshino',
       availableInits: ['base:init:schale_office'],
-      repeatable: false,
-      weight: 1,
       triggerCondition: and(),
       block: and(cond('area', 'base:area:schale_rooftop', '==', 1)),
       leaveArea: false,
-      interruptible: false,
-    });
+      interruptible: false, activation: { kind: 'random' as const, weight: 1, repeatable: false } });
   });
 
   test('active：羁绊剧情 entry（owner / 首次奖励）', () => {
@@ -157,15 +145,13 @@ describe('StoryEntry builders', () => {
     expect(def).toEqual<ActiveStoryEntry>({
       id: 'base:activestory:bond_hoshino_1',
       storyId: 'base:story:bond_hoshino_1',
-      type: 'active',
       triggerCondition: and(),
       availableInits: [],
       replayable: true,
       owner: 'Hoshino',
       completionReward: {
         first: [{ op: 'addResource', target: Resource.Pyroxene, value: 30 }],
-      },
-    });
+      }, activation: { kind: 'active' as const } });
   });
 
   test('openingTitle：active / passive 均落字段，缺省不输出', () => {

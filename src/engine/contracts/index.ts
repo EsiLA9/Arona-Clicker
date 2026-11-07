@@ -1,5 +1,6 @@
 export * from './expression';
 export * from './reveal';
+export * from './world-information';
 export * from './extra';
 export * from './affector';
 export * from './evaluation-context';

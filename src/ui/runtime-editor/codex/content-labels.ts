@@ -54,6 +54,7 @@ const CATEGORY_BY_KIND: Readonly<Record<string, string>> = {
 const LABEL_BY_KIND: Readonly<Record<string, string>> = {
   inits: '世界线',
   areas: '区域',
+  areaMaps: '区域地图',
   spots: '设施',
   enhancements: '强化',
   characters: '角色原型',

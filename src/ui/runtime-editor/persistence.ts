@@ -33,7 +33,7 @@ export interface RuntimeEditorPersistenceResult {
   message?: string;
 }
 
-const CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots', 'enhancements'];
+const CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'areaMaps', 'spots', 'enhancements'];
 const FILTERS: readonly RuntimeEditorFilter[] = ['all', 'pending', 'applied', 'removed'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -46,8 +46,8 @@ function isDefinition(value: unknown): value is RuntimeEditorDefinitionDraft {
 
 function isSnapshot(value: unknown): value is RuntimeEditorDraftSnapshot {
   if (!isRecord(value)) return false;
-  const arrays = [value.spots, value.inits, value.areas, value.enhancements];
-  const suspended = [value.suspendedSpotIds, value.suspendedInitIds, value.suspendedAreaIds, value.suspendedEnhancementIds];
+  const arrays = [value.spots, value.inits, value.areas, value.areaMaps ?? [], value.enhancements];
+  const suspended = [value.suspendedSpotIds, value.suspendedInitIds, value.suspendedAreaIds, value.suspendedAreaMapIds ?? [], value.suspendedEnhancementIds];
   return typeof value.enabled === 'boolean'
     && typeof value.draftSourceId === 'string'
     && typeof value.modName === 'string'

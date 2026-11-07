@@ -44,7 +44,7 @@ function workspace(current: { readonly charges: number; readonly ready: boolean 
   const action = { actionId: 'u16-action', name: '局部状态演练', targetKind: 'enemy', costs: [], declaredEffects: declarations };
   const activity = { activityId: 'battle', title: '战斗', kind: 'battle', index: 0, total: 1, active: true, completed: false };
   return {
-    kind: 'active', cards: [], relations: [],
+    kind: 'active' as const, cards: [], relations: [],
     run: { runId: 'run-1', mapId: 'map-1', party: [], partyHp: [], lastEncounterCommit: null, playerCost: 1, commitVersion: 1,
       actorResources: [], teamResources: [], status: 'inProgress', currentNodeId: 'node-a', visitedNodeIds: ['node-a'],
       completedEncounterNodeIds: [], completedActivityIds: [], activeActivity: { nodeId: 'node-a', activityId: 'battle', kind: 'battle' },

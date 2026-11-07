@@ -1,0 +1,284 @@
+{
+  "triggerDefs": [
+    {
+      "id": "base:trigger:first_credit_milestone",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 25
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$GlobalProducedAmount base:resource:credit",
+            "comparator": ">=",
+            "value": 100
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:office_mastered",
+      "on": {
+        "kind": "spotLevel"
+      },
+      "effects": [
+        {
+          "op": "setFlag",
+          "target": "office_mastered",
+          "value": "1"
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "countTags",
+            "key": "office",
+            "comparator": ">=",
+            "value": 2
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:welcome_reward",
+      "on": {
+        "kind": "story",
+        "storyId": "base:story:schale_welcome"
+      },
+      "effects": [
+        {
+          "op": "addItem",
+          "target": "base:item:energy_drink",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "base:trigger:abydos_student_recruitment",
+      "on": {
+        "kind": "spotLevel",
+        "spotId": "base:spot:abydos_student_recruitment"
+      },
+      "effects": [
+        {
+          "op": "grantCharacter",
+          "target": "Hoshino",
+          "value": 1
+        },
+        {
+          "op": "grantCharacter",
+          "target": "Serika",
+          "value": 1
+        },
+        {
+          "op": "grantCharacter",
+          "target": "Shiroko",
+          "value": 1
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "base:trigger:abydos_first_milestone",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 30
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:tactical_kit",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$InitProducedAmount base:init:abydos base:resource:credit",
+            "comparator": ">=",
+            "value": 80
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:millennium_first_milestone",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 40
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:data_chip",
+          "value": 3
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$InitProducedAmount base:init:millennium base:resource:credit",
+            "comparator": ">=",
+            "value": 100
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:trinity_first_milestone",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 35
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:mystery_fragment",
+          "value": 2
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$InitProducedAmount base:init:trinity base:resource:credit",
+            "comparator": ">=",
+            "value": 100
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:gehenna_first_milestone",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 35
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:tactical_kit",
+          "value": 1
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$InitProducedAmount base:init:gehenna base:resource:credit",
+            "comparator": ">=",
+            "value": 100
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:milestone_500",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 50
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:premium_drink",
+          "value": 1
+        },
+        {
+          "op": "setFlag",
+          "target": "milestone_500_reached",
+          "value": "1"
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$GlobalProducedAmount base:resource:credit",
+            "comparator": ">=",
+            "value": 500
+          }
+        ]
+      },
+      "once": true
+    },
+    {
+      "id": "base:trigger:milestone_1000",
+      "on": {
+        "kind": "tick"
+      },
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 100
+        },
+        {
+          "op": "addItem",
+          "target": "base:item:peroro_doll",
+          "value": 1
+        },
+        {
+          "op": "setFlag",
+          "target": "milestone_1000_reached",
+          "value": "1"
+        }
+      ],
+      "condition": {
+        "type": "AND",
+        "conditions": [
+          {
+            "target": "stat",
+            "key": "$GlobalProducedAmount base:resource:credit",
+            "comparator": ">=",
+            "value": 1000
+          }
+        ]
+      },
+      "once": true
+    }
+  ]
+}

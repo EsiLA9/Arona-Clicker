@@ -46,7 +46,7 @@ export function previousAreaMap(session: AreaMapSession, query: AreaMapQueryPort
   while (session.history.length) {
     const previous = session.history.pop()!;
     const view = query.getView(previous.mapId);
-    if (!view?.unlocked) continue;
+    if (!view) continue;
     session.currentMapId = view.id;
     session.view = view;
     session.selectedNodeId = view.nodes.some(n => n.id === previous.selectedNodeId) ? previous.selectedNodeId : null;

@@ -74,7 +74,14 @@ export function finishStory(g: GameInstance, choiceIndex = 0, owner: string | nu
 export const desertIntro: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_intro', name: '沙漠委托 · 开场', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'input' } }, nodes: [
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 阿比多斯 · 委托板前 ——' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师，沙漠里出现了大批违规运输队。要怎么处理？', speaker: '白子' } },
-  { id: 'p2-choice', type: 'click', stageId: 'p2', interaction: { kind: 'choice', options: [{ id: 'option1', text: '正面突击', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'assault' }] }], transfer: { mode: 'goto', storyId: 'test:story:desert_assault' } } }, { id: 'option2', text: '迂回谈判', result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'negotiate' }] }], transfer: { mode: 'goto', storyId: 'test:story:desert_negotiate' } } }] } },
+  { id: 'p2-choice', type: 'click', stageId: 'p2', interaction: { kind: 'choice', options: [
+    { id: 'option1', text: '正面突击', marks: ['route-assault'] },
+    { id: 'option2', text: '迂回谈判', marks: ['route-negotiate'] },
+  ] } },
+  { id: 'set-assault-route', type: 'operation', requiresFlag: 'route-assault', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'assault' }] } },
+  { id: 'set-negotiate-route', type: 'operation', requiresFlag: 'route-negotiate', action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'negotiate' }] } },
+  { id: 'goto-assault', type: 'transfer', requiresFlag: 'route-assault', transfer: { mode: 'goto', storyId: 'test:story:desert_assault' } },
+  { id: 'goto-negotiate', type: 'transfer', requiresFlag: 'route-negotiate', transfer: { mode: 'goto', storyId: 'test:story:desert_negotiate' } },
 ] };
 
 export const desertAssault: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:desert_assault', name: '沙漠委托 · 突击', stages: { 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }, nodes: [
@@ -97,7 +104,6 @@ export const desertEpilogue: StoryDef = { startContext: { type: 'area', areaId: 
 export const desertEntry: StoryEntryDef = {
   id: 'test:story:desert_mission',
   storyId: 'test:story:desert_intro',
-  type: 'active',
   availableInits: [],
   triggerCondition: and(),
   replayable: true,
@@ -108,8 +114,7 @@ export const desertEntry: StoryEntryDef = {
       prerequisites: [{ storyId: 'test:story:desert_assault', talkletIndex: -1 }],
       denialMessage: '你还没有真正走过突击路线，无法进入该分歧。',
     },
-  ],
-};
+  ], activation: { kind: 'active' as const } };
 
 // ============================================================
 // insert 场景：补给任务（子剧情插入后返回）
@@ -132,12 +137,8 @@ export const supplyDetail: StoryDef = { startContext: { type: 'area', areaId: 'b
 export const supplyEntry: StoryEntryDef = {
   id: 'test:story:supply_mission',
   storyId: 'test:story:supply_main',
-  type: 'passive',
   availableInits: [],
-  triggerCondition: and(),
-  repeatable: true,
-  weight: 1,
-};
+  triggerCondition: and(), activation: { kind: 'random' as const, weight: 1, repeatable: true } };
 
 // ============================================================
 // 末页 insert 场景：返回点超界时正常收尾
@@ -156,12 +157,8 @@ export const edgeSub: StoryDef = { startContext: { type: 'area', areaId: 'base:a
 export const edgeEntry: StoryEntryDef = {
   id: 'test:story:edge_mission',
   storyId: 'test:story:edge_main',
-  type: 'passive',
   availableInits: [],
-  triggerCondition: and(),
-  repeatable: true,
-  weight: 1,
-};
+  triggerCondition: and(), activation: { kind: 'random' as const, weight: 1, repeatable: true } };
 
 // ============================================================
 // 循环跳转场景：内容作者误写死循环
@@ -180,10 +177,8 @@ export const loopB: StoryDef = { startContext: { type: 'area', areaId: 'base:are
 export const loopEntry: StoryEntryDef = {
   id: 'test:story:loop_entry',
   storyId: 'test:story:loop_a',
-  type: 'active',
   availableInits: [],
-  triggerCondition: and(),
-};
+  triggerCondition: and(), activation: { kind: 'active' as const } };
 
 // ============================================================
 // 组装
@@ -197,8 +192,8 @@ export function makePack(entries: StoryEntryDef[], stories: StoryDef[]): Datapac
     areas: [],
     spots: [],
     enhancements: [],
-    activeStories: entries as ActiveStoryEntry[],
-    passiveStories: [],
+    activeStories: entries.filter((entry): entry is ActiveStoryEntry => entry.activation.kind === 'active'),
+    passiveStories: entries.filter((entry): entry is import('../../src/data-services/contracts/story-entry').PassiveStoryEntry => entry.activation.kind !== 'active'),
     stories,
     items: [],
     funcletDefs: [],
@@ -219,7 +214,8 @@ export const loopPack = makePack([loopEntry], [loopA, loopB]);
 
 export const clickGateMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_gate_main', name: '点击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '长按开关启动机器', press: { base: 1, } } },
-  { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '长按开关启动机器', result: { transfer: { mode: 'goto', storyId: 'test:story:click_gate_target' } } } },
+  { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '长按开关启动机器' } },
+  { id: "p1-confirm-click-transfer", type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:click_gate_target' } },
 ] };
 
 export const clickGateTarget: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:click_gate_target', name: '点击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
@@ -230,17 +226,16 @@ export const clickGateTarget: StoryDef = { startContext: { type: 'area', areaId:
 export const clickGateEntry: StoryEntryDef = {
   id: 'test:story:click_gate',
   storyId: 'test:story:click_gate_main',
-  type: 'active',
   availableInits: [],
-  triggerCondition: and(),
-};
+  triggerCondition: and(), activation: { kind: 'active' as const } };
 
 export const clickGatePack = makePack([clickGateEntry], [clickGateMain, clickGateTarget]);
 
 // 多击版本：clickWork(base: 2) + jumpToStory
 export const clickWorkGateMain: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:clickwork_gate_main', name: '多击门控 · 主', stages: { 'p1': { advance: 'input' }, 'p1-confirm': { advance: 'input' } }, nodes: [
   { id: 'p1-work', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '连续敲击 2 次开启保险库', press: { base: 2, } } },
-  { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '连续敲击 2 次开启保险库', result: { transfer: { mode: 'goto', storyId: 'test:story:clickwork_gate_target' } } } },
+  { id: 'p1-confirm-click', type: 'click', stageId: 'p1-confirm', interaction: { kind: 'button', text: '连续敲击 2 次开启保险库' } },
+  { id: "p1-confirm-click-transfer", type: 'transfer', transfer: { mode: 'goto', storyId: 'test:story:clickwork_gate_target' } },
 ] };
 
 export const clickWorkGateTarget: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: 'test:story:clickwork_gate_target', name: '多击门控 · 目标', stages: { 'p1': { advance: 'input' } }, nodes: [
@@ -251,10 +246,8 @@ export const clickWorkGateTarget: StoryDef = { startContext: { type: 'area', are
 export const clickWorkGateEntry: StoryEntryDef = {
   id: 'test:story:clickwork_gate',
   storyId: 'test:story:clickwork_gate_main',
-  type: 'active',
   availableInits: [],
-  triggerCondition: and(),
-};
+  triggerCondition: and(), activation: { kind: 'active' as const } };
 
 export const clickWorkGatePack = makePack([clickWorkGateEntry], [clickWorkGateMain, clickWorkGateTarget]);
 
@@ -279,10 +272,8 @@ export const whisperClickMain: StoryDef = { startContext: { type: 'area', areaId
 export const whisperClickEntry: StoryEntryDef = {
   id: 'test:story:whisper_click',
   storyId: 'test:story:whisper_click_main',
-  type: 'active',
   availableInits: [],
-  triggerCondition: and(),
-};
+  triggerCondition: and(), activation: { kind: 'active' as const } };
 
 export const whisperClickPack = makePack([whisperClickEntry], [whisperClickMain, whisperClickSub]);
 
@@ -299,9 +290,7 @@ export const gotoClickMain: StoryDef = { startContext: { type: 'area', areaId: '
 export const gotoClickEntry: StoryEntryDef = {
   id: 'test:story:goto_click',
   storyId: 'test:story:goto_click_main',
-  type: 'active',
   availableInits: [],
-  triggerCondition: and(),
-};
+  triggerCondition: and(), activation: { kind: 'active' as const } };
 
 export const gotoClickPack = makePack([gotoClickEntry], [gotoClickMain, gotoClickTarget]);

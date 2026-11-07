@@ -300,17 +300,28 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
   if (hasChoices) {
     stages.push(`'${stage}': { advance: 'input' }`);
     if (body) nodes.push(body);
-    const sharedActions = convertEffects(remainingEffects, sourceFile, options, storyId, issues, addIssue);
+    const pageActions = convertEffects(remainingEffects, sourceFile, options, storyId, issues, addIssue);
+    const choiceNodes = [];
     const optionsCode = page.choices.map((choice, index) => {
       const branchActions = convertEffects(choice.effects ?? [], sourceFile, options, storyId, issues, addIssue);
       const target = choice.target ?? page.transfer?.target;
       const mode = choice.mode ?? page.transfer?.mode ?? "'goto'";
       const transfer = target ? transferCode(target, mode, sourceFile) : undefined;
-      const result = resultCode(branchActions, transfer);
-      return `{ id: 'option${index + 1}', text: ${textOf(choice.text, sourceFile)}${choice.condition ? `, condition: ${textOf(choice.condition, sourceFile)}` : ''}${result ? `, result: ${result}` : ''} }`;
+      const actions = [...pageActions, ...branchActions];
+      const mark = actions.length || transfer ? `migration:choice:${storyId}:${key}:option${index + 1}` : undefined;
+      if (choice.condition) addIssue(choice.condition, storyId, 'choice-visibility-changed', 'This condition now hides the option when false; review whether that preserves the intended locked-option behavior');
+      if (mark) {
+        for (const [actionIndex, action] of actions.entries()) {
+          choiceNodes.push(operationNode(`${key}-option${index + 1}-op${actionIndex + 1}`, action, mark));
+        }
+        if (transfer) choiceNodes.push(transferNode(`${key}-option${index + 1}-transfer`, transfer, mark));
+      }
+      const marks = mark ? `, marks: [${JSON.stringify(mark)}]` : '';
+      const showWhen = choice.condition ? `, showWhen: ${textOf(choice.condition, sourceFile)}` : '';
+      return `{ id: 'option${index + 1}', text: ${textOf(choice.text, sourceFile)}${showWhen}${marks} }`;
     });
-    const shared = sharedActions.length ? `, sharedActions: [${sharedActions.join(', ')}]` : '';
-    nodes.push(`{ id: '${key}-choice', type: 'click', stageId: '${stage}', interaction: { kind: 'choice'${shared}, options: [${optionsCode.join(', ')}] } }`);
+    nodes.push(`{ id: '${key}-choice', type: 'click', stageId: '${stage}', interaction: { kind: 'choice', options: [${optionsCode.join(', ')}] } }`);
+    nodes.push(...choiceNodes);
     return;
   }
 
@@ -337,13 +348,13 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     stages.push(`'${stage}': { advance: 'input' }`);
     const actions = convertEffects(remainingEffects, sourceFile, options, storyId, issues, addIssue);
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
-    const result = resultCode(actions, transfer);
+
     if (clickMode.kind === 'single') {
-      nodes.push(buttonNode(`${key}-button`, stage, textOf(clickText, sourceFile), undefined, result));
+      nodes.push(buttonNode(`${key}-button`, stage, textOf(clickText, sourceFile), undefined, actions, transfer));
     } else {
       stages.push(`'${key}-confirm': { advance: 'input' }`);
       nodes.push(buttonNode(`${key}-work`, stage, textOf(clickText, sourceFile), clickMode.work ?? total, undefined));
-      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, textOf(clickText, sourceFile), undefined, result));
+      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, textOf(clickText, sourceFile), undefined, actions, transfer));
     }
     return;
   }
@@ -361,14 +372,14 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
     const response = page.sendText && !page.muteReply ? responseTalkletNode(`${key}-response`, `${stage}-response`, text) : undefined;
     if (response && transfer) addIssue(page.transfer.target, storyId, 'response-transfer-order', 'An explicit Talklet response is emitted before a separate Transfer; verify this preserves the intended order and failure behavior');
-    const result = resultCode(actions, response ? undefined : transfer);
+
     if (clickMode.kind === 'single') {
-      nodes.push(buttonNode(`${key}-button`, stage, text, undefined, result));
+      nodes.push(buttonNode(`${key}-button`, stage, text, undefined, actions, response ? undefined : transfer));
       if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
     } else {
       stages.push(`'${key}-confirm': { advance: 'input' }`);
       nodes.push(buttonNode(`${key}-work`, stage, text, clickMode.work ?? work, undefined));
-      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, text, undefined, result));
+      nodes.push(buttonNode(`${key}-confirm-click`, `${key}-confirm`, text, undefined, actions, response ? undefined : transfer));
       if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
     }
     if (response && transfer) nodes.push(transferNode(`${key}-transfer`, transfer));
@@ -383,8 +394,8 @@ function appendPage(nodes, stages, page, pageNumber, sourceFile, declarations, o
     const transfer = page.transfer ? transferCode(page.transfer.target, page.transfer.mode, sourceFile) : undefined;
     const response = page.sendText && !page.muteReply ? responseTalkletNode(`${key}-response`, `${stage}-response`, text) : undefined;
     if (response && transfer) addIssue(page.transfer.target, storyId, 'response-transfer-order', 'An explicit Talklet response is emitted before a separate Transfer; verify this preserves the intended order and failure behavior');
-    const result = resultCode(actions, response ? undefined : transfer);
-    nodes.push(buttonNode(`${key}-button`, stage, text, undefined, result));
+
+    nodes.push(buttonNode(`${key}-button`, stage, text, undefined, actions, response ? undefined : transfer));
     if (response) { stages.push(`'${stage}-response': { advance: 'auto' }`); nodes.push(response); }
     if (response && transfer) nodes.push(transferNode(`${key}-transfer`, transfer));
     return;
@@ -428,10 +439,12 @@ function objectCode(values, sourceFile) {
   return fields.length ? `{ ${fields.join(', ')} }` : undefined;
 }
 
-function buttonNode(id, stageId, text, press, result) {
+function buttonNode(id, stageId, text, press, actions = [], transfer) {
   const pressCode = press ? `, press: { base: ${textOf(press.base)},${press.rand ? ` rand: ${textOf(press.rand)}` : ''} }` : '';
-  const resultCodeValue = result ? `, result: ${result}` : '';
-  return `{ id: '${id}', type: 'click', stageId: '${stageId}', interaction: { kind: 'button', text: ${text}${pressCode}${resultCodeValue} } }`;
+  return [`{ id: '${id}', type: 'click', stageId: '${stageId}', interaction: { kind: 'button', text: ${text}${pressCode} } }`,
+    ...actions.map((action, index) => operationNode(`${id}-effect-${index + 1}`, action)),
+    ...(transfer ? [transferNode(`${id}-transfer`, transfer)] : []),
+  ].join(',\n');
 }
 
 /**
@@ -489,19 +502,12 @@ function staticNumber(expression, declarations) {
   return undefined;
 }
 
-function resultCode(actions, transfer) {
-  const fields = [];
-  if (actions.length) fields.push(`actions: [${actions.join(', ')}]`);
-  if (transfer) fields.push(`transfer: ${transfer}`);
-  return fields.length ? `{ ${fields.join(', ')} }` : undefined;
+function operationNode(id, action, requiresFlag) {
+  return `{ id: '${id}', type: 'operation'${requiresFlag ? `, requiresFlag: ${JSON.stringify(requiresFlag)}` : ''}, action: ${action} }`;
 }
 
-function operationNode(id, action) {
-  return `{ id: '${id}', type: 'operation', action: ${action} }`;
-}
-
-function transferNode(id, transfer) {
-  return `{ id: '${id}', type: 'transfer', transfer: ${transfer} }`;
+function transferNode(id, transfer, requiresFlag) {
+  return `{ id: '${id}', type: 'transfer'${requiresFlag ? `, requiresFlag: ${JSON.stringify(requiresFlag)}` : ''}, transfer: ${transfer} }`;
 }
 
 function transferCode(target, mode, sourceFile) {

@@ -5,6 +5,7 @@
 import type { ExtraCompound, ExtraPath, ExtraValue } from './extra';
 import type { FuncletId } from './ids';
 import type { ChatTextEffectValue } from '../contracts/chat-presentation';
+import type { WorldInformationTargetRef } from '../contracts/world-information';
 export { type ValueSource, type Value, type ValueExpression } from '../contracts/expression';
 import type { Value, ValueExpression } from '../contracts/expression';
 
@@ -51,7 +52,9 @@ export type ConditionTarget =
   /** 好感等级（key = VariantId，actual = 该角色当前好感等级，未拥有/缺失 → 0）。 */
   | 'affectionLevel'
   /** 当前所在 Area 是否为指定 Area（key = AreaId，actual = currentAreaId === key ? 1 : 0）。 */
-  | 'area';
+  | 'area'
+  /** 当前 Init 是否收录指定区域地图。 */
+  | 'hasAreaMap';
 
 export interface Condition {
   target: ConditionTarget;
@@ -74,6 +77,10 @@ export type EffectOp =
   | 'addItem'
   | 'loot'
   | 'unlockInit'
+  /** 收录区域地图；当前 Init 的状态事实。 */
+  | 'acquireAreaMap'
+  /** 由剧情/Trigger 明确告知一项已声明的世界信息。 */
+  | 'revealInformation'
   | 'setFlag'
   | 'triggerStory'
   /** 剧情演出要求移动 Area（由 Story 自身发起，不受玩家移动限制）。 */
@@ -185,7 +192,7 @@ export interface Effect {
   op: EffectOp;
   target: string;
   /** 数值、字符串、布尔、ValueExpression（引擎结算时按当前状态求值）、ExtraValue（setExtra）、ThemeEffectValue（setTheme）、EntityPresentationEffectValue 或 ChatTextEffectValue（showChatText）。 */
-  value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | EntityPresentationEffectValue | ChatTextEffectValue;
+  value: number | string | boolean | ValueExpression | ExtraValue | ThemeEffectValue | EntityPresentationEffectValue | ChatTextEffectValue | WorldInformationTargetRef;
   /**
    * 沙盒归属（仅 triggerStory / startStory 使用）：决定剧情启动到哪个游标。
    * 缺省 = 全局游标（active 主线 / 一般闲聊）；设为 VariantId 则启动到该角色聊天沙盒游标。

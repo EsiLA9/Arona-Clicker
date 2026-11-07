@@ -1,0 +1,933 @@
+{
+  "enhancements": [
+    {
+      "id": "base:enhancement:credit_system",
+      "name": "财政系统升级",
+      "description": "全局信用点产出 ×1.5。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 200
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:credit_system_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "财政系统升级",
+          "description": "全局信用点产出 ×1.5。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:office_layout",
+      "name": "办公室动线优化",
+      "description": "office 标签 Spot 产出 ×1.25。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 150
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:office_layout_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "办公室动线优化",
+          "description": "office 标签 Spot 产出 ×1.25。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:field_logistics",
+      "name": "野外后勤协议",
+      "description": "field / combat / tactical 标签 Spot 产出 ×1.35；并为其注入「重启进程」外源功能。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 200
+        }
+      ],
+      "tags": [
+        [
+          "field"
+        ],
+        [
+          "field",
+          "logistics"
+        ]
+      ],
+      "addsFunctionalities": [
+        {
+          "id": "restart",
+          "kind": "restartInit"
+        }
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:field_logistics_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "野外后勤协议",
+          "description": "field / combat / tactical 标签 Spot 产出 ×1.35；并为其注入「重启进程」外源功能。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:combat_drone",
+      "name": "战斗无人机",
+      "description": "combat 标签 Spot 产出 ×1.35。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 200
+        }
+      ],
+      "tags": [
+        [
+          "combat"
+        ],
+        [
+          "combat",
+          "tech"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:combat_drone_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "战斗无人机",
+          "description": "combat 标签 Spot 产出 ×1.35。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:field_medicine",
+      "name": "战地医疗",
+      "description": "活化（医疗）加成，医疗站恢复量提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 180
+        }
+      ],
+      "tags": [
+        [
+          "field"
+        ],
+        [
+          "field",
+          "medical"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "战地医疗",
+          "description": "活化（医疗）加成，医疗站恢复量提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:intel_network",
+      "name": "情报网络",
+      "description": "情报处理效率提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 160
+        }
+      ],
+      "tags": [
+        [
+          "intel"
+        ],
+        [
+          "intel",
+          "network"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "情报网络",
+          "description": "情报处理效率提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:training_program",
+      "name": "训练计划",
+      "description": "人员效率提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 120
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "训练计划",
+          "description": "人员效率提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:medical_station",
+      "name": "医疗站扩建",
+      "description": "医疗站产能提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 180
+        }
+      ],
+      "tags": [
+        [
+          "field"
+        ],
+        [
+          "field",
+          "medical"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "医疗站扩建",
+          "description": "医疗站产能提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:rapid_deployment",
+      "name": "快速部署",
+      "description": "部署速度提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 140
+        }
+      ],
+      "tags": [
+        [
+          "field"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "快速部署",
+          "description": "部署速度提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:area_hub",
+      "name": "区域枢纽",
+      "description": "区域中转效率提升。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 220
+        }
+      ],
+      "tags": [
+        [
+          "area"
+        ]
+      ],
+      "presentation": {
+        "default": {
+          "name": "区域枢纽",
+          "description": "区域中转效率提升。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:research_grant",
+      "name": "研究拨款",
+      "description": "全局产出 ×1.4（研究加成）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 260
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:research_grant_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "研究拨款",
+          "description": "全局产出 ×1.4（研究加成）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:investment_fund",
+      "name": "投资基金",
+      "description": "全局产出 ×1.3（资金杠杆）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 240
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:investment_fund_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "投资基金",
+          "description": "全局产出 ×1.3（资金杠杆）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:pyroxene_rush",
+      "name": "燧石速采",
+      "description": "全局燧石产出 ×1.8；并额外 +1 燧石/分钟。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 20
+        }
+      ],
+      "tags": [
+        [
+          "field"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:pyroxene_flow",
+        "base:affectorpack:pyroxene_rush_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "燧石速采",
+          "description": "全局燧石产出 ×1.8；并额外 +1 燧石/分钟。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:tactical_command",
+      "name": "战术指挥",
+      "description": "tactical 标签 Spot 产出 ×1.3。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 200
+        }
+      ],
+      "tags": [
+        [
+          "tactical"
+        ],
+        [
+          "tactical",
+          "command"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:tactical_command_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "战术指挥",
+          "description": "tactical 标签 Spot 产出 ×1.3。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:supply_chain",
+      "name": "供应链优化",
+      "description": "全局产出 ×1.6（后勤加成）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 300
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:supply_chain_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "供应链优化",
+          "description": "全局产出 ×1.6（后勤加成）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:energy_supply",
+      "name": "能源供给",
+      "description": "全局产出 ×1.25；并额外 +1 信用点/分钟。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 150
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:energy_drink",
+        "base:affectorpack:energy_supply_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "能源供给",
+          "description": "全局产出 ×1.25；并额外 +1 信用点/分钟。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:sanctuary_field",
+      "name": "庇护所协议",
+      "description": "全局产出 ×1.5（庇护所加成）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 280
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:sanctuary_field_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "庇护所协议",
+          "description": "全局产出 ×1.5（庇护所加成）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:test_pyroxene_cheat",
+      "name": "代号：燧石·改",
+      "description": "每 tick +2500 青辉石（测试专用）。",
+      "effects": [],
+      "autoApply": false,
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "affectorPackIds": [
+        "base:affectorpack:pyroxene_flow"
+      ],
+      "presentation": {
+        "default": {
+          "name": "代号：燧石·改",
+          "description": "每 tick +2500 青辉石（测试专用）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:schale_night_mode",
+      "name": "夏莱夜间照明",
+      "description": "获得后，将夏莱主厅的默认主题切换为墨蓝夜间配色。",
+      "effects": [
+        {
+          "op": "setTheme",
+          "target": "",
+          "value": {
+            "scope": "area",
+            "entityKey": "area:base:area:schale_main",
+            "colorGroupId": "base:colorgroup:ink"
+          }
+        }
+      ],
+      "autoApply": true,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 240
+        }
+      ],
+      "tags": [
+        [
+          "theme"
+        ]
+      ],
+      "attachment": {
+        "kind": "area",
+        "areaId": "base:area:schale_main"
+      },
+      "irreversible": true,
+      "presentation": {
+        "default": {
+          "name": "夏莱夜间照明",
+          "description": "获得后，将夏莱主厅的默认主题切换为墨蓝夜间配色。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:user-theme-editor",
+      "name": "主题编辑权限",
+      "description": "开放用户自定主题编辑服务。",
+      "effects": [],
+      "autoApply": false,
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "attachment": {
+        "kind": "global"
+      },
+      "affectorPackIds": [
+        "base:affectorpack:user-theme-editor"
+      ],
+      "presentation": {
+        "default": {
+          "name": "主题编辑权限",
+          "description": "开放用户自定主题编辑服务。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:foundation",
+      "name": "全能基建",
+      "description": "全局信用点产出 ×2.0（基建奠基）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 50
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "attachment": {
+        "kind": "global"
+      },
+      "affectorPackIds": [
+        "base:affectorpack:foundation_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "全能基建",
+          "description": "全局信用点产出 ×2.0（基建奠基）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:unified_logistics",
+      "name": "全域物流",
+      "description": "每 tick 额外 +1 信用点（全域物流）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 500
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ],
+        [
+          "logistics"
+        ]
+      ],
+      "attachment": {
+        "kind": "global"
+      },
+      "affectorPackIds": [
+        "base:affectorpack:unified_logistics_flow"
+      ],
+      "presentation": {
+        "default": {
+          "name": "全域物流",
+          "description": "每 tick 额外 +1 信用点（全域物流）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:eternal_contract",
+      "name": "永恒契约",
+      "description": "全局产出 ×1.5（不可撤回）。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:pyroxene",
+          "amount": 150
+        }
+      ],
+      "tags": [
+        [
+          "core"
+        ]
+      ],
+      "attachment": {
+        "kind": "global"
+      },
+      "irreversible": true,
+      "affectorPackIds": [
+        "base:affectorpack:eternal_contract_mult"
+      ],
+      "presentation": {
+        "default": {
+          "name": "永恒契约",
+          "description": "全局产出 ×1.5（不可撤回）。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:hangar_dispatch_protocol",
+      "name": "机库调度协议",
+      "description": "为夏莱机库建立跨区域出勤调度。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 420
+        }
+      ],
+      "tags": [
+        [
+          "logistics"
+        ],
+        [
+          "logistics",
+          "vehicle"
+        ]
+      ],
+      "attachment": {
+        "kind": "area",
+        "areaId": "base:area:schale_hangar"
+      },
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "OR",
+            "conditions": [
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "spotLevel",
+                    "key": "base:spot:hangar_dispatch_deck",
+                    "comparator": ">=",
+                    "value": 1
+                  },
+                  {
+                    "target": "stat",
+                    "key": "$CurrentRunProducedAmount base:resource:credit",
+                    "comparator": ">=",
+                    "value": 1200
+                  }
+                ]
+              },
+              {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:supply_chain",
+                    "comparator": "==",
+                    "value": 1
+                  },
+                  {
+                    "target": "hasReadStory",
+                    "key": "base:story:schale_flow_show",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "unlock",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "countTags",
+                "key": "vehicle",
+                "comparator": ">=",
+                "value": 2
+              },
+              {
+                "type": "OR",
+                "conditions": [
+                  {
+                    "target": "resource",
+                    "key": "base:resource:credit",
+                    "comparator": ">=",
+                    "value": 800
+                  },
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:area_hub",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "机库调度协议",
+          "description": "为夏莱机库建立跨区域出勤调度。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:hangar_safety_grid",
+      "name": "机库安全网",
+      "description": "将维护、情报与战术系统接入同一套出勤安全协议。",
+      "effects": [],
+      "autoApply": false,
+      "price": [
+        {
+          "resourceId": "base:resource:credit",
+          "amount": 650
+        }
+      ],
+      "tags": [
+        [
+          "vehicle",
+          "tech"
+        ],
+        [
+          "tactical",
+          "defense"
+        ]
+      ],
+      "attachment": {
+        "kind": "area",
+        "areaId": "base:area:schale_hangar"
+      },
+      "revealTriggers": [
+        {
+          "reveal": "existence",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "spotLevel",
+                "key": "base:spot:hangar_maintenance_bay",
+                "comparator": ">=",
+                "value": 1
+              },
+              {
+                "type": "OR",
+                "conditions": [
+                  {
+                    "type": "AND",
+                    "conditions": [
+                      {
+                        "target": "hasEnh",
+                        "key": "base:enhancement:combat_drone",
+                        "comparator": "==",
+                        "value": 1
+                      },
+                      {
+                        "target": "hasEnh",
+                        "key": "base:enhancement:intel_network",
+                        "comparator": "==",
+                        "value": 1
+                      }
+                    ]
+                  },
+                  {
+                    "type": "AND",
+                    "conditions": [
+                      {
+                        "target": "hasReadStory",
+                        "key": "base:story:schale_welcome",
+                        "comparator": "==",
+                        "value": 1
+                      },
+                      {
+                        "target": "stat",
+                        "key": "$GlobalProducedAmount base:resource:credit",
+                        "comparator": ">=",
+                        "value": 3000
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "reveal": "unlock",
+          "condition": {
+            "type": "AND",
+            "conditions": [
+              {
+                "target": "countTags",
+                "key": "tech",
+                "comparator": ">=",
+                "value": 2
+              },
+              {
+                "target": "countTags",
+                "key": "tactical",
+                "comparator": ">=",
+                "value": 1
+              },
+              {
+                "type": "OR",
+                "conditions": [
+                  {
+                    "target": "spotLevel",
+                    "key": "base:spot:hangar_command_link",
+                    "comparator": ">=",
+                    "value": 1
+                  },
+                  {
+                    "target": "hasEnh",
+                    "key": "base:enhancement:tactical_command",
+                    "comparator": "==",
+                    "value": 1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "presentation": {
+        "default": {
+          "name": "机库安全网",
+          "description": "将维护、情报与战术系统接入同一套出勤安全协议。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:theme_showcase_a",
+      "name": "主题节点样本 A",
+      "description": "展示主题节点覆盖入口的占位强化。",
+      "effects": [],
+      "autoApply": false,
+      "tags": [
+        [
+          "theme",
+          "showcase"
+        ]
+      ],
+      "attachment": {
+        "kind": "init",
+        "initId": "base:init:theme_showcase"
+      },
+      "presentation": {
+        "default": {
+          "name": "主题节点样本 A",
+          "description": "展示主题节点覆盖入口的占位强化。"
+        }
+      }
+    },
+    {
+      "id": "base:enhancement:theme_showcase_b",
+      "name": "主题节点样本 B",
+      "description": "展示作用域继承入口的占位强化。",
+      "effects": [],
+      "autoApply": false,
+      "tags": [
+        [
+          "theme",
+          "showcase"
+        ]
+      ],
+      "attachment": {
+        "kind": "init",
+        "initId": "base:init:theme_showcase"
+      },
+      "presentation": {
+        "default": {
+          "name": "主题节点样本 B",
+          "description": "展示作用域继承入口的占位强化。"
+        }
+      }
+    }
+  ]
+}

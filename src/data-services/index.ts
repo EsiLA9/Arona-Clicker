@@ -140,7 +140,7 @@ export { Registry, RegistryError } from './registry/registry';
 export { createRuntimeContentBrowser, filterRuntimeContentDefinitions } from './registry/runtime-content-browser';
 export type { RuntimeContentBrowserQueryPort, RuntimeContentBrowserView, RuntimeContentDefinitionDetail, RuntimeContentDefinitionSummary, RuntimeContentKindDescriptor, RuntimeContentLoadedMod, RuntimeContentReferenceDiagnostic, RuntimeDefinitionRef } from './contracts/runtime-content-browser';
 export type { RegistrySpotMutation, RegistrySpotMutationReceipt } from './registry/registry';
-export type { RegistryAreaMutation, RegistryAreaMutationReceipt, RegistryInitMutation, RegistryInitMutationReceipt } from './registry/registry';
+export type { RegistryAreaMapMutation, RegistryAreaMapMutationBatchReceipt, RegistryAreaMapMutationReceipt, RegistryAreaMutation, RegistryAreaMutationReceipt, RegistryInitMutation, RegistryInitMutationReceipt } from './registry/registry';
 export {
   applyAuthoringMutation,
   authoringDefId,

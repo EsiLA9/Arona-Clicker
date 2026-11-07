@@ -138,6 +138,13 @@ describe('ConditionDepIndex 命中语义', () => {
     expect(idx.affected({ type: 'spotTagChanged', spotId: 'test:spot:s1', tag: 'field', added: true })).toEqual(new Set());
   });
 
+  test('hasAreaMap 按 mapId 精确响应收录事件', () => {
+    const idx = new ConditionDepIndex<string>();
+    idx.register('map-a', { target: 'hasAreaMap', key: 'demo:area-map:a', comparator: '==', value: 1 });
+    expect(idx.affected({ type: 'areaMapCollected', mapId: 'demo:area-map:a' })).toEqual(new Set(['map-a']));
+    expect(idx.affected({ type: 'areaMapCollected', mapId: 'demo:area-map:b' })).toEqual(new Set());
+  });
+
   test('unregister 摘除全部依赖；collectConditionLeaves 展开嵌套条件组', () => {
     const idx = new ConditionDepIndex<string>();
     idx.register('k', {

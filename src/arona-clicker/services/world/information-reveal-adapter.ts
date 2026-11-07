@@ -1,16 +1,17 @@
 import type { StateMutationService } from '../../state/state-mutation-service';
 import type { PlayerState, RevealedInformationTarget } from '../../types/state';
 import type { Registry } from '../../../data-services/registry/registry';
+import type { WorldInformationTarget } from '../../../data-services/contracts/world-reveal';
 import type { ConditionSystem } from '../../../engine/expression/condition-system';
 import type { ConditionState } from '../../../engine/contracts/state-query';
 import type { TriggerEventDef } from '../../../engine/types/trigger';
 import type { RegistrationKey, TriggerRegistrationRequest, TriggerRuntimeAction, TriggerRuntimeActionResult, TriggerSystem } from '../../../engine/effect/trigger-system';
-import { deriveDesiredInformationWatches, queryInformationReveal, type PrerequisiteMap, type RevealWatch, type WakeSource } from './information-reveal-domain';
+import { deriveDesiredInformationWatches, queryInformationReveal, revealKeyId, worldInformationRule, type PrerequisiteMap, type RevealWatch, type WakeSource } from './information-reveal-domain';
 
 type WatchRecord = { watch: RevealWatch; handle: string; registrationKeys: RegistrationKey[]; descriptor: string };
 export type ImmediateRevealTarget = RevealedInformationTarget;
 
-function keyId(key: RevealedInformationTarget): string { return `${key.entityKind}\u0000${key.entityId}\u0000${key.target}`; }
+const keyId = revealKeyId;
 function watchId(watch: RevealWatch): string { return keyId(watch.key); }
 
 function eventOf(source: WakeSource): TriggerEventDef | undefined {
@@ -29,6 +30,10 @@ export class InformationRevealAdapter {
   private readonly inFlight = new Set<string>();
   private readonly allowedCommits = new Set<string>();
   private readonly immediateCommits = new Set<string>();
+  private readonly explicitCommits = new Set<string>();
+  private readonly visitCommits = new Set<string>();
+  private readonly observationCommits = new Set<string>();
+  private readonly observedAreaMapIds = new Set<string>();
   private reconciling = false;
   private refreshPending = false;
   private nextHandle = 1;
@@ -44,10 +49,66 @@ export class InformationRevealAdapter {
   ) {
     this.triggers.setRuntimeActionHandler(action => this.handleAction(action));
     this.mutations.setInformationRevealTargetValidator((state, key) => this.validateCommit(state, key));
+    this.mutations.setInformationGrantHandler(key => this.grantExplicit(key));
   }
 
   handleRuntimeAction(action: TriggerRuntimeAction): TriggerRuntimeActionResult {
     return this.handleAction(action);
+  }
+
+  setObservedAreaMapIds(mapIds: readonly string[]): void {
+    const next = new Set(mapIds);
+    if (next.size === this.observedAreaMapIds.size && [...next].every(id => this.observedAreaMapIds.has(id))) return;
+    this.observedAreaMapIds.clear();
+    for (const id of next) this.observedAreaMapIds.add(id);
+    this.reconcileCurrent();
+  }
+
+  getObservedAreaMapIds(): readonly string[] { return [...this.observedAreaMapIds]; }
+
+  /** Explicit grants still pass the same target and scope validator used by automatic reveal writes. */
+  grantExplicit(key: ImmediateRevealTarget): boolean {
+    const id = keyId(key);
+    const query = this.query(key);
+    if (query.status !== 'pending-gate' || !query.diagnostics.includes('explicit-grant-required')) return false;
+    this.explicitCommits.add(id);
+    try {
+      const committed = this.mutations.revealInformationTarget(key);
+      if (committed) this.reconcileCurrent();
+      return committed;
+    } finally { this.explicitCommits.delete(id); }
+  }
+
+  /** A real Area entry can grant only the information targets declared for that visit. */
+  grantOnVisitArea(areaId: string): void {
+    const area = this.registry.areas.get(areaId), state = this.getState();
+    if (!area || state.activeInit !== area.initId || state.currentAreaId !== areaId) return;
+    const targets: readonly WorldInformationTarget[] = area.onVisitReveal ?? ['existence', 'name'];
+    for (const target of targets) {
+      const key: RevealedInformationTarget = { entityKind: 'area', entityId: areaId, target };
+      if (!worldInformationRule(this.registry, key) || this.query(key).status !== 'pending-gate') continue;
+      const id = keyId(key);
+      this.visitCommits.add(id);
+      try { this.mutations.revealInformationTarget(key); }
+      finally { this.visitCommits.delete(id); }
+    }
+    this.reconcileCurrent();
+  }
+
+  observeAreaMapOnOpen(mapId: string): boolean {
+    const key: RevealedInformationTarget = { entityKind: 'areaMap', entityId: mapId, target: 'existence' };
+    const rule = worldInformationRule(this.registry, key);
+    if (!rule) return true;
+    if (rule.mode === 'explicit') return this.getState().informationRevealProgress?.revealed.some(item => keyId(item) === keyId(key)) === true;
+    if (!this.conditions.evaluateExpr(rule.condition, this.getState() as ConditionState)) return false;
+    if (this.getState().informationRevealProgress?.revealed.some(item => keyId(item) === keyId(key))) return true;
+    const id = keyId(key);
+    this.observationCommits.add(id);
+    try {
+      const committed = this.mutations.revealInformationTarget(key);
+      if (committed) this.reconcileCurrent();
+      return committed;
+    } finally { this.observationCommits.delete(id); }
   }
 
   /** Registers every reactive source before any current-state admission check. */
@@ -168,6 +229,24 @@ export class InformationRevealAdapter {
 
   private validateCommit(state: PlayerState, key: RevealedInformationTarget): boolean {
     const id = keyId(key);
+    if (this.explicitCommits.has(id)) {
+      return this.query(key, state).diagnostics.includes('explicit-grant-required')
+        && worldInformationRule(this.registry, key)?.mode === 'explicit';
+    }
+    if (this.visitCommits.has(id)) {
+      if (key.entityKind !== 'area') return false;
+      const area = this.registry.areas.get(key.entityId);
+      const targets: readonly WorldInformationTarget[] = area?.onVisitReveal ?? ['existence', 'name'];
+      return !!area && state.activeInit === area.initId && state.currentAreaId === area.id
+        && targets.includes(key.target as WorldInformationTarget) && !!worldInformationRule(this.registry, key);
+    }
+    if (this.observationCommits.has(id)) {
+      if (key.entityKind !== 'areaMap' || key.target !== 'existence') return false;
+      const rule = worldInformationRule(this.registry, key);
+      return !!rule && rule.mode === 'condition'
+        && this.conditions.evaluateExpr(rule.condition, state as ConditionState)
+        && this.query(key, state).status === 'pending-gate';
+    }
     if (!this.allowedCommits.has(id)) return false;
     const current = this.query(key, state);
     if (current.status !== 'pending-gate') return false;
@@ -178,7 +257,7 @@ export class InformationRevealAdapter {
   }
 
   private query(key: RevealedInformationTarget, state = this.getState()) {
-    return queryInformationReveal(this.registry, state, key, state.activeInit, this.prerequisites);
+    return queryInformationReveal(this.registry, state, key, state.activeInit, this.prerequisites, this.observedAreaMapIds);
   }
 
   private currentWatch(key: RevealedInformationTarget): RevealWatch | undefined {
@@ -196,9 +275,9 @@ export class InformationRevealAdapter {
   }
 
   private entityTriggers(key: RevealedInformationTarget) {
+    if (key.entityKind === 'areaMapNode' || key.entityKind === 'areaMap' || key.entityKind === 'area') return [];
     switch (key.entityKind) {
       case 'init': return this.registry.inits.get(key.entityId)?.revealTriggers ?? [];
-      case 'area': return this.registry.areas.get(key.entityId)?.revealTriggers ?? [];
       case 'spot': return this.registry.spots.get(key.entityId)?.revealTriggers ?? [];
       case 'enhancement': return this.registry.enhancements.get(key.entityId)?.revealTriggers ?? [];
       case 'item': return this.registry.items.get(key.entityId)?.revealTriggers ?? [];
@@ -209,16 +288,17 @@ export class InformationRevealAdapter {
 
   private currentDesired(): { watches: RevealWatch[]; immediateTargets: ImmediateRevealTarget[] } {
     const state = this.getState();
-    const watches = deriveDesiredInformationWatches(this.registry, state, state.activeInit, this.prerequisites);
+    const watches = deriveDesiredInformationWatches(this.registry, state, state.activeInit, this.prerequisites, this.observedAreaMapIds);
     const immediateTargets: ImmediateRevealTarget[] = [];
     const entities: RevealedInformationTarget[] = [];
-    const add = (entityKind: RevealedInformationTarget['entityKind'], entries: Iterable<[string, { revealTriggers?: readonly { reveal: string; condition?: unknown }[] }]>) => {
+    const add = <K extends Exclude<RevealedInformationTarget['entityKind'], 'areaMapNode'>>(
+      entityKind: K, entries: Iterable<[string, { revealTriggers?: readonly { reveal: string; condition?: unknown }[] }]>,
+    ) => {
       for (const [entityId, def] of entries) for (const trigger of def.revealTriggers ?? []) {
         if (trigger.reveal !== 'existence' && trigger.reveal !== 'unlock') entities.push({ entityKind, entityId, target: trigger.reveal });
       }
     };
     add('init', this.registry.inits);
-    add('area', this.registry.areas);
     add('spot', this.registry.spots);
     add('enhancement', this.registry.enhancements);
     add('item', this.registry.items);

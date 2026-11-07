@@ -1,3 +1,4 @@
+import { storyEntryType } from '../../src/data-services/contracts/story-entry';
 import { finishWelcome, makePack } from './story-test-fixtures';
 import type { Datapack } from '../../src/data-services/contracts/datapack';
 // ============================================================
@@ -43,7 +44,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
   test('registry：storyEntries 与 stories 并行注册，entry.storyId 重定向到演出本体', () => {
     game.init([baseDatapack]);
     const entry = game.registry.storyEntries.get('base:activestory:schale_welcome')!;
-    expect(entry.type).toBe('active');
+    expect(storyEntryType(entry)).toBe('active');
     expect(entry.storyId).toBe('base:story:schale_welcome');
     expect(entry.availableInits).toContain('base:init:schale_office');
     // 演出本体是纯演出：无触发/揭示字段
@@ -59,10 +60,10 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
   test('registry：entry.storyId 引用缺失时抛错', () => {
     const reg = new Registry();
     const broken: Datapack = {
-      ...baseDatapack,
+      ...baseDatapack, passivePools: [],
       stories: [],
       activeStories: [
-        { id: 'x:activestory:ghost', storyId: 'x:story:missing', type: 'active', availableInits: [], triggerCondition: and() },
+        { id: 'x:activestory:ghost', storyId: 'x:story:missing', availableInits: [], triggerCondition: and(), activation: { kind: 'active' as const } },
       ],
       passiveStories: [],
     };
@@ -73,7 +74,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     const reg = new Registry();
     const source = baseDatapack.passiveStories.find(entry => entry.id === 'base:passivestory:hoshino_conv_2')!;
     const dp: Datapack = {
-      ...baseDatapack,
+      ...baseDatapack, passivePools: [],
       passiveStories: [{
         ...source,
         followUps: [{
@@ -90,7 +91,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     const reg = new Registry();
     const source = baseDatapack.passiveStories.find(entry => entry.id === 'base:passivestory:hoshino_conv_2')!;
     const broken: Datapack = {
-      ...baseDatapack,
+      ...baseDatapack, passivePools: [],
       passiveStories: [{
         ...source,
         followUps: [{
@@ -112,7 +113,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
       outcome: { kind: 'start-story-entry' as const, storyEntryId: 'base:activestory:shiroko_drink' },
     };
     const broken: Datapack = {
-      ...baseDatapack,
+      ...baseDatapack, passivePools: [],
       passiveStories: [{ ...source, followUps: [duplicate, duplicate] }],
     };
     expect(() => reg.load(broken)).toThrow(/duplicate or missing FollowUp id/);
@@ -140,7 +141,7 @@ describe('Story 三层拆分（Entry / Story / Talklet）', () => {
     game.init([baseDatapack]);
     finishWelcome(game);
     const id = 'test:story:read-progress';
-    game.registry.load(makePack([{ id: 'test:activestory:read-progress', storyId: id, type: 'active', availableInits: [], triggerCondition: and() }], [{
+    game.registry.load(makePack([{ id: 'test:activestory:read-progress', storyId: id, availableInits: [], triggerCondition: and(), activation: { kind: 'active' as const } }], [{
       id, name: 'Read progress', startContext: { type: 'area', areaId: 'base:area:schale_main' }, stages: { body: { advance: 'auto' } }, nodes: [
         { id: 'first', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'first' } },
         { id: 'prompt', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: 'choose' } },

@@ -6,7 +6,7 @@
 // ============================================================
 
 import { UIContext } from '../../runtime/context';
-import { renderChatHistory, renderCurrentStory, renderChatTexts, ChatEntry, ChatTextEntry } from '../story/story';
+import { renderChatHistory, renderCurrentStory, renderChatTexts, renderPositionedStoryHistory, renderStoryClickAppearance, ChatEntry, ChatTextEntry } from '../story/story';
 import { FLOW_HOST_KEY_ATTRIBUTE, FLOW_STREAM_KEY_ATTRIBUTE } from '../../flow/flow-entry';
 import { renderSendButton } from '../../columns/chat-content';
 import { renderPanelHeaderRegion } from '../shared/tabs';
@@ -299,8 +299,9 @@ function renderConversationFlow(
   readOnly ||= !!replayId && ctx.game.story.getReplayPlaybackView(replayId)?.phase === 'idle';
   const story = replayId ? ctx.game.story.getReplayStoryView(replayId) : ctx.game.getStoryView(variantId);
   // 剧情演出中：choice 确认后渲染选项卡片；kizuna 页渲染羁绊卡片（均在流内）
+  const positioned=story?.performance?.layout?.mode==='positioned';
   const current = !readOnly && story && (
-    (sendState.mode === 'choice' && sendState.confirmed) ||
+    (positioned && story.phase==='input') || (sendState.mode === 'choice' && sendState.confirmed) ||
     sendState.mode === 'kizuna'
   ) ? renderCurrentStory(ctx, story) : '';
 
@@ -312,7 +313,7 @@ function renderConversationFlow(
     && !ctx.game.conditionSystem.evaluateGroup(blockEntry.block, ctx.game.state);
 
   // 底部固定推进按钮：始终存在；门控/阻塞时不可推进（门控态由点击处理器转为节奏加速）
-  const footer = readOnly ? '' : blocked
+  const footer = readOnly || positioned&&story?.phase==='input' ? '' : blocked
     ? `
       <button class="send-button disabled" disabled>
         <span class="send-bubble disabled">
@@ -323,14 +324,16 @@ function renderConversationFlow(
         nameOf: ctx.nameOf, formatNumber: ctx.formatNumber, style: 'ui',
         evaluate: condition => ctx.game.conditionSystem.evaluateExpr(condition, ctx.game.state),
       }), ctx.escapeHtml)}</div>`
-    : renderSendButton(sendState, sendGate);
+    : renderStoryClickAppearance(renderSendButton(sendState, sendGate),story?.phase==='input'&&sendState.mode==='advance'?story.performance:undefined);
 
   return `
     <div class="chat-pane" data-chat-owner="${ctx.escapeHtml(variantId)}"${replayId ? ` data-story-replay-id="${ctx.escapeHtml(replayId)}"` : ''}>
       <div class="chat-stream conversation-stream" ${FLOW_HOST_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" ${FLOW_STREAM_KEY_ATTRIBUTE}="conversation:${ctx.escapeHtml(variantId)}" role="log" aria-label="对话信息">
         ${renderChatHistory(entries, ctx)}
-        ${current}
+        ${positioned?'':current}
       </div>
+      ${renderPositionedStoryHistory(entries,ctx)}
+      ${positioned?current:''}
       ${renderChatTexts(ctx, chatTexts)}
       ${openingBanner ? renderOpeningBanner(ctx, openingBanner) : ''}
       ${storyGate ? renderStoryGate(ctx, storyGate) : ''}

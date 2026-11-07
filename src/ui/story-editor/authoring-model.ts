@@ -109,19 +109,28 @@ export function copyStoryIdentity(state: StoryEditorState, draft: StoryDraft, id
   if (!/^[a-z0-9_-]+:story:[a-z0-9_-]+$/.test(id) || existing.has(id) || state.drafts.some(x => x.document.id === id)) return false;
   const copy: StoryDraft = structuredClone(draft);
   copy.draftId = crypto.randomUUID(); copy.sourceId = null; copy.document = { ...copy.document, id };
+  delete copy.renamedFromId; delete copy.targetPackId;
+  const rebindDisplayTargets=(value:unknown):void=>{
+    if(!value||typeof value!=='object')return;
+    const row=value as Record<string,unknown>;
+    if(row.kind==='clearNode'&&row.storyId===draft.document.id)row.storyId=id;
+    Object.values(row).forEach(rebindDisplayTargets);
+  };
+  rebindDisplayTargets(copy.document);rebindDisplayTargets(copy.editorState?.branches);
   copy.authoring = emptyStoryAuthoring(); copy.dirty = true; copy.persisted = false; copy.savedAt = null;
   state.drafts.push(copy); state.target = { kind: 'story', id }; state.selectedNodeId = null;
   return true;
 }
-export function addStoryAuthoringRow(draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools'): void {
+export function addStoryAuthoringRow(draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools', affectionOwner?: string): void {
   draft.authoring ??= emptyStoryAuthoring();
   const mod = draft.document.id.split(':')[0]; const name = `entry_${crypto.randomUUID().replace(/-/g, '')}`;
   const id = `${mod}:${table === 'passivePools' ? 'passivepool' : table === 'activeStories' ? 'activestory' : 'passivestory'}:${name}`;
   if (table === 'passivePools') draft.authoring.passivePools.push({ id, name: '新被动池', children: [] });
   else {
     const entry = { id, storyId: draft.document.id, availableInits: [], triggerCondition: { type: 'AND' as const, conditions: [] }, replayable: true };
-    if (table === 'activeStories') draft.authoring.activeStories.push({ ...entry, type: 'active' });
-    else draft.authoring.passiveStories.push({ ...entry, type: 'passive', repeatable: false, weight: 1 });
+    if (table === 'activeStories') draft.authoring.activeStories.push({ ...entry, activation: {kind:'active'} });
+    else if(affectionOwner) draft.authoring.passiveStories.push({...entry,owner:affectionOwner,activation:{kind:'affection',when:{kind:'level',level:1}}});
+    else draft.authoring.passiveStories.push({ ...entry, activation: { kind: 'random' as const, weight: 1, repeatable: false } });
   }
   draft.dirty = true;
 }

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../src/data/test-datapack';
@@ -26,7 +27,7 @@ describe('Story content reference Navi', () => {
   beforeEach(() => {
     localStorage.clear(); document.body.innerHTML = '<div id="app"></div>'; root = find('#app');
     game = new GameInstance(); game.init([structuredClone(baseDatapack)]); ctrl = new UIController(game, root);
-    ctrl.render(); ctrl.storyEditor.open(); find('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    ctrl.render(); ctrl.storyEditor.open(); createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     draft = currentDraft(ctrl.storyEditor.state)!;
     draft.document = { ...draft.document, startContext: { type: 'area', areaId: [...game.registry.areas.keys()][0] }, nodes: [
       { id: 'transfer', type: 'transfer', transfer: { mode: 'insert', storyId: 'missing:story:old' } },
@@ -35,7 +36,7 @@ describe('Story content reference Navi', () => {
       { id: 'resource', type: 'operation', action: { kind: 'state', effects: [{ op: 'setResource', resourceId: [...game.registry.resourceDisplays.keys()][0], amount: 2 }] } },
     ] };
     const authoring = emptyStoryAuthoring();
-    authoring.activeStories.push({ id: 'local:activestory:navi', type: 'active', storyId: 'local:story:navi', availableInits: [''], triggerCondition: { type: 'AND', conditions: [] } });
+    authoring.activeStories.push({ id: 'local:activestory:navi', storyId: 'local:story:navi', availableInits: [''], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } });
     ctrl.storyEditor.state.drafts.push({ ...structuredClone(draft), draftId: 'navi-child', sourceId: null,
       document: { ...structuredClone(draft.document), id: 'local:story:navi', name: '未应用的目标故事' }, authoring });
     refresh();

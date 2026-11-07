@@ -5,7 +5,7 @@ const convert = (source: string, options?: Parameters<typeof convertSourceText>[
   convertSourceText(source, 'fixture.ts', options);
 
 describe('offline Story content migrator', () => {
-  it('moves choice page actions to sharedActions before option actions and transfers', () => {
+  it('moves choice actions and transfers to ordered, option-gated nodes', () => {
     const result = convert(`
       import { story } from '../def-factory/story';
       import { line } from '../def-factory/talklet';
@@ -18,12 +18,48 @@ describe('offline Story content migrator', () => {
     `);
 
     expect(result).toMatchObject({ converted: 1, skipped: 0, issues: [] });
-    expect(result.text).toContain("sharedActions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 3 }] }]");
-    expect(result.text).toContain("result: { actions: [{ kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'stay' }] }] }");
-    expect(result.text).toContain("transfer: { mode: 'insert', storyId: 'base:story:detour' }");
-    expect(result.text).toContain("{ op: 'addItem', itemId: 'base:item:ticket', amount: 2 }");
+    const firstMark = 'migration:choice:test:story:choice:p1:option1';
+    const secondMark = 'migration:choice:test:story:choice:p1:option2';
+    expect(result.text).toContain(`marks: ["${firstMark}"]`);
+    expect(result.text).toContain(`marks: ["${secondMark}"]`);
+    expect(result.text).toContain(`requiresFlag: "${firstMark}", action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 3 }] }`);
+    expect(result.text).toContain(`requiresFlag: "${firstMark}", action: { kind: 'state', effects: [{ op: 'setFlag', flagId: 'route', value: 'stay' }] }`);
+    expect(result.text).toContain(`requiresFlag: "${secondMark}", action: { kind: 'state', effects: [{ op: 'addItem', itemId: 'base:item:ticket', amount: 2 }] }`);
+    expect(result.text).toContain(`requiresFlag: "${secondMark}", transfer: { mode: 'insert', storyId: 'base:story:detour' }`);
+    expect(result.text.indexOf("id: 'p1-choice'")).toBeLessThan(result.text.indexOf("id: 'p1-option1-op1'"));
+    expect(result.text.indexOf("id: 'p1-option1-op1'")).toBeLessThan(result.text.indexOf("id: 'p1-option1-op2'"));
+    expect(result.text.indexOf("id: 'p1-option2-op2'")).toBeLessThan(result.text.indexOf("id: 'p1-option2-transfer'"));
+    expect(result.text).not.toContain('sharedActions:');
+    expect(result.text).not.toContain('result:');
     expect(result.text).not.toContain('legacy reply is ignored');
     expect(result.text).not.toContain('reply:');
+  });
+
+  it('reports old choice conditions because false now hides the option', () => {
+    const result = convert(`
+      const definition = {
+        id: 'test:story:condition', name: 'Condition',
+        talklets: [{ text: 'Pick', choices: [{ text: 'Route', condition: { type: 'AND', conditions: [] } }] }],
+      };
+    `);
+
+    expect(result).toMatchObject({ converted: 0, skipped: 1 });
+    expect(result.text).toContain("condition: { type: 'AND', conditions: [] }");
+    expect(result.issues).toEqual([expect.objectContaining({ code: 'choice-visibility-changed' })]);
+  });
+
+  it('reports unsupported choice page effects instead of silently dropping them', () => {
+    const result = convert(`
+      import { story } from '../def-factory/story';
+      import { line } from '../def-factory/talklet';
+      const definition = story('test:story:unsupported-choice-effect', 'Unsupported').scene(
+        line('Arona', 'Pick').effects({ op: 'unknownLegacyChoiceEffect' }).choice('Continue'),
+      ).build();
+    `);
+
+    expect(result).toMatchObject({ converted: 0, skipped: 1 });
+    expect(result.issues).toEqual([expect.objectContaining({ code: 'unsupported-effect', storyId: 'test:story:unsupported-choice-effect' })]);
+    expect(result.text).toContain('unknownLegacyChoiceEffect');
   });
 
   it('writes legacy send text as a separate Talklet and preserves multi-click confirmation', () => {
@@ -45,7 +81,8 @@ describe('offline Story content migrator', () => {
     expect(result.text).toContain("'p2-confirm': { advance: 'input' }");
     expect(result.text).toContain("text: 'Working', press: { base: 3, rand: 2 }");
     expect(result.text).toContain("id: 'p2-confirm-click'");
-    expect(result.text).toContain("result: { actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 4 }] }] }");
+    expect(result.text).toContain("type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 4 }] }");
+    expect(result.text).not.toContain('result:');
   });
 
   it('uses one Click when legacy click-work is statically one total press', () => {
@@ -64,7 +101,7 @@ describe('offline Story content migrator', () => {
     expect(result.text).toContain("id: 'p1-button'");
     expect(result.text).toContain("id: 'p2-button'");
     expect(result.text).not.toContain('press:');
-    expect(result.text).toContain("result: { actions: [{ kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 1 }] }] }");
+    expect(result.text).toContain("type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: 'base:resource:credit', amount: 1 }] }");
   });
 
   it('reports click-work ranges that sometimes require confirmation and sometimes do not', () => {

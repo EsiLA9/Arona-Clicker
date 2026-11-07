@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copyStoryNode, pasteStoryNode } from '../../src/ui/story-editor/node-clipboard';
 import { createStoryEditorState, currentDraft, editNodeFlag, newStory, type StoryDraft } from '../../src/ui/story-editor/model';
@@ -84,13 +85,13 @@ describe('Story node clipboard', () => {
   it('preserves authored option IDs, runtime references and parked node types across Stories', () => {
     const state = createStoryEditorState(), source = newStory(state);
     source.document = {...source.document,stages:{one:{advance:'input'}}};
-    source.document.nodes = [{id:'choice',type:'click',stageId:'one',requiresFlag:'flag',interaction:{kind:'choice',options:[{id:'yes',text:'正文',result:{actions:[{kind:'localFlag',op:'set',name:'flag',value:true}]}}]}}];
+    source.document.nodes = [{id:'choice',type:'click',stageId:'one',requiresFlag:'flag',interaction:{kind:'choice',options:[{id:'yes',text:'正文',marks:['flag']}]}}];
     selectNodeType(source,'choice','transfer'); editProperty(source,'choice',['transfer'],{mode:'goto',storyId:'local:story:destination'});
     const clipboard = copyStoryNode(source,'choice')!, target = newStory(state);
     const pasted = pasteStoryNode(state,clipboard,null)!;
     expect(pasted).toMatchObject({id:'choice-copy-1',requiresFlag:'flag',transfer:{mode:'goto',storyId:'local:story:destination'}});
     selectNodeType(target,pasted.id,'click');
-    expect(target.document.nodes[0]).toMatchObject({id:'choice-copy-1',stageId:'one',interaction:{options:[{id:'yes',result:{actions:[{name:'flag'}]}}]}});
+    expect(target.document.nodes[0]).toMatchObject({id:'choice-copy-1',stageId:'one',interaction:{options:[{id:'yes',marks:['flag']}]}});
     expect(source.document.nodes[0].type).toBe('transfer');
   });
 });
@@ -109,7 +110,7 @@ describe('Story node context menu', () => {
   beforeEach(() => {
     localStorage.clear(); document.body.innerHTML = '<div id="app"></div>'; root = find('#app');
     game = new GameInstance(); game.init([structuredClone(baseDatapack)]); ctrl = new UIController(game,root);
-    ctrl.render(); ctrl.storyEditor.open(); find('[data-editor-action="new"]').click(); ctrl.flushUIUpdates();
+    ctrl.render(); ctrl.storyEditor.open(); createStoryForTest(game,ctrl); ctrl.flushUIUpdates();
     draft = currentDraft(ctrl.storyEditor.state)!;
     draft.document = {...draft.document,startContext:{type:'area',areaId:[...game.registry.areas.keys()][0]},stages:{one:{advance:'auto'}},nodes:[
       {id:'intro',type:'talklet',stageId:'one',content:{kind:'talk',text:'original'}}, {id:'end',type:'operation'},

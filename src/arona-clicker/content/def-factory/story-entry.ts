@@ -13,6 +13,8 @@ abstract class StoryEntryBaseBuilder {
   protected _branchGuards: BranchGuard[] = []; protected _openingTitle?: string; protected _extra?: ExtraCompound;
   protected _reactions: StoryEntryReaction[] = [];
   protected _followUps: StoryFollowUp[] = [];
+  protected _catalog?: StoryEntryBase['catalog'];
+  catalog(value: NonNullable<StoryEntryBase['catalog']>): this { this._catalog = value; return this; }
   protected _kizuna?: StoryEntryBase['kizuna'];
   constructor(id: StoryId, storyId?: StoryId) { this._id = id; this._storyId = storyId ?? id; }
   story(storyId: StoryId): this { this._storyId = storyId; return this; }
@@ -38,16 +40,19 @@ abstract class StoryEntryBaseBuilder {
     if (this._reactions.length) def.reactions = this._reactions;
     if (this._followUps.length) def.followUps = this._followUps;
     if (this._kizuna) def.kizuna = this._kizuna;
+    if (this._catalog) def.catalog = this._catalog;
     return def;
   }
 }
 export class ActiveStoryBuilder extends StoryEntryBaseBuilder {
+  private _fallback?: ActiveStoryEntry['activation']['fallback'];
+  fallback(value: NonNullable<ActiveStoryEntry['activation']['fallback']>): this { this._fallback = value; return this; }
   private _completionReward?: { first?: Effect[]; repeat?: Effect[] }; private _owner?: string;
   completionStrategy(value: 'simple' | 'conditional'): this { this._completionStrategy = value; return this; }
   rewardFirst(...effects: Effect[]): this { this._completionReward = { ...(this._completionReward ?? {}), first: effects }; return this; }
   rewardRepeat(...effects: Effect[]): this { this._completionReward = { ...(this._completionReward ?? {}), repeat: effects }; return this; }
   owner(variantId: string): this { this._owner = variantId; return this; }
-  build(): ActiveStoryEntry { const def: ActiveStoryEntry = { ...this.toBase(), type: 'active' }; if (this._completionReward) def.completionReward = this._completionReward; if (this._owner) def.owner = this._owner; return def; }
+  build(): ActiveStoryEntry { const def: ActiveStoryEntry = { ...this.toBase(), activation: { kind: 'active' as const, ...(this._fallback ? { fallback: this._fallback } : {}) } }; if (this._completionReward) def.completionReward = this._completionReward; if (this._owner) def.owner = this._owner; return def; }
 }
 export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   private _repeatable = true; private _weight = 1; private _completionReward?: { first?: Effect[]; repeat?: Effect[] }; private _owner?: string;
@@ -66,9 +71,15 @@ export class PassiveStoryBuilder extends StoryEntryBaseBuilder {
   leaveArea(value = true): this { this._leaveArea = value; return this; }
   blocksInteraction(value = true): this { this._blocksInteraction = value; return this; }
   build(): PassiveStoryEntry {
-    const def: PassiveStoryEntry = { ...this.toBase(), type: 'passive', repeatable: this._repeatable, weight: this._weight };
-    if (this._completionReward) def.completionReward = this._completionReward; if (this._owner) def.owner = this._owner; if (this._cooldownFrames !== undefined) def.cooldownFrames = this._cooldownFrames;
-    if (this._affectionRequired !== undefined) def.affectionRequired = this._affectionRequired; if (this._pushAfterStory !== undefined) def.pushAfterStory = this._pushAfterStory;
+    if (this._affectionRequired !== undefined && this._pushAfterStory !== undefined) throw new Error('角色阶段必须选择等级或前置故事');
+    const when = this._pushAfterStory !== undefined ? {kind:'after-story' as const,storyId:this._pushAfterStory} : this._affectionRequired !== undefined ? {kind:'level' as const,level:this._affectionRequired} : undefined;
+    if (when && !this._owner) throw new Error('好感入口需要归属角色');
+    const timing = this._cooldownFrames !== undefined ? {cooldownFrames:this._cooldownFrames} : {};
+    const def: PassiveStoryEntry = when
+      ? {...this.toBase(),owner:this._owner!,activation:{kind:'affection' as const,when,...timing}}
+      : {...this.toBase(),activation:{kind:'random' as const,weight:this._weight,repeatable:this._repeatable,...timing}};
+    if (this._completionReward) def.completionReward = this._completionReward;
+    if (this._owner) def.owner = this._owner;
     if (this._block) def.block = this._block; if (this._interruptible !== undefined) def.interruptible = this._interruptible; if (this._leaveArea !== undefined) def.leaveArea = this._leaveArea; if (this._blocksInteraction !== undefined) def.blocksInteraction = this._blocksInteraction; return def;
   }
 }

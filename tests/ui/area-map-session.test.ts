@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { createAreaMapSession, openAreaMap, previousAreaMap, reconcileAreaMap } from '../../src/ui/workspace/area-map-session';
 import { resolveCurrentWorkspaceRoute, workspaceRouteKey } from '../../src/ui/workspace/workspace-router';
 import type { AreaMapView, AreaMapQueryPort } from '../../src/arona-clicker/contracts/world/area-map-query';
-const view = (id: string): AreaMapView => ({ id, name: id, revision: id, nameKnown: true, utilityKnown: true, conditionKnown: true, unlocked: true, nodes: [], edges: [] });
+const view = (id: string): AreaMapView => ({ id, name: id, revision: id, existenceKnown: true, nameKnown: true, utilityKnown: true, conditionKnown: true, nodes: [], edges: [] });
 test('A→B→C→A remembers visit order and each map latest camera; self reference adds no history', () => {
   const s = createAreaMapSession('s', 'init', 'area', view('a'), 0);
   s.viewports.set('a', { scale: 2, x: 12, y: 30 });

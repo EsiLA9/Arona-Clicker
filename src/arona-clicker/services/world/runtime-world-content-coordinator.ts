@@ -8,9 +8,13 @@ import {
 } from '../../../data-services/authoring/content-policy';
 import type { AuthoringMutationReceipt, ContentAuthoringPolicy } from '../../../data-services/authoring/content-policy';
 import type { AreaDef, InitDef } from '../../../data-services/contracts/world';
+import type { AreaMapDef } from '../../../data-services/contracts/area-map';
 import { Registry } from '../../../data-services/registry/registry';
+import type { RegistryAreaMapMutation } from '../../../data-services/registry/registry';
+import { validateAreaMapShapes } from '../../../data-services/registry/area-map-validation';
 import type {
   RuntimeAreaInput,
+  RuntimeAreaMapInput,
   RuntimeAreaTopologyConnection,
   RuntimeContentDiagnostic,
   RuntimeInitInput,
@@ -24,6 +28,7 @@ import type {
 
 export type {
   RuntimeAreaInput,
+  RuntimeAreaMapInput,
   RuntimeAreaTopologyConnection,
   RuntimeInitInput,
   RuntimeWorldCommit,
@@ -37,6 +42,7 @@ export type {
 const RUNTIME_MOD_PATTERN = /^[a-z0-9-]+$/;
 const INIT_POLICY = requireContentPolicy('inits');
 const AREA_POLICY = requireContentPolicy('areas');
+const AREA_MAP_POLICY = requireContentPolicy('areaMaps');
 
 interface AppliedReceipt {
   readonly receipt: AuthoringMutationReceipt;
@@ -60,6 +66,10 @@ function initId(modName: string, idName: string): string {
 
 function areaId(modName: string, idName: string): string {
   return authoringEntityId(AREA_POLICY, modName, idName);
+}
+
+function areaMapId(modName: string, idName: string): string {
+  return authoringEntityId(AREA_MAP_POLICY, modName, idName);
 }
 
 function inputContext(registry: Registry) {
@@ -89,8 +99,16 @@ function areaInputDef(modName: string, input: RuntimeAreaInput): AreaDef {
     defaultSpots: [...input.defaultSpots],
     topology: input.topology ? input.topology.map(item => ({ ...item })) : [],
     tags: input.tags ? [...input.tags] : undefined,
-    revealTriggers: input.revealTriggers ? [...input.revealTriggers] : undefined,
+    reveal: input.reveal ? structuredClone(input.reveal) : undefined,
+    enterCondition: input.enterCondition ? structuredClone(input.enterCondition) : undefined,
+    onVisitReveal: input.onVisitReveal ? [...input.onVisitReveal] : undefined,
   }) as AreaDef;
+}
+
+function areaMapInputDef(modName: string, input: RuntimeAreaMapInput): AreaMapDef {
+  const definition = buildAuthoringDef(AREA_MAP_POLICY, modName, input) as AreaMapDef;
+  validateAreaMapShapes([definition], message => { throw new Error(message); });
+  return definition;
 }
 
 /**
@@ -105,6 +123,7 @@ export class RuntimeWorldContentCoordinator {
   private readonly onCommitted: ((commit: RuntimeWorldCommit) => void) | undefined;
   private readonly inits = new Map<string, InitDef>();
   private readonly areas = new Map<string, AreaDef>();
+  private readonly areaMaps = new Map<string, AreaMapDef>();
   private topology: RuntimeAreaTopologyConnection[] = [];
   private modName: string | null = null;
   private revision = 0;
@@ -133,6 +152,7 @@ export class RuntimeWorldContentCoordinator {
       sourceId: this.sourceId,
       inits: new Map([...this.inits].map(([id, value]) => [id, cloneAuthoringDef(value)])),
       areas: new Map([...this.areas].map(([id, value]) => [id, cloneAuthoringDef(value)])),
+      areaMaps: new Map([...this.areaMaps].map(([id, value]) => [id, cloneAuthoringDef(value)])),
       topology: this.topology.map(connection => ({ ...connection })),
       revision: this.revision,
     };
@@ -149,13 +169,14 @@ export class RuntimeWorldContentCoordinator {
   reset(): void {
     this.inits.clear();
     this.areas.clear();
+    this.areaMaps.clear();
     this.topology = [];
     this.modName = null;
     this.revision = 0;
   }
 
   /** 兼容已有临时 Mod / candidate 路径：之后的 Init / Area 编辑仍走本协调器。 */
-  adoptRuntimeMod(modName: string, initIds: readonly string[] = [], areaIds: readonly string[] = []): void {
+  adoptRuntimeMod(modName: string, initIds: readonly string[] = [], areaIds: readonly string[] = [], areaMapIds: readonly string[] = []): void {
     this.reset();
     this.setModName(modName);
     for (const rawId of initIds) {
@@ -167,6 +188,11 @@ export class RuntimeWorldContentCoordinator {
       const id = rawId.includes(':') ? rawId : areaId(modName, rawId);
       const definition = this.registry.areas.get(id);
       if (definition && id.startsWith(`${modName}:area:`)) this.areas.set(id, cloneAuthoringDef(definition));
+    }
+    for (const rawId of areaMapIds) {
+      const id = rawId.includes(':') ? rawId : areaMapId(modName, rawId);
+      const definition = this.registry.areaMaps.get(id);
+      if (definition && id.startsWith(`${modName}:area-map:`)) this.areaMaps.set(id, cloneAuthoringDef(definition));
     }
   }
 
@@ -183,18 +209,21 @@ export class RuntimeWorldContentCoordinator {
 
       const desiredInits = this.prepareInits(draft.modName, draft.inits);
       const desiredAreas = this.prepareAreas(draft.modName, draft.areas);
+      const desiredAreaMaps = draft.areaMaps === undefined ? new Map([...this.areaMaps].map(([id, value]) => [id, cloneAuthoringDef(value)])) : this.prepareAreaMaps(draft.modName, draft.areaMaps);
       this.validateFinalReferences(desiredInits, desiredAreas);
-      this.assertOwnedOrFree(desiredInits, desiredAreas);
+      this.assertOwnedOrFree(desiredInits, desiredAreas, desiredAreaMaps);
       const desiredTopology = this.prepareTopology(draft.modName, draft.areas, desiredAreas);
 
       const receipts: AppliedReceipt[] = [];
       const deletedAreaIds = new Set([...this.areas.keys()].filter(id => !desiredAreas.has(id)));
       const deletedInitIds = new Set([...this.inits.keys()].filter(id => !desiredInits.has(id)));
+      const deletedAreaMapIds = new Set([...this.areaMaps.keys()].filter(id => !desiredAreaMaps.has(id)));
       const previousTopology = this.topology;
       const previousState = {
         modName: this.modName,
         inits: new Map([...this.inits].map(([id, value]) => [id, cloneAuthoringDef(value)])),
         areas: new Map([...this.areas].map(([id, value]) => [id, cloneAuthoringDef(value)])),
+        areaMaps: new Map([...this.areaMaps].map(([id, value]) => [id, cloneAuthoringDef(value)])),
         topology: this.topology.map(connection => ({ ...connection })),
         revision: this.revision,
       };
@@ -217,8 +246,26 @@ export class RuntimeWorldContentCoordinator {
         this.materializeAreas(desiredAreas, draft.modName, mutate);
         this.materializeInits(desiredInits, draft.modName, mutate);
 
+        const areaMapMutations: RegistryAreaMapMutation[] = [];
+        for (const [id, areaMap] of desiredAreaMaps) {
+          const current = this.registry.areaMaps.get(id);
+          if (!current) areaMapMutations.push({ operation: 'create', ownerModName: draft.modName, areaMap });
+          else if (!sameDefinition(current, areaMap)) areaMapMutations.push({ operation: 'replace', ownerModName: draft.modName, areaMap });
+        }
+        for (const id of deletedAreaMapIds) areaMapMutations.push({ operation: 'delete', ownerModName: draft.modName, areaMapId: id });
+        if (areaMapMutations.length > 0) {
+          const batch = this.registry.applyAreaMapMutations(areaMapMutations);
+          // Restore Area definitions before their previous map references.
+          receipts.unshift({ receipt: {
+            table: 'areaMaps', operation: 'replace', ownerModName: draft.modName, defId: draft.modName,
+            previousDef: undefined, currentDef: undefined, rollback: () => batch.rollback(),
+          } });
+        }
+        this.registry.validateAreaMapRefs();
+
         const changedInitIds = [...new Set([...desiredInits.keys(), ...deletedInitIds])];
         const changedAreaIds = [...new Set([...desiredAreas.keys(), ...deletedAreaIds])];
+        const changedAreaMapIds = [...new Set([...desiredAreaMaps.keys(), ...deletedAreaMapIds])];
         const topologyAreaIds = [...new Set([
           ...previousTopology.flatMap(connection => [connection.fromAreaId, connection.toAreaId]),
           ...desiredTopology.flatMap(connection => [connection.fromAreaId, connection.toAreaId]),
@@ -227,6 +274,7 @@ export class RuntimeWorldContentCoordinator {
           modName: draft.modName,
           changedInitIds,
           changedAreaIds,
+          changedAreaMapIds,
           topologyAreaIds,
           topology: desiredTopology.map(connection => ({ ...connection })),
           revisionBefore: this.revision,
@@ -237,6 +285,8 @@ export class RuntimeWorldContentCoordinator {
         for (const [id, value] of desiredInits) this.inits.set(id, cloneAuthoringDef(value));
         this.areas.clear();
         for (const [id, value] of desiredAreas) this.areas.set(id, cloneAuthoringDef(value));
+        this.areaMaps.clear();
+        for (const [id, value] of desiredAreaMaps) this.areaMaps.set(id, cloneAuthoringDef(value));
         this.topology = desiredTopology.map(connection => ({ ...connection }));
         this.revision += 1;
         this.onCommitted?.(commit);
@@ -252,6 +302,8 @@ export class RuntimeWorldContentCoordinator {
         for (const [id, value] of previousState.inits) this.inits.set(id, cloneAuthoringDef(value));
         this.areas.clear();
         for (const [id, value] of previousState.areas) this.areas.set(id, cloneAuthoringDef(value));
+        this.areaMaps.clear();
+        for (const [id, value] of previousState.areaMaps) this.areaMaps.set(id, cloneAuthoringDef(value));
         this.topology = previousState.topology.map(connection => ({ ...connection }));
         this.revision = previousState.revision;
         throw error;
@@ -294,6 +346,17 @@ export class RuntimeWorldContentCoordinator {
     return result;
   }
 
+  private prepareAreaMaps(modName: string, inputs: readonly RuntimeAreaMapInput[]): Map<string, AreaMapDef> {
+    const result = new Map<string, AreaMapDef>();
+    for (const input of inputs) {
+      validateRecord(AREA_MAP_POLICY, input, this.registry);
+      const definition = { ...(this.areaMaps.get(areaMapId(modName, input.idName)) ?? {}), ...areaMapInputDef(modName, input) } as AreaMapDef;
+      if (result.has(definition.id)) throw new Error(`Draft 中 AreaMap ID 重复：${definition.id}`);
+      result.set(definition.id, definition);
+    }
+    return result;
+  }
+
   private prepareTopology(
     modName: string,
     inputs: readonly RuntimeAreaInput[],
@@ -315,12 +378,15 @@ export class RuntimeWorldContentCoordinator {
     return topology;
   }
 
-  private assertOwnedOrFree(desiredInits: Map<string, InitDef>, desiredAreas: Map<string, AreaDef>): void {
+  private assertOwnedOrFree(desiredInits: Map<string, InitDef>, desiredAreas: Map<string, AreaDef>, desiredAreaMaps: Map<string, AreaMapDef>): void {
     for (const id of desiredInits.keys()) {
       if (!this.inits.has(id) && this.registry.inits.has(id)) throw new Error(`Init "${id}" 不属于当前临时 Mod，不能覆盖`);
     }
     for (const id of desiredAreas.keys()) {
       if (!this.areas.has(id) && this.registry.areas.has(id)) throw new Error(`Area "${id}" 不属于当前临时 Mod，不能覆盖`);
+    }
+    for (const id of desiredAreaMaps.keys()) {
+      if (!this.areaMaps.has(id) && this.registry.areaMaps.has(id)) throw new Error(`AreaMap "${id}" 不属于当前临时 Mod，不能覆盖`);
     }
   }
 

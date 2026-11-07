@@ -40,8 +40,8 @@ describe('renderChatTexts（showChatText 覆盖层渲染）', () => {
     const html = renderChatTexts(ctx, entry());
     expect(html).toContain('chat-text-overlay');
     expect(html).toContain('chat-text-overlay-inner');
-    expect(html).toContain('left: 50%');
-    expect(html).toContain('bottom: 50%');
+    expect(html).toContain('--story-overlay-x:50%');
+    expect(html).toContain('--story-overlay-y:50%');
     expect(html).toContain('data-chat-text="perf:test"');
     expect(html).toContain('测试文本');
   });

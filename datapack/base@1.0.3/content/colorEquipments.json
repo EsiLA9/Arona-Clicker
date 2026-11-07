@@ -1,0 +1,104 @@
+{
+  "colorEquipments": [
+    {
+      "id": "base:colorequipment:schale-badge",
+      "name": "夏莱徽章",
+      "colorGroupId": "base:colorgroup:schale-solid",
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 1
+        }
+      ],
+      "description": "什亭之匣的标准徽章，信用点获取 +1。",
+      "unlock": {
+        "target": "flag",
+        "key": "momotalk_pink_unlocked",
+        "comparator": ">=",
+        "value": 1
+      },
+      "category": "common"
+    },
+    {
+      "id": "base:colorequipment:hoshino-swim-gear",
+      "name": "星野泳装装备",
+      "colorGroupId": "base:colorgroup:hoshino-gradient",
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 2
+        }
+      ],
+      "description": "夏日泳池的清凉套装，信用点获取 +2。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "hoshino",
+        "comparator": ">=",
+        "value": 1
+      },
+      "category": "rare"
+    },
+    {
+      "id": "base:colorequipment:abydos-legacy",
+      "name": "阿比多斯传承",
+      "colorGroupId": "base:colorgroup:abydos-duotone",
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 3
+        }
+      ],
+      "description": "阿比多斯学园的古老传承，信用点获取 +3。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "hoshino",
+        "comparator": ">=",
+        "value": 2
+      },
+      "category": "epic"
+    },
+    {
+      "id": "base:colorequipment:prism-set",
+      "name": "棱镜套装",
+      "colorGroupId": "base:colorgroup:prism-pie",
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 1
+        }
+      ],
+      "description": "多彩棱镜的抽象集合，信用点获取 +1。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "mika",
+        "comparator": ">=",
+        "value": 1
+      },
+      "category": "rare"
+    },
+    {
+      "id": "base:colorequipment:dawn-aura",
+      "name": "黎明之气",
+      "colorGroupId": "base:colorgroup:radial-dawn",
+      "effects": [
+        {
+          "op": "addResource",
+          "target": "base:resource:credit",
+          "value": 2
+        }
+      ],
+      "description": "破晓时分的暖色光晕，信用点获取 +2。",
+      "unlock": {
+        "target": "protoStat",
+        "key": "shiroko",
+        "comparator": ">=",
+        "value": 1
+      },
+      "category": "common"
+    }
+  ]
+}

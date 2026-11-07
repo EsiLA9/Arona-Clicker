@@ -35,6 +35,7 @@ import type { StateMutationPort } from '../../engine/contracts/mutation';
 import type { EffectReceipt, EffectReceiptValue } from '../../engine/contracts/effect-receipt';
 import type { SpotTransactionCommit } from '../contracts/runtime/mutation';
 import type { EffectMutationPort } from '../contracts/runtime/effect-mutation';
+import type { WorldInformationTargetRef } from '../../engine/contracts/world-information';
 import { deleteAtPath, extra, getAtPath, isFloat, setAtPath, toNumber } from '../../engine/extra/index';
 import { addLifetime, memoryOf, recordGearProgress, recordVariantOwned, recordVariantProgress } from './character-memory';
 import type { GearActionReason } from '../contracts/progression/gear-query';
@@ -96,6 +97,9 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   private initScopedTargetGuard: ((spotId: string) => boolean) | null = null;
   private entityPresentationSelectionValidator: ((state: AronaClickerState, entityKey: string, optionId: string) => boolean) | null = null;
   private informationRevealTargetValidator: ((state: AronaClickerState, key: RevealedInformationTarget) => boolean) | null = null;
+  private areaMapCollectionValidator: ((state: AronaClickerState, mapId: string) => boolean) | null = null;
+  private areaMapAcquisitionHandler: ((mapId: string) => boolean) | null = null;
+  private informationGrantHandler: ((key: RevealedInformationTarget) => boolean) | null = null;
   private milestoneCompletionValidator: ((state: AronaClickerState, milestoneId: string) => boolean) | null = null;
   private readonly preparedMapRunItemConsumptions = new WeakMap<object, PreparedMapRunItemConsumptionState>();
 
@@ -127,6 +131,36 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     this.informationRevealTargetValidator = validator;
   }
 
+  setAreaMapCollectionValidator(validator: ((state: AronaClickerState, mapId: string) => boolean) | null): void {
+    this.areaMapCollectionValidator = validator;
+  }
+
+  setAreaMapAcquisitionHandler(handler: ((mapId: string) => boolean) | null): void { this.areaMapAcquisitionHandler = handler; }
+  setInformationGrantHandler(handler: ((key: RevealedInformationTarget) => boolean) | null): void { this.informationGrantHandler = handler; }
+
+  acquireAreaMap(mapId: string): boolean {
+    return typeof mapId === 'string' && !!mapId.trim() && (this.areaMapAcquisitionHandler?.(mapId) ?? false);
+  }
+
+  grantInformationTarget(target: WorldInformationTargetRef): boolean {
+    const key: RevealedInformationTarget = target.entityKind === 'areaMapNode'
+      ? { entityKind: 'areaMapNode', mapId: target.mapId, nodeId: target.nodeId, target: target.target }
+      : { entityKind: target.entityKind, entityId: target.entityId, target: target.target };
+    return this.informationGrantHandler?.(key) ?? false;
+  }
+
+  /** Record one authorized map collection in the current Init. */
+  collectAreaMap(mapId: string): boolean {
+    if (typeof mapId !== 'string' || !mapId.trim()) return false;
+    const state = this.current;
+    if (!this.areaMapCollectionValidator?.(state, mapId)) return false;
+    const collected = state.collectedAreaMapIds ??= [];
+    if (collected.includes(mapId)) return false;
+    state.collectedAreaMapIds = [...collected, mapId];
+    this.emit({ type: 'areaMapCollected', mapId });
+    return true;
+  }
+
   setMilestoneCompletionValidator(
     validator: ((state: AronaClickerState, milestoneId: string) => boolean) | null,
   ): void {
@@ -147,25 +181,29 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   /** Commit a declared Information Reveal fact once; definitions and gate truth remain Reveal-domain inputs. */
   revealInformationTarget(key: RevealedInformationTarget): boolean {
     const kinds: readonly InformationRevealEntityKind[] = [
-      'init', 'area', 'spot', 'enhancement', 'item', 'activeStoryEntry', 'passiveStoryEntry',
+      'init', 'area', 'areaMap', 'areaMapNode', 'spot', 'enhancement', 'item', 'activeStoryEntry', 'passiveStoryEntry',
     ];
+    const hasIdentity = key?.entityKind === 'areaMapNode'
+      ? typeof key.mapId === 'string' && !!key.mapId.trim() && typeof key.nodeId === 'string' && !!key.nodeId.trim()
+      : typeof key?.entityId === 'string' && !!key.entityId.trim();
     if (!key || !kinds.includes(key.entityKind)
       || typeof key.target !== 'string' || key.target.trim().length === 0
-      || key.target === 'existence' || key.target === 'unlock'
-      || typeof key.entityId !== 'string' || key.entityId.trim().length === 0) return false;
+      || key.target === 'unlock'
+      || key.target === 'existence' && !['area', 'areaMap', 'areaMapNode'].includes(key.entityKind)
+      || !hasIdentity) return false;
 
     const state = this.current;
-    const canonical: RevealedInformationTarget = {
-      entityKind: key.entityKind,
-      entityId: key.entityId,
-      target: key.target,
-    };
+    const canonical: RevealedInformationTarget = key.entityKind === 'areaMapNode'
+      ? { entityKind: 'areaMapNode', mapId: key.mapId, nodeId: key.nodeId, target: key.target }
+      : { entityKind: key.entityKind, entityId: key.entityId, target: key.target };
     if (!this.informationRevealTargetValidator?.(state, canonical)) return false;
 
     const progress = (state.informationRevealProgress ??= { revealed: [] });
-    if (progress.revealed.some(item => item.entityKind === canonical.entityKind
-      && item.entityId === canonical.entityId && item.target === canonical.target)) return false;
+    if (progress.revealed.some(item => JSON.stringify(item) === JSON.stringify(canonical))) return false;
     progress.revealed.push(canonical);
+    if (['area', 'areaMap', 'areaMapNode'].includes(canonical.entityKind)) {
+      this.emit({ type: 'informationRevealed', target: canonical as WorldInformationTargetRef });
+    }
     return true;
   }
 
@@ -1186,6 +1224,11 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       case 'addEnhancement': return state.unlockedEnhancements.includes(String(effect.value));
       case 'addItem': return state.inventory[effect.target] ?? 0;
       case 'unlockInit': return state.unlockedInits.includes(String(effect.value));
+      case 'acquireAreaMap': return state.collectedAreaMapIds?.includes(effect.target) === true;
+      case 'revealInformation': {
+        const target = effect.value as WorldInformationTargetRef;
+        return state.informationRevealProgress?.revealed.some(item => JSON.stringify(item) === JSON.stringify(target)) === true;
+      }
       case 'setFlag': return state.flags[effect.target];
       case 'setExtra': case 'addExtra': case 'removeExtra': {
         const value = getAtPath(state.extras, effect.target);
@@ -1211,7 +1254,8 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     const changed = JSON.stringify(before) !== JSON.stringify(after);
     const receipt: EffectReceipt = {
       effectIndex: pending.index, op: pending.effect.op,
-      target: pending.effect.op === 'addEnhancement' || pending.effect.op === 'unlockInit' ? String(pending.effect.value) : pending.effect.target,
+      target: pending.effect.op === 'addEnhancement' || pending.effect.op === 'unlockInit' ? String(pending.effect.value)
+        : pending.effect.op === 'revealInformation' ? JSON.stringify(pending.effect.value) : pending.effect.target,
       status: changed ? 'changed' : 'noop',
       ...(before === undefined ? {} : { before }), ...(after === undefined ? {} : { after }),
       ...(typeof before === 'number' && typeof after === 'number' ? { delta: after - before } : {}),

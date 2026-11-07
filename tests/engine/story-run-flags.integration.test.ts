@@ -8,16 +8,47 @@ import type { StoryRunFlags } from '../../src/engine/contracts/story-run-flags';
 
 const storyId = 'test:story:local_flags';
 const entryId = 'test:activestory:local_flags';
+const zeroChoiceId = 'test:story:zero_choice';
+const zeroChoiceEntryId = 'test:activestory:zero_choice';
+const historyChoiceId = 'test:story:choice_history';
+const historyChoiceEntryId = 'test:activestory:choice_history';
 const definition: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: storyId, name: 'Local Flags', stages: { first: { advance: 'auto' }, click: { advance: 'input' }, end: { advance: 'auto' } }, nodes: [
   { id: 'set', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'internal', value: null } },
   { id: 'first', type: 'talklet', stageId: 'first', requiresFlag: 'provided', content: { kind: 'talk', text: 'provided' } },
-  { id: 'click', type: 'click', stageId: 'click', requiresFlag: 'provided', interaction: { kind: 'button', text: 'continue', result: { actions: [{ kind: 'localFlag', op: 'remove', name: 'internal' }] } } },
+  { id: 'click', type: 'click', stageId: 'click', requiresFlag: 'provided', interaction: { kind: 'button', text: 'continue' } },
+  { id: "click-effect-1", type: 'operation', requiresFlag: 'provided', action: { kind: 'localFlag', op: 'remove', name: 'internal' } },
   { id: 'end', type: 'talklet', stageId: 'end', requiresFlag: 'internal', content: { kind: 'talk', text: 'internal' } },
+] };
+const flagCondition = (key: string) => ({ type: 'AND' as const, conditions: [{ target: 'flag' as const, key, comparator: '==' as const, value: 1 }] });
+const zeroChoice: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: zeroChoiceId, name: 'Zero Choice', stages: { choose: { advance: 'input' }, tail: { advance: 'auto' } }, nodes: [
+  { id: 'choose', type: 'click', stageId: 'choose', interaction: { kind: 'choice', options: [
+    { id: 'a', text: 'A', showWhen: flagCondition('choice_gate'), requiresFlag: 'local_gate', marks: ['route_a'] },
+    { id: 'b', text: 'B', showWhen: flagCondition('choice_gate'), requiresFlag: 'local_gate', marks: ['route_b'] },
+  ] } },
+  { id: 'a-only', type: 'talklet', stageId: 'tail', requiresFlag: 'route_a', content: { kind: 'narration', text: 'hidden branch' } },
+  { id: 'tail', type: 'talklet', stageId: 'tail', content: { kind: 'narration', text: 'continued' } },
+] };
+const historyChoice: StoryDef = { startContext: { type: 'area', areaId: 'base:area:schale_main' }, id: historyChoiceId, name: 'Choice History', stages: { choose: { advance: 'input' }, tail: { advance: 'auto' } }, nodes: [
+  { id: 'choose', type: 'click', stageId: 'choose', interaction: { kind: 'choice', options: [
+    { id: 'a', text: 'Visible A', requiresFlag: 'shown', marks: ['route_a'] },
+    { id: 'hidden', text: 'Hidden B', requiresFlag: 'hidden', marks: ['route_b'] },
+    { id: 'c', text: 'Visible C', requiresFlag: 'shown', marks: ['route_c'] },
+  ] } },
+  { id: 'tail', type: 'talklet', stageId: 'tail', content: { kind: 'narration', text: 'continued' } },
 ] };
 let game: GameInstance;
 function setup() {
   game = new GameInstance();
-  game.init([baseDatapack, makePack([{ id: entryId, storyId, type: 'active', availableInits: [], triggerCondition: { type: 'AND', conditions: [] } }], [definition])]);
+  game.init([baseDatapack, makePack([{ id: entryId, storyId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } }], [definition])]);
+  finishWelcome(game);
+  return game;
+}
+function setupChoiceStories() {
+  game = new GameInstance();
+  game.init([baseDatapack, makePack([
+    { id: zeroChoiceEntryId, storyId: zeroChoiceId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
+    { id: historyChoiceEntryId, storyId: historyChoiceId, availableInits: [], triggerCondition: { type: 'AND', conditions: [] }, activation: { kind: 'active' as const } },
+  ], [zeroChoice, historyChoice])]);
   finishWelcome(game);
   return game;
 }
@@ -69,6 +100,44 @@ describe('formal Entry local flags lifecycle', () => {
     expect(JSON.stringify(g.state)).toBe(before);
     expect(g.story.getCurrentStoryView()).toEqual(global);
     expect(g.story.getCurrentStoryView('guest')).toEqual(guest);
+  });
+
+  it('waits for an explicit submit when every Choice candidate disappears, including after restore', () => {
+    const g = setupChoiceStories();
+    g.mutations.setFlag('choice_gate', '1');
+    expect(g.story.startActiveStory(zeroChoiceEntryId, null, { route_a: false, route_b: 0, local_gate: null, unrelated: 'keep' }).success).toBe(true);
+    const initial = g.story.getCurrentStoryView()!;
+    expect(initial).toMatchObject({ nodeId: 'choose', availableChoiceIndexes: [0, 1] });
+    g.mutations.setFlag('choice_gate', '');
+    const save = g.save();
+    g.load(save);
+
+    const waiting = g.story.getCurrentStoryView()!;
+    expect(waiting).toMatchObject({ nodeId: 'choose', availableChoiceIndexes: [] });
+    const playback = g.story.getPlaybackView();
+    const send = g.story.getSendState();
+    expect(send).toMatchObject({ mode: 'advance', token: waiting.token, text: '继续故事' });
+    expect(g.story.getCurrentStoryView()).toEqual(waiting);
+    expect(g.story.getPlaybackView()).toEqual(playback);
+    expect(g.story.saveCursors().global.playback.run?.localFlags).toEqual({ route_a: false, route_b: 0, local_gate: null, unrelated: 'keep' });
+
+    expect(send.mode === 'advance' && g.story.submitStoryInput(null, send.token!).success).toBe(true);
+    expect(g.story.getCurrentStoryView()?.nodeId).toBe('tail');
+    expect(g.story.saveCursors().global.playback.run?.localFlags).toEqual({ local_gate: null, unrelated: 'keep' });
+    expect(g.story.getPlaybackView().entries.filter(entry => entry.historyId === waiting.historyId).some(entry => entry.choice)).toBe(false);
+    expect(g.state.flags).not.toHaveProperty('route_a');
+    expect(g.state.flags).not.toHaveProperty('route_b');
+  });
+
+  it('records only visible Choice labels while retaining the original selected option index', () => {
+    const g = setupChoiceStories();
+    expect(g.story.startActiveStory(historyChoiceEntryId, null, { shown: false }).success).toBe(true);
+    const waiting = g.story.getCurrentStoryView()!;
+    expect(waiting.availableChoiceIndexes).toEqual([0, 2]);
+    expect(g.story.submitStoryInput(null, waiting.token, 'c').success).toBe(true);
+    const history = g.story.getPlaybackView().entries.find(entry => entry.historyId === waiting.historyId && entry.choice);
+    expect(history?.choice).toEqual({ options: [{ id: 'a', text: 'Visible A' }, { id: 'c', text: 'Visible C' }], selectedOptionId: 'c' });
+    expect(g.story.saveCursors().global).toMatchObject({ lastChoiceIndex: 2, lastChoiceStoryId: historyChoiceId });
   });
 
   it('validates author gates and local action values before Registry replacement', () => {

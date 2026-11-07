@@ -9,33 +9,35 @@ describe('内置 Story Choice 内容迁移', () => {
       : [],
   ));
 
-  test('每个选项只写独占 localFlags，共享清理覆盖标记且每个标记都有消费者', () => {
+  test('每个内置选项用 marks 声明分支标记且每个标记都有消费者', () => {
     expect(choices).toHaveLength(9);
     for (const { choice } of choices) {
-      const flagsByOption = choice.options.map(option => (option.result?.actions ?? []).flatMap(action =>
-        action.kind === 'localFlag' && action.op === 'set' ? [action.name] : [],
-      ));
-      const allFlags = flagsByOption.flat();
-      const removedFlags = (choice.sharedActions ?? []).flatMap(action =>
-        action.kind === 'localFlag' && action.op === 'remove' ? [action.name] : [],
-      );
+      const marksByOption = choice.options.map(option => option.marks ?? []);
+      const allMarks = marksByOption.flat();
 
-      expect(choice.sharedActions?.every(action => action.kind === 'localFlag')).toBe(true);
-      expect(choice.options.every(option => !option.result?.transfer && (option.result?.actions ?? []).every(action => action.kind === 'localFlag'))).toBe(true);
-      expect(flagsByOption.every(flags => flags.length > 0)).toBe(true);
-      expect(new Set(allFlags).size).toBe(allFlags.length);
-      expect(removedFlags).toEqual(expect.arrayContaining(allFlags));
+      expect('sharedActions' in choice).toBe(false);
+      expect(choice.options.every(option => !('condition' in option) && !('result' in option))).toBe(true);
+      expect(marksByOption.every(marks => marks.length > 0)).toBe(true);
+      expect(new Set(allMarks).size).toBe(allMarks.length);
 
-      for (const flag of allFlags) {
-        const hasNodeConsumer = stories.some(story => story.nodes.some(node => node.requiresFlag === flag));
+      for (const mark of allMarks) {
+        const hasNodeConsumer = stories.some(story => story.nodes.some(node => node.requiresFlag === mark));
         const hasReturnConsumer = stories.some(story => story.nodes.some(node =>
           node.type === 'click'
           && node.interaction.kind === 'entryCard'
-          && node.interaction.card.continuation?.returnFlags?.includes(flag),
+          && node.interaction.card.continuation?.returnFlags?.includes(mark),
         ));
         expect(hasNodeConsumer || hasReturnConsumer).toBe(true);
       }
     }
+  });
+
+  test('星野初次羁绊选项保留分支与回访标记', () => {
+    const choice = choices.find(({ story, node }) => story.id === 'base:story:bond_hoshino_1' && node.id === 'p4-choice')?.choice;
+    expect(choice?.options.map(option => option.marks)).toEqual([
+      ['bond-hoshino-p4-option1', 'hoshino-remembers'],
+      ['bond-hoshino-p4-option2', 'hoshino-new-memories'],
+    ]);
   });
 
   test('七个原持久分支 flag 的两种值都由对应局部标记门控的 Operation 写入', () => {

@@ -16,6 +16,8 @@
 
 每个栏根是唯一的 Panel / Presentation 表面。背景与 `.presentation-host-content` 继续保持直接子层；content 内的 `.workspace-column__slot` 按纵向组合可选 `header`、`content` 正文与可选 `footer`。头部和固定操作区在正文滚动范围外，无内容时不生成空插槽。`actions` 仍是事件回调字典，与 `footer` 内容无关。
 
+需要在正文视口上固定定位的内容可提供 `bodyOverlay`：共享 `.workspace-column__viewport` 包住原有滚动 body，并将该层作为其同级节点；标题、页脚仍在视口外。该包装层不拥有滚动，不改变原 body 的滚动身份。Story 编辑器用此入口承载逐节点开启的演出编辑层，未提供该字段的栏保持原结构。
+
 `scroll: 'auto'` 让正文自身滚动；`content` / `none` 让正文作为可收缩宿主，由内容中的专用区域滚动或处理交互。队伍、资源等多个滚动区可共存，动态增删或排序时应各自提供稳定的 `data-scroll-key`；Map 的既有 `data-map-region-key` 也可作身份。快照按栏实例与区域身份恢复，父栏不接管嵌套子栏的滚动区；聊天阅读与贴底继续由 FlowScroll 管理。
 
 ## 定义、业务绑定与实例

@@ -1,0 +1,1552 @@
+{
+  "gears": [
+    {
+      "id": "base:gear:attack-hat",
+      "name": "攻击装备·帽子",
+      "slot": "attack",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 100
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 10
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 200
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 20
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 300
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 30
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 400
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 40
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 500
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 50
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 600
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 60
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 700
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 70
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 800
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 80
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 900
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 90
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-hat-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 1000
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 100
+            }
+          ]
+        }
+      ],
+      "description": "阿比多斯制式战术帽，提升学生的作战意识。"
+    },
+    {
+      "id": "base:gear:attack-glove",
+      "name": "攻击装备·手套",
+      "slot": "attack",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 120
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 12
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 240
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 24
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 360
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 36
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 480
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 48
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 600
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 60
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 720
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 72
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 840
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 84
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 960
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 96
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 1080
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 108
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-attack-glove-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 1200
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 120
+            }
+          ]
+        }
+      ],
+      "description": "强化握持与射击稳定性的战术手套。"
+    },
+    {
+      "id": "base:gear:defense-vest",
+      "name": "防御装备·防弹背心",
+      "slot": "defense",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 80
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 8
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 160
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 16
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 240
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 24
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 320
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 32
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 400
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 40
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 480
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 48
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 560
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 56
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 640
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 64
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 720
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 72
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-vest-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 800
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 80
+            }
+          ]
+        }
+      ],
+      "description": "标准配发的防弹背心，兼顾防护与机动。"
+    },
+    {
+      "id": "base:gear:defense-shoes",
+      "name": "防御装备·护甲靴",
+      "slot": "defense",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 90
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 9
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 180
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 18
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 270
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 27
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 360
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 36
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 450
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 45
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 540
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 54
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 630
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 63
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 720
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 72
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 810
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 81
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-defense-shoes-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 900
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 90
+            }
+          ]
+        }
+      ],
+      "description": "带护甲片的战术靴，提升战场生存能力。"
+    },
+    {
+      "id": "base:gear:special-badge",
+      "name": "特殊装备·徽章",
+      "slot": "special",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 110
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 11
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 220
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 22
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 330
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 33
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 440
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 44
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 550
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 55
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 660
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 66
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 770
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 77
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 880
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 88
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 990
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 99
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-badge-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 1100
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 110
+            }
+          ]
+        }
+      ],
+      "description": "寄托信念的徽章，激发学生的额外干劲。"
+    },
+    {
+      "id": "base:gear:special-watch",
+      "name": "特殊装备·腕表",
+      "slot": "special",
+      "tiers": [
+        {
+          "tier": 1,
+          "levelCap": 10,
+          "expPerLevel": 100,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t1",
+              "amount": 1
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 105
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 11
+            }
+          ]
+        },
+        {
+          "tier": 2,
+          "levelCap": 20,
+          "expPerLevel": 200,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t2",
+              "amount": 2
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 210
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 21
+            }
+          ]
+        },
+        {
+          "tier": 3,
+          "levelCap": 30,
+          "expPerLevel": 300,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t3",
+              "amount": 3
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 315
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 32
+            }
+          ]
+        },
+        {
+          "tier": 4,
+          "levelCap": 40,
+          "expPerLevel": 400,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t4",
+              "amount": 4
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 420
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 42
+            }
+          ]
+        },
+        {
+          "tier": 5,
+          "levelCap": 50,
+          "expPerLevel": 500,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t5",
+              "amount": 5
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 525
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 53
+            }
+          ]
+        },
+        {
+          "tier": 6,
+          "levelCap": 60,
+          "expPerLevel": 600,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t6",
+              "amount": 6
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 630
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 63
+            }
+          ]
+        },
+        {
+          "tier": 7,
+          "levelCap": 70,
+          "expPerLevel": 700,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t7",
+              "amount": 7
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 735
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 74
+            }
+          ]
+        },
+        {
+          "tier": 8,
+          "levelCap": 80,
+          "expPerLevel": 800,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t8",
+              "amount": 8
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 840
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 84
+            }
+          ]
+        },
+        {
+          "tier": 9,
+          "levelCap": 90,
+          "expPerLevel": 900,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t9",
+              "amount": 9
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 945
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 95
+            }
+          ]
+        },
+        {
+          "tier": 10,
+          "levelCap": 100,
+          "expPerLevel": 1000,
+          "upgradeCost": [
+            {
+              "itemId": "base:item:gear-bp-special-watch-t10",
+              "amount": 10
+            }
+          ],
+          "baseEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 1050
+            }
+          ],
+          "perLevelEffects": [
+            {
+              "op": "addResource",
+              "target": "base:resource:credit",
+              "value": 105
+            }
+          ]
+        }
+      ],
+      "description": "精密战术腕表，帮助把握行动节奏。"
+    }
+  ]
+}

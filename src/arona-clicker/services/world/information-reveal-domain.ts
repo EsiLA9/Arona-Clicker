@@ -1,4 +1,5 @@
 import type { Registry } from '../../../data-services/registry/registry';
+import type { WorldInformationRule, WorldInformationTarget } from '../../../data-services/contracts/world-reveal';
 import type { Condition, ConditionGroup } from '../../../engine/types/expression';
 import type { RevealTrigger } from '../../../engine/types/reveal';
 import type { PlayerState, InformationRevealEntityKind, InformationRevealTarget, RevealedInformationTarget } from '../../types/state';
@@ -29,7 +30,11 @@ export interface RevealQuery {
 }
 export type PrerequisiteMap = Readonly<Record<string, readonly InformationRevealTarget[]>>;
 const INFO = new Set<string>(['name', 'condition', 'utility']);
-const keyOf = (k: RevealKey) => `${k.entityKind}\u0000${k.entityId}\u0000${k.target}`;
+const WORLD_INFO = new Set<string>(['existence', 'name', 'condition', 'utility']);
+export const revealKeyId = (k: RevealKey) => k.entityKind === 'areaMapNode'
+  ? `${k.entityKind}\u0000${k.mapId}\u0000${k.nodeId}\u0000${k.target}`
+  : `${k.entityKind}\u0000${k.entityId}\u0000${k.target}`;
+const keyOf = revealKeyId;
 const same = (a: RevealKey, b: RevealKey) => keyOf(a) === keyOf(b);
 const infoTriggers = (triggers: readonly RevealTrigger[] | undefined) => (triggers ?? []).filter(t => t.reveal !== 'existence' && t.reveal !== 'unlock');
 const expression = (triggers: readonly RevealTrigger[]): Condition | ConditionGroup | undefined => {
@@ -41,54 +46,78 @@ const expression = (triggers: readonly RevealTrigger[]): Condition | ConditionGr
 function entityTriggers(registry: Registry, kind: InformationRevealEntityKind, id: string): readonly RevealTrigger[] | undefined {
   switch (kind) {
     case 'init': return registry.inits.get(id)?.revealTriggers;
-    case 'area': return registry.areas.get(id)?.revealTriggers;
+    case 'area': return undefined;
     case 'spot': return registry.spots.get(id)?.revealTriggers;
     case 'enhancement': return registry.enhancements.get(id)?.revealTriggers;
     case 'item': return registry.items.get(id)?.revealTriggers;
     case 'activeStoryEntry': return registry.activeStories.get(id)?.revealTriggers;
     case 'passiveStoryEntry': return registry.passiveStories.get(id)?.revealTriggers;
+    case 'areaMap': return undefined;
+    case 'areaMapNode': return undefined;
   }
 }
 
-function entityExists(registry: Registry, kind: InformationRevealEntityKind, id: string): boolean {
-  switch (kind) {
-    case 'init': return registry.inits.has(id);
-    case 'area': return registry.areas.has(id);
-    case 'spot': return registry.spots.has(id);
-    case 'enhancement': return registry.enhancements.has(id);
-    case 'item': return registry.items.has(id);
-    case 'activeStoryEntry': return registry.activeStories.has(id);
-    case 'passiveStoryEntry': return registry.passiveStories.has(id);
+export function worldInformationRule(registry: Registry, key: RevealKey): WorldInformationRule | undefined {
+  if (key.entityKind === 'area') return registry.areas.get(key.entityId)?.reveal?.[key.target as WorldInformationTarget];
+  if (key.entityKind === 'areaMap') return registry.areaMaps.get(key.entityId)?.reveal?.[key.target as WorldInformationTarget];
+  if (key.entityKind === 'areaMapNode') return registry.areaMaps.get(key.mapId)?.nodes.find(node => node.id === key.nodeId)?.reveal?.[key.target as WorldInformationTarget];
+  return undefined;
+}
+
+function isWorldEntity(key: RevealKey): key is Extract<RevealKey, { entityKind: 'area' | 'areaMap' | 'areaMapNode' }> {
+  return key.entityKind === 'area' || key.entityKind === 'areaMap' || key.entityKind === 'areaMapNode';
+}
+
+function worldMapInScope(registry: Registry, state: PlayerState, mapId: string, activeInit: string, observedMapIds: ReadonlySet<string>): boolean {
+  if (state.collectedAreaMapIds?.includes(mapId)) return true;
+  if (observedMapIds.has(mapId)) return true;
+  const currentArea = registry.areas.get(state.currentAreaId ?? '');
+  return currentArea?.initId === activeInit && currentArea.navigationMapId === mapId;
+}
+
+function entityExists(registry: Registry, key: RevealKey): boolean {
+  switch (key.entityKind) {
+    case 'init': return registry.inits.has(key.entityId);
+    case 'area': return registry.areas.has(key.entityId);
+    case 'spot': return registry.spots.has(key.entityId);
+    case 'enhancement': return registry.enhancements.has(key.entityId);
+    case 'item': return registry.items.has(key.entityId);
+    case 'activeStoryEntry': return registry.activeStories.has(key.entityId);
+    case 'passiveStoryEntry': return registry.passiveStories.has(key.entityId);
+    case 'areaMap': return registry.areaMaps.has(key.entityId);
+    case 'areaMapNode': return registry.areaMaps.get(key.mapId)?.nodes.some(node => node.id === key.nodeId) === true;
   }
 }
 
-function eligible(registry: Registry, state: PlayerState, kind: InformationRevealEntityKind, id: string, activeInit: string): boolean {
+function eligible(registry: Registry, state: PlayerState, key: RevealKey, activeInit: string, observedMapIds: ReadonlySet<string>): boolean {
   if (!activeInit || state.activeInit !== activeInit) return false;
-  switch (kind) {
-    case 'init': return id === activeInit && registry.inits.has(id);
-    case 'area': return registry.areas.get(id)?.initId === activeInit;
+  switch (key.entityKind) {
+    case 'init': return key.entityId === activeInit && registry.inits.has(key.entityId);
+    case 'area': return registry.areas.get(key.entityId)?.initId === activeInit;
     case 'spot': {
-      const spot = registry.spots.get(id);
+      const spot = registry.spots.get(key.entityId);
       if (spot?.global) return true;
       const area = registry.areas.get(spot?.areaId ?? '');
       return area?.initId === activeInit;
     }
     case 'enhancement': {
-      const attachment = registry.enhancements.get(id)?.attachment;
-      if (!registry.enhancements.has(id)) return false;
+      const attachment = registry.enhancements.get(key.entityId)?.attachment;
+      if (!registry.enhancements.has(key.entityId)) return false;
       if (!attachment || attachment.kind === 'init') return !attachment || attachment.initId === activeInit;
       if (attachment.kind === 'global') return true;
       return registry.areas.get(attachment.areaId)?.initId === activeInit;
     }
-    case 'item': return registry.items.has(id);
+    case 'item': return registry.items.has(key.entityId);
     case 'activeStoryEntry': {
-      const entry = registry.activeStories.get(id);
+      const entry = registry.activeStories.get(key.entityId);
       return !!entry && (entry.availableInits.length === 0 || entry.availableInits.includes(activeInit));
     }
     case 'passiveStoryEntry': {
-      const entry = registry.passiveStories.get(id);
+      const entry = registry.passiveStories.get(key.entityId);
       return !!entry && (entry.availableInits.length === 0 || entry.availableInits.includes(activeInit));
     }
+    case 'areaMap': return worldMapInScope(registry, state, key.entityId, activeInit, observedMapIds);
+    case 'areaMapNode': return worldMapInScope(registry, state, key.mapId, activeInit, observedMapIds);
   }
 }
 
@@ -108,6 +137,12 @@ function plan(expr: Condition | ConditionGroup, initId: string): WakePlan {
       case 'spotLevel': source = { kind: 'spot-level-change', spotId: c.key, scope: 'current-init' }; invalidation.push('complete'); break;
       case 'hasReadStory': source = { kind: 'story-completed', storyId: c.key, fact: 'per-init-storyLog' }; invalidation.push('partial'); break;
       case 'hasReadStoryInRun': source = { kind: 'story-completed', storyId: c.key, fact: 'current-run' }; invalidation.push('complete'); break;
+      case 'stat': {
+        const produced = /^\$GlobalProducedAmount\s+(.+)$/.exec(c.key);
+        if (produced) { source = { kind: 'resource-change', resourceId: produced[1], scope: 'current-init' }; invalidation.push('complete'); }
+        else uncovered = true;
+        break;
+      }
       default: uncovered = true; break;
     }
     if (source && !sources.some(s => JSON.stringify(s) === JSON.stringify(source))) sources.push(source);
@@ -126,10 +161,23 @@ function plan(expr: Condition | ConditionGroup, initId: string): WakePlan {
 export function queryInformationReveal(
   registry: Registry, state: PlayerState, key: RevealKey, activeInit: string,
   prerequisites: PrerequisiteMap = {},
+  observedMapIds: ReadonlySet<string> = new Set(),
 ): RevealQuery {
   const diagnostics: string[] = [];
-  const declared = entityTriggers(registry, key.entityKind, key.entityId) ?? [];
-  if (!entityExists(registry, key.entityKind, key.entityId) || !eligible(registry, state, key.entityKind, key.entityId, activeInit)) return { status: 'unresolved', diagnostics: ['definition-missing-or-out-of-scope'] };
+  if (!entityExists(registry, key) || !eligible(registry, state, key, activeInit, observedMapIds)) return { status: 'unresolved', diagnostics: ['definition-missing-or-out-of-scope'] };
+  const declared = isWorldEntity(key) ? [] : entityTriggers(registry, key.entityKind, key.entityId) ?? [];
+  if (isWorldEntity(key)) {
+    if (!WORLD_INFO.has(key.target)) return { status: 'unresolved', diagnostics: ['non-information-target'] };
+    const rule = worldInformationRule(registry, key);
+    if (!rule) return { status: 'known-no-gate', diagnostics };
+    if (state.informationRevealProgress?.revealed.some(r => same(r, key))) return { status: 'known-progress', diagnostics };
+    if (rule.mode === 'explicit') return { status: 'pending-gate', diagnostics: ['explicit-grant-required'] };
+    const watch: RevealWatch = {
+      key, fullCondition: rule.condition, prerequisiteTargets: [], prerequisiteBasis: 'satisfied',
+      watchScope: { kind: 'current-applied-content-init', initId: activeInit }, wakePlan: plan(rule.condition, activeInit),
+    };
+    return { status: 'pending-gate', diagnostics, watch };
+  }
   if (key.target === 'existence' || key.target === 'unlock') return { status: 'unresolved', diagnostics: ['non-information-target'] };
   const triggers = infoTriggers(declared).filter(t => t.reveal === key.target);
   const targetDeclared = INFO.has(key.target) || declared.some(t => t.reveal === key.target);
@@ -162,23 +210,36 @@ export function queryInformationReveal(
 }
 
 /** Builds the current desired set from registry declarations, without mutating Save progress. */
-export function deriveDesiredInformationWatches(registry: Registry, state: PlayerState, activeInit: string, prerequisites: PrerequisiteMap = {}): RevealWatch[] {
+export function deriveDesiredInformationWatches(registry: Registry, state: PlayerState, activeInit: string, prerequisites: PrerequisiteMap = {}, observedMapIds: ReadonlySet<string> = new Set()): RevealWatch[] {
   const result: RevealWatch[] = [];
-  const entities: [InformationRevealEntityKind, string][] = [
-    ...[...registry.inits.keys()].map(id => ['init', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.areas.keys()].map(id => ['area', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.spots.keys()].map(id => ['spot', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.enhancements.keys()].map(id => ['enhancement', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.items.keys()].map(id => ['item', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.activeStories.keys()].map(id => ['activeStoryEntry', id] as [InformationRevealEntityKind, string]),
-    ...[...registry.passiveStories.keys()].map(id => ['passiveStoryEntry', id] as [InformationRevealEntityKind, string]),
+  const entities: readonly (readonly [Exclude<InformationRevealEntityKind, 'area' | 'areaMap' | 'areaMapNode'>, string])[] = [
+    ...[...registry.inits.keys()].map(id => ['init', id] as const),
+    ...[...registry.spots.keys()].map(id => ['spot', id] as const),
+    ...[...registry.enhancements.keys()].map(id => ['enhancement', id] as const),
+    ...[...registry.items.keys()].map(id => ['item', id] as const),
+    ...[...registry.activeStories.keys()].map(id => ['activeStoryEntry', id] as const),
+    ...[...registry.passiveStories.keys()].map(id => ['passiveStoryEntry', id] as const),
   ];
   for (const [entityKind, entityId] of entities) {
     const triggers = entityTriggers(registry, entityKind, entityId) ?? [];
     const targets = new Set([...INFO, ...triggers.map(t => t.reveal).filter(t => t !== 'existence' && t !== 'unlock')]);
     for (const target of targets) {
-      const query = queryInformationReveal(registry, state, { entityKind, entityId, target }, activeInit, prerequisites);
+      const query = queryInformationReveal(registry, state, { entityKind, entityId, target }, activeInit, prerequisites, observedMapIds);
       if (query.status === 'pending-gate' && query.watch && query.watch.fullCondition && leaves(query.watch.fullCondition).length) result.push(query.watch);
+    }
+  }
+  for (const entityId of registry.areas.keys()) for (const target of WORLD_INFO) {
+    const query = queryInformationReveal(registry, state, { entityKind: 'area', entityId, target }, activeInit, prerequisites, observedMapIds);
+    if (query.status === 'pending-gate' && query.watch) result.push(query.watch);
+  }
+  for (const map of registry.areaMaps.values()) {
+    for (const target of WORLD_INFO) {
+      const query = queryInformationReveal(registry, state, { entityKind: 'areaMap', entityId: map.id, target }, activeInit, prerequisites, observedMapIds);
+      if (query.status === 'pending-gate' && query.watch) result.push(query.watch);
+    }
+    for (const node of map.nodes) for (const target of WORLD_INFO) {
+      const query = queryInformationReveal(registry, state, { entityKind: 'areaMapNode', mapId: map.id, nodeId: node.id, target }, activeInit, prerequisites, observedMapIds);
+      if (query.status === 'pending-gate' && query.watch) result.push(query.watch);
     }
   }
   return result;

@@ -84,10 +84,11 @@ const ENTRY_STATE_LABEL: Record<RuntimeEditorEntryState, string> = {
 const CONTENT_KIND_LABEL: Record<RuntimeEditorContentKind, string> = {
   inits: 'Init',
   areas: 'Area',
+  areaMaps: 'AreaMap',
   spots: 'Spot',
   enhancements: 'Enhancement',
 };
-const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'spots', 'enhancements'];
+const EDITABLE_CONTENT_KINDS: readonly RuntimeEditorContentKind[] = ['inits', 'areas', 'areaMaps', 'spots', 'enhancements'];
 
 const INIT_UNSUPPORTED_FIELDS: readonly { key: string; label: string }[] = [
   { key: 'enterEffects', label: '进入效果' },
@@ -874,6 +875,15 @@ function renderInitDiagnosticSummary(ctx: UIContext, editor: RuntimeDatapackEdit
 function renderDefinitionExtension(ctx: UIContext, extension: AuthoringExtension, values: Record<string, unknown>, editor: RuntimeDatapackEditorState, problems: readonly RuntimeEditorProblem[] = editor.problems): string {
   const esc = ctx.escapeHtml;
   const value = values[extension.inputKey];
+  if (extension.editor === 'json-value') {
+    const labels: Record<string, string> = { nodes: '地图节点', edges: '地图连线', openCondition: '当前开图条件', reveal: '信息揭示规则', enterCondition: '当前进入条件', onVisitReveal: '到访后记录的信息' };
+    const issue = problems.find(problem => problem.path?.endsWith(`.${extension.inputKey}`));
+    const text = value === undefined ? '' : JSON.stringify(value, null, 2);
+    const hint = extension.inputKey === 'nodes' || extension.inputKey === 'edges'
+      ? '使用 JSON 数组编辑；节点 action 可选 inspect、openMap 或 attemptAreaTravel，并可设置 travelMode 为 route / mapDirect。'
+      : '使用 JSON 编辑；留空表示不额外声明。';
+    return `<label class="user-theme-field runtime-editor-field"><span>${esc(labels[extension.inputKey] ?? extension.inputKey)}${extension.required ? '' : '（可选）'}</span><textarea data-runtime-editor-extension="${esc(extension.inputKey)}" name="${esc(extension.inputKey)}" aria-label="${esc(labels[extension.inputKey] ?? extension.inputKey)}" rows="${extension.inputKey === 'nodes' || extension.inputKey === 'edges' ? 12 : 7}" spellcheck="false">${esc(text)}</textarea><em class="runtime-editor-hint">${esc(hint)}</em>${issue ? `<em class="runtime-editor-field-error">${esc(issue.message)}</em>` : ''}</label>`;
+  }
   if (extension.editor === 'area-topology') return renderAreaTopologyEditor(ctx, values, editor);
   if (extension.editor === 'reference-list') {
     const lines = Array.isArray(value) ? value.map(item => String(item)).join('\n') : '';

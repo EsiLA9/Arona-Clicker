@@ -1,4 +1,4 @@
-import type { RuntimeAreaDraft, RuntimeAreaTopologyDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft } from '../../arona-clicker/contracts';
+import type { RuntimeAreaDraft, RuntimeAreaMapDraft, RuntimeAreaTopologyDraft, RuntimeEnhancementDraft, RuntimeInitDraft, RuntimeModDraft } from '../../arona-clicker/contracts';
 import type { RuntimeSpotDraftSnapshot } from '../../arona-clicker/contracts/runtime/runtime';
 import type { RuntimePaymentOptionDraft, RuntimeSpotFunctionalityDraft, RuntimeSpotLevelUpgradeDraft, RuntimeSpotRevealTriggerDraft } from '../../arona-clicker/contracts/runtime/runtime-content';
 import {
@@ -45,9 +45,10 @@ export interface RuntimeEditorSpotDraft {
 
 export type RuntimeEditorInitDraft = RuntimeInitDraft;
 export type RuntimeEditorAreaDraft = RuntimeAreaDraft;
+export type RuntimeEditorAreaMapDraft = RuntimeAreaMapDraft;
 export type RuntimeEditorEnhancementDraft = RuntimeEnhancementDraft;
-export type RuntimeEditorContentKind = 'inits' | 'areas' | 'spots' | 'enhancements';
-export type RuntimeEditorDefinitionDraft = RuntimeEditorInitDraft | RuntimeEditorAreaDraft | RuntimeEditorSpotDraft | RuntimeEditorEnhancementDraft;
+export type RuntimeEditorContentKind = 'inits' | 'areas' | 'areaMaps' | 'spots' | 'enhancements';
+export type RuntimeEditorDefinitionDraft = RuntimeEditorInitDraft | RuntimeEditorAreaDraft | RuntimeEditorAreaMapDraft | RuntimeEditorSpotDraft | RuntimeEditorEnhancementDraft;
 export type RuntimeEditorFilter = 'all' | 'pending' | 'applied' | 'removed';
 
 /**
@@ -70,6 +71,7 @@ export interface RuntimeEditorDraftSnapshot {
   spots: RuntimeEditorSpotDraft[];
   inits: RuntimeEditorInitDraft[];
   areas: RuntimeEditorAreaDraft[];
+  areaMaps?: RuntimeEditorAreaMapDraft[];
   enhancements: RuntimeEditorEnhancementDraft[];
   selectedSpotId: string | null;
   selectedContentKind: RuntimeEditorContentKind;
@@ -77,6 +79,7 @@ export interface RuntimeEditorDraftSnapshot {
   suspendedSpotIds: string[];
   suspendedInitIds: string[];
   suspendedAreaIds: string[];
+  suspendedAreaMapIds?: string[];
   suspendedEnhancementIds: string[];
   browserFilter: RuntimeEditorFilter;
   activeSection: string | null;
@@ -96,6 +99,7 @@ export interface RuntimeDatapackEditorState {
   spots: RuntimeEditorSpotDraft[];
   inits: RuntimeEditorInitDraft[];
   areas: RuntimeEditorAreaDraft[];
+  areaMaps: RuntimeEditorAreaMapDraft[];
   enhancements: RuntimeEditorEnhancementDraft[];
   selectedSpotId: string | null;
   selectedContentKind: RuntimeEditorContentKind;
@@ -103,12 +107,14 @@ export interface RuntimeDatapackEditorState {
   suspendedSpotIds: string[];
   suspendedInitIds: string[];
   suspendedAreaIds: string[];
+  suspendedAreaMapIds: string[];
   suspendedEnhancementIds: string[];
   applied?: boolean;
   /** 最近一次成功 Apply 的版本：Draft 与 Runtime Effective 的差异以此为准。 */
   appliedSpots: RuntimeEditorSpotDraft[];
   appliedInits: RuntimeEditorInitDraft[];
   appliedAreas: RuntimeEditorAreaDraft[];
+  appliedAreaMaps: RuntimeEditorAreaMapDraft[];
   appliedEnhancements: RuntimeEditorEnhancementDraft[];
   /** 内容浏览器筛选：按编辑状态过滤 Draft 条目。 */
   browserFilter: RuntimeEditorFilter;
@@ -142,6 +148,7 @@ export function snapshotRuntimeEditor(editor: RuntimeDatapackEditorState): Runti
     spots: editor.spots.map(cloneRuntimeEditorSpot),
     inits: editor.inits.map(cloneRuntimeEditorDefinition),
     areas: editor.areas.map(cloneRuntimeEditorDefinition),
+    areaMaps: editor.areaMaps.map(cloneRuntimeEditorDefinition),
     enhancements: editor.enhancements.map(cloneRuntimeEditorDefinition),
     selectedSpotId: editor.selectedSpotId,
     selectedContentKind: editor.selectedContentKind,
@@ -149,6 +156,7 @@ export function snapshotRuntimeEditor(editor: RuntimeDatapackEditorState): Runti
     suspendedSpotIds: [...editor.suspendedSpotIds],
     suspendedInitIds: [...editor.suspendedInitIds],
     suspendedAreaIds: [...editor.suspendedAreaIds],
+    suspendedAreaMapIds: [...editor.suspendedAreaMapIds],
     suspendedEnhancementIds: [...editor.suspendedEnhancementIds],
     browserFilter: editor.browserFilter,
     activeSection: editor.activeSection,
@@ -169,6 +177,7 @@ export function restoreRuntimeEditorSnapshot(editor: RuntimeDatapackEditorState,
   editor.spots = snapshot.spots.map(cloneRuntimeEditorSpot);
   editor.inits = snapshot.inits.map(cloneRuntimeEditorDefinition);
   editor.areas = snapshot.areas.map(cloneRuntimeEditorDefinition);
+  editor.areaMaps = (snapshot.areaMaps ?? []).map(cloneRuntimeEditorDefinition);
   editor.enhancements = snapshot.enhancements.map(cloneRuntimeEditorDefinition);
   editor.selectedSpotId = snapshot.selectedSpotId;
   editor.selectedContentKind = snapshot.selectedContentKind;
@@ -176,6 +185,7 @@ export function restoreRuntimeEditorSnapshot(editor: RuntimeDatapackEditorState,
   editor.suspendedSpotIds = [...snapshot.suspendedSpotIds];
   editor.suspendedInitIds = [...snapshot.suspendedInitIds];
   editor.suspendedAreaIds = [...snapshot.suspendedAreaIds];
+  editor.suspendedAreaMapIds = [...(snapshot.suspendedAreaMapIds ?? [])];
   editor.suspendedEnhancementIds = [...snapshot.suspendedEnhancementIds];
   editor.browserFilter = snapshot.browserFilter;
   editor.activeSection = snapshot.activeSection;
@@ -184,6 +194,7 @@ export function restoreRuntimeEditorSnapshot(editor: RuntimeDatapackEditorState,
   editor.appliedSpots = [];
   editor.appliedInits = [];
   editor.appliedAreas = [];
+  editor.appliedAreaMaps = [];
   editor.appliedEnhancements = [];
   editor.problems = [];
   editor.error = null;
@@ -209,6 +220,7 @@ export function createRuntimeDatapackEditorState(defaultAreaId: string | null, d
     spots: [],
     inits: [],
     areas: [],
+    areaMaps: [],
     enhancements: [],
     selectedSpotId: null,
     selectedContentKind: 'spots',
@@ -216,10 +228,12 @@ export function createRuntimeDatapackEditorState(defaultAreaId: string | null, d
     suspendedSpotIds: [],
     suspendedInitIds: [],
     suspendedAreaIds: [],
+    suspendedAreaMapIds: [],
     suspendedEnhancementIds: [],
     appliedSpots: [],
     appliedInits: [],
     appliedAreas: [],
+    appliedAreaMaps: [],
     appliedEnhancements: [],
     browserFilter: 'all',
     activeSection: null,
@@ -242,6 +256,7 @@ export function runtimeEditorDefinitions(editor: RuntimeDatapackEditorState, kin
   switch (kind) {
     case 'inits': return editor.inits;
     case 'areas': return editor.areas;
+    case 'areaMaps': return editor.areaMaps;
     case 'spots': return editor.spots;
     case 'enhancements': return editor.enhancements;
   }
@@ -251,6 +266,7 @@ export function runtimeEditorAppliedDefinitions(editor: RuntimeDatapackEditorSta
   switch (kind) {
     case 'inits': return editor.appliedInits;
     case 'areas': return editor.appliedAreas;
+    case 'areaMaps': return editor.appliedAreaMaps;
     case 'spots': return editor.appliedSpots;
     case 'enhancements': return editor.appliedEnhancements;
   }
@@ -260,6 +276,7 @@ export function runtimeEditorDefinitionSuspensions(editor: RuntimeDatapackEditor
   switch (kind) {
     case 'inits': return editor.suspendedInitIds;
     case 'areas': return editor.suspendedAreaIds;
+    case 'areaMaps': return editor.suspendedAreaMapIds;
     case 'spots': return editor.suspendedSpotIds;
     case 'enhancements': return editor.suspendedEnhancementIds;
   }
@@ -511,6 +528,7 @@ export function markRuntimeEditorApplied(editor: RuntimeDatapackEditorState, app
     editor.appliedSpots = editor.spots.map(spot => cloneRuntimeEditorSpot(spot));
     editor.appliedInits = editor.inits.map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft);
     editor.appliedAreas = editor.areas.map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft);
+    editor.appliedAreaMaps = editor.areaMaps.map(areaMap => cloneRuntimeEditorDefinition(areaMap) as RuntimeEditorAreaMapDraft);
     editor.appliedEnhancements = editor.enhancements.map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft);
   }
 }
@@ -519,6 +537,7 @@ export function markRuntimeEditorWorldApplied(editor: RuntimeDatapackEditorState
   editor.applied = true;
   editor.appliedInits = editor.inits.map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft);
   editor.appliedAreas = editor.areas.map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft);
+  editor.appliedAreaMaps = editor.areaMaps.map(areaMap => cloneRuntimeEditorDefinition(areaMap) as RuntimeEditorAreaMapDraft);
 }
 
 /** 删除包或离开管理页时使用：只把已绑定编辑态且尚未同步的会话视为 dirty。 */
@@ -543,9 +562,11 @@ export function toRuntimeModDraft(editor: RuntimeDatapackEditorState): RuntimeMo
     ...baseDraft,
     ...(editor.inits.length > 0 ? { inits: editor.inits.map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft) } : {}),
     ...(editor.areas.length > 0 ? { areas: editor.areas.map(area => toRuntimeAreaDraft(area)) } : {}),
+    ...(editor.areaMaps.length > 0 || editor.appliedAreaMaps.length > 0 ? { areaMaps: editor.areaMaps.map(areaMap => cloneRuntimeEditorDefinition(areaMap) as RuntimeEditorAreaMapDraft) } : {}),
     ...(editor.enhancements.length > 0 ? { enhancements: editor.enhancements.map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft) } : {}),
     ...(editor.suspendedInitIds.length > 0 ? { suspendedInitIds: [...editor.suspendedInitIds] } : {}),
     ...(editor.suspendedAreaIds.length > 0 ? { suspendedAreaIds: [...editor.suspendedAreaIds] } : {}),
+    ...(editor.suspendedAreaMapIds.length > 0 ? { suspendedAreaMapIds: [...editor.suspendedAreaMapIds] } : {}),
     ...(editor.suspendedEnhancementIds.length > 0 ? { suspendedEnhancementIds: [...editor.suspendedEnhancementIds] } : {}),
   };
 }
@@ -554,6 +575,7 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
   const spots = runtimeMod.spots.map(spot => cloneRuntimeEditorSpot(spot));
   const inits = (runtimeMod.inits ?? []).map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft);
   const areas = (runtimeMod.areas ?? []).map(area => toRuntimeAreaEditorDraft(area));
+  const areaMaps = (runtimeMod.areaMaps ?? []).map(areaMap => cloneRuntimeEditorDefinition(areaMap) as RuntimeEditorAreaMapDraft);
   const enhancements = (runtimeMod.enhancements ?? []).map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft);
   updateRuntimeEditorFields(editor, {
     modName: runtimeMod.modName,
@@ -567,10 +589,12 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
   editor.spots = spots;
   editor.inits = inits;
   editor.areas = areas;
+  editor.areaMaps = areaMaps;
   editor.enhancements = enhancements;
   editor.appliedSpots = spots.map(spot => cloneRuntimeEditorSpot(spot));
   editor.appliedInits = inits.map(init => cloneRuntimeEditorDefinition(init) as RuntimeEditorInitDraft);
   editor.appliedAreas = areas.map(area => cloneRuntimeEditorDefinition(area) as RuntimeEditorAreaDraft);
+  editor.appliedAreaMaps = areaMaps.map(areaMap => cloneRuntimeEditorDefinition(areaMap) as RuntimeEditorAreaMapDraft);
   editor.appliedEnhancements = enhancements.map(enhancement => cloneRuntimeEditorDefinition(enhancement) as RuntimeEditorEnhancementDraft);
   const unsupported = spots.flatMap(spot => spot.unsupportedFunctionalityIds ?? []);
   const unsupportedPayments = spots.flatMap(spot => spot.unsupportedPaymentOptionPaths ?? []);
@@ -585,9 +609,10 @@ export function hydrateRuntimeEditor(editor: RuntimeDatapackEditorState, runtime
   editor.suspendedSpotIds = [...(runtimeMod.suspendedSpotIds ?? [])].filter(id => spots.some(spot => spot.idName === id));
   editor.suspendedInitIds = [...(runtimeMod.suspendedInitIds ?? [])].filter(id => inits.some(init => init.idName === id));
   editor.suspendedAreaIds = [...(runtimeMod.suspendedAreaIds ?? [])].filter(id => areas.some(area => area.idName === id));
+  editor.suspendedAreaMapIds = [...(runtimeMod.suspendedAreaMapIds ?? [])].filter(id => areaMaps.some(areaMap => areaMap.idName === id));
   editor.suspendedEnhancementIds = [...(runtimeMod.suspendedEnhancementIds ?? [])].filter(id => enhancements.some(enhancement => enhancement.idName === id));
   editor.selectedSpotId = spots.find(spot => !editor.suspendedSpotIds.includes(spot.idName))?.idName ?? spots[0]?.idName ?? null;
-  const firstKind: RuntimeEditorContentKind = inits.length > 0 ? 'inits' : areas.length > 0 ? 'areas' : 'spots';
+  const firstKind: RuntimeEditorContentKind = inits.length > 0 ? 'inits' : areas.length > 0 ? 'areas' : areaMaps.length > 0 ? 'areaMaps' : 'spots';
   editor.selectedContentKind = firstKind;
   editor.selectedDefinitionId = runtimeEditorDefinitions(editor, firstKind)[0]?.idName ?? null;
   const selected = getSelectedRuntimeEditorSpot(editor);

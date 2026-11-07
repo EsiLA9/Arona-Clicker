@@ -1,0 +1,755 @@
+{
+  "areas": [
+    {
+      "id": "base:area:schale_main",
+      "initId": "base:init:schale_office",
+      "name": "夏莱主厅",
+      "description": "夏莱的主办公区域，略显凌乱但充满生活气息。",
+      "defaultSpots": [
+        "base:spot:credit_printer",
+        "base:spot:comms_terminal",
+        "base:spot:data_wiper",
+        "base:spot:variant_training"
+      ],
+      "adjacentAreaIds": [
+        "base:area:schale_library",
+        "base:area:schale_rooftop"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:schale-solid",
+        "background": [
+          {
+            "id": "scene",
+            "kind": "image",
+            "value": "base:background(pic):hoshino",
+            "opacity": 0.38,
+            "position": "72% 50%",
+            "size": "auto 92%",
+            "blendMode": "normal"
+          },
+          {
+            "id": "triangles-back",
+            "kind": "image",
+            "value": "base:overlay(pic):triangles",
+            "opacity": 0.68,
+            "position": "8% 8%",
+            "size": "42rem",
+            "blendMode": "screen"
+          },
+          {
+            "id": "triangles-front",
+            "kind": "image",
+            "value": "base:overlay(pic):triangles",
+            "opacity": 0.42,
+            "position": "86% 78%",
+            "size": "32rem",
+            "blendMode": "multiply"
+          }
+        ],
+        "presentation": {
+          "panels": [
+            {
+              "region": "leftPanel",
+              "opacity": 0.92,
+              "header": {
+                "icon": "◈",
+                "eyebrow": "OPERATIONS",
+                "accent": "var(--theme-node-primary)"
+              }
+            },
+            {
+              "region": "centerPanel",
+              "opacity": 0.86,
+              "header": {
+                "icon": "◉",
+                "eyebrow": "THEME LITE",
+                "accent": "var(--theme-node-accent)"
+              }
+            },
+            {
+              "region": "rightPanel",
+              "opacity": 0.92,
+              "emptyState": {
+                "icon": "◇",
+                "title": "等待演出",
+                "description": "启动主线后观察临时主题覆盖。"
+              }
+            }
+          ],
+          "hosts": [
+            {
+              "id": "left.panel",
+              "parent": "leftPanel",
+              "shape": "rounded-parallelogram",
+              "decoration": {
+                "color": "#3b9eff",
+                "width": 1,
+                "opacity": 0.72,
+                "style": "solid"
+              },
+              "textColorMode": "auto"
+            },
+            {
+              "id": "center.chat",
+              "parent": "centerPanel",
+              "shape": "rounded-rectangle",
+              "cornerRadius": 12,
+              "decoration": {
+                "color": "#8b5cf6",
+                "width": 1,
+                "inset": 2,
+                "opacity": 0.6,
+                "style": "dashed"
+              },
+              "textColorMode": "auto",
+              "states": {
+                "active": {
+                  "textColorMode": "light",
+                  "decoration": {
+                    "color": "#22d3ee",
+                    "width": 2
+                  }
+                },
+                "disabled": {
+                  "textColorMode": "dark",
+                  "decoration": {
+                    "opacity": 0.3
+                  }
+                }
+              }
+            },
+            {
+              "id": "right.panel",
+              "parent": "rightPanel",
+              "shape": "rounded-rectangle",
+              "cornerRadius": 10,
+              "decoration": {
+                "color": "#38bdf8",
+                "width": 1,
+                "opacity": 0.68,
+                "style": "dotted"
+              },
+              "textColorMode": "auto"
+            },
+            {
+              "id": "footer.send",
+              "parent": "footer",
+              "shape": "rounded-parallelogram",
+              "cornerRadius": 6,
+              "skewXDeg": -6,
+              "textColorMode": "auto",
+              "states": {
+                "active": {
+                  "layers": [
+                    {
+                      "id": "send-active",
+                      "kind": "solid",
+                      "value": "#3b9eff",
+                      "opacity": 0.9
+                    }
+                  ]
+                },
+                "inactive": {
+                  "layers": [
+                    {
+                      "id": "send-inactive",
+                      "kind": "solid",
+                      "value": "#94a3b8",
+                      "opacity": 0.5
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "id": "modal.choice",
+              "parent": "modal",
+              "shape": "rounded-rectangle",
+              "cornerRadius": 14,
+              "decoration": {
+                "color": "#f59e0b",
+                "width": 2,
+                "opacity": 0.7,
+                "style": "solid"
+              },
+              "textColorMode": "auto"
+            }
+          ],
+          "components": [
+            {
+              "id": "center-triangle-decoration",
+              "parent": "centerPanel",
+              "asset": "base:overlay(pic):triangles",
+              "anchor": "top-left",
+              "offset": {
+                "x": 3,
+                "y": 3,
+                "unit": "percent"
+              },
+              "size": {
+                "width": 38,
+                "unit": "percent"
+              },
+              "fit": "contain"
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "夏莱主厅",
+          "description": "夏莱的主办公区域，略显凌乱但充满生活气息。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:schale-solid",
+            "background": [
+              {
+                "id": "scene",
+                "kind": "image",
+                "value": "base:background(pic):hoshino",
+                "opacity": 0.38,
+                "position": "72% 50%",
+                "size": "auto 92%",
+                "blendMode": "normal"
+              },
+              {
+                "id": "triangles-back",
+                "kind": "image",
+                "value": "base:overlay(pic):triangles",
+                "opacity": 0.68,
+                "position": "8% 8%",
+                "size": "42rem",
+                "blendMode": "screen"
+              },
+              {
+                "id": "triangles-front",
+                "kind": "image",
+                "value": "base:overlay(pic):triangles",
+                "opacity": 0.42,
+                "position": "86% 78%",
+                "size": "32rem",
+                "blendMode": "multiply"
+              }
+            ],
+            "presentation": {
+              "panels": [
+                {
+                  "region": "leftPanel",
+                  "opacity": 0.92,
+                  "header": {
+                    "icon": "◈",
+                    "eyebrow": "OPERATIONS",
+                    "accent": "var(--theme-node-primary)"
+                  }
+                },
+                {
+                  "region": "centerPanel",
+                  "opacity": 0.86,
+                  "header": {
+                    "icon": "◉",
+                    "eyebrow": "THEME LITE",
+                    "accent": "var(--theme-node-accent)"
+                  }
+                },
+                {
+                  "region": "rightPanel",
+                  "opacity": 0.92,
+                  "emptyState": {
+                    "icon": "◇",
+                    "title": "等待演出",
+                    "description": "启动主线后观察临时主题覆盖。"
+                  }
+                }
+              ],
+              "hosts": [
+                {
+                  "id": "left.panel",
+                  "parent": "leftPanel",
+                  "shape": "rounded-parallelogram",
+                  "decoration": {
+                    "color": "#3b9eff",
+                    "width": 1,
+                    "opacity": 0.72,
+                    "style": "solid"
+                  },
+                  "textColorMode": "auto"
+                },
+                {
+                  "id": "center.chat",
+                  "parent": "centerPanel",
+                  "shape": "rounded-rectangle",
+                  "cornerRadius": 12,
+                  "decoration": {
+                    "color": "#8b5cf6",
+                    "width": 1,
+                    "inset": 2,
+                    "opacity": 0.6,
+                    "style": "dashed"
+                  },
+                  "textColorMode": "auto",
+                  "states": {
+                    "active": {
+                      "textColorMode": "light",
+                      "decoration": {
+                        "color": "#22d3ee",
+                        "width": 2
+                      }
+                    },
+                    "disabled": {
+                      "textColorMode": "dark",
+                      "decoration": {
+                        "opacity": 0.3
+                      }
+                    }
+                  }
+                },
+                {
+                  "id": "right.panel",
+                  "parent": "rightPanel",
+                  "shape": "rounded-rectangle",
+                  "cornerRadius": 10,
+                  "decoration": {
+                    "color": "#38bdf8",
+                    "width": 1,
+                    "opacity": 0.68,
+                    "style": "dotted"
+                  },
+                  "textColorMode": "auto"
+                },
+                {
+                  "id": "footer.send",
+                  "parent": "footer",
+                  "shape": "rounded-parallelogram",
+                  "cornerRadius": 6,
+                  "skewXDeg": -6,
+                  "textColorMode": "auto",
+                  "states": {
+                    "active": {
+                      "layers": [
+                        {
+                          "id": "send-active",
+                          "kind": "solid",
+                          "value": "#3b9eff",
+                          "opacity": 0.9
+                        }
+                      ]
+                    },
+                    "inactive": {
+                      "layers": [
+                        {
+                          "id": "send-inactive",
+                          "kind": "solid",
+                          "value": "#94a3b8",
+                          "opacity": 0.5
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "modal.choice",
+                  "parent": "modal",
+                  "shape": "rounded-rectangle",
+                  "cornerRadius": 14,
+                  "decoration": {
+                    "color": "#f59e0b",
+                    "width": 2,
+                    "opacity": 0.7,
+                    "style": "solid"
+                  },
+                  "textColorMode": "auto"
+                }
+              ],
+              "components": [
+                {
+                  "id": "center-triangle-decoration",
+                  "parent": "centerPanel",
+                  "asset": "base:overlay(pic):triangles",
+                  "anchor": "top-left",
+                  "offset": {
+                    "x": 3,
+                    "y": 3,
+                    "unit": "percent"
+                  },
+                  "size": {
+                    "width": 38,
+                    "unit": "percent"
+                  },
+                  "fit": "contain"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:schale_office"
+    },
+    {
+      "id": "base:area:schale_library",
+      "initId": "base:init:schale_office",
+      "name": "夏莱资料室",
+      "description": "堆满委托卷宗与旧档案的资料室。联邦的运作痕迹都沉淀在这里。",
+      "defaultSpots": [
+        "base:spot:archive"
+      ],
+      "adjacentAreaIds": [
+        "base:area:schale_main",
+        "base:area:schale_hangar"
+      ],
+      "presentation": {
+        "default": {
+          "name": "夏莱资料室",
+          "description": "堆满委托卷宗与旧档案的资料室。联邦的运作痕迹都沉淀在这里。"
+        }
+      },
+      "navigationMapId": "base:area-map:schale_office"
+    },
+    {
+      "id": "base:area:schale_hangar",
+      "initId": "base:init:schale_office",
+      "name": "夏莱机库",
+      "description": "停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。",
+      "defaultSpots": [
+        "base:spot:hangar_supply",
+        "base:spot:hangar_dispatch_deck",
+        "base:spot:hangar_maintenance_bay",
+        "base:spot:hangar_command_link"
+      ],
+      "adjacentAreaIds": [
+        "base:area:schale_library"
+      ],
+      "reveal": {
+        "name": {
+          "mode": "condition",
+          "condition": {
+            "target": "stat",
+            "key": "$GlobalProducedAmount base:resource:credit",
+            "comparator": ">=",
+            "value": 80
+          }
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "夏莱机库",
+          "description": "停放着夏莱专用车的机库。出勤的起点，也常被当作临时午休地。"
+        }
+      },
+      "navigationMapId": "base:area-map:schale_office"
+    },
+    {
+      "id": "base:area:schale_rooftop",
+      "initId": "base:init:schale_office",
+      "name": "夏莱天台",
+      "description": "天台的风很清爽，能俯瞰整片夏莱街景。星野的邀约与晚霞都收在这里。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "base:area:schale_main"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:amber"
+      },
+      "presentation": {
+        "default": {
+          "name": "夏莱天台",
+          "description": "天台的风很清爽，能俯瞰整片夏莱街景。星野的邀约与晚霞都收在这里。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:amber"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:schale_office"
+    },
+    {
+      "id": "base:area:abydos_campus",
+      "initId": "base:init:abydos",
+      "name": "阿比多斯旧校舍",
+      "description": "破旧却充满人情的校舍。对策委员会的据点，黄沙与日常并存。",
+      "defaultSpots": [
+        "base:spot:abydos_rehab"
+      ],
+      "adjacentAreaIds": [
+        "base:area:abydos_pool",
+        "base:area:abydos_embankment"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:abydos-sand"
+      },
+      "presentation": {
+        "default": {
+          "name": "阿比多斯旧校舍",
+          "description": "破旧却充满人情的校舍。对策委员会的据点，黄沙与日常并存。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:abydos-sand"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:abydos"
+    },
+    {
+      "id": "base:area:abydos_embankment",
+      "initId": "base:init:abydos",
+      "name": "阿比多斯堤防",
+      "description": "旧校舍旁的堤防。午后的海风很轻，适合坐下来聊聊。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "base:area:abydos_campus"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:abydos-sand"
+      },
+      "presentation": {
+        "default": {
+          "name": "阿比多斯堤防",
+          "description": "旧校舍旁的堤防。午后的海风很轻，适合坐下来聊聊。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:abydos-sand"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:abydos"
+    },
+    {
+      "id": "base:area:abydos_pool",
+      "initId": "base:init:abydos",
+      "name": "废弃泳池",
+      "description": "早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。",
+      "defaultSpots": [
+        "base:spot:pool_train"
+      ],
+      "adjacentAreaIds": [
+        "base:area:abydos_campus"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:abydos-sand",
+        "tokens": {
+          "playerBubble": "#3ec6e0"
+        }
+      },
+      "presentation": {
+        "default": {
+          "name": "废弃泳池",
+          "description": "早已干涸的露天泳池。如今堆满器材，偶尔被学生们当作训练场。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:abydos-sand",
+            "tokens": {
+              "playerBubble": "#3ec6e0"
+            }
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:abydos"
+    },
+    {
+      "id": "base:area:millennium_lab",
+      "initId": "base:init:millennium",
+      "name": "千禧年研究楼",
+      "description": "布满终端与缆线的研究楼。数据流昼夜不息，游戏开发部就藏在这里。",
+      "defaultSpots": [
+        "base:spot:millennium_lab"
+      ],
+      "adjacentAreaIds": [
+        "base:area:millennium_canteen"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:indigo"
+      },
+      "presentation": {
+        "default": {
+          "name": "千禧年研究楼",
+          "description": "布满终端与缆线的研究楼。数据流昼夜不息，游戏开发部就藏在这里。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:indigo"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:millennium"
+    },
+    {
+      "id": "base:area:millennium_canteen",
+      "initId": "base:init:millennium",
+      "name": "千禧年自助食堂",
+      "description": "自动化程度惊人的食堂。营养饮料与零食按需供给，学生们的能量补给站。",
+      "defaultSpots": [],
+      "adjacentAreaIds": [
+        "base:area:millennium_lab",
+        "base:area:millennium_server"
+      ],
+      "presentation": {
+        "default": {
+          "name": "千禧年自助食堂",
+          "description": "自动化程度惊人的食堂。营养饮料与零食按需供给，学生们的能量补给站。"
+        }
+      },
+      "navigationMapId": "base:area-map:millennium"
+    },
+    {
+      "id": "base:area:millennium_server",
+      "initId": "base:init:millennium",
+      "name": "千禧年服务器机房",
+      "description": "全天候运转的服务器群。散发冷气与电流声，数据流无限循环。",
+      "defaultSpots": [
+        "base:spot:millennium_ai_cluster"
+      ],
+      "adjacentAreaIds": [
+        "base:area:millennium_canteen"
+      ],
+      "reveal": {
+        "name": {
+          "mode": "condition",
+          "condition": {
+            "target": "resource",
+            "key": "base:resource:credit",
+            "comparator": ">=",
+            "value": 40
+          }
+        }
+      },
+      "onVisitReveal": [
+        "existence"
+      ],
+      "presentation": {
+        "default": {
+          "name": "千禧年服务器机房",
+          "description": "全天候运转的服务器群。散发冷气与电流声，数据流无限循环。"
+        }
+      },
+      "navigationMapId": "base:area-map:millennium"
+    },
+    {
+      "id": "base:area:trinity_cathedral",
+      "initId": "base:init:trinity",
+      "name": "崔妮蒂大圣堂",
+      "description": "庄严的大圣堂，彩绘玻璃透过柔和的光。补课部学生们常在此聚集。",
+      "defaultSpots": [
+        "base:spot:trinity_donation",
+        "base:spot:trinity_repair"
+      ],
+      "adjacentAreaIds": [
+        "base:area:trinity_tea_room"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:amber"
+      },
+      "presentation": {
+        "default": {
+          "name": "崔妮蒂大圣堂",
+          "description": "庄严的大圣堂，彩绘玻璃透过柔和的光。补课部学生们常在此聚集。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:amber"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:trinity"
+    },
+    {
+      "id": "base:area:trinity_tea_room",
+      "initId": "base:init:trinity",
+      "name": "茶话会室",
+      "description": "香气四溢的茶话会专用室。淑女们的午后聚会，优雅而充满算计。",
+      "defaultSpots": [
+        "base:spot:trinity_tea_prep"
+      ],
+      "adjacentAreaIds": [
+        "base:area:trinity_cathedral"
+      ],
+      "presentation": {
+        "default": {
+          "name": "茶话会室",
+          "description": "香气四溢的茶话会专用室。淑女们的午后聚会，优雅而充满算计。"
+        }
+      },
+      "navigationMapId": "base:area-map:trinity"
+    },
+    {
+      "id": "base:area:gehenna_council",
+      "initId": "base:init:gehenna",
+      "name": "万魔殿本部",
+      "description": "万魔殿的行政中枢。虽然看上去混乱不堪，但一切都在某种秩序下运转。",
+      "defaultSpots": [
+        "base:spot:gehenna_hall"
+      ],
+      "adjacentAreaIds": [
+        "base:area:gehenna_district"
+      ],
+      "theme": {
+        "colorGroupId": "base:colorgroup:crimson"
+      },
+      "presentation": {
+        "default": {
+          "name": "万魔殿本部",
+          "description": "万魔殿的行政中枢。虽然看上去混乱不堪，但一切都在某种秩序下运转。",
+          "theme": {
+            "colorGroupId": "base:colorgroup:crimson"
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:gehenna"
+    },
+    {
+      "id": "base:area:gehenna_district",
+      "initId": "base:init:gehenna",
+      "name": "盖赫纳商业街",
+      "description": "喧嚣热闹的商业街。小吃摊、杂货铺、以及便利屋68的秘密据点都藏在这里。",
+      "defaultSpots": [
+        "base:spot:gehenna_bureau"
+      ],
+      "adjacentAreaIds": [
+        "base:area:gehenna_council"
+      ],
+      "presentation": {
+        "default": {
+          "name": "盖赫纳商业街",
+          "description": "喧嚣热闹的商业街。小吃摊、杂货铺、以及便利屋68的秘密据点都藏在这里。"
+        }
+      },
+      "navigationMapId": "base:area-map:gehenna"
+    },
+    {
+      "id": "base:area:theme_showcase",
+      "initId": "base:init:theme_showcase",
+      "name": "主题实验室",
+      "description": "用于观察主题色、UI 语义节点与组件继承关系的临时展示区域。",
+      "defaultSpots": [
+        "base:spot:theme_showcase_a",
+        "base:spot:theme_showcase_b"
+      ],
+      "theme": {
+        "background": [
+          {
+            "id": "theme-showcase-triangles",
+            "kind": "image",
+            "value": "base:overlay(pic):ba_triangles_svg",
+            "opacity": 1,
+            "position": "center",
+            "size": "cover",
+            "repeat": "no-repeat",
+            "blendMode": "normal",
+            "attachment": "fixed"
+          }
+        ]
+      },
+      "presentation": {
+        "default": {
+          "name": "主题实验室",
+          "description": "用于观察主题色、UI 语义节点与组件继承关系的临时展示区域。",
+          "theme": {
+            "background": [
+              {
+                "id": "theme-showcase-triangles",
+                "kind": "image",
+                "value": "base:overlay(pic):ba_triangles_svg",
+                "opacity": 1,
+                "position": "center",
+                "size": "cover",
+                "repeat": "no-repeat",
+                "blendMode": "normal",
+                "attachment": "fixed"
+              }
+            ]
+          }
+        }
+      },
+      "navigationMapId": "base:area-map:theme_showcase"
+    }
+  ]
+}
