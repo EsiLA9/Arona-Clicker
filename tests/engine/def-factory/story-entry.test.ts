@@ -8,7 +8,7 @@ import {
   ActiveStoryBuilder,
   PassiveStoryBuilder,
 } from '../../../src/arona-clicker/content/def-factory';
-import { and, cond } from '../../../src/engine/types';
+import { and, cond } from '../../../src/engine/types/index';
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import { tagPath } from '../../../src/engine/core/tag';
 import type { ActiveStoryEntry, PassiveStoryEntry } from '../../../src/data-services/contracts/story-entry';

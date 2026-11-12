@@ -7,7 +7,7 @@ import { baseDatapack } from '../../../src/data/test-datapack';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import type { MapEncounterQueryView, MapRunWorkspaceView } from '../../../src/arona-clicker/contracts/runtime/runtime';
 import type { UIContext } from '../../../src/ui/runtime/context';
-import type { Condition, ConditionGroup } from '../../../src/engine/types';
+import type { Condition, ConditionGroup } from '../../../src/engine/types/index';
 import { describeCondition, describeStatDsl, getTooltipContent, renderSpotDetail } from '../../../src/ui/components/tooltip/tooltip';
 
 const OFFICE = 'base:init:schale_office';

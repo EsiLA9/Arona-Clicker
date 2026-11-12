@@ -4,7 +4,7 @@ import type { StoryId } from '../../engine/types/ids';
 import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-actions';
 import type { AreaId } from '../../engine/types/ids';
 import type { VariantId } from '../../engine/types/character';
-import type { StoryNodePerformance } from '../../engine/contracts/chat-presentation';
+import type { ChatTextStyle, StoryNodeLayout, StoryNodeTemplate } from '../../engine/contracts/chat-presentation';
 
 /** 文档内唯一的稳定局部身份：1–64位ASCII名，首位字母，后续字母/数字/_/-。 */
 export type StoryNodeId = string;
@@ -63,18 +63,40 @@ export interface StoryNodeBase {
   readonly requiresFlag?: string;
 }
 
+/** 节点的流内及定位展示共用外观。 */
+export interface StoryNodeAppearance {
+  readonly template?: StoryNodeTemplate;
+  readonly style?: ChatTextStyle;
+  readonly presentation?: StoryPresentation;
+}
+
+/** 节点的定位与时间编排。 */
+export interface StoryClickDirection {
+  readonly layout?: StoryNodeLayout;
+  /** @deprecated 旧定义兼容字段。新内容使用 appearance.style。 */
+  readonly style?: ChatTextStyle;
+}
+
+export interface StoryNodeDirection extends StoryClickDirection {
+  /** @deprecated 旧定义兼容字段。新内容使用 appearance.template。 */
+  readonly template?: StoryNodeTemplate;
+  readonly pacing?: StoryPacing;
+}
+
 /** 正文呈现节点；stageId 仅为旧定义兼容元数据。 */
 export interface StoryTalkletNode extends StoryNodeBase {
   /** 顶层节点类型，固定为 talklet。 */ readonly type: 'talklet';
   /** 旧阶段兼容 ID；不会控制相邻 Click 或节点顺序。 */ readonly stageId: StoryStageId;
   /** 对话或旁白内容。 */
   readonly content: StoryContent;
-  /** 左右侧、对齐和头像呈现意图。 */
+  /** @deprecated 旧定义兼容字段。新内容使用 appearance.presentation。 */
   readonly presentation?: StoryPresentation;
-  /** 对方输入中与思考节奏意图。 */
+  /** @deprecated 旧定义兼容字段。新内容使用 performance.pacing。 */
   readonly pacing?: StoryPacing;
-  /** 节点局部模板、样式与定位，不改变正文或推进语义。 */
-  readonly performance?: StoryNodePerformance;
+  /** 流内与定位展示共用的外观。 */
+  readonly appearance?: StoryNodeAppearance;
+  /** 定位与时间编排。 */
+  readonly performance?: StoryNodeDirection;
 }
 
 /** 交互输入节点；选择候选属于本 Click，不由相邻 Click 推断。 */
@@ -84,7 +106,8 @@ export interface StoryClickNode extends StoryNodeBase {
   /** 本次输入的明确形式。 */
   readonly interaction: StoryClickInteraction;
   /** 交互局部样式与定位；不提供正文文本模板。 */
-  readonly performance?: Omit<StoryNodePerformance, 'template'>;
+  readonly appearance?: { readonly style?: ChatTextStyle };
+  readonly performance?: StoryClickDirection;
 }
 
 /** 独立执行一项有界行为的节点；不属于呈现阶段。 */

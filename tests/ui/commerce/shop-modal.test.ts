@@ -1,0 +1,183 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
+import { defaultDatapack } from '../../../src/arona-clicker/content/default-datapack';
+import { UIController } from '../../../src/ui/controller/controller';
+
+const INIT = 'base:init:theme_showcase';
+const SPOT = 'base:spot:theme_showcase_b';
+
+describe('Spot Shop workspace', () => {
+  let game: GameInstance;
+  let controller: UIController;
+
+  beforeEach(() => {
+    localStorage.clear();
+    game = new GameInstance();
+    game.init([defaultDatapack]);
+    expect(game.inits.startNewGame(INIT)).toBe(true);
+    document.body.innerHTML = '<div id="app"></div>';
+    controller = new UIController(game, document.querySelector('#app')!);
+    controller.mount();
+    game.state.spotLevels[SPOT] = 1;
+    const shopSpot = game.world.spots.get(SPOT);
+    expect(shopSpot).toBeDefined();
+    expect(game.spotFunctionalitySystem.functionalitiesOf(shopSpot!, game.state).some(fn => fn.kind === 'shop')).toBe(true);
+  });
+
+  afterEach(() => { game.stop(); localStorage.clear(); });
+
+  test('购物车是临时状态，Shop 主题在离开 workspace 后恢复', () => {
+    const primaryBefore = game.colorSystem.runtimeThemeTokens().primary;
+    controller.openSpotShopModal(SPOT);
+    expect(document.querySelector('.shop-workspace')).not.toBeNull();
+    expect(document.querySelector('.shop-workspace')?.getAttribute('data-responsive')).toBe('single-column');
+    expect(document.querySelectorAll('.shop-workspace > .workspace-column.panel')).toHaveLength(3);
+    expect(document.querySelector('.shop-workspace__section')?.textContent).toContain('日常补给');
+    expect(document.querySelector('.shop-workspace .panel-tabs-region')).not.toBeNull();
+    expect(document.querySelectorAll('.shop-workspace .panel-tabs-region')).toHaveLength(3);
+    expect(document.querySelector('.shop-workspace .ui-cluster--center-tabs-region .shop-workspace__title')?.textContent).toContain('阿比多斯咖啡角');
+    expect(document.querySelector('.shop-product-card')).not.toBeNull();
+    expect(game.colorSystem.runtimeThemeTokens().primary).toBe('#d97706');
+    expect(game.colorSystem.runtimeThemeDiagnostics().layers.find(layer => layer.id === `shop-workspace:${SPOT}:base:shop:abydos-cafe`)).toMatchObject({
+      kind: 'player',
+      scope: 'player',
+      owner: `workspace:shop:${SPOT}:base:shop:abydos-cafe`,
+      selected: true,
+    });
+
+    const shellBefore = document.querySelector('.console-shell');
+    const centerHostBefore = document.querySelector('[data-theme-host-id="centerPanel.shop.catalog"]');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+    document.querySelector<HTMLButtonElement>('[data-shop-select="energy-drink"]')!.click();
+    document.querySelector<HTMLInputElement>('#shop-quantity')!.value = '1';
+    document.querySelector<HTMLButtonElement>('[data-modal-action="shop-add"]')!.click();
+    expect(document.querySelector('.shop-workspace__settlement')?.textContent).toContain('战术能量饮料');
+    expect(document.querySelector('.console-shell')).toBe(shellBefore);
+    expect(document.querySelector('[data-theme-host-id="centerPanel.shop.catalog"]')).not.toBe(centerHostBefore);
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.getRefreshStats().regionRefreshes).toBeGreaterThan(0);
+    expect(controller.getRefreshObservations().some(observation =>
+      observation.scope === 'region'
+      && observation.reason === 'shop.add'
+      && observation.surfaceKey.startsWith('shop:'),
+    )).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-shop-leave]')!.click();
+
+    expect(document.querySelector('.shop-workspace')).toBeNull();
+    expect(game.colorSystem.runtimeThemeTokens().primary).toBe(primaryBefore);
+    expect(game.colorSystem.runtimeThemeDiagnostics().layers.some(layer => layer.id === `shop-workspace:${SPOT}:base:shop:abydos-cafe`)).toBe(false);
+  });
+
+  test('退出再进入会丢弃购物车，但保留成功购买记录', () => {
+    game.mutations.changeResource('base:resource:credit', 100);
+    controller.openSpotShopModal(SPOT);
+    const emptyActions = document.querySelector<HTMLElement>('.shop-workspace__right .workspace-column__footer')!;
+    expect(emptyActions.querySelector<HTMLButtonElement>('[data-shop-cancel]')?.disabled).toBe(true);
+    expect(emptyActions.querySelector<HTMLButtonElement>('[data-shop-checkout]')?.disabled).toBe(true);
+    document.querySelector<HTMLButtonElement>('[data-shop-select="energy-drink"]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="shop-add"]')!.click();
+    const readyActions = document.querySelector<HTMLElement>('.shop-workspace__right .workspace-column__footer')!;
+    expect(readyActions).not.toBe(emptyActions);
+    expect(readyActions.querySelector<HTMLButtonElement>('[data-shop-cancel]')?.disabled).toBe(false);
+    expect(readyActions.querySelector<HTMLButtonElement>('[data-shop-checkout]')?.disabled).toBe(false);
+    document.querySelector<HTMLButtonElement>('[data-shop-checkout]')!.click();
+    expect(Object.keys(game.state.shopPurchaseRecords ?? {})).toHaveLength(1);
+    document.querySelector<HTMLButtonElement>('[data-shop-leave]')!.click();
+
+    controller.openSpotShopModal(SPOT);
+    expect(document.querySelector('.shop-workspace__settlement')?.textContent).toContain('购物车为空');
+    expect(Object.keys(game.state.shopPurchaseRecords ?? {})).toHaveLength(1);
+  });
+
+  test('外部 tick 触发面板刷新时仍保持 Shop workspace', () => {
+    controller.openSpotShopModal(SPOT);
+    expect(document.querySelector('.shop-workspace')).not.toBeNull();
+
+    // 外部 tick 的事件链可能要求揭示/左右面板刷新；不能回退到普通三栏。
+    controller.refreshPanels(['left', 'center', 'right']);
+
+    expect(document.querySelector('.shop-workspace')).not.toBeNull();
+    expect(document.querySelector('.shop-workspace__feed')).not.toBeNull();
+    expect(document.querySelector('.shop-workspace__catalog')).not.toBeNull();
+    expect(document.querySelector('.shop-workspace__settlement')).not.toBeNull();
+  });
+
+  test('Shop 中的资源轻量刷新只改行为节点，不重建 workspace', () => {
+    controller.openSpotShopModal(SPOT);
+    const fullBefore = controller.getRefreshStats().fullRenders;
+    const holding = document.querySelector<HTMLElement>('.shop-holding [data-resource="base:resource:credit"]');
+    expect(holding).not.toBeNull();
+
+    game.mutations.changeResource('base:resource:credit', 123);
+    controller.refreshLight();
+
+    expect(holding?.textContent).toBe('123');
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.getRefreshStats().behaviorPatches).toBeGreaterThan(0);
+  });
+
+  test('Shop Region 局部替换只关闭自身范围内的 tooltip', () => {
+    controller.openSpotShopModal(SPOT);
+    const catalog = document.querySelector<HTMLElement>('[data-theme-host-id="centerPanel.shop.catalog"]')!;
+    const anchor = document.createElement('span');
+    anchor.className = 'hover-wrap';
+    catalog.append(anchor);
+    const tooltip = document.querySelector<HTMLElement>('#floating-tooltip')!;
+    tooltip.classList.add('is-open');
+    (controller.popovers as unknown as { lastWrap: HTMLElement }).lastWrap = anchor;
+
+    controller.requestShopWorkspaceRefresh(['centerPanel.shop.catalog'], 'test.shop-region');
+    controller.flushUIUpdates();
+
+    expect(tooltip.classList.contains('is-open')).toBe(false);
+  });
+
+  test('未启动状态的待落账通知仍只触发一次 full fallback', () => {
+    controller.openSpotShopModal(SPOT);
+    controller.panelState.workspace = undefined;
+    controller.panelState.service = 'game';
+    controller.pendingRewardChats.push('待显示通知');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+
+    controller.refreshLight();
+    controller.refreshLight();
+
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore + 1);
+    expect(controller.notificationFallbackRendered).toBe(true);
+  });
+
+  test('已启动游戏的待落账通知只触发一次聊天范围刷新', () => {
+    controller.openSpotShopModal(SPOT);
+    controller.panelState.workspace = undefined;
+    controller.panelState.service = 'game';
+    controller.started = true;
+    controller.render();
+    controller.pendingRewardChats.push('待显示通知');
+    const fullBefore = controller.getRefreshStats().fullRenders;
+
+    controller.refreshLight();
+    controller.refreshLight();
+
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.notificationFallbackRendered).toBe(true);
+  });
+
+  test('结算失败保留购物车，并只更新 Feed / settlement 区域', () => {
+    controller.openSpotShopModal(SPOT);
+    const fullBefore = controller.getRefreshStats().fullRenders;
+    document.querySelector<HTMLButtonElement>('[data-shop-select="energy-drink"]')!.click();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="shop-add"]')!.click();
+
+    document.querySelector<HTMLButtonElement>('[data-shop-checkout]')!.click();
+
+    expect(document.querySelector('.shop-workspace__feed')?.textContent).toContain('结算失败');
+    const cartLine = document.querySelector('.shop-workspace__settlement li');
+    expect(cartLine?.textContent).toContain('战术能量饮料');
+    expect(cartLine?.textContent).toContain('× 1');
+    expect(controller.getRefreshStats().fullRenders).toBe(fullBefore);
+    expect(controller.getRefreshObservations().some(observation =>
+      observation.reason === 'shop.checkout-failed' && observation.scope === 'region',
+    )).toBe(true);
+  });
+});

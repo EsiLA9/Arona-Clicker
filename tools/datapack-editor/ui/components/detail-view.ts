@@ -6,7 +6,7 @@
  */
 import type { EditorModel } from '../../model/editor-model';
 import type { TableKey } from '../../schema/types';
-import { getTable } from '../../schema/datapack.schema';
+import { getTable } from '../../schema/datapack.schema.ts';
 import { renderField, renderType, type FieldEditorCtx } from './field-editor';
 import type { NaviService } from '../navi';
 import { rowSummary, type Selection } from './list-view';

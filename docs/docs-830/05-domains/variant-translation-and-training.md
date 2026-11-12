@@ -27,7 +27,7 @@
 
 `confirm(token)` 先取出并消费该句柄，再依据当前状态和内容重新计算；如果输入、授权、规则或输出与预览不同，就返回过期，需要重新预览。相同 token 不能重复使用，也不能交给另一个服务实例。Init 改变或 PlayerState 对象被替换会清除预览；同一对象内的无关状态变化不必导致失败，相关培养或内容变化会在重算时被发现。
 
-例如 `tests/engine/variant-translation-service.test.ts` 的测试先预览拥有角色，再提高该角色等级：旧 token 确认被拒绝；另一个案例只改变无关资源，确认仍成功。检查的重点是构筑输入是否仍一致，而不是把所有状态变化都视为过期。
+例如 `tests/engine/character/variant-translation-service.test.ts` 的测试先预览拥有角色，再提高该角色等级：旧 token 确认被拒绝；另一个案例只改变无关资源，确认仍成功。检查的重点是构筑输入是否仍一致，而不是把所有状态变化都视为过期。
 
 `restore()` 接受已确认的快照，检查结构、入口和规则 revision，重新依据冻结输入计算并比较内容依据与结果。它不要求拥有角色后的培养进度仍与保存时相同；这使场景能够恢复当时的冻结构筑。内容版本不匹配、被篡改的输入或输出、错误结构会被拒绝。恢复构筑不等于恢复一局 Run，后者还需对应运行所有者的校验。
 
@@ -51,4 +51,4 @@
 3. 正式训练无法进入时，先查当前 Spot/功能、所需 Variant 和是否已有另一张活动地图；不要把测试服务的入口当成正式 Spot 的入口。
 4. 恢复失败时，分别检查构筑快照、内容版本、训练绑定与 Run 快照。构筑恢复成功不单独证明战斗快照合法。
 
-源码：`src/arona-clicker/services/character/variant-translation-service.ts`、`variant-translation-rules.ts`、`variant-training-service.ts`、`variant-training-scenario.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。测试：`tests/engine/variant-translation-service.test.ts`、`variant-training-service.test.ts`、`variant-training-main-runtime.test.ts`、`variant-training-scenario.test.ts`、`tests/ui/variant-training-spot-entry.test.ts`。
+源码：`src/arona-clicker/services/character/variant-translation-service.ts`、`variant-translation-rules.ts`、`variant-training-service.ts`、`variant-training-scenario.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。测试：`tests/engine/character/variant-translation-service.test.ts`、`variant-training-service.test.ts`、`variant-training-main-runtime.test.ts`、`variant-training-scenario.test.ts`、`tests/ui/core/variant-training-spot-entry.test.ts`。

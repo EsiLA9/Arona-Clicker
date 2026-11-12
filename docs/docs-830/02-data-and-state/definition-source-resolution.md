@@ -39,7 +39,7 @@ draft（工作区编辑） → pack（内容包） → base（基础内容）
 | 在同一 draft 恢复 | `resolved`，值再次来自 pack | 移除该草稿拥有的标记后继续解析。 |
 | 仅有 draft 标记、没有任何记录 | `missing` | 没有可被遮蔽的定义。 |
 
-上述行为由 `tests/data/definition-resolution.test.ts` 的 suspend / resume 测试覆盖。
+上述行为由 `tests/data/runtime-content/definition-resolution.test.ts` 的 suspend / resume 测试覆盖。
 
 ## 删除、移除覆盖与暂停的区别
 
@@ -56,5 +56,5 @@ draft（工作区编辑） → pack（内容包） → base（基础内容）
 
 - 结构：`src/data-services/definition/definition-types.ts`。
 - 操作与解析：`src/data-services/definition/definition-resolution.ts`。
-- 可复现例子和状态变化：`tests/data/definition-resolution.test.ts`。
+- 可复现例子和状态变化：`tests/data/runtime-content/definition-resolution.test.ts`。
 - 编辑提交与 Runtime 关系：[[runtime-content-coordination]]。

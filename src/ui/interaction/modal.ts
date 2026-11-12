@@ -64,6 +64,9 @@ export class ModalManager {
   private closeHandler: (() => void) | undefined;
   private actionHandler: ((action: string) => void) | undefined;
   private dismissable = true;
+  private readonly onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape' && this.dismissable) this.close();
+  };
 
   /** 打开弹窗（重复 open 会替换内容）。 */
   open(opts: ModalOptions): void {
@@ -90,6 +93,14 @@ export class ModalManager {
     return this.el?.classList.contains('is-open') ?? false;
   }
 
+  dispose(): void {
+    document.removeEventListener('keydown', this.onKeydown);
+    this.el?.remove();
+    this.el = null;
+    this.closeHandler = undefined;
+    this.actionHandler = undefined;
+  }
+
   private ensureContainer(): void {
     if (this.el) return;
     this.el = document.createElement('div');
@@ -110,8 +121,6 @@ export class ModalManager {
       }
       if (target.matches('[data-modal-overlay]')) this.close();
     });
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape' && this.dismissable) this.close();
-    });
+    document.addEventListener('keydown', this.onKeydown);
   }
 }

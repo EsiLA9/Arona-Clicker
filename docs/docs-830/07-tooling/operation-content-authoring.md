@@ -38,4 +38,4 @@ Event 选定起点与参与者
 3. 保存并校验包后，检查 Registry 最终内容与入场角色/Profile；编辑器校验通过不保证该玩家满足准入条件。
 4. Run 已开始后排查行动或路线，转到 [[operation-action-planning]]，不要把编辑器草稿当作本局快照。
 
-源码：`src/data-services/contracts/operation.ts`、`src/data-services/registry/operation-content-validation.ts`、`src/arona-clicker/services/operation/operation-participant-admission.ts`。测试：`tools/datapack-editor/validate/operation-authoring.test.ts`、`tests/engine/operation-participant-admission.test.ts`。
+源码：`src/data-services/contracts/operation.ts`、`src/data-services/registry/operation-content-validation.ts`、`src/arona-clicker/services/operation/operation-participant-admission.ts`。测试：`tools/datapack-editor/validate/operation-authoring.test.ts`、`tests/engine/operation/operation-participant-admission.test.ts`。

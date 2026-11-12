@@ -7,13 +7,13 @@
  */
 import { EditorModel } from '../model/editor-model';
 import type { EditorPackageMetadata } from '../model/editor-model';
-import { TABLES } from '../schema/datapack.schema';
+import { TABLES } from '../schema/datapack.schema.ts';
 import type { TableKey } from '../schema/types';
 import { copyDatapack, downloadDatapack, downloadDatapackPackage, loadDefaultDatapack, pasteImport, fileInputImport } from './io';
 import { renderList, type Selection } from './components/list-view';
 import { renderDetail } from './components/detail-view';
 import { NaviService } from './navi';
-import type { ValidationIssue } from '../validate';
+import type { ValidationIssue } from '../validate/index';
 
 const model = new EditorModel();
 const navi = new NaviService();

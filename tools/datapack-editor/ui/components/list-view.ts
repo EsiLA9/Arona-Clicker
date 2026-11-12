@@ -6,7 +6,7 @@
  */
 import type { EditorModel } from '../../model/editor-model';
 import type { TableKey } from '../../schema/types';
-import { getTable } from '../../schema/datapack.schema';
+import { getTable } from '../../schema/datapack.schema.ts';
 
 /** 选择状态：array 表按行索引；record 表按 key */
 export type Selection =

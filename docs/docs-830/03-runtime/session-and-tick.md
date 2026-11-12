@@ -16,7 +16,7 @@
 | 自动推进 | `SessionService.start()` 启动一秒间隔 | 每次调用注入的 `doTick()`，随后同步 EffectEngine 状态并 flush 事件队列。 |
 | 离线补算 | 恢复的时间基准在启动时处理 | 循环调用相同的 `doTick()`；补算结束后同步 EffectEngine 并 flush。 |
 
-恢复存档通过 `setLastTick()` 保留存档时间作为基准；普通 stop/start 不会把停止前的时间误算成离线时长。测试见 `tests/engine/session-service.test.ts`。
+恢复存档通过 `setLastTick()` 保留存档时间作为基准；普通 stop/start 不会把停止前的时间误算成离线时长。测试见 `tests/engine/core/session-service.test.ts`。
 
 离线秒数向下取整，超过 8 小时截断；当前实现只在计算出的帧数**大于 5**时执行补算。每次补算先实际调用一次 `doTick()`，如果该次返回的 `productions` 为空则提前结束剩余补算；这条判断不等价于对每种原因的精确容量诊断。
 
@@ -42,6 +42,6 @@ SessionService → GameInstance.tick() → TickSystem
 
 Story 的 typing、thinking、通知间隔和横幅由 `StoryPlaybackCoordinator` 的独立时钟唤醒，与一秒生产 Tick 分开。`GameInstance.stop()/start()` 暂停和恢复剩余表现时间；读档和 Init 恢复也沿此路径继续，不使用离线收益补算跳过表现或替玩家确认。正文送达与 Operation 自动交接不要求 UI 存在，查询或重建 DOM 不推进 Story。执行/表现的状态边界见 [[story-and-effects]]。
 
-关键源码：`src/engine/runtime/session-service.ts`、`src/engine/system/tick-system.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。相关测试见 `tests/engine/tick-system.test.ts`。
+关键源码：`src/engine/runtime/session-service.ts`、`src/engine/system/tick-system.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。相关测试见 `tests/engine/core/tick-system.test.ts`。
 
 继续阅读：[[state-and-events]]、[[read-model-and-ui]]。

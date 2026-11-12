@@ -28,7 +28,7 @@ Affector 条目的条件登记到共享 `ConditionDepIndex`。相关资源、Spo
 3. 保持 Active 时再次复核或应用活动效果，不会再次执行这条普通激活效果。
 4. 条件转为不满足再满足时，会发生新的 Latent→Active 转换，因此再次发放。
 
-这表示“每次进入 Active 执行一次”，不是“整个存档只能执行一次”。如果挂载时条件已经满足，测试显示效果会在挂载激活时执行；被移除的实例不再重新激活。相关测试：`tests/engine/affector-engine.test.ts`。
+这表示“每次进入 Active 执行一次”，不是“整个存档只能执行一次”。如果挂载时条件已经满足，测试显示效果会在挂载激活时执行；被移除的实例不再重新激活。相关测试：`tests/engine/core/affector-engine.test.ts`。
 
 | 内容 | 发生时机 | 用途 |
 | --- | --- | --- |
@@ -38,6 +38,6 @@ Affector 条目的条件登记到共享 `ConditionDepIndex`。相关资源、Spo
 
 排查某个产出未更新时，先确认宿主是否挂载和条件是否满足，再区分它属于激活动作还是 GameNum 持续贡献；不要仅凭界面数值判断实例已经卸载。
 
-源码：`src/engine/effect/affector-engine.ts`、`src/engine/expression/condition-deps.ts`、`src/engine/expression/game-num.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/affector-engine.test.ts`、`tests/engine/affector-reconcile.test.ts`、`tests/engine/affector-text.test.ts`。
+源码：`src/engine/effect/affector-engine.ts`、`src/engine/expression/condition-deps.ts`、`src/engine/expression/game-num.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/core/affector-engine.test.ts`、`tests/engine/core/affector-reconcile.test.ts`、`tests/engine/core/affector-text.test.ts`。
 
 条件与依赖索引见 [[conditions-and-visibility]]；产出树见 [[expressions-and-production]]。

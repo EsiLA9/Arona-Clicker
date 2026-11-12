@@ -1,5 +1,5 @@
 import { storyEntryType } from '../../../data-services/contracts/story-entry';
-import { projectStoryContent } from '../../../data-services/authoring/story-content-display';
+import { projectStoryContent, storyNodeDisplay } from '../../../data-services/authoring/story-content-display';
 import type { StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { StoryNodeDocument, StoryTalkletNode } from '../../../data-services/contracts/story-node';
 import type { StoryAction } from '../../../data-services/contracts/story-node-actions';
@@ -110,6 +110,7 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
     && nodeIndex >= 0
     && next?.type === 'click'
     && (next.requiresFlag === undefined || session.player.hasLocalFlag(next.requiresFlag));
+  const performance = view.node.type === 'talklet' || view.node.type === 'click' ? storyNodeDisplay(view.node) : undefined;
   return {
     storyId: session.source.entryId,
     type: storyEntryType(session.entry),
@@ -127,7 +128,7 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
     historyId,
     waitSequence: view.sequence,
     ...(view.status==='input'&&view.press ? {press:{...view.press}}:{}),
-    ...((view.node.type==='talklet'||view.node.type==='click') && view.node.performance ? {performance:structuredClone(view.node.performance)} : {}),
+    ...(performance ? { performance: structuredClone(performance) } : {}),
     ...(nextIsInput ? { nextIsInput: true } : {}),
   };
 }
@@ -137,7 +138,9 @@ function operationCheckpointPage(): Talklet {
 }
 
 function talkletPage(node: StoryTalkletNode): Talklet {
-  const { content, presentation, pacing } = node;
+  const { content } = node;
+  const presentation = node.appearance?.presentation ?? node.presentation;
+  const pacing = node.performance?.pacing ?? node.pacing;
   return {
     ...projectStoryContent(content,presentation),
     ...(pacing?.typing === undefined ? {} : { typing: pacing.typing }),

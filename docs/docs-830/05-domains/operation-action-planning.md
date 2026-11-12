@@ -22,7 +22,7 @@ Planner 选择合法目标、解析行动组合和局部随机，返回候选 Re
 
 地点完成后，Outcome 评估目标与失败条件；仍有可选 Route 时必须先转场，全部结束后才形成 EventResult。成功奖励由 `claimOutcomeReward()` 防止重复领取。`OperationView` 从 Run 投影当前 Scene、候选和奖励状态，是只读呈现数据。
 
-源码：`src/arona-clicker/services/operation/operation-plan-preparation.ts`、`operation-resolution-planner.ts`、`operation-player-scene-deck.ts`、`operation-progress-evaluator.ts`、`operation-route-evaluator.ts`、`operation-view-projector.ts`。相关测试见 `tests/engine/operation-resolution-planner.test.ts`、`tests/engine/operation-intervention-preview.test.ts`、`tests/engine/operation-view-projector.test.ts`。
+源码：`src/arona-clicker/services/operation/operation-plan-preparation.ts`、`operation-resolution-planner.ts`、`operation-player-scene-deck.ts`、`operation-progress-evaluator.ts`、`operation-route-evaluator.ts`、`operation-view-projector.ts`。相关测试见 `tests/engine/operation/operation-resolution-planner.test.ts`、`tests/engine/operation/operation-intervention-preview.test.ts`、`tests/engine/operation/operation-view-projector.test.ts`。
 
 准入、Run 状态与恢复见 [[operation-runtime-and-admission]]；UI 工作区入口见 [[read-model-and-ui]]。
 
@@ -39,7 +39,7 @@ Character Hand 和 Scene 卡牌实例属于不同的行动内容：前者由合�
 
 ## 示例：过期计划不能提交
 
-`tests/engine/operation-runtime-service.test.ts` 在同一 Run 上尝试预览不存在的 Action、提交非法干预，并以错误的 `planVersion` 提交 Beat；三者被拒绝后，Run 快照、Character Hand 和随机游标保持不变。`tests/engine/operation-intervention-preview.test.ts` 还覆盖不在当前手牌中的行动、非法目标与费用不足。
+`tests/engine/operation/operation-runtime-service.test.ts` 在同一 Run 上尝试预览不存在的 Action、提交非法干预，并以错误的 `planVersion` 提交 Beat；三者被拒绝后，Run 快照、Character Hand 和随机游标保持不变。`tests/engine/operation/operation-intervention-preview.test.ts` 还覆盖不在当前手牌中的行动、非法目标与费用不足。
 
 因此，看到一个预览不代表状态已经发生变化，也不保证旧预览在下一次状态变化后仍可提交。界面应使用当前 Run / 版本重新发出命令；若命令被拒绝，检查计划、目标和费用，而不是假设已经消费随机数或资源。
 

@@ -7,7 +7,7 @@ import { jsonArchiveEntry, writeZipArchive } from '../../../src/data-services/ar
 import { parsePackFromZipFile } from '../../../src/data-services/datapack/pack-parser';
 import { parsePackManifest, type PackManifest } from '../../../src/data-services/datapack/manifest';
 import type { EditorPackageMetadata } from '../model/editor-model';
-import type { DatapackData } from '../validate';
+import type { DatapackData } from '../validate/index';
 
 export interface DatapackFileImport {
   datapack: DatapackData;

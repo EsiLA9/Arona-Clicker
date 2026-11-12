@@ -26,6 +26,7 @@ interface TooltipPoint {
  */
 export class PopoverManager {
   private bound = false;
+  private readonly listeners = new AbortController();
   private showTimer: ReturnType<typeof setTimeout> | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingWrap: HTMLElement | null = null;
@@ -45,6 +46,17 @@ export class PopoverManager {
     private readonly root: HTMLElement,
     private readonly game: GameReadModel,
   ) {}
+
+  dispose(): void {
+    this.listeners.abort();
+    this.cancelPendingShow();
+    if (this.hideTimer !== null) clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+    const tooltip = this.lastWrap && document.getElementById('floating-tooltip');
+    if (tooltip) this.clearTooltip(tooltip);
+    this.lastWrap = null;
+    this.cancelPositionFrame();
+  }
 
   /**
    * DOM 全量重建后调用（controller.render 开头）：
@@ -206,8 +218,9 @@ export class PopoverManager {
 
   bind(): void {
     // #app 持久存在，事件委托监听器只需绑定一次（Init 选择页与游戏页共用同一 root）
-    if (this.bound) return;
+    if (this.bound || this.listeners.signal.aborted) return;
     this.bound = true;
+    const options = { signal: this.listeners.signal };
     let tooltipEl = document.getElementById('floating-tooltip');
     if (!tooltipEl) {
       tooltipEl = document.createElement('div');
@@ -283,7 +296,7 @@ export class PopoverManager {
         this.pointer = { x: mouse.clientX, y: mouse.clientY };
         show(wrap);
       }
-    });
+    }, options);
     // mouseout 时：移出 wrap 且未进入另一 wrap → 快速隐藏。
     // tooltip 为 pointer-events:none，鼠标可穿透，不会拦截移向底部内容的动作。
     this.root.addEventListener('mouseout', (event) => {
@@ -297,14 +310,14 @@ export class PopoverManager {
         return;
       }
       hide();
-    });
+    }, options);
     this.root.addEventListener('mousemove', (event) => {
       const mouse = event as MouseEvent;
       this.pointer = { x: mouse.clientX, y: mouse.clientY };
       const target = event.target as HTMLElement;
       const wrap = target.closest<HTMLElement>('.hover-wrap[data-tooltip]');
       if (wrap && wrap === this.lastWrap) this.schedulePosition(wrap, tooltipEl!);
-    });
+    }, options);
     this.root.addEventListener('wheel', (event) => {
       if (!tooltipEl!.classList.contains('is-open')) return;
       const wheel = event as WheelEvent;
@@ -316,7 +329,7 @@ export class PopoverManager {
       if (nextScrollTop === tooltipEl!.scrollTop) return;
       tooltipEl!.scrollTop = nextScrollTop;
       wheel.preventDefault();
-    }, { capture: true, passive: false });
+    }, { ...options, capture: true, passive: false });
     this.root.addEventListener('focusin', (event) => {
       const target = event.target as HTMLElement;
       const wrap = target.closest<HTMLElement>('.hover-wrap[data-tooltip]');
@@ -324,7 +337,7 @@ export class PopoverManager {
         this.pointer = null;
         show(wrap);
       }
-    });
+    }, options);
     this.root.addEventListener('focusout', (event) => {
       const target = event.target as HTMLElement;
       const related = event.relatedTarget as HTMLElement | null;
@@ -335,16 +348,16 @@ export class PopoverManager {
         return;
       }
       hide();
-    });
+    }, options);
     window.addEventListener('scroll', () => {
       if (this.lastWrap) this.schedulePosition(this.lastWrap, tooltipEl!);
-    }, true);
+    }, { ...options, capture: true });
     window.addEventListener('resize', () => {
       if (this.lastWrap) {
         this.naturalTooltipSize = null;
         this.renderedTooltipSize = null;
         this.schedulePosition(this.lastWrap, tooltipEl!);
       }
-    });
+    }, options);
   }
 }

@@ -28,7 +28,7 @@ Shop 的商品列表由定义提供，不自动刷新；购买可消耗并改变
 
 ## 示例：A → B → C
 
-`tests/engine/gameplay-b-map-run.test.ts` 的 `ROUTE_MAP` 设定起点 A、手动完成的 Encounter 节点 B、出口 C，只声明 A → B 与 B → C：
+`tests/engine/gameplay-b/gameplay-b-map-run.test.ts` 的 `ROUTE_MAP` 设定起点 A、手动完成的 Encounter 节点 B、出口 C，只声明 A → B 与 B → C：
 
 1. 在 A 直接请求 C，会因没有 A → C 边被拒绝，Run 不变。
 2. 移动到 B 会打开 Encounter。此时请求 C 被拒绝，仍停在 B。
@@ -41,4 +41,4 @@ Shop 的商品列表由定义提供，不自动刷新；购买可消耗并改变
 
 先检查当前包是否启用、地图 ID 和队伍是否通过准入；移动失败再检查活动、边的方向和当前门禁。地图节点会话与遭遇手牌见 [[gameplay-maprun-encounters]]；效果、状态和 Facts 见 [[gameplay-maprun-effects-and-facts]]。
 
-源码：`src/data-services/contracts/gameplay-map.ts`、`src/arona-clicker/services/map/map-run-service.ts` 的 `start()`、`move()`、`restart()`、`abandon()`；`src/arona-clicker/runtime/runtime-game-instance.ts`。测试：`tests/engine/gameplay-b-map-run.test.ts`、`tests/engine/gameplay-b-map-runtime-integration.test.ts`。
+源码：`src/data-services/contracts/gameplay-map.ts`、`src/arona-clicker/services/map/map-run-service.ts` 的 `start()`、`move()`、`restart()`、`abandon()`；`src/arona-clicker/runtime/runtime-game-instance.ts`。测试：`tests/engine/gameplay-b/gameplay-b-map-run.test.ts`、`tests/engine/gameplay-b/gameplay-b-map-runtime-integration.test.ts`。

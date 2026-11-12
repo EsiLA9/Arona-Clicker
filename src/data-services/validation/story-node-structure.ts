@@ -117,7 +117,14 @@ export function validateStoryNodeStructure(document: StoryNodeDocument): StoryNo
     }
 
     if (node.type === 'talklet' || node.type === 'click') {
-      if (node.performance!==undefined) for (const error of storyPerformanceIssues(node.performance,node.type==='click')) issue(`${nodePath}.performance${error.path}`,'range',error.message);
+      if (node.performance !== undefined) {
+        let visual: unknown = node.performance;
+        if (node.type === 'talklet' && node.performance?.pacing !== undefined) {
+          const { pacing: _pacing, ...display } = node.performance;
+          visual = display;
+        }
+        for (const error of storyPerformanceIssues(visual, node.type === 'click')) issue(`${nodePath}.performance${error.path}`, 'range', error.message);
+      }
       if (!LOCAL_NAME.test(node.stageId)) {
         issue(`${nodePath}.stageId`, 'invalid-id', 'Stage ID must be a local name of 1–64 letters, digits, underscores, or hyphens, beginning with a letter');
       }
@@ -174,14 +181,16 @@ function validatePacing(
   index: number,
   issue: (path: string, code: StoryNodeStructureIssueCode, message: string) => void,
 ): void {
-  const hasExplicitPacing = node.pacing?.typing !== undefined || node.pacing?.thinking !== undefined;
-  if (hasExplicitPacing && (node.content.kind !== 'talk' || node.presentation?.side === 'right')) {
-    issue(`nodes[${index}].pacing`, 'pacing-scope', 'Explicit typing or thinking pacing is only valid for non-right Talk content');
+  const pacing = node.performance?.pacing ?? node.pacing;
+  const path = node.performance?.pacing === undefined ? 'pacing' : 'performance.pacing';
+  const hasExplicitPacing = pacing?.typing !== undefined || pacing?.thinking !== undefined;
+  if (hasExplicitPacing && (node.content.kind !== 'talk' || (node.appearance?.presentation ?? node.presentation)?.side === 'right')) {
+    issue(`nodes[${index}].${path}`, 'pacing-scope', 'Explicit typing or thinking pacing is only valid for non-right Talk content');
   }
   for (const key of ['typing', 'thinking'] as const) {
-    const value = node.pacing?.[key];
+    const value = pacing?.[key];
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
-      issue(`nodes[${index}].pacing.${key}`, 'range', 'Pacing values must be finite non-negative numbers');
+      issue(`nodes[${index}].${path}.${key}`, 'range', 'Pacing values must be finite non-negative numbers');
     }
   }
 }

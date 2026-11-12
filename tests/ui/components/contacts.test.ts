@@ -4,13 +4,13 @@ import type { Datapack } from '../../../src/data-services/contracts/datapack';
 // ============================================================
 import { describe, test, expect, beforeEach } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
-import type { } from '../../../src/engine/types';
-import { and } from '../../../src/engine/types';
+import type { } from '../../../src/engine/types/index';
+import { and } from '../../../src/engine/types/index';
 import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
 import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 import { extra } from '../../../src/engine/extra/index';
 import { baseDatapack } from '../../../src/data/test-datapack';
-import { finishStory, finishWelcome } from '../../engine/story-test-fixtures';
+import { finishStory, finishWelcome } from '../../engine/story/story-test-fixtures';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderChatHistory, renderCurrentStory } from '../../../src/ui/components/story/story';
 import { renderSendButton } from '../../../src/ui/columns/chat-content';

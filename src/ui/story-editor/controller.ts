@@ -501,16 +501,17 @@ export class StoryEditorController {
         }
         return;
       }
-      const designerTarget=event.target instanceof Element?event.target.closest<HTMLElement>('[data-column-action^="story-editor-designer:"], [data-story-reset-performance], [data-story-display-target]'):null;
+      const designerTarget=event.target instanceof Element?event.target.closest<HTMLElement>('[data-column-action^="story-editor-designer:"], [data-story-reset-design], [data-story-display-target]'):null;
       if(designerTarget&&root.contains(designerTarget)&&!(designerTarget instanceof HTMLButtonElement&&designerTarget.disabled)) {
         const draft=currentDraft(this.state),node=currentNode(this.state);
-        if(designerTarget.hasAttribute('data-story-reset-performance')&&draft&&node&&!this.state.storageBlocked) {
-          removeProperty(draft,node.id,['performance']);
-          const prefix=`${node.id}|["performance"`;
+        const group = designerTarget.dataset.storyResetDesign;
+        if ((group === 'appearance' || group === 'performance') && draft && node && !this.state.storageBlocked) {
+          removeProperty(draft,node.id,[group]);
+          const prefix=`${node.id}|[${JSON.stringify(group)}`;
           for(const bucket of [draft.editorState?.branches,draft.editorState?.optionals,draft.editorState?.optionalPaths,draft.editorState?.optionalBranches,draft.editorState?.rawInputs]) if(bucket) for(const key of Object.keys(bucket)) if(key.startsWith(prefix)) delete bucket[key];
         } else if(designerTarget.dataset.storyDisplayTarget) {
           this.browseTarget({kind:'story',id:designerTarget.dataset.storyDisplayTarget});this.state.selectedNodeId=designerTarget.dataset.storyDisplayNode??null;this.state.inspectorView='node';
-        } else {const page=designerTarget.dataset.columnAction?.slice('story-editor-designer:'.length);if(page==='basic'||page==='performance')this.state.nodeDesignerTab=page;}
+        } else {const page=designerTarget.dataset.columnAction?.slice('story-editor-designer:'.length);if(page==='basic'||page==='appearance'||page==='performance')this.state.nodeDesignerTab=page;}
         this.requestRefresh();return;
       }
       const contentTarget=event.target instanceof Element?event.target.closest<HTMLElement>('[data-story-theme-content-open], [data-theme-content-action]'):null;
@@ -601,7 +602,15 @@ export class StoryEditorController {
       else if (nodeTypeTab && ['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(nodeTypeTab)) {
         const draft = currentDraft(this.state);
         const node = currentNode(this.state);
-        if (draft && node) selectNodeType(draft, node.id, nodeTypeTab as import('./property-model').StoryNodeType);
+        if (draft && node && selectNodeType(draft, node.id, nodeTypeTab as import('./property-model').StoryNodeType)) {
+          const next = currentNode(this.state);
+          if (next?.type !== node.type) {
+            this.state.nodeDesignerTab = 'basic';
+            if (this.state.performanceEditing && (!next || !hasStoryNodeOverlay(next) || next.type === 'operation' || node.type === 'operation')) {
+              this.state.performanceEditing[draft.draftId] = this.state.performanceEditing[draft.draftId]?.filter(id => id !== node.id) ?? [];
+            }
+          }
+        }
       } else if (sidebarTab === 'stories' || sidebarTab === 'entries' || sidebarTab === 'senders') this.state.sidebarMode = sidebarTab;
       else if (sender) {
         const draft = currentDraft(this.state);
@@ -1321,7 +1330,8 @@ export class StoryEditorController {
     const node=draft.document.nodes[parsed.index]; if(!node)return;
     this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
     this.state.selectedNodeId=node.id;
-    if(parsed.path[0]==='performance') this.state.nodeDesignerTab='performance';
+    if(parsed.path[0]==='appearance') this.state.nodeDesignerTab='appearance';
+    else if(parsed.path[0]==='performance') this.state.nodeDesignerTab='performance';
     else if(node.type==='talklet'||node.type==='click') this.state.nodeDesignerTab='basic';
     this.pendingFocus=parsed.path.length?JSON.stringify(parsed.path):null;
   }

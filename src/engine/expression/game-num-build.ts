@@ -17,7 +17,7 @@
 // ============================================================
 
 import type { Value, ValueExpression } from '../types';
-import type { GameEvent } from '../types';
+import type { GameEvent } from '../types/index';
 import type { GameNumState } from '../contracts/state-query';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';

@@ -43,6 +43,6 @@ EffectEngine 先用 `ValueSystem` 解析表达式参数。宿主可接管演出�
 
 [[trigger-mechanism]] 解释 Trigger 字段、事件种类、条件和挂载生命周期。请特别注意：Builder 默认显式输出 `once: true`，但直接挂载的原始对象省略 `once` 时，当前执行器不会自动补成 `true`。
 
-源码：`src/engine/core/event-bus.ts`、`src/engine/effect/effect-engine.ts`、`src/engine/effect/trigger-system.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/event-bus.test.ts`、`tests/engine/effect-engine.test.ts`、`tests/engine/trigger-system.test.ts`。
+源码：`src/engine/core/event-bus.ts`、`src/engine/effect/effect-engine.ts`、`src/engine/effect/trigger-system.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/core/event-bus.test.ts`、`tests/engine/core/effect-engine.test.ts`、`tests/engine/core/trigger-system.test.ts`。
 
 状态写入与事件边界见 [[state-and-events]]；Affector 的事件响应见 [[affectors-and-contributions]]。

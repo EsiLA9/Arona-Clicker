@@ -143,11 +143,7 @@ export function editProperty(draft: StoryDraft, nodeId: string, path: PropertyPa
     const state = editorState(draft);
     if (typeof value === 'string') state.rawInputs[rawKey] = value;
     else delete state.rawInputs[rawKey];
-    const node = selectedNode(draft, nodeId);
-    if (node?.type === 'talklet' && path.length === 2 && path[0] === 'presentation' && path[1] === 'side') {
-      if (value === 'right') parkPacing(draft, nodeId, node, state);
-      else if (value === 'left' && (node.content as Record<string, unknown> | undefined)?.kind === 'talk') restorePacing(draft, nodeId, node, state);
-    }
+
   }
   return changed;
 }
@@ -192,8 +188,6 @@ export function selectDiscriminant(draft: StoryDraft, nodeId: string, path: Prop
   const node = selectedNode(draft, nodeId);
   if (changed && path.length === 1 && path[0] === 'content' && node?.type === 'talklet') {
     editProperty(draft, nodeId, ['content', 'text'], body);
-    if (branch === 'narration') parkPacing(draft, nodeId, node, state);
-    else if (branch === 'talk' && (node.presentation as Record<string, unknown> | undefined)?.side !== 'right') restorePacing(draft, nodeId, node, state);
   }
   if (changed && path.length === 1 && path[0] === 'interaction' && node?.type === 'click') {
     if (branch === 'choice') {
@@ -224,22 +218,6 @@ export function selectThemeScope(draft: StoryDraft, nodeId: string, themePath: P
   theme.scope = scope;
   const changed = mutateNode(draft, nodeId, target => assignAt(target, themePath, theme));
   return changed;
-}
-function parkPacing(draft: StoryDraft, nodeId: string, node: Record<string, unknown>, state: PropertyEditorState): void {
-  if (node.pacing === undefined) return;
-  state.branches[`${nodeId}|side:pacing`] = structuredClone(node.pacing);
-  delete node.pacing;
-  // A parked pacing branch is asleep, not an enabled-but-empty optional: clear the switch too.
-  state.optionals[propertyKey(draft, nodeId, ['pacing'])] = false;
-  draft.dirty = true;
-}
-function restorePacing(draft: StoryDraft, nodeId: string, node: Record<string, unknown>, state: PropertyEditorState): void {
-  const pacing = state.branches[`${nodeId}|side:pacing`];
-  if (pacing === undefined || node.pacing !== undefined) return;
-  node.pacing = structuredClone(pacing);
-  delete state.branches[`${nodeId}|side:pacing`];
-  state.optionals[propertyKey(draft, nodeId, ['pacing'])] = true;
-  draft.dirty = true;
 }
 /** Enable/disable an optional field. A new optional starts absent until the author enters a value. */
 export function toggleOptional(draft: StoryDraft, nodeId: string, path: PropertyPath, enabled: boolean): boolean {
@@ -392,6 +370,48 @@ export function moveRowBy(draft: StoryDraft, nodeId: string, path: PropertyPath,
   return moveRow(draft, nodeId, path, rowId, index + delta);
 }
 
+/** Lift legacy display fields out of the type payload, preserving the active values. */
+export function liftLegacyStoryDesign(node: Record<string, unknown>): void {
+  const { presentation, pacing } = node;
+  const direction = node.performance;
+  const { template, style, ...timing } = object(direction) ? direction : {};
+  const appearance = {
+    ...(template === undefined ? {} : { template }),
+    ...(style === undefined ? {} : { style }),
+    ...(presentation === undefined ? {} : { presentation }),
+    ...record(node.appearance),
+  };
+  const performance = { ...(pacing === undefined ? {} : { pacing }), ...timing };
+  delete node.presentation;
+  delete node.pacing;
+  if (Object.keys(appearance).length) node.appearance = appearance;
+  if (Object.keys(performance).length) node.performance = performance;
+  else if (object(direction)) delete node.performance;
+}
+
+export function restoreStoryDraftDesign(draft: StoryDraft): void {
+  const branches = draft.editorState?.branches;
+  for (const item of draft.document.nodes) {
+    const node = item as unknown as Record<string, unknown>;
+    liftLegacyStoryDesign(node);
+    if (!branches) continue;
+    for (const type of ['talklet', 'click']) {
+      const payload = branches[`${item.id}|node:${type}`];
+      if (!object(payload)) continue;
+      liftLegacyStoryDesign(payload);
+      for (const key of ['appearance', 'performance']) {
+        if (object(payload[key])) node[key] = { ...record(payload[key]), ...record(node[key]) };
+        delete payload[key];
+      }
+    }
+    const pacingKey = `${item.id}|side:pacing`;
+    if (branches[pacingKey] !== undefined) {
+      node.performance = { pacing: branches[pacingKey], ...record(node.performance) };
+      delete branches[pacingKey];
+    }
+  }
+}
+
 export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNodeType): boolean {
   if (!['talklet', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(type)) return false;
   const node = selectedNode(draft, nodeId);
@@ -399,7 +419,9 @@ export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNod
   const body = node.type === 'talklet' || node.type === 'click' ? rememberStoryNodeBody(draft, nodeId) : readStoryNodeBody(draft, nodeId);
   const state = editorState(draft);
   const oldType = String(node.type);
-  const payload = structuredClone(node); delete payload.type; delete payload.id;
+  liftLegacyStoryDesign(node);
+  const { appearance, performance, ...payload } = structuredClone(node);
+  delete payload.type; delete payload.id;
   delete payload.requiresFlag;
   state.branches[`${nodeId}|node:${oldType}`] = payload;
   const oldStage = (oldType === 'talklet' || oldType === 'click') && typeof node.stageId === 'string' ? node.stageId : undefined;
@@ -409,7 +431,7 @@ export function selectNodeType(draft: StoryDraft, nodeId: string, type: StoryNod
   }
   const saved = state.branches[`${nodeId}|node:${type}`];
   const seed = type === 'moveToArea' ? { areaId: '' } : type === 'moveToCharaspace' ? { characterId: '' } : {};
-  const next: Record<string, unknown> = { id: nodeId, ...(typeof node.requiresFlag === 'string' ? { requiresFlag: node.requiresFlag } : {}), ...seed, ...(object(saved) ? structuredClone(saved) : {}), type };
+  const next: Record<string, unknown> = { id: nodeId, ...(typeof node.requiresFlag === 'string' ? { requiresFlag: node.requiresFlag } : {}), ...seed, ...(object(saved) ? structuredClone(saved) : {}), ...(appearance === undefined ? {} : { appearance }), ...(performance === undefined ? {} : { performance }), type };
   // Talklet and Click require their own stage declaration; a switched node keeps its cached stage or gets a fresh one.
   if (type === 'talklet' || type === 'click') {
     const stages = { ...draft.document.stages } as Record<string, { advance: 'auto' | 'input' }>;
@@ -472,8 +494,6 @@ export function removeProperty(draft: StoryDraft, nodeId: string, path: Property
   delete literalKinds(draft)[key];
   state.optionals[key] = false;
   delete state.branches[`${key}|optional`];
-  const node = selectedNode(draft, nodeId);
-  if (path.length===2 && path[0]==='presentation' && path[1]==='side' && node?.type==='talklet' && record(node.content).kind==='talk') restorePacing(draft,nodeId,node,state);
   return true;
 }
 

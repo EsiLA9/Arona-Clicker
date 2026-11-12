@@ -6,7 +6,7 @@
 
 一次微任务中，商店目录可能同时收到两次相同的资源数字更新和一次目录区域更新。调度器以 Surface 身份、更新类型和目标等字段去重；当同批次还有覆盖该目录的 `region` 更新时，目录内部的资源数字更新会被区域更新覆盖。另一面板的数字更新仍保留。
 
-`tests/ui/ui-update-dispatcher.test.ts` 的 `coalesces duplicates...` 用这一组请求验证结果依次为目录 `region` 和另一面板的 `behavior`。这是调度器层面的结果，不意味着所有商店变化都必然使用这些具体请求。
+`tests/ui/controller/ui-update-dispatcher.test.ts` 的 `coalesces duplicates...` 用这一组请求验证结果依次为目录 `region` 和另一面板的 `behavior`。这是调度器层面的结果，不意味着所有商店变化都必然使用这些具体请求。
 
 ## 更新请求的四个尺度
 
@@ -47,4 +47,4 @@ Surface key 与 `WorkspaceRoute` key 并不总是一一对应，例如 Contacts 
 - 更新范围过大：查看同批次是否包含覆盖性 `structure` 或 `region` 请求，以及调用方是否选择了回退。
 - 焦点或滚动跳动：检查发生的是局部节点替换还是整个页面重建，再查焦点和 `FlowScroll` 的捕获与恢复；不要只根据请求类型推断最终 DOM。
 
-源码：`src/ui/update/ui-update-types.ts`、`src/ui/update/ui-update-dispatcher.ts`、`src/ui/update/ui-surface.ts`。测试：`tests/ui/ui-update-dispatcher.test.ts`、`tests/ui/focus.test.ts`、`tests/ui/scroll.test.ts`。
+源码：`src/ui/update/ui-update-types.ts`、`src/ui/update/ui-update-dispatcher.ts`、`src/ui/update/ui-surface.ts`。测试：`tests/ui/controller/ui-update-dispatcher.test.ts`、`tests/ui/interaction/focus.test.ts`、`tests/ui/interaction/scroll.test.ts`。

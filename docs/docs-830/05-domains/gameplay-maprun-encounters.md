@@ -27,8 +27,8 @@ AG-1 候选池可受 MapRun Facts 门控：进入 Encounter 时记录候选来�
 
 ## 示例：合格行动不一定进入手牌
 
-`tests/engine/gameplay-b-map-run.test.ts` 的 `HAND_MAP` 为多名角色声明可用 Action：`eligible-not-candidate` 允许 Shiroko 使用，但并未放入她在该 Encounter 的候选列表，因此不能仅凭角色资格推断它会出现在手牌中。另有两个费用高于当前 Actor 或 Team 余额的候选，权重虽设为 1000，也不能因此跳过费用合法性检查。排查缺卡时依次看 Action 资格、参与者候选/池、目标和费用，再看抽取结果及随机状态。
+`tests/engine/gameplay-b/gameplay-b-map-run.test.ts` 的 `HAND_MAP` 为多名角色声明可用 Action：`eligible-not-candidate` 允许 Shiroko 使用，但并未放入她在该 Encounter 的候选列表，因此不能仅凭角色资格推断它会出现在手牌中。另有两个费用高于当前 Actor 或 Team 余额的候选，权重虽设为 1000，也不能因此跳过费用合法性检查。排查缺卡时依次看 Action 资格、参与者候选/池、目标和费用，再看抽取结果及随机状态。
 
 AG-1 和兼容执行合同对来源排序、资源费用的处理有区别；具体效果和局内状态见 [[gameplay-maprun-effects-and-facts]]。
 
-源码：`src/arona-clicker/services/map/gameplay-b-hand-resolver.ts`、`gameplay-b-action-preview-resolver.ts`、`gameplay-b-target-selection.ts`、`map-run-service.ts` 的 `previewEncounterCommit()`、`prepareEncounterRoundCommit()`；命令类型在 `src/arona-clicker/contracts/map/map-run.ts`。测试：`tests/engine/gameplay-b-map-cards.test.ts`、`tests/engine/gameplay-b-map-run.test.ts`、`tests/engine/gameplay-b-map-ag1-commit.test.ts`。
+源码：`src/arona-clicker/services/map/gameplay-b-hand-resolver.ts`、`gameplay-b-action-preview-resolver.ts`、`gameplay-b-target-selection.ts`、`map-run-service.ts` 的 `previewEncounterCommit()`、`prepareEncounterRoundCommit()`；命令类型在 `src/arona-clicker/contracts/map/map-run.ts`。测试：`tests/engine/gameplay-b/gameplay-b-map-cards.test.ts`、`tests/engine/gameplay-b/gameplay-b-map-run.test.ts`、`tests/engine/gameplay-b/gameplay-b-map-ag1-commit.test.ts`。

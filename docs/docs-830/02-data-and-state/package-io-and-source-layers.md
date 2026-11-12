@@ -33,6 +33,6 @@ TypeScript Base 文件夹导出通过 `scripts/export-base-datapack.mjs` 读取�
 
 假设解析顺序为 draft、pack、base，pack 和 base 都有同一 Spot。正常解析得到 pack 的记录；在 draft 添加 suspend tombstone 后，结果变为 `suspended`，pack 记录仍保留为被遮蔽来源。移除当前 draft 拥有的 tombstone 后，解析再次得到 pack 记录。若传入的层均没有这个 Spot，则即使存在 tombstone，结果也是 `missing`。完整过程与边界见 [[definition-source-resolution]]。
 
-源码入口：`src/data-services/datapack/source.ts`、`manifest.ts`、`pack-parser.ts`、`zip-loader.ts`、`src/data-services/archive/archive-writer.ts`、`src/data-services/definition/definition-resolution.ts`、`definition-types.ts`。测试见 `tests/data/pack-parser.test.ts`、`zip-loader.test.ts`、`archive-writer.test.ts`、`definition-resolution.test.ts`。
+源码入口：`src/data-services/datapack/source.ts`、`manifest.ts`、`pack-parser.ts`、`zip-loader.ts`、`src/data-services/archive/archive-writer.ts`、`src/data-services/definition/definition-resolution.ts`、`definition-types.ts`。测试见 `tests/data/datapack/pack-parser.test.ts`、`zip-loader.test.ts`、`archive-writer.test.ts`、`definition-resolution.test.ts`。
 
 继续阅读：[[datapack-and-registry]]、[[authoring-policy-and-builders]]。

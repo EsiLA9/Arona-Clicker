@@ -51,12 +51,12 @@ trigger('base:trigger:welcome_reward')
 
 ## 如何验证
 
-`tests/engine/trigger-system.test.ts` 的 `registers base trigger defs and fires on story completion` 使用 `finishWelcome()` 完成剧情，并检查背包能量饮料从 0 增加到至少 1。该测试验证了这条真实内容链路，但并不单独证明每一种存档、重复事件或异常场景。
+`tests/engine/core/trigger-system.test.ts` 的 `registers base trigger defs and fires on story completion` 使用 `finishWelcome()` 完成剧情，并检查背包能量饮料从 0 增加到至少 1。该测试验证了这条真实内容链路，但并不单独证明每一种存档、重复事件或异常场景。
 
 在项目根目录运行定向测试：
 
 ```text
-npm test -- tests/engine/trigger-system.test.ts
+npm test -- tests/engine/core/trigger-system.test.ts
 ```
 
 测试输出按项目规则写入 `.test-artifacts/latest.log`。实际变更时，应在工作结果中单独报告是否运行以及测试结果。

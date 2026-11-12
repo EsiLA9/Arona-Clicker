@@ -4212,22 +4212,17 @@
       "adjacentAreaIds": [
         "base:area:schale_library"
       ],
-      "revealTriggers": [
-        {
-          "reveal": "name",
+      "reveal": {
+        "name": {
+          "mode": "condition",
           "condition": {
-            "type": "AND",
-            "conditions": [
-              {
-                "target": "stat",
-                "key": "$GlobalProducedAmount base:resource:credit",
-                "comparator": ">=",
-                "value": 80
-              }
-            ]
+            "target": "stat",
+            "key": "$GlobalProducedAmount base:resource:credit",
+            "comparator": ">=",
+            "value": 80
           }
         }
-      ],
+      },
       "presentation": {
         "default": {
           "name": "夏莱机库",
@@ -4393,21 +4388,19 @@
       "adjacentAreaIds": [
         "base:area:millennium_canteen"
       ],
-      "revealTriggers": [
-        {
-          "reveal": "name",
+      "reveal": {
+        "name": {
+          "mode": "condition",
           "condition": {
-            "type": "AND",
-            "conditions": [
-              {
-                "target": "resource",
-                "key": "base:resource:credit",
-                "comparator": ">=",
-                "value": 40
-              }
-            ]
+            "target": "resource",
+            "key": "base:resource:credit",
+            "comparator": ">=",
+            "value": 40
           }
         }
+      },
+      "onVisitReveal": [
+        "existence"
       ],
       "presentation": {
         "default": {
@@ -13054,6 +13047,11 @@
           }
         }
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13070,12 +13068,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_tea",
@@ -13093,6 +13086,11 @@
           "daily"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13109,12 +13107,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_printer",
@@ -13132,6 +13125,11 @@
           "office"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13148,12 +13146,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_archive",
@@ -13171,6 +13164,11 @@
           "office"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13187,12 +13185,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_sunset",
@@ -13210,6 +13203,11 @@
           "daily"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13226,12 +13224,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_planner",
@@ -13249,6 +13242,11 @@
           "daily"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13265,12 +13263,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_vending",
@@ -13288,6 +13281,11 @@
           "office"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13304,12 +13302,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:schale_night",
@@ -13327,6 +13320,11 @@
           "night"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13343,12 +13341,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_daily_committee",
@@ -13360,6 +13353,11 @@
       "availableInits": [
         "base:init:abydos"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13376,12 +13374,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_siesta",
@@ -13393,6 +13386,11 @@
       "availableInits": [
         "base:init:abydos"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13409,12 +13407,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_serika_shift",
@@ -13426,6 +13419,11 @@
       "availableInits": [
         "base:init:abydos"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13442,12 +13440,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:abydos_money",
@@ -13459,6 +13452,11 @@
       "availableInits": [
         "base:init:abydos"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13475,12 +13473,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_calculation",
@@ -13492,6 +13485,11 @@
       "availableInits": [
         "base:init:millennium"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13508,12 +13506,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_game_dev",
@@ -13525,6 +13518,11 @@
       "availableInits": [
         "base:init:millennium"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13541,12 +13539,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_hack",
@@ -13558,6 +13551,11 @@
       "availableInits": [
         "base:init:millennium"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13574,12 +13572,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:millennium_server",
@@ -13591,6 +13584,11 @@
       "availableInits": [
         "base:init:millennium"
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 1,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13607,12 +13605,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 1,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_conv_1",
@@ -13622,14 +13615,14 @@
         "conditions": []
       },
       "availableInits": [],
-      "owner": "Hoshino",
-      "interruptible": true,
       "activation": {
         "kind": "random",
         "weight": 1,
         "repeatable": true,
         "cooldownFrames": 600
-      }
+      },
+      "owner": "Hoshino",
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_conv_2",
@@ -13642,19 +13635,19 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "owner": "Hoshino",
-      "interruptible": false,
-      "leaveArea": false,
+      "catalog": {
+        "category": "side",
+        "part": "part_3",
+        "order": 0
+      },
       "activation": {
         "kind": "random",
         "weight": 1,
         "repeatable": false
       },
-      "catalog": {
-        "category": "side",
-        "part": "part_3",
-        "order": 0
-      }
+      "owner": "Hoshino",
+      "interruptible": false,
+      "leaveArea": false
     },
     {
       "id": "base:passivestory:hoshino_bond_invite",
@@ -13665,13 +13658,13 @@
       },
       "availableInits": [],
       "replayable": true,
-      "owner": "Hoshino",
-      "interruptible": true,
       "activation": {
         "kind": "random",
         "weight": 1,
         "repeatable": false
-      }
+      },
+      "owner": "Hoshino",
+      "interruptible": true
     },
     {
       "id": "base:passivestory:shiroko_drink_invite",
@@ -13684,8 +13677,12 @@
         "base:init:schale_office"
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 0
+      },
       "owner": "Shiroko",
-      "interruptible": true,
       "activation": {
         "kind": "affection",
         "when": {
@@ -13693,11 +13690,7 @@
           "level": 1
         }
       },
-      "catalog": {
-        "category": "side",
-        "part": "part_4",
-        "order": 0
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:shiroko_rooftop_invite",
@@ -13717,8 +13710,12 @@
         "base:init:schale_office"
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_4",
+        "order": 2
+      },
       "owner": "Shiroko",
-      "interruptible": true,
       "activation": {
         "kind": "affection",
         "when": {
@@ -13726,11 +13723,7 @@
           "level": 1
         }
       },
-      "catalog": {
-        "category": "side",
-        "part": "part_4",
-        "order": 2
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:cooldown_demo_1",
@@ -13740,12 +13733,12 @@
         "conditions": []
       },
       "availableInits": [],
-      "interruptible": true,
       "activation": {
         "kind": "random",
         "weight": 1,
         "repeatable": true
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:hoshino_selfie",
@@ -13763,6 +13756,11 @@
           "daily"
         ]
       ],
+      "activation": {
+        "kind": "random",
+        "weight": 2,
+        "repeatable": true
+      },
       "completionReward": {
         "first": [
           {
@@ -13779,12 +13777,7 @@
           }
         ]
       },
-      "interruptible": true,
-      "activation": {
-        "kind": "random",
-        "weight": 2,
-        "repeatable": true
-      }
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_1",
@@ -13795,14 +13788,14 @@
       },
       "availableInits": [],
       "owner": "Hoshino",
-      "interruptible": true,
       "activation": {
         "kind": "affection",
         "when": {
           "kind": "level",
           "level": 1
         }
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_2",
@@ -13813,14 +13806,14 @@
       },
       "availableInits": [],
       "owner": "Hoshino",
-      "interruptible": true,
       "activation": {
         "kind": "affection",
         "when": {
           "kind": "level",
           "level": 3
         }
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:affinity_hoshino_bond_tail",
@@ -13834,14 +13827,14 @@
       ],
       "replayable": true,
       "owner": "Hoshino",
-      "interruptible": true,
       "activation": {
         "kind": "affection",
         "when": {
           "kind": "level",
           "level": 3
         }
-      }
+      },
+      "interruptible": true
     },
     {
       "id": "base:passivestory:theme_showcase",
@@ -13859,12 +13852,12 @@
           "showcase"
         ]
       ],
-      "interruptible": true,
       "activation": {
         "kind": "random",
         "weight": 1,
         "repeatable": true
-      }
+      },
+      "interruptible": true
     }
   ],
   "stories": [
@@ -19512,13 +19505,13 @@
       ],
       "replayable": true,
       "openingTitle": "白子 · 出发前的饮料",
-      "activation": {
-        "kind": "active"
-      },
       "catalog": {
         "category": "side",
         "part": "part_4",
         "order": 1
+      },
+      "activation": {
+        "kind": "active"
       }
     },
     {
@@ -19533,13 +19526,13 @@
       ],
       "replayable": true,
       "openingTitle": "白子 · 天台上的约定",
-      "activation": {
-        "kind": "active"
-      },
       "catalog": {
         "category": "side",
         "part": "part_4",
         "order": 3
+      },
+      "activation": {
+        "kind": "active"
       }
     },
     {
@@ -19553,14 +19546,14 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active"
-      },
       "catalog": {
         "category": "main",
         "part": "part_1",
         "chapter": "ch_1",
         "order": 0
+      },
+      "activation": {
+        "kind": "active"
       }
     },
     {
@@ -19574,17 +19567,17 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active",
-        "fallback": {
-          "kind": "current-area"
-        }
-      },
       "catalog": {
         "category": "main",
         "part": "part_1",
         "chapter": "ch_2",
         "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
       }
     },
     {
@@ -19598,17 +19591,17 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active",
-        "fallback": {
-          "kind": "current-area"
-        }
-      },
       "catalog": {
         "category": "main",
         "part": "part_1",
         "chapter": "ch_2",
         "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
       }
     },
     {
@@ -19622,17 +19615,17 @@
         "base:init:abydos"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active",
-        "fallback": {
-          "kind": "current-area"
-        }
-      },
       "catalog": {
         "category": "main",
         "part": "part_2",
         "chapter": "ch_1",
         "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
       }
     },
     {
@@ -19646,17 +19639,17 @@
         "base:init:millennium"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active",
-        "fallback": {
-          "kind": "current-area"
-        }
-      },
       "catalog": {
         "category": "main",
         "part": "part_1",
         "chapter": "ch_3",
         "order": 0
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
       }
     },
     {
@@ -19725,17 +19718,17 @@
           "denialMessage": "你还没有真正走过这条路线，无法回顾该分歧。"
         }
       ],
-      "activation": {
-        "kind": "active",
-        "fallback": {
-          "kind": "current-area"
-        }
-      },
       "catalog": {
         "category": "main",
         "part": "part_1",
         "chapter": "ch_3",
         "order": 1
+      },
+      "activation": {
+        "kind": "active",
+        "fallback": {
+          "kind": "current-area"
+        }
       }
     },
     {
@@ -19749,16 +19742,16 @@
         "base:init:abydos"
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 0
+      },
       "activation": {
         "kind": "active",
         "fallback": {
           "kind": "current-area"
         }
-      },
-      "catalog": {
-        "category": "side",
-        "part": "part_1",
-        "order": 0
       }
     },
     {
@@ -19809,16 +19802,16 @@
         }
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_1",
+        "order": 1
+      },
       "activation": {
         "kind": "active",
         "fallback": {
           "kind": "current-area"
         }
-      },
-      "catalog": {
-        "category": "side",
-        "part": "part_1",
-        "order": 1
       }
     },
     {
@@ -19832,13 +19825,13 @@
         "base:init:schale_office"
       ],
       "replayable": true,
-      "activation": {
-        "kind": "active"
-      },
       "catalog": {
         "category": "side",
         "part": "part_2",
         "order": 0
+      },
+      "activation": {
+        "kind": "active"
       }
     },
     {
@@ -19889,16 +19882,16 @@
         }
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 1
+      },
       "activation": {
         "kind": "active",
         "fallback": {
           "kind": "current-area"
         }
-      },
-      "catalog": {
-        "category": "side",
-        "part": "part_2",
-        "order": 1
       }
     },
     {
@@ -19949,16 +19942,16 @@
         }
       ],
       "replayable": true,
+      "catalog": {
+        "category": "side",
+        "part": "part_2",
+        "order": 2
+      },
       "activation": {
         "kind": "active",
         "fallback": {
           "kind": "current-area"
         }
-      },
-      "catalog": {
-        "category": "side",
-        "part": "part_2",
-        "order": 2
       }
     },
     {
@@ -19973,10 +19966,10 @@
       ],
       "replayable": true,
       "openingTitle": "星野 · 午后的堤防",
-      "owner": "Hoshino",
       "activation": {
         "kind": "active"
-      }
+      },
+      "owner": "Hoshino"
     },
     {
       "id": "base:activestory:bond_hoshino_evening",
@@ -19988,10 +19981,10 @@
       "availableInits": [],
       "replayable": true,
       "openingTitle": "星野 · 傍晚的河堤",
-      "owner": "Hoshino",
       "activation": {
         "kind": "active"
-      }
+      },
+      "owner": "Hoshino"
     }
   ],
   "affectorPacks": [

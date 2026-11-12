@@ -95,4 +95,4 @@ columns.dispose();
 
 源码：`src/ui/components/shared/workspace-frame.ts`、`src/ui/columns/`、`src/ui/workspace/workspace-columns.ts`、`column-actions.ts`、`src/ui/controller/controller.ts`、`src/ui/update/ui-update-dispatcher.ts`、`src/ui/interaction/scroll.ts`。
 
-验证入口：`tests/ui/workspace-columns.test.ts`、`content-columns.test.ts`、`workspace-frame.test.ts`、`workspace-lifecycle.test.ts`、`contacts-story-workspace.test.ts`、`scroll.test.ts`、`story-node-delivery.test.ts`。DOM 测试不等同浏览器视觉验收；实际验收记录见 Task 0332（原归档已删除）。
+验证入口：`tests/ui/workspace/workspace-columns.test.ts`、`content-columns.test.ts`、`workspace-frame.test.ts`、`workspace-lifecycle.test.ts`、`contacts-story-workspace.test.ts`、`scroll.test.ts`、`story-node-delivery.test.ts`。DOM 测试不等同浏览器视觉验收；实际验收记录见 Task 0332（原归档已删除）。

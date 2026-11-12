@@ -5,9 +5,9 @@
  * 所有变更走统一入口并产生快照历史，UI 层订阅 onChange 刷新。
  * 不依赖游戏代码与 DOM。
  */
-import { TABLES } from '../schema/datapack.schema';
+import { TABLES } from '../schema/datapack.schema.ts';
 import type { TableKey, TableSchema } from '../schema/types';
-import { validateDatapack, type ValidationIssue } from '../validate';
+import { validateDatapack, type ValidationIssue } from '../validate/index';
 
 export type Row = Record<string, unknown>;
 

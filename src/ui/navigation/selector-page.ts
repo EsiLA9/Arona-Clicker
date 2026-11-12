@@ -101,12 +101,13 @@ export class SelectorPage {
   private workbenchCollapsed = false;
   private overviewInitId: string | null = null;
   private overviewReturnFocus: HTMLElement | null = null;
+  private readonly listeners = new AbortController();
 
   constructor(private readonly host: SelectorHost) {
     // 视口本身由 SVG viewBox 自适应；只有相机缩放保存在这里，窗口变化无需重建。
     window.addEventListener('resize', () => {
       if (!this.transition && this.host.root.querySelector('.selector-shell')) this.applyCamera();
-    });
+    }, { signal: this.listeners.signal });
     // 捕获阶段也阻止合成事件；inert 负责键盘可达性。顶栏仍可用于离开页面。
     for (const type of ['click', 'keydown', 'wheel', 'pointerdown', 'pointermove']) {
       this.host.root.addEventListener(type, event => {
@@ -114,8 +115,14 @@ export class SelectorPage {
         if (!this.transition && !(this.overviewInitId && event.target.closest('[data-selector-graph], [data-selector-workbench]'))) return;
         event.preventDefault();
         event.stopImmediatePropagation();
-      }, { capture: true, passive: false });
+      }, { capture: true, passive: false, signal: this.listeners.signal });
     }
+  }
+
+  dispose(): void {
+    this.listeners.abort();
+    this.transition?.cancel();
+    this.sceneBackground.cancel();
   }
 
   /** 进入选择页前重置页面级瞬时状态；选中项按注册表有效性保留。 */
@@ -376,7 +383,7 @@ export class SelectorPage {
         || !event.target.closest('[data-selector-init-overview]')) return;
       event.preventDefault();
       this.closeInitOverview();
-    });
+    }, { signal: this.listeners.signal });
     this.host.root.addEventListener('click', event => {
       const button = (event.target as Element | null)?.closest<HTMLButtonElement>('[data-selector-graph-enter], [data-selector-graph-back], [data-selector-workbench-toggle], [data-selector-init-overview-back]');
       if (!button) return;
@@ -395,7 +402,7 @@ export class SelectorPage {
       else if (button.dataset.selectorGraphEnter && button.dataset.selectorGraphTargetNode) {
         this.enterSelectedGraph(button.dataset.selectorGraphEnter, button.dataset.selectorGraphTargetNode);
       }
-    });
+    }, { signal: this.listeners.signal });
   }
 
   private enterSelectedGraph(graphId: string, nodeId: string): void {

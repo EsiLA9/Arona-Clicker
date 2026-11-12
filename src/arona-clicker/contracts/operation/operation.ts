@@ -1,8 +1,8 @@
-import type { OperationActionDef } from '../operation/operation-action';
-import type { OperationStudentSkillRuleDef } from '../operation/operation-skill';
-import type { OperationInterventionDraft, PreparedBeat } from '../operation/operation-beat';
-import type { OperationResolution } from '../operation/operation-resolution';
-import type { OperationSceneActionBatchDraft } from '../operation/operation-scene-action';
+import type { OperationActionDef } from './operation-action';
+import type { OperationStudentSkillRuleDef } from './operation-skill';
+import type { OperationInterventionDraft, PreparedBeat } from './operation-beat';
+import type { OperationResolution } from './operation-resolution';
+import type { OperationSceneActionBatchDraft } from './operation-scene-action';
 import type {
   OperationEventContentDef,
   OperationEventRewardsDef,

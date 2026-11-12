@@ -1,3 +1,4 @@
+import { restoreStoryDraftDesign } from './property-model';
 import { validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { migrateLegacyStoryEntries } from '../../data-services/authoring/story-entry-migration';
 import { LocalStorageAdapter, type StorageAdapter } from '../../data-services/persistence/storage-adapter';
@@ -158,6 +159,7 @@ export class StoryDraftPersistence {
           ...(draft.structuredInputs === undefined ? {} : { structuredInputs: cloneStory(draft.structuredInputs) as never }),
           ...(draft.structuredRows === undefined ? {} : { structuredRows: cloneStory(draft.structuredRows) as Record<string,string[]> }) });
       }
+      for (const draft of drafts) restoreStoryDraftDesign(draft);
       if (migratedEntries) {
         // Keep the exact pre-migration envelope before replacing any persisted author content.
         if (this.storage.get(STORY_EDITOR_ENTRY_BACKUP_KEY) === null) this.storage.set(STORY_EDITOR_ENTRY_BACKUP_KEY, raw);

@@ -25,7 +25,7 @@
 
 源码入口：`src/arona-clicker/services/progression/cultivate-system.ts`、`src/arona-clicker/services/character/roster-system.ts`、`src/arona-clicker/state/state-mutation-service.ts`，以及 `src/arona-clicker/services/character/`、`services/progression/` 下的进度服务。
 
-相关测试见 `tests/engine/cultivate-system.test.ts`、`tests/engine/affection-system.test.ts`、`tests/engine/gear-system.test.ts`。角色定义与获取见 [[character-and-gacha]]。
+相关测试见 `tests/engine/character/cultivate-system.test.ts`、`tests/engine/character/affection-system.test.ts`、`tests/engine/progression/gear-system.test.ts`。角色定义与获取见 [[character-and-gacha]]。
 
 ## 几条进度线不能混为一谈
 
@@ -40,8 +40,8 @@
 
 ## 示例：分次经验和差分碎片
 
-`tests/engine/cultivate-system.test.ts` 覆盖：已有经验与新增经验合并，达到本级需求时升级并将余量带到下一级；达到有效上限后溢出截断。另一组测试为不同 Variant 分别准备碎片，突破 A 只消耗 A 的碎片，B 的碎片不能替代。
+`tests/engine/character/cultivate-system.test.ts` 覆盖：已有经验与新增经验合并，达到本级需求时升级并将余量带到下一级；达到有效上限后溢出截断。另一组测试为不同 Variant 分别准备碎片，突破 A 只消耗 A 的碎片，B 的碎片不能替代。
 
-好感也会逐级累积，但采用自己的配置和上限；`tests/engine/affection-system.test.ts` 覆盖跨级、星级锁及存档恢复。装备示例见 `tests/engine/gear-system.test.ts`：材料不足或已装配时拒绝装配，满级并具备图纸时才可升 tier。
+好感也会逐级累积，但采用自己的配置和上限；`tests/engine/character/affection-system.test.ts` 覆盖跨级、星级锁及存档恢复。装备示例见 `tests/engine/progression/gear-system.test.ts`：材料不足或已装配时拒绝装配，满级并具备图纸时才可升 tier。
 
 修改培养规则时，应同时核对计算结果、写入端口、`characterProgressChanged` 事件和 Roster 视图；只看面板数值不足以证明存档或下游反应正确。

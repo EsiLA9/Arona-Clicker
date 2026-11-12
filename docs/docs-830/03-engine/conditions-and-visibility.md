@@ -10,7 +10,7 @@
 
 ### 例子：资源和据点一起满足
 
-测试中的状态含 `credit: 100` 和 `spot_a: 5`。组合条件 `and(cond('resource', 'credit', '>=', 50), cond('spotLevel', 'spot_a', '>=', 3))` 两个分支都成立，结果为真；如果资源门槛改为 200，资源分支为假，整体为假。`OR` 则只需要一个分支成立。该实例来自 `tests/engine/condition-system.test.ts`，其中 `cond()`、`and()` 构造的是声明，求值由 `ConditionSystem` 完成。
+测试中的状态含 `credit: 100` 和 `spot_a: 5`。组合条件 `and(cond('resource', 'credit', '>=', 50), cond('spotLevel', 'spot_a', '>=', 3))` 两个分支都成立，结果为真；如果资源门槛改为 200，资源分支为假，整体为假。`OR` 则只需要一个分支成立。该实例来自 `tests/engine/core/condition-system.test.ts`，其中 `cond()`、`and()` 构造的是声明，求值由 `ConditionSystem` 完成。
 
 条件结果只代表**求值当时**的状态，并不会为使用者自动执行效果。Trigger 需要匹配事件后再求值；VisibilityEngine 则在依赖变更后维护显示结果。
 
@@ -28,6 +28,6 @@ VisibilityEngine 在 Registry 就绪后建立定义反向索引，订阅条件�
 
 行动准入不能只凭旧 UI 快照：`isInitVisible()` / `isSpotVisible()` 会直接根据当前状态判断。若排查“显示没有更新”或“明明显示了却无法进入”，应分别核对事件、依赖索引和行动时的即时检查。
 
-源码：`src/engine/expression/condition-system.ts`、`condition-deps.ts`、`src/engine/visibility/visibility-engine.ts`、`visibility-index.ts`、`visibility-eval.ts`。测试：`tests/engine/condition-system.test.ts`、`tests/engine/visibility-hot-spot.test.ts`。
+源码：`src/engine/expression/condition-system.ts`、`condition-deps.ts`、`src/engine/visibility/visibility-engine.ts`、`visibility-index.ts`、`visibility-eval.ts`。测试：`tests/engine/core/condition-system.test.ts`、`tests/engine/world/visibility-hot-spot.test.ts`。
 
 Affector 对同一依赖索引的使用见 [[affectors-and-contributions]]；状态事件入口见 [[state-and-events]]。

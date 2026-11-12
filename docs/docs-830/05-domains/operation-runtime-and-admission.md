@@ -26,7 +26,7 @@ Run owner 校验内容、复制并冻结本局规则。一个 owner 同时只允
 
 OperationRun 因此是隔离的局内状态，但具有独立的存档快照；它不并入 PlayerState 的 Init 字段。
 
-源码：`src/arona-clicker/services/operation/operation-entry-service.ts`、`operation-participant-admission.ts`、`operation-runtime-service.ts`、`operation-observation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。相关测试见 `tests/engine/student-operation-runtime.test.ts`、`tests/engine/operation-runtime-service.test.ts`。
+源码：`src/arona-clicker/services/operation/operation-entry-service.ts`、`operation-participant-admission.ts`、`operation-runtime-service.ts`、`operation-observation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`。相关测试见 `tests/engine/operation/student-operation-runtime.test.ts`、`tests/engine/operation/operation-runtime-service.test.ts`。
 
 行动准备与提交见 [[operation-action-planning]]；普通 PlayerState / Init 状态归属见 [[state-and-events]]。
 
@@ -43,7 +43,7 @@ Registry 校验回答“内容结构和引用是否可用”；准入还必须�
 
 ## 示例：恢复版本不一致
 
-`tests/engine/operation-runtime-service.test.ts` 以 `resumeVersion: 1` 启动并生成快照，再用版本 2 的定义尝试恢复。Run owner 抛出版本不匹配错误，快照没有部分安装。测试也覆盖非法的负 `PlayerCost` 被拒绝并保持无 Run。
+`tests/engine/operation/operation-runtime-service.test.ts` 以 `resumeVersion: 1` 启动并生成快照，再用版本 2 的定义尝试恢复。Run owner 抛出版本不匹配错误，快照没有部分安装。测试也覆盖非法的负 `PlayerCost` 被拒绝并保持无 Run。
 
 在 `GameInstance` 读档路径中，局内 Run 的恢复失败会记录诊断并允许重新开始事件；这不等于把整份玩家存档当作合法的 Operation 快照，也不意味着忽略所有其他读档错误。
 

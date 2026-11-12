@@ -20,7 +20,7 @@
 
 Story Editor 另有按用户要求开放的当前 Registry 保存入口：`GameCommands.saveStoryDefinition()` 经 GameInstance 调用 `Registry.saveStoryDefinition()`。它不借用 Spot/World 协调器，不要求编辑态 Mod，也不提交包内容。单份 Story 在深拷贝、基础载荷/阶段/引用检查通过后一次替换或新增；校验失败保留旧定义，保存不会执行节点或更新玩家状态。
 
-当前播放会话持有独立文档副本，新内容从下一次 Story 启动起读取。此入口只覆盖当前运行内容，包重载会恢复包内定义；完整发布诊断、编辑态 Mod 门控与包持久化尚未接入。来源与本地草稿的关联、部分保存失败提示见 [[runtime-editor-and-project-checks]]。实现入口为 `src/data-services/registry/registry-story-mutation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`runtime-commands.ts`，回归见 `tests/engine/story-definition-save.test.ts`。
+当前播放会话持有独立文档副本，新内容从下一次 Story 启动起读取。此入口只覆盖当前运行内容，包重载会恢复包内定义；完整发布诊断、编辑态 Mod 门控与包持久化尚未接入。来源与本地草稿的关联、部分保存失败提示见 [[runtime-editor-and-project-checks]]。实现入口为 `src/data-services/registry/registry-story-mutation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`runtime-commands.ts`，回归见 `tests/engine/story/story-definition-save.test.ts`。
 
 ## Runtime Effects 的事件桥接
 
@@ -28,7 +28,7 @@ Story Editor 另有按用户要求开放的当前 Registry 保存入口：`GameC
 
 这条桥接把通用 Engine 中可解析的 Effect 与产品层的主题、剧情和演出服务连接起来；写状态的效果仍走状态写入接口。
 
-源码入口：`src/arona-clicker/services/runtime/runtime-content-coordinator.ts`、`services/world/runtime-world-content-coordinator.ts`、`services/runtime/runtime-effect-reactor.ts`、`src/data-services/authoring/content-policy.ts`。相关测试见 `tests/engine/runtime-content-coordinator.test.ts`、`tests/engine/runtime-world-hot-crud.test.ts`、`tests/engine/runtime-spot-field-authoring.test.ts`。
+源码入口：`src/arona-clicker/services/runtime/runtime-content-coordinator.ts`、`services/world/runtime-world-content-coordinator.ts`、`services/runtime/runtime-effect-reactor.ts`、`src/data-services/authoring/content-policy.ts`。相关测试见 `tests/engine/runtime-content/runtime-content-coordinator.test.ts`、`tests/engine/runtime-content/runtime-world-hot-crud.test.ts`、`tests/engine/runtime-content/runtime-spot-field-authoring.test.ts`。
 
 ## 编辑草稿到生效的边界
 
@@ -43,9 +43,9 @@ Story Editor 另有按用户要求开放的当前 Registry 保存入口：`GameC
 
 ### 示例：过期草稿与回调失败
 
-`tests/engine/runtime-content-coordinator.test.ts` 先以 revision 0 创建 Spot，成功后 revision 为 1；之后使用旧 revision 0 提交替换时得到 `stale-revision`，已有定义和 revision 不变。另一测试让提交回调抛错，得到 `commit-failed`，新 Spot 不留在 Registry，revision 回到 0，并调用回滚观察者。
+`tests/engine/runtime-content/runtime-content-coordinator.test.ts` 先以 revision 0 创建 Spot，成功后 revision 为 1；之后使用旧 revision 0 提交替换时得到 `stale-revision`，已有定义和 revision 不变。另一测试让提交回调抛错，得到 `commit-failed`，新 Spot 不留在 Registry，revision 回到 0，并调用回滚观察者。
 
-世界内容也有相应约束：`tests/engine/runtime-world-hot-crud.test.ts` 覆盖仍被 Spot 引用的 Area 删除被拒绝且不留下半提交。具体引用检查和回滚范围由各协调器执行，不能仅靠 UI 禁用按钮保证安全。
+世界内容也有相应约束：`tests/engine/runtime-content/runtime-world-hot-crud.test.ts` 覆盖仍被 Spot 引用的 Area 删除被拒绝且不留下半提交。具体引用检查和回滚范围由各协调器执行，不能仅靠 UI 禁用按钮保证安全。
 
 ## 与编辑器及包应用的分工
 

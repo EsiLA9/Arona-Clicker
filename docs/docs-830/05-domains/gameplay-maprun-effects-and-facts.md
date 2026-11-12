@@ -26,7 +26,7 @@ Encounter-local 的 Counter、Flag 和默认生命周期的 Status 属于当前�
 
 地图可声明有界 Counter 和布尔 Flag，在新 Run 初始化，并通过支持的效果更新。它们归当前 MapRun，不是世界剧情事实。AG-1 的候选池在打开 Encounter 时冻结事实输入；边条件在每次移动时读取已安装的当前 Facts 或 Team 资源。两处读取时点不同：
 
-1. `tests/engine/gameplay-b-maprun-fact-gated-pools.test.ts` 从 `route-step = 0` 打开第一场遭遇，记录候选来源快照。
+1. `tests/engine/gameplay-b/gameplay-b-maprun-fact-gated-pools.test.ts` 从 `route-step = 0` 打开第一场遭遇，记录候选来源快照。
 2. 第一轮提交后 Counter 变为 1，但该遭遇的候选快照仍为 0；继续提交后进入第二场遭遇，新快照读取到 2。
 3. 另一测试设置路线门禁 `route-step >= 3`，当前值为 2 时移动被拒绝，Run 快照不变。
 
@@ -34,6 +34,6 @@ Encounter-local 的 Counter、Flag 和默认生命周期的 Status 属于当前�
 
 ## 示例：前一来源补充资源
 
-`tests/engine/gameplay-b-map-ag1-commit.test.ts` 的 `previews and commits the approved refill-before-spend sequence` 展示 AG-1：预览中的 `serika-refill` 先于 `shiroko-spend` 执行；提交后执行顺序与预览一致，团队资源余额为 0。这个测试体现来源顺序与资源结算的关系；不能据此认定每张地图或 E1 兼容路径都采用同一结果。
+`tests/engine/gameplay-b/gameplay-b-map-ag1-commit.test.ts` 的 `previews and commits the approved refill-before-spend sequence` 展示 AG-1：预览中的 `serika-refill` 先于 `shiroko-spend` 执行；提交后执行顺序与预览一致，团队资源余额为 0。这个测试体现来源顺序与资源结算的关系；不能据此认定每张地图或 E1 兼容路径都采用同一结果。
 
-源码：`src/data-services/contracts/gameplay-map.ts`、`gameplay-map-effects.ts`，`src/data-services/validation/gameplay-map-effect-context.ts`、`gameplay-map-effect-syntax.ts`；`src/arona-clicker/services/map/gameplay-b-ag1-scheduler.ts`、`map-effect-planner.ts`、`map-encounter-statuses.ts`、`map-edge-conditions.ts`。测试：`tests/engine/gameplay-b-map-ag1-commit.test.ts`、`gameplay-b-maprun-fact-gated-pools.test.ts`、`gameplay-b-effect-lifecycle.test.ts`、`gameplay-b-maprun-status-example.test.ts`。
+源码：`src/data-services/contracts/gameplay-map.ts`、`gameplay-map-effects.ts`，`src/data-services/validation/gameplay-map-effect-context.ts`、`gameplay-map-effect-syntax.ts`；`src/arona-clicker/services/map/gameplay-b-ag1-scheduler.ts`、`map-effect-planner.ts`、`map-encounter-statuses.ts`、`map-edge-conditions.ts`。测试：`tests/engine/gameplay-b/gameplay-b-map-ag1-commit.test.ts`、`gameplay-b-maprun-fact-gated-pools.test.ts`、`gameplay-b-effect-lifecycle.test.ts`、`gameplay-b-maprun-status-example.test.ts`。

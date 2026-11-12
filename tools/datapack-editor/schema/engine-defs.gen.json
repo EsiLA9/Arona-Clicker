@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T03:25:12.125Z",
+  "generatedAt": "2026-11-07T08:53:51.780Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -26160,7 +26160,7 @@
           "key": "template",
           "required": false,
           "kind": "enum",
-          "tsType": "'message' | 'default' | 'title' | 'badge' | 'note'",
+          "tsType": "StoryNodeTemplate",
           "description": "正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。",
           "options": [
             "message",
@@ -26220,8 +26220,7 @@
           "key": "layout",
           "required": false,
           "kind": "hand",
-          "tsType": "{ readonly mode: 'flow' } | {\n    readonly mode: 'positioned'; readonly x: number; readonly y: number;\n    /** 默认 percent，按窗格宽高计算比例。px 使用 CSS 像素。 */\n    readonly unit?: 'percent' | 'px';\n    /** 九宫格基准。X/Y 是向右、向上为正的偏移。 */\n    readonly anchor?: { readonly x: 'left' | 'center' | 'right'; readonly y: 'bottom' | 'center' | 'top' };\n    /** 旧式定位的横向锚点，只在缺省 anchor 时使用。 */\n    readonly align?: 'left' | 'center' | 'right';\n  }",
-          "description": "定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。"
+          "tsType": "StoryNodeLayout"
         }
       ]
     },
@@ -26267,7 +26266,6 @@
           "required": false,
           "kind": "object",
           "tsType": "StoryPresentation",
-          "description": "左右侧、对齐和头像呈现意图。",
           "fields": [
             {
               "key": "side",
@@ -26318,7 +26316,6 @@
           "required": false,
           "kind": "object",
           "tsType": "StoryPacing",
-          "description": "对方输入中与思考节奏意图。",
           "fields": [
             {
               "key": "typing",
@@ -26337,18 +26334,17 @@
           ]
         },
         {
-          "key": "performance",
+          "key": "appearance",
           "required": false,
           "kind": "object",
-          "tsType": "StoryNodePerformance",
-          "description": "节点局部模板、样式与定位，不改变正文或推进语义。",
+          "tsType": "StoryNodeAppearance",
+          "description": "流内与定位展示共用的外观。",
           "fields": [
             {
               "key": "template",
               "required": false,
               "kind": "enum",
-              "tsType": "'message' | 'default' | 'title' | 'badge' | 'note'",
-              "description": "正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。",
+              "tsType": "StoryNodeTemplate",
               "options": [
                 "message",
                 "default",
@@ -26362,7 +26358,6 @@
               "required": false,
               "kind": "object",
               "tsType": "ChatTextStyle",
-              "description": "流内与定位展示均可使用的有限样式。",
               "fields": [
                 {
                   "key": "font",
@@ -26404,11 +26399,149 @@
               ]
             },
             {
+              "key": "presentation",
+              "required": false,
+              "kind": "object",
+              "tsType": "StoryPresentation",
+              "fields": [
+                {
+                  "key": "side",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "'left' | 'right'",
+                  "description": "气泡所在侧。",
+                  "options": [
+                    "left",
+                    "right"
+                  ]
+                },
+                {
+                  "key": "align",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "'center' | 'left' | 'right'",
+                  "description": "正文对齐方式。",
+                  "options": [
+                    "center",
+                    "left",
+                    "right"
+                  ]
+                },
+                {
+                  "key": "avatar",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string",
+                  "description": "可选头像资源标识。"
+                },
+                {
+                  "key": "avatarMode",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "'auto' | 'hide' | 'show'",
+                  "description": "头像显示策略。",
+                  "options": [
+                    "auto",
+                    "hide",
+                    "show"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "performance",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryNodeDirection",
+          "description": "定位与时间编排。",
+          "fields": [
+            {
               "key": "layout",
               "required": false,
               "kind": "hand",
-              "tsType": "{ readonly mode: 'flow' } | {\n    readonly mode: 'positioned'; readonly x: number; readonly y: number;\n    /** 默认 percent，按窗格宽高计算比例。px 使用 CSS 像素。 */\n    readonly unit?: 'percent' | 'px';\n    /** 九宫格基准。X/Y 是向右、向上为正的偏移。 */\n    readonly anchor?: { readonly x: 'left' | 'center' | 'right'; readonly y: 'bottom' | 'center' | 'top' };\n    /** 旧式定位的横向锚点，只在缺省 anchor 时使用。 */\n    readonly align?: 'left' | 'center' | 'right';\n  }",
-              "description": "定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。"
+              "tsType": "StoryNodeLayout"
+            },
+            {
+              "key": "style",
+              "required": false,
+              "kind": "object",
+              "tsType": "ChatTextStyle",
+              "fields": [
+                {
+                  "key": "font",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "ChatTextFont",
+                  "options": [
+                    "default",
+                    "serif",
+                    "sans",
+                    "mono",
+                    "handwritten"
+                  ]
+                },
+                {
+                  "key": "fontSize",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "color",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "background",
+                  "required": false,
+                  "kind": "bool",
+                  "tsType": "boolean"
+                },
+                {
+                  "key": "backgroundColor",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                }
+              ]
+            },
+            {
+              "key": "template",
+              "required": false,
+              "kind": "enum",
+              "tsType": "StoryNodeTemplate",
+              "options": [
+                "message",
+                "default",
+                "title",
+                "badge",
+                "note"
+              ]
+            },
+            {
+              "key": "pacing",
+              "required": false,
+              "kind": "object",
+              "tsType": "StoryPacing",
+              "fields": [
+                {
+                  "key": "typing",
+                  "required": false,
+                  "kind": "float",
+                  "tsType": "number",
+                  "description": "对方文字输入节奏参数。"
+                },
+                {
+                  "key": "thinking",
+                  "required": false,
+                  "kind": "float",
+                  "tsType": "number",
+                  "description": "对方思考停顿参数。"
+                }
+              ]
             }
           ]
         }
@@ -26452,11 +26585,70 @@
           "description": "本次输入的明确形式。"
         },
         {
-          "key": "performance",
+          "key": "appearance",
           "required": false,
           "kind": "hand",
-          "tsType": "Omit<StoryNodePerformance, 'template'>",
+          "tsType": "{ readonly style?: ChatTextStyle }",
           "description": "交互局部样式与定位；不提供正文文本模板。"
+        },
+        {
+          "key": "performance",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryClickDirection",
+          "fields": [
+            {
+              "key": "layout",
+              "required": false,
+              "kind": "hand",
+              "tsType": "StoryNodeLayout"
+            },
+            {
+              "key": "style",
+              "required": false,
+              "kind": "object",
+              "tsType": "ChatTextStyle",
+              "fields": [
+                {
+                  "key": "font",
+                  "required": false,
+                  "kind": "enum",
+                  "tsType": "ChatTextFont",
+                  "options": [
+                    "default",
+                    "serif",
+                    "sans",
+                    "mono",
+                    "handwritten"
+                  ]
+                },
+                {
+                  "key": "fontSize",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "color",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                },
+                {
+                  "key": "background",
+                  "required": false,
+                  "kind": "bool",
+                  "tsType": "boolean"
+                },
+                {
+                  "key": "backgroundColor",
+                  "required": false,
+                  "kind": "string",
+                  "tsType": "string"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -28780,6 +28972,7 @@
     "StoryChoice",
     "StoryChoiceInteraction",
     "StoryChoiceOption",
+    "StoryClickDirection",
     "StoryClickInteraction",
     "StoryClickNode",
     "StoryClickPress",
@@ -28809,13 +29002,17 @@
     "StoryMoveToCharaspaceNode",
     "StoryNarrationContent",
     "StoryNode",
+    "StoryNodeAppearance",
     "StoryNodeBase",
+    "StoryNodeDirection",
     "StoryNodeDocument",
     "StoryNodeId",
+    "StoryNodeLayout",
     "StoryNodePendingSnapshot",
     "StoryNodePerformance",
     "StoryNodePresentationData",
     "StoryNodeSnapshot",
+    "StoryNodeTemplate",
     "StoryNumericValue",
     "StoryOperationNode",
     "StoryOutputContent",

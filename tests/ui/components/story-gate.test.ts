@@ -4,8 +4,8 @@
 // ============================================================
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
-import { legacyStoryDatapack as baseDatapack } from '../../engine/legacy-story-datapack';
-import { finishStory } from '../../engine/story-test-fixtures';
+import { legacyStoryDatapack as baseDatapack } from '../../engine/story/legacy-story-datapack';
+import { finishStory } from '../../engine/story/story-test-fixtures';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderStoryGate, renderOpeningBanner, storyDisplayTitle, BANNER_ANIMATION_MS } from '../../../src/ui/components/story/story-gate';
 

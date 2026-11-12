@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseEngineSchema } from '../../../scripts/gen-engine-schema';
 import { TABLE_META } from './editor-extras';
-import { getTable, TABLES } from './datapack.schema';
+import { getTable, TABLES } from './datapack.schema.ts';
 import type { FieldDef, FieldType } from './types';
 
 const schema = parseEngineSchema();
@@ -127,7 +127,8 @@ describe('Schema 描述协议：defMap 派生自 Datapack', () => {
   });
   it('Story node performance keeps typed fields and documented clear targets',()=>{
     expect(schema.defs.StoryNodePerformance.fields.map((field:{key:string})=>field.key)).toEqual(['template','style','layout']);
-    expect(schemaField(schema.defs.StoryTalkletNode.fields,'performance').tsType).toBe('StoryNodePerformance');
+    expect(schemaField(schema.defs.StoryTalkletNode.fields,'appearance').tsType).toBe('StoryNodeAppearance');
+    expect(schemaField(schema.defs.StoryTalkletNode.fields,'performance').tsType).toBe('StoryNodeDirection');
     expect(schema.defs.StoryClickNode.fields.some((field:{key:string})=>field.key==='performance')).toBe(true);
     const description=getTable('stories').fields.find(field=>field.key==='nodes')?.description;
     expect(description).toContain('clearNode');expect(description).toContain('performance');

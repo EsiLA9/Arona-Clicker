@@ -10,7 +10,7 @@ StatsService 保存三层计数：`global` 跨 Init 累计，`init[id]` 按世�
 
 ### 一次资源变化会记到哪里
 
-在 `tests/engine/stats.test.ts` 的测试初始状态中，先增加 50 credit，再消耗 20：global 和当前 Init 分别记录 produced 50、consumed 20；session 的 counters 记录 produced 50，当前资源视图为 30。生产量和余额因此不是同一个数字。
+在 `tests/engine/core/stats.test.ts` 的测试初始状态中，先增加 50 credit，再消耗 20：global 和当前 Init 分别记录 produced 50、consumed 20；session 的 counters 记录 produced 50，当前资源视图为 30。生产量和余额因此不是同一个数字。
 
 切换 Init 时开启新的 session 计数，但先前 Init 的累计和 global 仍保留。部分实现局部变量与统计 DSL 使用 `run` / `currentRun` 名称，指向当前 session 的 counters，不是第四套持久化统计层。`$GlobalProducedAmount base:resource:credit` 查询全局累计，`$InitProducedAmount <initId> <resourceId>` 查询指定 Init；调用参数不足或函数未知时解析失败。
 
@@ -30,6 +30,6 @@ TagStatService 从 Registry 定义构造 `declared` 索引，再根据当前 Pla
 
 TagStats 的父级 tag 会纳入子级登记，但不同实体种类仍分别统计。读档或整体替换状态后的重建不应被解释成又发生了一次收集行为。
 
-源码：`src/engine/stats/stats.ts`、`stats-counters.ts`、`tag-stats.ts`、`src/engine/expression/stat-dsl.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/stats.test.ts`、`tests/engine/tag-stats.test.ts`。
+源码：`src/engine/stats/stats.ts`、`stats-counters.ts`、`tag-stats.ts`、`src/engine/expression/stat-dsl.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/core/stats.test.ts`、`tests/engine/core/tag-stats.test.ts`。
 
 条件消费统计查询见 [[conditions-and-visibility]]；状态更新与事件顺序见 [[state-and-events]]。

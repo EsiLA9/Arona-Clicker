@@ -27,7 +27,7 @@ Map / 特定工作区还使用语义 region key 与 focus key 对应局部节点
 
 源码入口：`src/ui/update/ui-update-types.ts`、`ui-update-dispatcher.ts`、`ui-surface.ts`、`src/ui/controller/controller.ts`、`src/ui/flow/flow-scroll.ts`、`src/ui/interaction/focus.ts`。
 
-行为测试见 `tests/ui/ui-update-dispatcher.test.ts`、`scroll.test.ts`、`focus.test.ts`、`workspace-lifecycle.test.ts`。页面身份见 [[workspace-navigation-and-rendering]]。
+行为测试见 `tests/ui/controller/ui-update-dispatcher.test.ts`、`scroll.test.ts`、`focus.test.ts`、`workspace-lifecycle.test.ts`。页面身份见 [[workspace-navigation-and-rendering]]。
 
 ## 从现象选择调查入口
 

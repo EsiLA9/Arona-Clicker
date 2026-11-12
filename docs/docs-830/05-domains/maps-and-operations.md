@@ -36,7 +36,7 @@ Action Planner 只计算候选结果；`OperationRuntimeService` 负责校验命
 
 源码入口：`src/arona-clicker/services/map/map-run-service.ts`、`src/arona-clicker/services/operation/operation-entry-service.ts`、`operation-runtime-service.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`src/ui/controller/controller-actions-operation.ts`。
 
-相关测试见 `tests/engine/gameplay-b-map-run.test.ts`、`tests/engine/operation-runtime-service.test.ts`。
+相关测试见 `tests/engine/gameplay-b/gameplay-b-map-run.test.ts`、`tests/engine/operation/operation-runtime-service.test.ts`。
 
 界面视图边界见 [[read-model-and-ui]]。
 
@@ -58,6 +58,6 @@ Gameplay B 的地图定义、节点与局内生命周期见 [[gameplay-maprun-ov
 
 ## 示例：地图移动被拒绝
 
-`tests/engine/gameplay-b-map-run.test.ts` 展示了两类拒绝：未知地图或不完整队伍不能创建 Run；当前节点有未完成遭遇时不能移动。在有向路线测试中，从起点直接移动到不可达节点也会失败，原 Run 快照不变。地图节点是否可达取决于定义的有向连接，不应只根据画面上的相邻位置推断。
+`tests/engine/gameplay-b/gameplay-b-map-run.test.ts` 展示了两类拒绝：未知地图或不完整队伍不能创建 Run；当前节点有未完成遭遇时不能移动。在有向路线测试中，从起点直接移动到不可达节点也会失败，原 Run 快照不变。地图节点是否可达取决于定义的有向连接，不应只根据画面上的相邻位置推断。
 
 排查时先确认当前 Run 类型、定义与运行状态，再查看该类型的命令和对应测试；UI 显示结果是只读投影，不能代替实际 Run。

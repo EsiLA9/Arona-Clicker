@@ -14,7 +14,7 @@ import { isOptionalEnabled, literalKindAt, propertyKey, readStoryNodeBody, rowId
 import { storyReferenceOptions, type StoryReferenceKind } from './property-options';
 import { renderChatTexts, resolveStorySpeaker, type ChatTextEntry } from '../components/story/story';
 import { renderChatEntry, renderStoryClickPreview, renderStoryClickAppearance, renderStoryNodePlacement } from '../components/story/story';
-import { projectStoryContent } from '../../data-services/authoring/story-content-display';
+import { projectStoryContent, storyNodeDisplay } from '../../data-services/authoring/story-content-display';
 
 type Path = readonly (string | number)[];
 type Obj = Record<string, unknown>;
@@ -304,7 +304,7 @@ export function renderStoryPerformanceEditing(ctx:UIContext,state:StoryEditorSta
 function renderNodePerformanceEditing(ctx:UIContext,draft:StoryDraft,node:StoryDraftNode):string {
   const canvas=(path:Path,body:string):string=>`<div class="story-editor-overlay-canvas" data-editor-key="overlay-canvas:${esc(ctx,propertyKey(draft,node.id,path))}" data-story-overlay-canvas data-story-overlay-node="${esc(ctx,node.id)}" data-story-overlay-draft="${esc(ctx,draft.draftId)}" data-story-overlay-path="${esc(ctx,pathText(path))}" aria-label="拖动演出以调整位置">${body}</div>`;
   if ((node.type==='talklet'||node.type==='click')&&node.performance?.layout?.mode==='positioned') {
-    const body=node.type==='talklet' ? renderChatEntry(ctx,{...projectStoryContent(node.content,node.presentation),kind:node.content.kind,performance:node.performance}) : renderStoryClickAppearance(renderStoryClickPreview(ctx,node.interaction),node.performance);
+    const body=node.type==='talklet' ? renderChatEntry(ctx,{...projectStoryContent(node.content,(node.appearance?.presentation ?? node.presentation)),kind:node.content.kind,performance:storyNodeDisplay(node)}) : renderStoryClickAppearance(renderStoryClickPreview(ctx,node.interaction),storyNodeDisplay(node));
     return canvas(['performance','layout'],renderStoryNodePlacement(ctx,body,node.performance,node.id));
   }
   return nodeOverlayActions(node).map(({path,action},index)=>{const command=record(action.command)!;const content=record(command.content);const kind=val(content,'kind');const card=record(val(content,'card'));const request=record(val(card,'request'));const entry=request&&typeof request.entryId==='string'?ctx.game.registry.activeStories.get(request.entryId):undefined;const talklet=kind==='message'?record(val(content,'content')):null;
@@ -494,10 +494,6 @@ function talkletEditor(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,nod
     const known=[...ctx.game.registry.characters.values()].map(character=>`<option value="character:${esc(ctx,character.id)}"${sender===`character:${character.id}`?' selected':''}>${esc(ctx,character.displayName)}</option>`).join('');
     out.push(`<label class="story-editor-property">发出方<select data-story-reference="sender" data-editor-key="sender" data-editor-field="sender"${disabled(state)}><option value="narrator">旁白</option><option value="anonymous"${sender==='anonymous'?' selected':''}>不指定角色</option><option value="teacher"${sender==='teacher'?' selected':''}>老师</option>${known}<option value="original"${sender==='original'?' selected':''}>保留当前发出方${characterId || speaker ? `：${esc(ctx,characterId??speaker)}` : ''}</option></select></label>`,scalar(ctx,'发出方（自由显示名）',['content','displayName'],val(content,'displayName'),state,'text',undefined,'留空使用角色默认名称；修改名称不会改变头像。'),scalar(ctx,'图片引用',['content','image'],val(content,'image'),state,'image',undefined,'可从图片目录选择，也可填当前内容的直接资源引用。留空不附图。',undefined,true));
   }
-  out.push(presentationEditor(ctx,state,['presentation'],record(val(node,'presentation'))));
-  const pacing=record(val(node,'pacing')); const canPace=kind==='talk'&&record(val(node,'presentation'))?.side!=='right';
-  out.push(canPace ? `<section class="story-editor-presentation" data-editor-key="pacing"><h3>输入节奏</h3><p class="story-editor-hint">仅非右侧对话可启用。0 表示显式关闭；留空沿用播放器默认。</p>${scalar(ctx,'打字时长（秒）',['pacing','typing'],val(pacing,'typing'),state,'number',undefined,undefined,undefined,true)}${scalar(ctx,'思考时长（秒）',['pacing','thinking'],val(pacing,'thinking'),state,'number',undefined,undefined,undefined,true)}</section>`
-    : '<p class="story-editor-hint" data-editor-key="pacing-inactive">输入节奏在旁白或右侧对话下休眠，切回后恢复。</p>');
   return out.join('');
 }
 
@@ -521,19 +517,42 @@ function performanceEditor(ctx:UIContext,state:StoryEditorState,node:StoryDraftN
       scalar(ctx,`Y（${unit}，${anchor ? '向上为正' : '左下原点'}）`,[...path,'y'],val(layout,'y'),state,'number'));
     if (!anchor) out.push(labelledChoices(ctx,'定位锚点',[['left','左'],['center','中'],['right','右']],val(layout,'align'),[...path,'align'],state,true));
   }
-  if (node.type==='talklet') out.push(labelledChoices(ctx,'正文模板',[['message','对话 / 旁白'],['default','纯文字'],['title','标题'],['badge','徽标'],['note','注记']],val(value,'template'),['performance','template'],state,true));
-  out.push(styleEditor(ctx,state,['performance','style'],record(val(value,'style')),true));
+  if (node.type === 'talklet') {
+    const dialogue = node.appearance?.presentation ?? node.presentation;
+    const pacing = record(val(value, 'pacing') ?? node.pacing);
+    const timing = ['performance', 'pacing'];
+    out.push(node.content.kind === 'talk' && dialogue?.side !== 'right'
+      ? `<section class="story-editor-presentation" data-editor-key="pacing"><h3>输入节奏</h3><p class="story-editor-hint">0 表示关闭，留空沿用默认节奏。</p>${scalar(ctx,'打字时长（秒）',[...timing,'typing'],val(pacing,'typing'),state,'number',undefined,undefined,undefined,true)}${scalar(ctx,'思考时长（秒）',[...timing,'thinking'],val(pacing,'thinking'),state,'number',undefined,undefined,undefined,true)}</section>`
+      : '<p class="story-editor-hint" data-editor-key="pacing-inactive">输入节奏在旁白或右侧对话下休眠。</p>');
+  }
   out.push('<p class="story-editor-hint">定位内容在本轮运行结束或换场时清理；重复到达同一节点会替换其定位展示。输入按钮仍只在当前等待点可操作。</p>');
+  return out.join('');
+}
+
+function appearanceEditor(ctx:UIContext,state:StoryEditorState,node:StoryDraftNode):string {
+  if (node.type !== 'talklet' && node.type !== 'click') return '';
+  const visual = storyNodeDisplay(node);
+  const out = [styleEditor(ctx, state, ['appearance','style'], record(visual?.style), true)];
+  if (node.type === 'talklet') {
+    out.unshift(labelledChoices(ctx,'正文模板',[['message','对话 / 旁白'],['default','纯文字'],['title','标题'],['badge','徽标'],['note','注记']],visual?.template,['appearance','template'],state,true),
+      presentationEditor(ctx,state,['appearance','presentation'],record(node.appearance?.presentation ?? node.presentation)));
+  }
   return out.join('');
 }
 
 function nodeDesigner(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,node:StoryDraftNode):string {
   const tab=state.nodeDesignerTab??'basic';
-  const configured=Boolean(record(val(node as unknown as Obj,'performance'))&&Object.keys(record(val(node as unknown as Obj,'performance'))!).length);
-  return `${renderTabs(ctx,'right',[{id:'basic',label:'基础',action:'story-editor-designer:basic'},{id:'performance',label:'演出',action:'story-editor-designer:performance'}],tab,'节点设计页')}
-    ${configured?`<div class="story-editor-designer-status" data-editor-key="performance-status"><small>已配置演出</small><button type="button" class="mini-action" data-story-reset-performance${disabled(state)}>恢复默认</button></div>`:''}
+  const tabs = [
+    {id:'basic',label:'内容',action:'story-editor-designer:basic'},
+    {id:'appearance',label:'外观',action:'story-editor-designer:appearance'},
+    {id:'performance',label:'演出',action:'story-editor-designer:performance'},
+  ];
+  const reset = (group: 'appearance' | 'performance') => record(val(node as unknown as Obj, group))
+    ? `<button type="button" class="mini-action" data-story-reset-design="${group}"${disabled(state)}>恢复${group === 'appearance' ? '默认外观' : '默认演出'}</button>` : '';
+  return `${renderTabs(ctx,'right',tabs,tab,'节点设计页')}
     <div class="story-editor-designer-page" data-story-designer-page="basic" data-editor-key="designer:basic"${tab==='basic'?'':' hidden'}>${renderStoryNodeBasicProperties(ctx,state,draft,node)}</div>
-    <div class="story-editor-designer-page story-editor-property-content" data-story-designer-page="performance" data-editor-key="designer:performance"${tab==='performance'?'':' hidden'}>${performanceEditor(ctx,state,node)}</div>`;
+    <div class="story-editor-designer-page story-editor-property-content" data-story-designer-page="appearance" data-editor-key="designer:appearance"${tab==='appearance'?'':' hidden'}>${appearanceEditor(ctx,state,node)}${reset('appearance')}</div>
+    <div class="story-editor-designer-page story-editor-property-content" data-story-designer-page="performance" data-editor-key="designer:performance"${tab==='performance'?'':' hidden'}>${performanceEditor(ctx,state,node)}${reset('performance')}</div>`;
 }
 
 export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,draft:StoryDraft,node:StoryDraftNode,index:number):string {

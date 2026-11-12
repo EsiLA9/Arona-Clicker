@@ -14,7 +14,7 @@
 
 Encounter Item 的草稿可保存，但草稿和预览不会扣除物品。提交时 `GameInstance.commitMapEncounterRound()` 先让 MapRun owner 规划本轮，再检查该 Item 当前仍是可用消耗品、使用条件满足且玩家背包有数量；两个 owner 的准备结果都仍有效时，才连续安装 Run 和物品扣除结果并发布物品事件。绕过协调器直接由 `MapRunService` 提交含 Item 的回合会被拒绝。
 
-`tests/engine/gameplay-b-map-source-transactions.test.ts` 有一个完整例子：保存时背包仍有 1 件、草稿被保留；加载后提交消耗 1 件，随后重试同一请求不再次扣物品、更新统计或发布事件。另一个例子在提交前让 `useCondition` 失效，Run、玩家状态和统计都保持不变。若有效提交使队伍失败，已经提交的物品消耗仍然保留；恢复旧存档是另一个显式操作。
+`tests/engine/gameplay-b/gameplay-b-map-source-transactions.test.ts` 有一个完整例子：保存时背包仍有 1 件、草稿被保留；加载后提交消耗 1 件，随后重试同一请求不再次扣物品、更新统计或发布事件。另一个例子在提交前让 `useCondition` 失效，Run、玩家状态和统计都保持不变。若有效提交使队伍失败，已经提交的物品消耗仍然保留；恢复旧存档是另一个显式操作。
 
 ## 工作区如何与运行态协作
 
@@ -24,6 +24,6 @@ Map 工作区按 `runId` 取得 owner 的只读视图，显示节点、边、遭
 
 ## 恢复失败怎么排查
 
-先确认数据包启用状态与当前地图是否存在，再比较存档和内容的 `resumeVersion`。版本一致仍失败时检查固定队伍身份、当前位置/活动、草稿、随机状态和最近回执是否符合当前地图；不要直接修改保存数据来绕过校验。`tests/engine/gameplay-b-map-save-resume.test.ts` 覆盖恢复和拒绝，`tests/engine/gameplay-b-map-ag1-restore.test.ts` 覆盖 AG-1 相关恢复；界面交互入口见 `tests/ui/gameplay-b-map-workspace.test.ts`、`tests/ui/gameplay-b-map-vertical-slice.test.ts`。
+先确认数据包启用状态与当前地图是否存在，再比较存档和内容的 `resumeVersion`。版本一致仍失败时检查固定队伍身份、当前位置/活动、草稿、随机状态和最近回执是否符合当前地图；不要直接修改保存数据来绕过校验。`tests/engine/gameplay-b/gameplay-b-map-save-resume.test.ts` 覆盖恢复和拒绝，`tests/engine/gameplay-b/gameplay-b-map-ag1-restore.test.ts` 覆盖 AG-1 相关恢复；界面交互入口见 `tests/ui/gameplay-b/gameplay-b-map-workspace.test.ts`、`tests/ui/gameplay-b/gameplay-b-map-vertical-slice.test.ts`。
 
 源码：`src/arona-clicker/services/map/map-run-service.ts`、`map-effect-receipt-validator.ts`，`src/arona-clicker/runtime/runtime-game-instance.ts` 的 `commitMapEncounterRound()`，`src/ui/controller/controller.ts` 的 `commitMapLocationFromFlow()`，`src/ui/components/map/map-workspace.ts`。

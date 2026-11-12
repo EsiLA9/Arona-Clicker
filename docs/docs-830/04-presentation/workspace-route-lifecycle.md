@@ -25,10 +25,10 @@
 3. 从商店进入剧情，并传入商店位置：当前为剧情，返回位置变为商店位置。
 4. 返回时回到商店，并清空这次返回位置；导航对象没有保留更早的一整串历史。
 
-上述路由状态由 `tests/ui/workspace-router.test.ts` 的 `进入新 Workspace 时只保留一个返回位置` 覆盖。Controller 还负责实际恢复面板位置和处理页面相关会话，不能把纯路由测试视为完整界面验收。
+上述路由状态由 `tests/ui/workspace/workspace-router.test.ts` 的 `进入新 Workspace 时只保留一个返回位置` 覆盖。Controller 还负责实际恢复面板位置和处理页面相关会话，不能把纯路由测试视为完整界面验收。
 
 ## 身份与刷新如何配合
 
 同种路由的不同实例可能具有不同 route key，例如两个不同 `runId` 的 Operation 路由不是同一页面。Surface 使用自己的 key 和挂载 generation 判断更新是否过期；Surface key 不一定与 route key 完全相同，具体见 [[update-dispatch-and-surface]]。
 
-源码：`src/ui/workspace/workspace-router.ts`、`src/ui/workspace/workspace-renderer.ts`、`src/ui/controller/controller.ts`、`src/ui/update/ui-surface.ts`。测试：`tests/ui/workspace-router.test.ts`、`tests/ui/workspace-lifecycle.test.ts`。
+源码：`src/ui/workspace/workspace-router.ts`、`src/ui/workspace/workspace-renderer.ts`、`src/ui/controller/controller.ts`、`src/ui/update/ui-surface.ts`。测试：`tests/ui/workspace/workspace-router.test.ts`、`tests/ui/workspace/workspace-lifecycle.test.ts`。

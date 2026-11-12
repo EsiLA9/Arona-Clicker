@@ -8,7 +8,7 @@ import {
   setDefinitionRecord,
   suspendDefinition,
 } from '../../data-services';
-import type { DefinitionResolution, DefinitionSourceLayer } from '../../data-services';
+import type { DefinitionResolution, DefinitionSourceLayer } from '../../data-services/index';
 
 /** 编辑器诊断：结构上兼容策略表校验问题与运行时提交诊断。 */
 export interface RuntimeEditorProblemLocation {

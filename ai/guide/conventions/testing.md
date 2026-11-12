@@ -7,6 +7,7 @@
 - `tests/engine/`：Engine 机制、Runtime 装配和领域协作测试。
 - `tests/data/`：Datapack、Registry、包管理、资产和持久化测试。
 - `tests/ui/`：组件、Controller、UIContext 与 DOM 可见行为测试。
+- `tests/{engine,data,ui}/<domain>/`：先按测试层，再按领域归档；常见领域包括 `story/`、`gameplay-b/`、`area-map/`、`character/` 与 `runtime-content/`。
 - `tools/datapack-editor/**`：独立编辑器模型、Schema、校验和 UI 测试。
 
 测试目录按测试主体大类组织，并不保证与每个源码文件一对一。跨层行为可在适当目录中用集成测试验证。
@@ -21,7 +22,7 @@
 
 ## 命令与证据
 
-- `npm test` 执行 Vitest 一次性全量测试。
+- `npm test` 执行 Vitest 一次性全量测试；完整输出写入 `.test-artifacts/latest.log`，精简计数、未归类数量与失败文件写入 `.test-artifacts/latest-summary.json`，两者每次运行覆盖更新。读取结果先看摘要，需要定位时再查完整日志。
 - 文档变化运行 `npm run check:docs`；涉及文件还应核对差异空白。
 - 机制修改按上述分级选择验证；报告结果时区分已运行与未运行，不把未验证写成通过。
 - Schema 源类型变化另按 [[ai/guide/conventions/schema-sync]] 执行同步与校验。

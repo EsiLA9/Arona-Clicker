@@ -36,7 +36,7 @@ Registry 是运行期查询表，不是内容编辑器或存档。定义一般�
 
 假设玩家在包库中启用一个已安装包，包记录存在并不意味着它已经进入游戏：PackManager 先确定启用集和顺序，检查依赖与冲突；Runtime 再为候选定义建立 Registry 并校验。只有应用成功后，新的定义和图片资源才成为运行时内容。草案配置的预校验失败不会改变正式启用集；reload 失败时，应用流程尝试恢复此前运行时快照，且不提交草案启用集。
 
-`tests/data/pack-manager.test.ts` 的“草案校验失败时不改变正式启用集”和“草案应用 reload 失败时保留旧正式启用集”分别覆盖这两种情况。诊断时应区分：**包已安装、包被选中、定义已成功应用**是三个不同状态；具体加载失败信息从 PackManager 校验和 Runtime 应用结果查起。
+`tests/data/datapack/pack-manager.test.ts` 的“草案校验失败时不改变正式启用集”和“草案应用 reload 失败时保留旧正式启用集”分别覆盖这两种情况。诊断时应区分：**包已安装、包被选中、定义已成功应用**是三个不同状态；具体加载失败信息从 PackManager 校验和 Runtime 应用结果查起。
 
 | 数据类型 | 例子 | 主要消费者 |
 | --- | --- | --- |
@@ -44,6 +44,6 @@ Registry 是运行期查询表，不是内容编辑器或存档。定义一般�
 | 业务定义 | 角色、商店、卡池、剧情入口 | 对应领域服务 |
 | 引擎声明 | Funclet、Affector、Trigger | Engine 与 Runtime 反应器 |
 
-主要源码：`src/data-services/contracts/datapack.ts`、`src/data-services/datapack/pack-manager.ts`、`src/data-services/registry/registry.ts`、`src/arona-clicker/runtime/runtime.ts`。相关测试见 `tests/data/pack-manager.test.ts`、`tests/engine/registry.test.ts`。
+主要源码：`src/data-services/contracts/datapack.ts`、`src/data-services/datapack/pack-manager.ts`、`src/data-services/registry/registry.ts`、`src/arona-clicker/runtime/runtime.ts`。相关测试见 `tests/data/datapack/pack-manager.test.ts`、`tests/engine/runtime-content/registry.test.ts`。
 
 继续阅读：[[startup-and-runtime]]、[[state-and-events]]。

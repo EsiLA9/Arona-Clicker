@@ -1,5 +1,5 @@
 import { storyEntryType } from '../../data-services/contracts/story-entry';
-import { projectStoryContent } from '../../data-services/authoring/story-content-display';
+import { projectStoryContent, storyNodeDisplay } from '../../data-services/authoring/story-content-display';
 import { renderStoryClickAppearance } from '../components/story/story';
 import { renderStoryAuthoringEntryRelations, renderStoryAuthoringTools, renderStoryEntryFields } from './authoring-view';
 import { renderStoryTransfer } from './transfer-view';
@@ -178,7 +178,7 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
       body = '<div class="story-editor-action-node"><span>Talklet</span><strong>未配置正文</strong></div>';
     } else {
       // Drafts may hold an incomplete payload; the preview must not invent data.
-      body = renderChatEntry(ctx, { ...projectStoryContent({...content,text:content.text??''},node.presentation), kind:content.kind,performance:node.performance      }, { instanceKey: `${draft.draftId}/${node.id}` });
+      body = renderChatEntry(ctx, { ...projectStoryContent({...content,text:content.text??''},(node.appearance?.presentation ?? node.presentation)), kind:content.kind,performance:storyNodeDisplay(node)      }, { instanceKey: `${draft.draftId}/${node.id}` });
     }
   } else if (node.type === 'click') {
     const click = node as Partial<Extract<StoryDraftNode, { type: 'click' }>>;
@@ -195,7 +195,7 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
       choiceOptionAddon: (option, index) => renderChoiceOptionFlagCard(ctx, state, draft, node.id, index, option.id),
       } : {}),
     });
-    body=renderStoryClickAppearance(body,node.performance);
+    body=renderStoryClickAppearance(body,storyNodeDisplay(node));
   } else {
     if (node.type === 'operation') body = renderOperationPreview(ctx, node.action);
     else if (node.type === 'transfer') {

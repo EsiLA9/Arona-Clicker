@@ -40,7 +40,7 @@ Area、AreaMap 和 Node 共用 `WorldInformationDef` 的四个信息面：`exist
 
 信息揭示目前可将资源变化、Spot 等级变化、剧情完成映射成相应唤醒来源，并在 Init 准入后检查当前条件。条件同时包含可映射和不可映射的叶子时，唤醒覆盖可能只是部分；没有任何受支持事件来源时是 `admission-only`，只在显式对账时检查，不会因为任意状态变化自动触发。剧情历史与本次 Run 的剧情事实也有不同的失效覆盖。排查时先看完整条件和 `wakePlan`，不要从存在 Watch 推断每种输入变化都会触发重算。
 
-例如 `tests/engine/information-reveal-adapter.test.ts` 的 `AdmissionOnly` 案例在显式 `reconcile` 时检查当前条件，却不创建响应事件的注册。另一个案例先注册精确来源，再检查当前状态；条件满足后写入并撤销监听，避免错过注册前已满足的情况。
+例如 `tests/engine/world/information-reveal-adapter.test.ts` 的 `AdmissionOnly` 案例在显式 `reconcile` 时检查当前条件，却不创建响应事件的注册。另一个案例先注册精确来源，再检查当前状态；条件满足后写入并撤销监听，避免错过注册前已满足的情况。
 
 ## Milestone：可完成的条件与效果
 
@@ -50,7 +50,7 @@ Milestone 使用自己的条件叶子到事件来源映射：非全局资源、S
 
 Adapter 注册来源后也会立即求值，之后每次唤醒都重查当前 Watch 与完整条件。满足时先写入完成事实、撤销监听，然后执行 Listener 的 `then` 效果。**完成记录和后续效果不是一个回滚事务**：效果抛错会记录日志，完成事实保留，也不会因为恢复或重挂而自动重试。无 Listener 的旧式 Milestone 不会产生 Listener 效果。
 
-例如 `tests/engine/milestone-runtime.test.ts` 覆盖先访问 Area 后再准入监听、存档恢复时重建未完成监听，以及 Listener 效果抛错后完成记录仍保留。排查时应分别确认是否进入/访问了关联 Area、条件叶子是否支持、完成事实是否已经存在，以及后续效果是否报错。
+例如 `tests/engine/world/milestone-runtime.test.ts` 覆盖先访问 Area 后再准入监听、存档恢复时重建未完成监听，以及 Listener 效果抛错后完成记录仍保留。排查时应分别确认是否进入/访问了关联 Area、条件叶子是否支持、完成事实是否已经存在，以及后续效果是否报错。
 
 ## Achievement View 与恢复
 
@@ -60,4 +60,4 @@ Adapter 注册来源后也会立即求值，之后每次唤醒都重查当前 Wa
 
 离开 Init、重置或重建运行时会撤销旧监听；进入 Init、成功应用相关内容或恢复存档后根据当前定义和保存事实重新推导。已经保存的完成/揭示事实与监听分离；定义暂时不存在时，历史事实并不因此自动删除。恢复时不应把旧的 Trigger 注册当成持久化对象直接复用。
 
-源码：`src/arona-clicker/services/world/information-reveal-domain.ts`、`information-reveal-adapter.ts`、`milestone-domain.ts`、`milestone-adapter.ts`、`src/arona-clicker/read-model/achievement-view.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/information-reveal-domain.test.ts`、`information-reveal-adapter.test.ts`、`information-reveal-save-rebuild.test.ts`、`milestone-adapter.test.ts`、`milestone-runtime.test.ts`、`achievement-view.test.ts`。
+源码：`src/arona-clicker/services/world/information-reveal-domain.ts`、`information-reveal-adapter.ts`、`milestone-domain.ts`、`milestone-adapter.ts`、`src/arona-clicker/read-model/achievement-view.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/world/information-reveal-domain.test.ts`、`information-reveal-adapter.test.ts`、`information-reveal-save-rebuild.test.ts`、`milestone-adapter.test.ts`、`milestone-runtime.test.ts`、`achievement-view.test.ts`。

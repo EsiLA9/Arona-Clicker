@@ -22,12 +22,12 @@
 
 ## 主题与特例
 
-内部 `.console-shell` 的顶部与水平留白对齐星图 `.selector-graph-shell > .selector-topbar`：顶部 22px，左右 `clamp(18px, 3vw, 44px)`，保留内部页脚需要的底部 20px。正文仍在顶栏下方按正常流占满剩余高度；三栏比例、栏间距、面板内边距与各自滚动宿主保持现有入口。依据为 `layout.css`、`selectors.css`；共享框架回归见 `tests/ui/map-shell-layout.test.ts`、`workspace-structure.test.ts`，未做浏览器视觉验收。
+内部 `.console-shell` 的顶部与水平留白对齐星图 `.selector-graph-shell > .selector-topbar`：顶部 22px，左右 `clamp(18px, 3vw, 44px)`，保留内部页脚需要的底部 20px。正文仍在顶栏下方按正常流占满剩余高度；三栏比例、栏间距、面板内边距与各自滚动宿主保持现有入口。依据为 `layout.css`、`selectors.css`；共享框架回归见 `tests/ui/area-map/map-shell-layout.test.ts`、`workspace-structure.test.ts`，未做浏览器视觉验收。
 
-顶部 `.brand-lockup`（AronaClicker 标识）的前景色使用 `--ink-on-canvas`，按实际背景图层的合成代表色自动选择深 / 浅字色，随主题变量更新保留原 DOM；选择页使用当前聚焦背景的局部投影。`readableOnColor` 无法解析颜色，或画布没有可判定背景时，默认浅色文字；仍可判定的亮底继续使用深字。入口为 `engine/core/color.ts`、`controller-theme.ts`、`selector-theme.ts` 与 `layout.css`；行为与样式验证见 `tests/ui/header-brand-color.test.ts`，未做浏览器人工验收。
+顶部 `.brand-lockup`（AronaClicker 标识）的前景色使用 `--ink-on-canvas`，按实际背景图层的合成代表色自动选择深 / 浅字色，随主题变量更新保留原 DOM；选择页使用当前聚焦背景的局部投影。`readableOnColor` 无法解析颜色，或画布没有可判定背景时，默认浅色文字；仍可判定的亮底继续使用深字。入口为 `engine/core/color.ts`、`controller-theme.ts`、`selector-theme.ts` 与 `layout.css`；行为与样式验证见 `tests/ui/theme/header-brand-color.test.ts`，未做浏览器人工验收。
 
 已有默认外观以浅色表面和蓝色等主题强调为起点，用户主题与宿主背景会改变结果。保持角色、控件和层级一致，不能把默认十六进制值固定到所有页面。CSS 中现存硬编码和局部修正仅是实现事实，新增代码优先使用适用 token。
 
-超级图鉴沿用 body 级 Runtime Editor 的独立工具外观：`src/ui/runtime-editor/codex/codex.css` 在 `.runtime-editor-codex` 内定义局部 `--codex-*`，承载表面、文本、边框与强调；编辑表单继续使用 `src/ui/css/runtime-editor.css` 的 `--re-*`。共享 Frame 只复用网格几何，`.runtime-editor-codex__grid.workspace-frame` 规则重置 Frame 的 margin、gap 与 height；内容工具的纯布局入口不生成游戏 Presentation host。`tests/ui/workspace-frame.test.ts` 验证的是输出结构与 Host 隔离，不等同实际浏览器视觉验收。这是当前已实现并采用的工具范围例外，不能据此为其它页面新建固定配色。
+超级图鉴沿用 body 级 Runtime Editor 的独立工具外观：`src/ui/runtime-editor/codex/codex.css` 在 `.runtime-editor-codex` 内定义局部 `--codex-*`，承载表面、文本、边框与强调；编辑表单继续使用 `src/ui/css/runtime-editor.css` 的 `--re-*`。共享 Frame 只复用网格几何，`.runtime-editor-codex__grid.workspace-frame` 规则重置 Frame 的 margin、gap 与 height；内容工具的纯布局入口不生成游戏 Presentation host。`tests/ui/workspace/workspace-frame.test.ts` 验证的是输出结构与 Host 隔离，不等同实际浏览器视觉验收。这是当前已实现并采用的工具范围例外，不能据此为其它页面新建固定配色。
 
 主题机制见 [[story-chat-and-theme-presentation]]；组件入口见 [[ui-style/patterns]]。

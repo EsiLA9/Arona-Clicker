@@ -3,7 +3,7 @@
 // ============================================================
 import { describe, test, expect } from 'vitest';
 import { item, ItemBuilder } from '../../../src/arona-clicker/content/def-factory';
-import { extra } from '../../../src/engine/types';
+import { extra } from '../../../src/engine/types/index';
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { ItemDef } from '../../../src/data-services/contracts/item';
 

@@ -10,7 +10,7 @@
 2. Runtime Editor Overlay 提供的区域连接，以及当前活跃 Affector 提供的连接；连接声明可为单向或双向。
 3. 当前活跃 Affector 提供的交通网络；网络成员之间可以形成可查询的交通连接。
 
-普通连接的两端必须存在且属于同一 Init；交通查询同样按当前世界线限制目的地。图在查询时从活跃来源构造；来源移除或失活后，其连接不因曾经画在地图上或曾被访问而永久保留。`tests/engine/area-map-fast-travel.test.ts` 覆盖移除电梯强化后连接和地图投影线消失的情形。
+普通连接的两端必须存在且属于同一 Init；交通查询同样按当前世界线限制目的地。图在查询时从活跃来源构造；来源移除或失活后，其连接不因曾经画在地图上或曾被访问而永久保留。`tests/engine/area-map/area-map-fast-travel.test.ts` 覆盖移除电梯强化后连接和地图投影线消失的情形。
 
 ## 三种路线
 
@@ -27,7 +27,7 @@
 
 ## 例子：探索后跨区域返回
 
-`tests/engine/area-map-fast-travel.test.ts` 使用可加载的区域地图演示包：玩家进入商场入口后，激活的电梯网络可把玩家送到尚未访问的二楼大厅，预检结果为 `transit`。店铺最初不能直接抵达；沿一楼大厅和走廊逐步到达店铺后，返回已访问的一楼大厅可走 `visited` 路线。另有一处身份尚未公开的休息点，收录楼层图后可由明确的 `mapDirect` 节点前往；成功进入前其真实名称不会显示。
+`tests/engine/area-map/area-map-fast-travel.test.ts` 使用可加载的区域地图演示包：玩家进入商场入口后，激活的电梯网络可把玩家送到尚未访问的二楼大厅，预检结果为 `transit`。店铺最初不能直接抵达；沿一楼大厅和走廊逐步到达店铺后，返回已访问的一楼大厅可走 `visited` 路线。另有一处身份尚未公开的休息点，收录楼层图后可由明确的 `mapDirect` 节点前往；成功进入前其真实名称不会显示。
 
 测试将中间走廊的 `quickPassage` 设为 `false` 后，返回预检失败；恢复为 `true` 后重新成功。如果随后移除必要的普通连接，即便两端都曾访问，返回仍会失败。这个例子同时说明：已访问记录、允许中转和当前真实通路需要共同成立。
 
@@ -45,4 +45,4 @@
 
 排查时依次确认：当前 Init 和 Area；目标存在信息与 `enterCondition`；真实有向连接、活跃交通网络或已收录地图中的直达节点；中间区域是否已访问且允许通行；最后检查剧情阻塞与提交时的最新状态。
 
-源码：`src/arona-clicker/services/world/area-travel-routes.ts`、`src/arona-clicker/services/world/init-service.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`src/arona-clicker/state/per-init-fields.ts`。测试入口：`tests/engine/area-map-travel.test.ts`、`tests/engine/area-map-fast-travel.test.ts`。
+源码：`src/arona-clicker/services/world/area-travel-routes.ts`、`src/arona-clicker/services/world/init-service.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`src/arona-clicker/state/per-init-fields.ts`。测试入口：`tests/engine/area-map/area-map-travel.test.ts`、`tests/engine/area-map/area-map-fast-travel.test.ts`。

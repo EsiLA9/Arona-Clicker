@@ -14,7 +14,7 @@
 
 池条件使用 `ConditionDepIndex` 追踪依赖的状态事件，只在相关依赖变化后重算缓存门禁；`poolGateChanged` 表示池可用状态发生了变化。池选择结果仍需交给 `StoryService` 启动会话，故事会话本身负责推进。
 
-源码入口：`src/arona-clicker/services/progression/enhancement-service.ts`、`services/world/spot-functionality.ts`、`services/economy/passive-pool-system.ts`。相关测试见 `tests/engine/global-enhancement.test.ts`、`tests/engine/passive-pool.test.ts`、`tests/engine/spot-functionality.test.ts`。
+源码入口：`src/arona-clicker/services/progression/enhancement-service.ts`、`services/world/spot-functionality.ts`、`services/economy/passive-pool-system.ts`。相关测试见 `tests/engine/progression/global-enhancement.test.ts`、`tests/engine/character/passive-pool.test.ts`、`tests/engine/runtime-content/spot-functionality.test.ts`。
 
 相关流程：[[world-and-spots]]、[[story-and-effects]]、[[state-and-events]]。
 
@@ -25,12 +25,12 @@
 | Enhancement | 定义、购买条件与当前资源 | 已解锁状态，以及可能应用的 Effects / Spot 功能声明 | 不替商店或地图跳过自身准入。 |
 | PassivePool | 树形池、权重、门禁和 StoryEntry 资格 | 一个候选 StoryEntry 或 `null` | 不自行推进剧情会话。 |
 
-Enhancement 的定义不等于已持有，功能声明也不等于该功能必然可以在当前状态执行。购买检查当前可见性、解锁条件及资源；不可逆定义在获得后不允许撤回。`tests/engine/global-enhancement.test.ts` 同时覆盖可移除后重新购买和不可逆拒绝。
+Enhancement 的定义不等于已持有，功能声明也不等于该功能必然可以在当前状态执行。购买检查当前可见性、解锁条件及资源；不可逆定义在获得后不允许撤回。`tests/engine/progression/global-enhancement.test.ts` 同时覆盖可移除后重新购买和不可逆拒绝。
 
 ## 示例：有门禁的被动池
 
 可以把池想成多层目录：系统沿每条有效路径合并父子权重；某个父池门禁失败时，该分支整体不进入候选。剩下的叶子还要满足 owner、StoryEntry 资格、阻断和冷却等条件。只有正权重候选参与最终随机选择；全部被过滤时返回 `null`，而不是强行启动某个故事。
 
-`tests/engine/passive-pool.test.ts` 的“路径权重连乘”覆盖门禁剪枝；“叶子资格谓词剪除后无候选”覆盖 `null`。另有 owner 隔离及冷却恢复测试。池选择与实际剧情运行的边界见 [[story-and-effects]]。
+`tests/engine/character/passive-pool.test.ts` 的“路径权重连乘”覆盖门禁剪枝；“叶子资格谓词剪除后无候选”覆盖 `null`。另有 owner 隔离及冷却恢复测试。池选择与实际剧情运行的边界见 [[story-and-effects]]。
 
 `ConditionDepIndex` 用于标记需要重新计算的池门禁，相关状态事件到来时可更新；它不把所有事件都视为新剧情，也不替代最终选择时的资格检查。

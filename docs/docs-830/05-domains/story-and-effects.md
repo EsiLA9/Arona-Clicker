@@ -86,13 +86,13 @@ Area 邀请由当前父 historyId 与等待序号派生，保存的是父游标�
 
 父、子、待返回结果、局部表、会话输出与表现队列随 `StoryCursorCollection` 一起保存。读档检查唯一 historyId / channel、父子对应与内容指纹，换发 runId / token；损坏关联在替换当前状态前拒绝。旧正式 channelOutput 中已有独立正文时，因缺少当时的空间归属以 `StoryOutputFormatChanged` 拒绝加载，不静默丢弃、不自动迁移；普通无此类在播通道的存档不受该检查影响。已结算后的通知异常保留 finishing 结果，可通过“继续故事”恢复返回而不再次结算。完整回放在私有父子关系中自动接回后文，使用虚拟地点，不唤醒正式游标。
 
-基础包将星野天台 FollowUp 接线改为 areaContinue，将羁绊邀约与原尾段接成完整父正文。「午后的堤防」在阿比多斯、星野好感 3 级投放：子故事先在原通讯录接话，再前往旧校舍相邻堤防 Area，最后回原通讯录并按局部选择接父收尾。白子样例保留夏莱直接子调用与天台到场接取。FollowUp、pushAfterStory 仍保留给旧包和真正独立的后续投放。运行边界见 `tests/engine/story-continuation.test.ts`；三空间与正式内容见 `hoshino-story-spaces.test.ts`、`tests/ui/story-space-history.test.ts`。
+基础包将星野天台 FollowUp 接线改为 areaContinue，将羁绊邀约与原尾段接成完整父正文。「午后的堤防」在阿比多斯、星野好感 3 级投放：子故事先在原通讯录接话，再前往旧校舍相邻堤防 Area，最后回原通讯录并按局部选择接父收尾。白子样例保留夏莱直接子调用与天台到场接取。FollowUp、pushAfterStory 仍保留给旧包和真正独立的后续投放。运行边界见 `tests/engine/story/story-continuation.test.ts`；三空间与正式内容见 `hoshino-story-spaces.test.ts`、`tests/ui/story/story-space-history.test.ts`。
 
 ## 输入后的作者回应
 
 Button / ChoiceOption 不再内嵌玩家回复内容，也不由 Click 提交事件自动造一条老师消息。若需要老师回应，作者在输入节点后追加右侧 Talklet；它遵循普通 Story 节点顺序、投递与确认节奏。若不同选项需要不同回应，各 option 的 marks 声明独立 Entry 局部标记，后续 Talklet 用 `requiresFlag` 选择；条件仅判断标记是否存在，不比较值。存在跳转时，需把 Transfer 放在希望显示的回应 Talklet 之后，否则被跳转的节点不会执行。
 
-验证入口：`tests/engine/story-run-flags.test.ts`、`story-run-flags.integration.test.ts`。编辑器配置与草稿边界见 [[runtime-editor-and-project-checks]]。
+验证入口：`tests/engine/story/story-run-flags.test.ts`、`story-run-flags.integration.test.ts`。编辑器配置与草稿边界见 [[runtime-editor-and-project-checks]]。
 
 ## 效果协作
 
@@ -114,7 +114,7 @@ Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 
 
 源码入口：`src/arona-clicker/services/story/story-service.ts`、`story-node-player.ts`、`story-playback-coordinator.ts`、`story-playback-snapshot.ts`、`story-node-action-host.ts`、`src/engine/contracts/effect-receipt.ts`、`src/engine/effect/effect-engine.ts`。
 
-相关测试见 `tests/engine/story-service-node.integration.test.ts`。
+相关测试见 `tests/engine/story/story-service-node.integration.test.ts`。
 
 状态与事件边界见 [[state-and-events]]；UI 查询见 [[read-model-and-ui]]。
 
@@ -124,7 +124,7 @@ StoryEntry 将正文引用 `storyId`、归属角色 `owner`、历史编排 `cata
 
 历史目录位置提升为 `catalog.category/part/chapter/order`，三类入口均可编排，不赋予首次播放资格，也不写入完成或已读状态；原 Extra.storyCatalog 与产品目录的逐条归属已转写，目录分组名称和顺序继续由产品模型维护。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
 
-合同／导入边界见 `contracts/story-entry.ts`、`validation/story-entry.ts` 和 Registry；运行消费见 `story-entry-selection.ts`、`story-availability-delivery-mount.ts`、`passive-pool-system.ts`。回归入口为 `tests/data/story-entry-activation.test.ts`、`tests/engine/story-entry-fallback.test.ts` 及既有 Entry／池／重读测试。
+合同／导入边界见 `contracts/story-entry.ts`、`validation/story-entry.ts` 和 Registry；运行消费见 `story-entry-selection.ts`、`story-availability-delivery-mount.ts`、`passive-pool-system.ts`。回归入口为 `tests/data/story/story-entry-activation.test.ts`、`tests/engine/story/story-entry-fallback.test.ts` 及既有 Entry／池／重读测试。
 
 | 对象 | 负责什么 | 不能替代什么 |
 | --- | --- | --- |
@@ -137,7 +137,7 @@ StoryEntry 将正文引用 `storyId`、归属角色 `owner`、历史编排 `cata
 
 ## 示例：两个 owner 的独立会话
 
-`tests/engine/story-service-node.integration.test.ts` 创建 owner A、B 的不同故事：推进 A 后，B 仍停在原节点并保留自己的 token。A 进入点击输入节点后，普通推进返回 `ClickRequired`；若携带 B 的旧 token 点击 A，则返回 `StaleToken`，A 的当前节点保持不变。用 A 的当前 token 才能完成该输入。
+`tests/engine/story/story-service-node.integration.test.ts` 创建 owner A、B 的不同故事：推进 A 后，B 仍停在原节点并保留自己的 token。A 进入点击输入节点后，普通推进返回 `ClickRequired`；若携带 B 的旧 token 点击 A，则返回 `StaleToken`，A 的当前节点保持不变。用 A 的当前 token 才能完成该输入。
 
 同一测试还区分首次完成、强制重开与 replay：测试配置首次奖励 5、重开奖励 2；replay 不重复发奖或写日志。这是该测试配置及当前 replay 路径的行为，不应推广成所有剧情奖励数值。存档恢复会保留逻辑 checkpoint 和表现快照，同时换发 runId / token，旧界面输入不能因此假定仍有效。
 

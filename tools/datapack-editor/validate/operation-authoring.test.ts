@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePackFromZipBuffer } from '../../../src/data-services/datapack/pack-parser';
 import { EditorModel } from '../model/editor-model';
-import { getTable } from '../schema/datapack.schema';
+import { getTable } from '../schema/datapack.schema.ts';
 import type { TableKey } from '../schema/types';
 import { collectRefOptions, resolveRef } from '../ui/navi';
 import { createDatapackPackage } from '../ui/io';

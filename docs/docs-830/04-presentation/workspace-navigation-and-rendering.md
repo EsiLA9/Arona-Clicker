@@ -29,7 +29,7 @@ Controller 的 `enterWorkspaceRoute()` 记录当前 UI 位置为返回点；`rep
 
 源码入口：`src/ui/workspace/workspace-router.ts`、`workspace-renderer.ts`、`src/ui/controller/controller.ts`、`src/ui/components/shared/workspace-frame.ts`。
 
-相关测试见 `tests/ui/workspace-router.test.ts`、`workspace-lifecycle.test.ts`、`workspace-frame.test.ts`。刷新与位置保持见 [[ui-refresh-focus-scroll]]；查询读写边界见 [[read-model-and-ui]]。
+相关测试见 `tests/ui/workspace/workspace-router.test.ts`、`workspace-lifecycle.test.ts`、`workspace-frame.test.ts`。刷新与位置保持见 [[ui-refresh-focus-scroll]]；查询读写边界见 [[read-model-and-ui]]。
 
 ## 如何判断是不是同一页面
 

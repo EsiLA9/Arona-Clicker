@@ -1,3 +1,4 @@
+import { storyNodeDisplay } from '../../../data-services/authoring/story-content-display';
 import { storyEntryType } from '../../../data-services/contracts/story-entry';
 import { validateStoryContinuations } from '../../../data-services/validation/story-continuations';
 import type { PlayerState } from '../../types/state';
@@ -847,10 +848,11 @@ export class StoryService {
       command = session.player.submit(commandToken, optionId, causalChainId);
       if (command.ok && selectedOptionIndex !== undefined) {
         if (current.node.interaction.kind === 'choice') {
+          const performance = storyNodeDisplay(current.node);
           this.coordinator.append(this.outputOwner(session, normalizedOwner), `${session.source.historyId}:${current.sequence}:choice`, session.source.historyId!, {
             kind: 'narration', text: '', align: 'right',
             node:{storyId:current.storyId,nodeId:current.node.id},
-            ...(current.node.performance ? {performance:current.node.performance}:{}),
+            ...(performance ? { performance } : {}),
             choice: {
               options: current.node.interaction.options.filter(option => current.availableOptionIds.includes(option.id)).map(option => ({ id: option.id, text: option.text })),
               selectedOptionId: current.node.interaction.options[selectedOptionIndex]!.id,
@@ -1022,9 +1024,12 @@ export class StoryService {
     if (view.status === 'delivery') {
       const page = projectStoryNodeView(session, view)!;
       automatic = page.nextIsInput === true;
-      const { content, presentation, pacing } = view.node;
+      const { content } = view.node;
+      const presentation = view.node.appearance?.presentation ?? view.node.presentation;
+      const pacing = view.node.performance?.pacing ?? view.node.pacing;
+      const performance = storyNodeDisplay(view.node);
       const { typing: _typing, thinking: _thinking, choices: _choices, kizuna: _card, ...display } = page.page;
-      const body = { ...display, kind: content.kind, storyType: storyEntryType(session.entry), storyPageKey: key, node:{storyId:view.storyId,nodeId:view.node.id}, ...(view.node.performance ? {performance:view.node.performance}: {}) };
+      const body = { ...display, kind: content.kind, storyType: storyEntryType(session.entry), storyPageKey: key, node:{storyId:view.storyId,nodeId:view.node.id}, ...(performance ? {performance} : {}) };
       const rhythm = (value: number | undefined, fallback: number) => Math.min(10, Math.max(0, value ?? fallback)) * 1000;
       const paced = content.kind === 'talk' && presentation?.side !== 'right';
       const typing = paced ? rhythm(pacing?.typing, 0.9) : 0;

@@ -2,7 +2,7 @@
 
 本文回答：Story 查询如何变成聊天流，以及运行时主题如何投影到 UI 宿主。
 
-Talklet 的 `content.characterId` 保存发出方角色引用；默认名称和头像来自该角色及其默认差分。`content.displayName` 是仅覆盖名称的临时文案，不参与角色 / 头像匹配；旧故事的 `speaker` 仍作为旧身份与名称的兼容来源。`presentation.avatar` 显式图片覆盖角色头像，清空后恢复默认；avatarMode 继续控制显隐。角色引用与临时名贯穿正文页、Runtime 输出 / 打字队列、重读、覆盖层、聊天历史和快照校验，UI 通过同一 `resolveStorySpeaker()` 解析姓名与默认头像，避免别名碰巧等于其他角色时换头像。回归见 `tests/ui/story-speaker.test.ts` 与 `tests/engine/story-playback-coordinator.test.ts`。
+Talklet 的 `content.characterId` 保存发出方角色引用；默认名称和头像来自该角色及其默认差分。`content.displayName` 是仅覆盖名称的临时文案，不参与角色 / 头像匹配；旧故事的 `speaker` 仍作为旧身份与名称的兼容来源。`appearance.presentation.avatar`（兼容旧 `presentation.avatar`）显式图片覆盖角色头像，清空后恢复默认；avatarMode 继续控制显隐。角色引用与临时名贯穿正文页、Runtime 输出 / 打字队列、重读、覆盖层、聊天历史和快照校验，UI 通过同一 `resolveStorySpeaker()` 解析姓名与默认头像，避免别名碰巧等于其他角色时换头像。回归见 `tests/ui/story/story-speaker.test.ts` 与 `tests/engine/story/story-playback-coordinator.test.ts`。
 
 聊天栏的独立装配接口见 [[workspace-columns-and-layout]]。多个显示读取同一 owner 的 Runtime 播放视图，不各自创建剧情推进器或 Story 计时器；点击命令从所在窗格的显式 owner 绑定取目标，显示滚动按实例隔离。普通播放默认从触发时所在的对话流开始；Entry 的 `travelToStartContext` 可要求真实前往 StoryDef 起始空间。重播始终虚拟切到该上下文，Area 三栏与设施按虚拟 Area / Init 渲染，主题也按同一上下文解析；AreaHero 和手动移动交互在播放期间禁用。Entry 开启此选项时另执行真实前往。显式移动节点的 `storyContextMoved` 将后续空间变化交给 Controller：`moveToArea` 正常播放时强制旅行并切换真实 Area，重播中的显式移动只更新虚拟场景并显示“演出场景/演出移动”。
 
@@ -22,7 +22,7 @@ Runtime 输出与表现阶段 → owner / replayId 查询 → ChatStream 投影
 UI 继续 / 输入 / 节奏加速 → Controller → GameCommands → Runtime
 ```
 
-节点局部演出通过同一 Runtime 输出进入 ChatStream，流内内容仍交给 `renderChatHistory()`；定位内容由 `renderPositionedStoryHistory()` 放在 `.chat-pane` 的非滚动层，不在流里重复绘制。当前定位 Click 使用同一个 StoryView / token，按钮替代底部输入，Choice / EntryCard 保留原命令绑定；历史 Choice 无可提交 token。`projectStoryContent()` 统一正式播放、覆盖层与编辑预览的身份、图片、side / align 和头像策略映射；模板、有限样式及位置分别由共用渲染处理。原覆盖层预览也完整传递头像显隐、side / align 与卡片对齐。相关行为见 `tests/ui/story-performance.test.ts`、`tests/engine/story-playback-coordinator.test.ts` 与编辑器属性测试。
+节点的基础外观 `appearance` 和演出 `performance` 在 Runtime 转成原有渲染输出格式，经 ChatStream 投影，流内内容仍交给 `renderChatHistory()`；定位内容由 `renderPositionedStoryHistory()` 放在 `.chat-pane` 的非滚动层，不在流里重复绘制。当前定位 Click 使用同一个 StoryView / token，按钮替代底部输入，Choice / EntryCard 保留原命令绑定；历史 Choice 无可提交 token。`projectStoryContent()` 统一正式播放、覆盖层与编辑预览的身份、图片、side / align 和头像策略映射；模板、有限样式及位置分别由共用渲染处理。原覆盖层预览也完整传递头像显隐、side / align 与卡片对齐。相关行为见 `tests/ui/story/story-performance.test.ts`、`tests/engine/story/story-playback-coordinator.test.ts` 与编辑器属性测试。
 
 聊天条目由 `src/ui/components/story/story.ts` 的 renderer 输出，Map 信息流也复用 Flow 条目能力。渲染器负责转义文本、呈现图片/头像/选项等类型；任意 HTML 和内联脚本不是内容接口。继续、输入和节奏加速分别提交显式命令与当前 token，Runtime 检查阶段；UI 动画、刷新与滚动不会调用隐式送达确认。正式 Story 横幅显示 Runtime 的剩余时间；独立于 Story run 的旧效果仍可使用 UI 自己的横幅计时。
 
@@ -32,7 +32,7 @@ Choice 提交成功后，Runtime 输出保存完整选项组和所选 option ID�
 
 ## 主题与 Presentation 投影
 
-画布文字色由背景图层合成代表色决定：`controller-theme.ts` 在语义兼容变量写入后再设置 `--ink-on-canvas` / `--muted-on-canvas`，防止最终背景的判定被 `tokens.bg` 或语义底色覆盖。顶部 AronaClicker 标识的 `.brand-lockup` 消费该画布前景色；Init / GlobalEnh 选择页同样按聚焦背景生成局部变量。`readableOnColor` 对无法解析的颜色默认返回浅色文字；画布背景缺失或无法合成时也使用浅色文字，已知亮底仍返回深字。字色按现有图层代表色服务近似计算，不读取图片像素。验证见 `tests/ui/header-brand-color.test.ts`、`selector-theme.test.ts` 与 `tests/engine/color-framework.test.ts`。
+画布文字色由背景图层合成代表色决定：`controller-theme.ts` 在语义兼容变量写入后再设置 `--ink-on-canvas` / `--muted-on-canvas`，防止最终背景的判定被 `tokens.bg` 或语义底色覆盖。顶部 AronaClicker 标识的 `.brand-lockup` 消费该画布前景色；Init / GlobalEnh 选择页同样按聚焦背景生成局部变量。`readableOnColor` 对无法解析的颜色默认返回浅色文字；画布背景缺失或无法合成时也使用浅色文字，已知亮底仍返回深字。字色按现有图层代表色服务近似计算，不读取图片像素。验证见 `tests/ui/theme/header-brand-color.test.ts`、`selector-theme.test.ts` 与 `tests/engine/theme/color-framework.test.ts`。
 
 `controller-theme.ts` 从 ColorSystem 的当前运行时主题解析 tokens、背景定义和 Presentation 定义。`buildBackgroundView()` 解析背景资源；`buildPresentationView()` 将宿主、状态、图层、组件和资源校验为只读视图；`createUIContext()` 将这些视图提供给组件。组件使用稳定 `hostId`、`themeScope` 查询适用背景、形状、装饰和文字颜色。
 
@@ -49,13 +49,13 @@ Theme 内容编辑与玩家主题选择是两条写入路径。`ThemeContentEdit
 
 ### 例子：预览与保存一份主题
 
-`tests/engine/theme-content-editor-service.test.ts` 中，作者在 editing Pack 打开一个 ThemeDesign，把背景色改为 `#e9f1fb` 后调用 `preview()`；运行时主题暂时显示该颜色。调用 `save()` 后，定义写回目标 editing Pack，预览层清理，运行时主题恢复此前的投影。若同一个包在会话打开后被其他操作改变，保存返回 `content-conflict`，避免覆盖新内容；这不等于数据包已经应用到当前游戏。
+`tests/engine/theme/theme-content-editor-service.test.ts` 中，作者在 editing Pack 打开一个 ThemeDesign，把背景色改为 `#e9f1fb` 后调用 `preview()`；运行时主题暂时显示该颜色。调用 `save()` 后，定义写回目标 editing Pack，预览层清理，运行时主题恢复此前的投影。若同一个包在会话打开后被其他操作改变，保存返回 `content-conflict`，避免覆盖新内容；这不等于数据包已经应用到当前游戏。
 
-玩家自定义主题使用另一套会话：`UserThemeService.beginEdit()` 记下用户主题 revision；一个会话成功保存后，基于旧 revision 的另一会话会得到 `revision-conflict`，须重新载入。`tests/engine/user-theme-service.test.ts` 验证保存更新全局玩家主题状态和冲突处理。检查页面未恢复时，再看 `tests/ui/controller-theme-cleanup.test.ts` 中的界面清理路径，而不是只检查包内 ThemeDef。
+玩家自定义主题使用另一套会话：`UserThemeService.beginEdit()` 记下用户主题 revision；一个会话成功保存后，基于旧 revision 的另一会话会得到 `revision-conflict`，须重新载入。`tests/engine/theme/user-theme-service.test.ts` 验证保存更新全局玩家主题状态和冲突处理。检查页面未恢复时，再看 `tests/ui/controller/controller-theme-cleanup.test.ts` 中的界面清理路径，而不是只检查包内 ThemeDef。
 
 源码入口：`src/ui/presentation/chat-stream.ts`、`src/ui/components/story/story.ts`、`src/ui/flow/flow-entry.ts`、`src/ui/controller/controller-theme.ts`、`src/ui/presentation/background-service.ts`、`presentation-service.ts`、`theme-cascade-service.ts`、`src/ui/runtime/context.ts`。
 
-相关测试见 `tests/ui/story-node-delivery.test.ts`、`story-node-input.test.ts`、`presentation-service.test.ts`、`controller-theme-cleanup.test.ts`、`tests/engine/entity-presentation-service.test.ts`。Story 推进机制见 [[story-and-effects]]；刷新语义见 [[ui-refresh-focus-scroll]]。
+相关测试见 `tests/ui/story/story-node-delivery.test.ts`、`story-node-input.test.ts`、`presentation-service.test.ts`、`controller-theme-cleanup.test.ts`、`tests/engine/theme/entity-presentation-service.test.ts`。Story 推进机制见 [[story-and-effects]]；刷新语义见 [[ui-refresh-focus-scroll]]。
 
 ## 例子：在聊天中阅读剧情
 

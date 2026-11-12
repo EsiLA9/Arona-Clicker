@@ -1,6 +1,6 @@
 # Gameplay B Map Action E1/E2 效果程序作者示例
 
-本文对应当前可加载例图 [TypeScript 数据包示例](../../src/arona-clicker/content/gameplay-b/gameplay-b-effect-program-example.ts)。例图注册在可选 `gameplay-b@1.0.0` 包中，可从地图终端打开“效果程序作者示例”；[Registry / Owner 测试](../../tests/data/gameplay-b-effect-example.test.ts)覆盖真实包加载和当前 Hand CardRef。示例 Map 的 `resumeVersion` 为 4，复制后若修改会影响活动 Run 的动作、目标、费用或效果，应继续提高版本。
+本文对应当前可加载例图 [TypeScript 数据包示例](../../src/arona-clicker/content/gameplay-b/gameplay-b-effect-program-example.ts)。例图注册在可选 `gameplay-b@1.0.0` 包中，可从地图终端打开“效果程序作者示例”；[Registry / Owner 测试](../../tests/data/gameplay-b/gameplay-b-effect-example.test.ts)覆盖真实包加载和当前 Hand CardRef。示例 Map 的 `resumeVersion` 为 4，复制后若修改会影响活动 Run 的动作、目标、费用或效果，应继续提高版本。
 
 ## 当前 Action 合同
 

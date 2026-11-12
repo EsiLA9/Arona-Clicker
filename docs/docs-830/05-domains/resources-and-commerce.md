@@ -16,7 +16,7 @@ Tick / 领域奖励 → 资源或物品写入
 
 `ShopSession` 只保存界面中的购物车数量，不写入存档；价格、库存和条件均从最新状态重算。物品使用则先核对物品类型、持有数量与使用条件，成功移除后才执行 `useEffects`。掉落表由 `LootSystem` 抽取，交由 `ItemService.giveItem()` 发放结果。
 
-源码入口：`src/arona-clicker/services/economy/shop-service.ts`、`item-service.ts`、`loot-system.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/shop-service.test.ts`。
+源码入口：`src/arona-clicker/services/economy/shop-service.ts`、`item-service.ts`、`loot-system.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/runtime-content/shop-service.test.ts`。
 
 抽卡是依赖资源与角色状态的独立流程，见 [[character-and-gacha]]。
 
@@ -39,4 +39,4 @@ Tick / 领域奖励 → 资源或物品写入
 
 ## 物品使用与购买的区别
 
-购买是计算整车交易；`ItemService` 的发放 / 使用处理单个物品行为。商店发货通过 `commitShopTransaction()` 直接写入库存，不经过 `ItemService.giveItem()`，因此不能默认套用物品获得效果。使用前要检查定义、持有与条件；扣除成功后执行使用效果。掉落表先计算结果，再交给物品服务发放；不要将“抽出掉落”与“已经写入背包”视为同一阶段。进一步修改时，查 `tests/engine/shop-service.test.ts`、`tests/engine/loot-system.test.ts` 的实际覆盖；测试不能代替核对对应代码分支。
+购买是计算整车交易；`ItemService` 的发放 / 使用处理单个物品行为。商店发货通过 `commitShopTransaction()` 直接写入库存，不经过 `ItemService.giveItem()`，因此不能默认套用物品获得效果。使用前要检查定义、持有与条件；扣除成功后执行使用效果。掉落表先计算结果，再交给物品服务发放；不要将“抽出掉落”与“已经写入背包”视为同一阶段。进一步修改时，查 `tests/engine/runtime-content/shop-service.test.ts`、`tests/engine/progression/loot-system.test.ts` 的实际覆盖；测试不能代替核对对应代码分支。

@@ -32,7 +32,7 @@ Area 的四面世界信息通过 `reveal` 分别控制存在、身份、用途�
 
 关键入口：`services/world/spot-functionality.ts`、`information-reveal-domain.ts`、`information-reveal-adapter.ts`、`milestone-domain.ts`、`milestone-adapter.ts`。
 
-源码入口：`src/arona-clicker/services/world/init-service.ts`、`spot-service.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/def-factory/spot.test.ts`、`tests/engine/spot-payment.test.ts`。
+源码入口：`src/arona-clicker/services/world/init-service.ts`、`spot-service.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/def-factory/spot.test.ts`、`tests/engine/runtime-content/spot-payment.test.ts`。
 
 基础状态流程见 [[state-and-events]]；会话启动见 [[session-and-tick]]。
 
@@ -53,7 +53,7 @@ Area 的四面世界信息通过 `reveal` 分别控制存在、身份、用途�
 
 `SpotService.upgradeSpot()` 先查定义和持有等级，再检查有效上限、下一等级条件和支付选择；随后将费用和新等级交给 `commitSpotTransaction()`。这一步提交之后才执行升级 Effects、刷新可见性并重查 Affector。
 
-例如，`tests/engine/spot-payment.test.ts` 覆盖使用支付选项把 Spot 升至 2 级，也覆盖未声明支付时返回 `PaymentNotDeclared`。费用 / 等级事务失败与提交后的 Effect 是不同阶段：不能从“扣费与等级一起提交”推断后续所有效果也包含在同一事务里。
+例如，`tests/engine/runtime-content/spot-payment.test.ts` 覆盖使用支付选项把 Spot 升至 2 级，也覆盖未声明支付时返回 `PaymentNotDeclared`。费用 / 等级事务失败与提交后的 Effect 是不同阶段：不能从“扣费与等级一起提交”推断后续所有效果也包含在同一事务里。
 
 ## 查询功能不等于执行功能
 

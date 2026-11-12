@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest';
-import { TABLES } from './datapack.schema';
+import { TABLES } from './datapack.schema.ts';
 
 describe('tags full dump', () => {
   it('dumps tags table', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TABLES } from './datapack.schema';
+import { TABLES } from './datapack.schema.ts';
 import { EditorModel } from '../model/editor-model';
 
 describe('tags field kinds after regen', () => {

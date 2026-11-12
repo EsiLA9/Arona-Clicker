@@ -1,33 +1,33 @@
-# Task 工作流 — 从需求到完成
+# Task 工作流
 
-Task 是需要持久管理、分派、交接或追踪的 AI 工作单位。普通小需求可直接处理并汇报，不为流程额外建档；需要跨会话跟踪、并行分工或明确验收时，使用 [[ai/guide/templates/execution-task]]。调查和施工都可以是 Task；一个 Task 可以包含步骤、决策和结果，这些内容不另设管理层级。
+Task 是 Agent 恢复工作所需的入口：说明目标、完成条件、当前进展和下一步。只为需要跨会话跟踪、协作或交接的工作建 Task；普通小需求直接处理。默认模板见 [[ai/guide/templates/execution-task]]。
 
-## 创建与拆分
+## 创建与协作
 
-1. 在 `ai/plan/task-<全局编号>-<主题>.md` 记录可独立理解的需求、预期结果、范围和验收方式，并登记到 `ai/plan/00-index.md`。复杂工作可按独立验收结果拆成多个 Task，说明依赖和各自覆盖范围。
-2. 写清已知事实与依据、待核对问题、已确定的约束及不做的内容。需要产品或架构选择时记录备选方案、决定与原因；外部 AI 的建议只是输入，不自动成为决定或实现事实。
-3. 按 [[ai/guide/task-read-set-routing]] 选择必要文档、源码、调用方与测试。已知领域直接使用对应上下文包；对未知实现按 [[ai/guide/galhcg-project-map]] 查询并回到文件核实。
+```powershell
+npm run task -- newTask <slug> <标题>
+npm run task -- newSubtask <task-id> <范围> <负责人>
+npm run task -- archive <task-id>
+```
 
-Task 的文件表记录相关源码、测试、文档或产物的路径、用途和状态，便于定位及交接；它不是限制调查或修改的白名单。开始时尚不清楚的文件可标为待定位，调查中补充；已有用户改动与本任务修改应区分记录。
+`newTask` 创建基础模板并登记 `ai/plan/00-index.md`；编号扫描活动 Task 与 `ai/archive/history.zip`，递增且不复用。`newSubtask` 只在确有独立分工时使用：它在父 Task 的 `SubTasks` 表追加 ID、范围、负责人和状态，不会自动派发 Agent。执行者更新该表的状态；完成后才在 `SubOutcomes` 添加实际结果、证据和问题。没有分工时不创建这两个章节。
 
-## 执行与判断
+按任务需要添加文件清单、事实与决定、验证细节或 FinalOutline。不要为预想中的可能性预建空章节，也不要在多个位置重复负责人、状态、结果或证据：Task 维护整体状态和下一步，SubTasks 维护分工状态，SubOutcome 维护子任务交付，FinalOutline 仅负责需要整合时的最终结论。
 
-- 执行者负责把用户授权的目标推进到完成，包括调查直接相关文件、处理必要的配套修改、排查验证失败和选择合适的检查。Task 内可以记录步骤与阶段进度，但不要求为每一步单独建档。
-- 源码、测试与说明不一致时，先核对事实和影响；能在任务授权内解决的文档过时或实现问题，直接处理并记录。若涉及尚未裁定的产品选择、架构方向、明确的范围限制或所需授权，完成可独立进行的工作后说明待决问题。
-- 出现测试失败时，先定位和修复任务相关问题；无法执行或无法解决时记录实际结果、已做的排查及剩余限制，不把未运行写成通过。验证强度按 [[ai/guide/conventions/testing]] 与任务影响选择。
-- 涉及多人或子 Agent 时，按当前环境与用户授权分派独立职责，明确具体工作和相关文件，并在 Task 中记录交付结果及整合、核对状态；负责人检查相互影响并负责最终验收。
+## 执行与记录
 
-## 记录与收尾
+- 按 [[ai/guide/task-read-set-routing]] 选择必要资料；已知领域直接走 [[AGENTS]] 对应入口，不通读无关文档。
+- 在 Task 的“当前进展”中只维护已完成事项、正在进行事项和下一步。执行范围、验证和结论按实际需要补充；未运行的检查明确写未运行。
+- 只在决定影响后续工作时记录事实与决定。来源冲突或未裁定问题以证据和待决项记录，不把猜测写成事实。
+- SubTask 应有独立交付边界。主 Agent 回收实际 SubOutcome，检查相互影响；需要综合判断时再写 FinalOutline，不复制各 SubOutcome。
 
-在有意义的工作节点和交接前更新 Task：记录已完成步骤与结果、正在处理的内容、具体下一步、相关文件状态，以及验证对象、实际结果和失败后的处理。未完成的验收项、无法执行的验证与确需裁定的问题分别写清；不要把仅已阅读写成已修改，也不要求记录每次读取或保存。
+## 完成与归档
 
-`ai/plan/00-index.md` 只维护活动 Task 的链接、状态和一句当前进度或下一步；创建、关键进展、受阻或完成时同步更新，具体事实与验证结果以 Task 正文为准。任务完成后，运行 `npm run archive:docs -- add ai/plan/task-编号-主题.md`，有配套资料时一并投入对应子目录；脚本校验后将原件移入单一压缩包，再从活动列表移除并修正引用。操作说明见 [[ai/archive/README]]。长期有效的机制事实维护在 `docs/docs-830/`，不依赖包内原文作为 Wiki 导航。
-
-文件改动的直接影响范围在工作节点收尾集中做一次地图只读复核；按 [[ai/guide/galhcg-project-map]] 处理分页和必要的后续维护。查询和文件改动本身不授权改图、刷新或写观察。
+更新 Task 头部状态及当前进展。Task 和 SubTasks 均结束后运行 `npm run task -- archive task-编号`；命令归档 Task 并从活动索引移除。配套资料另用 `npm run archive:docs -- add <路径>`。归档后检查旧引用；操作细节见 [[ai/archive/README]]。
 
 ## 相关入口
 
-- [[AGENTS]]：项目任务入口和稳定边界。
-- [[ai/guide/templates/execution-task]]：Task 模板。
-- [[ai/guide/conventions/testing]]：测试与审查分级。
-- [[ai/guide/conventions/doc-maintenance]]：文档分层和归档。
+- [[AGENTS]]：项目任务入口与稳定约束。
+- [[ai/guide/templates/execution-task]]：最小 Task 模板。
+- [[ai/guide/task-read-set-routing]]：按需选择资料和验证入口。
+- [[ai/guide/conventions/testing]]：测试分级。

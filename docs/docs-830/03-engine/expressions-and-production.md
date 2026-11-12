@@ -12,7 +12,7 @@ Extra 是带类型标签的树形数据（标量、列表和字典），通过�
 
 一个资源 Value 从当前状态读取指定资源数值；表达式可以在它外面组合加减、乘除、取整或上下界。ValueSystem 是只读求值：求出数字不意味着资源已经到账。除数为 0 返回 0，缺失的资源或 Funclet 也可能得到 0；排查结果为 0 时应同时核对数据源和表达式，而不是只看算术运算。
 
-Extra 的 `int`、`float`、`str`、`bool`、`list` 和 `dict` 都是带类型的节点。例如测试中 `extra.int(3)` 产生 `{ t: 'int', v: 3 }`；路径 `inv/0/name` 可用于访问嵌套列表中的字段。合并时字典递归而列表整体替换，不会逐项拼接。例子和路径约束见 `tests/engine/extra.test.ts`。
+Extra 的 `int`、`float`、`str`、`bool`、`list` 和 `dict` 都是带类型的节点。例如测试中 `extra.int(3)` 产生 `{ t: 'int', v: 3 }`；路径 `inv/0/name` 可用于访问嵌套列表中的字段。合并时字典递归而列表整体替换，不会逐项拼接。例子和路径约束见 `tests/engine/core/extra.test.ts`。
 
 ## GameNum 生产计算
 
@@ -24,7 +24,7 @@ GameNum 负责计算结果，不直接提交 PlayerState。`ValueSystem` 为表�
 
 ## 例子：一台据点的产出
 
-`tests/engine/game-num.test.ts` 的 `primitiveGain is lazily evaluated per tick for a resource` 将测试状态设置为只拥有一个 `credit_printer`：在该测试数据和条件下，基础 5 加功能 2，`evaluateResourceGain()` 得到 7；随后 `game.tick()` 将 7 加入 credit。这个数字依赖测试包和测试状态，不是所有同类据点的固定值。
+`tests/engine/core/game-num.test.ts` 的 `primitiveGain is lazily evaluated per tick for a resource` 将测试状态设置为只拥有一个 `credit_printer`：在该测试数据和条件下，基础 5 加功能 2，`evaluateResourceGain()` 得到 7；随后 `game.tick()` 将 7 加入 credit。这个数字依赖测试包和测试状态，不是所有同类据点的固定值。
 
 从调用方看，求值与结算是两步：
 
@@ -34,12 +34,12 @@ GameNum 负责计算结果，不直接提交 PlayerState。`ValueSystem` 为表�
   → TickSystem 将正产出交给状态写入服务（例：余额增加 7）
 ```
 
-生产树可跨帧缓存：资源或功能变化通过事件使相关部分失效，再在后续查询时求值。手动直接改写状态会绕开正常事件路径；如需检验实时刷新，应使用状态写入服务并参照 `tests/engine/game-num-invalidation.test.ts`。
+生产树可跨帧缓存：资源或功能变化通过事件使相关部分失效，再在后续查询时求值。手动直接改写状态会绕开正常事件路径；如需检验实时刷新，应使用状态写入服务并参照 `tests/engine/core/game-num-invalidation.test.ts`。
 
 ## 排查数值差异
 
 先确认目标资源是否注册，以及相关 Spot 是否已拥有；再分别核对 Value 输入、Active Affector 的 flow / 乘区、管理角色或标签等条件。若写入后页面或计算值未更新，检查变更是否走了事件和定向失效路径。产出计算与具体更新规则还受到 [[affectors-and-contributions]]、[[session-and-tick]] 的影响。
 
-源码：`src/engine/expression/value-system.ts`、`game-num.ts`、`game-num-build.ts`、`game-num-eval.ts`、`src/engine/extra/`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/value-system.test.ts`、`tests/engine/game-num.test.ts`、`tests/engine/game-num-invalidation.test.ts`、`tests/engine/extra.test.ts`。
+源码：`src/engine/expression/value-system.ts`、`game-num.ts`、`game-num-build.ts`、`game-num-eval.ts`、`src/engine/extra/`、`src/arona-clicker/runtime/runtime-wiring.ts`。测试：`tests/engine/core/value-system.test.ts`、`tests/engine/core/game-num.test.ts`、`tests/engine/core/game-num-invalidation.test.ts`、`tests/engine/core/extra.test.ts`。
 
 Tick 产出调用链见 [[session-and-tick]]；条件表达式见 [[conditions-and-visibility]]。

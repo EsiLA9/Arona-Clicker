@@ -22,10 +22,10 @@ Registry getter + 补充的 Affector / Trigger 定义
 
 ### 例子：定义存在但图片不显示
 
-先检查调用方传入的是否为合法 Pic 引用，以及 Registry 的 `PicDef` 是否存在。若定义使用包内 ZIP 路径，还要检查该 mod 和相对路径是否已登记在 ImageStore：只有定义、没有对应图片条目时，解析结果仍是 `undefined`。若定义的 `src` 是普通 URL，则不走 ZIP 图片表。`tests/engine/pics.test.ts` 分别覆盖未声明引用、未登记 ZIP 图片和直连 `src` 的结果。
+先检查调用方传入的是否为合法 Pic 引用，以及 Registry 的 `PicDef` 是否存在。若定义使用包内 ZIP 路径，还要检查该 mod 和相对路径是否已登记在 ImageStore：只有定义、没有对应图片条目时，解析结果仍是 `undefined`。若定义的 `src` 是普通 URL，则不走 ZIP 图片表。`tests/engine/theme/pics.test.ts` 分别覆盖未声明引用、未登记 ZIP 图片和直连 `src` 的结果。
 
 内容浏览器的引用诊断与图片资源解析也不能混为一谈：前者帮助查看定义之间的关系和缺失引用；后者解决图片定义最终映射到哪个 URL。
 
-源码入口：`src/data-services/registry/runtime-content-browser.ts`、`runtime-content-reference-rules.ts`、`src/data-services/assets/pic-service.ts`、`pic-resolver.ts`、`image-store.ts`、`src/data-services/datapack/pack-parser.ts`。测试见 `tests/data/runtime-content-browser.test.ts`、`tests/engine/runtime-content-browser-rules.test.ts`、`tests/engine/runtime-content-browser-published-content.test.ts`、`tests/engine/pics.test.ts`。
+源码入口：`src/data-services/registry/runtime-content-browser.ts`、`runtime-content-reference-rules.ts`、`src/data-services/assets/pic-service.ts`、`pic-resolver.ts`、`image-store.ts`、`src/data-services/datapack/pack-parser.ts`。测试见 `tests/data/runtime-content/runtime-content-browser.test.ts`、`tests/engine/runtime-content/runtime-content-browser-rules.test.ts`、`tests/engine/runtime-content/runtime-content-browser-published-content.test.ts`、`tests/engine/theme/pics.test.ts`。
 
 继续阅读：[[datapack-and-registry]]、[[read-model-and-ui]]。

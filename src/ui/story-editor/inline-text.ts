@@ -112,7 +112,7 @@ export class StoryInlineTextEditor {
     if (value !== undefined && typeof value !== 'string') return;
     this.select(node.id);
     const initialText = field.name && node.type === 'talklet' && node.content.kind === 'talk'
-      ? resolveStorySpeaker(this.game, { ...node.content, side: node.presentation?.side }).name : value ?? '';
+      ? resolveStorySpeaker(this.game, { ...node.content, side: (node.appearance?.presentation ?? node.presentation)?.side }).name : value ?? '';
     this.active = { draft, nodeId: node.id, key: element.dataset.storyInlineKey!, branch: branch(node), element, initialText,
       before: value, bodyBefore: readStoryNodeBody(draft, node.id), composing: false };
     if (element.textContent !== initialText) element.textContent = initialText;

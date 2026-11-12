@@ -9,7 +9,7 @@ import { patchCodexPane } from './codex/dom-updates';
 import { AREA_CONTENT_POLICY, getContentPolicy, SPOT_CONTENT_POLICY, validateAuthoringInput, type ContentAuthoringPolicy, type SpotFunctionalityKind } from '../../data-services/authoring/content-policy';
 import { getRuntimeEditorCodexView, renderRuntimeDefinitionForm, renderRuntimeEditorBrowserDetail, renderRuntimeEditorBrowserEntries, renderRuntimeEditorCodexParts, renderRuntimeEditorLauncher, renderRuntimeEditorPanel, renderRuntimeSpotForm, runtimeEditorInitProblems } from './view';
 import { getSelectedCodexEntry, reduceCodexShellState, type CodexPane, type CodexShellAction } from './codex';
-import type { InspectorTab } from './codex-details';
+import type { InspectorTab } from './codex-details/index';
 import {
   createRuntimeDatapackEditorState,
   findRuntimeEditorAppliedSpot,

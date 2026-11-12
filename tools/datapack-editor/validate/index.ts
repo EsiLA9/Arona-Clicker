@@ -5,7 +5,7 @@
  * 不依赖游戏代码，仅依赖 schema DSL 与数据本身。
  */
 import type { FieldDef, FieldType, TableKey, TableSchema } from '../schema/types';
-import { TABLES } from '../schema/datapack.schema';
+import { TABLES } from '../schema/datapack.schema.ts';
 import { validateExtraValue } from './extra';
 
 export interface ValidationIssue {

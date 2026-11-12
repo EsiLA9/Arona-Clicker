@@ -13,7 +13,7 @@
  */
 import type { EditorModel } from '../model/editor-model';
 import type { TableKey } from '../schema/types';
-import { getTable } from '../schema/datapack.schema';
+import { getTable } from '../schema/datapack.schema.ts';
 
 /** 导航目标：array 表用 rowIndex；record 表用 recordKey（rowIndex 为 -1） */
 export interface NaviTarget {

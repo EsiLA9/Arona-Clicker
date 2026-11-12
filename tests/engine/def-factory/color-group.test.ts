@@ -5,7 +5,7 @@ import { describe, test, expect } from 'vitest';
 import {
   cond,
 } from '../../../src/engine/types';
-import { colorGroup } from '../../../src/arona-clicker/content/def-factory';
+import { colorGroup } from '../../../src/arona-clicker/content/def-factory/index';
 import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-clicker/types/ids';
 import type { ColorGroupDef } from '../../../src/data-services/contracts/color';
 

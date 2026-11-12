@@ -18,7 +18,7 @@ Controller 命令 → GachaService.roll()
 
 卡池成员指向角色差分（Variant），Roster 也以 Variant ID 记录持有与培养状态；角色原型 ID 用于聚合同一角色的身份和基础资料。同一原型的多个差分可以有独立的获取、等级、碎片和培养进度。
 
-源码入口：`src/arona-clicker/services/economy/gacha-service.ts`、`services/character/character-system.ts`、`services/character/roster-system.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/gacha-service.test.ts`、`tests/engine/state-mutation-service.test.ts`。
+源码入口：`src/arona-clicker/services/economy/gacha-service.ts`、`services/character/character-system.ts`、`services/character/roster-system.ts`、`src/arona-clicker/state/state-mutation-service.ts`。相关测试见 `tests/engine/character/gacha-service.test.ts`、`tests/engine/core/state-mutation-service.test.ts`。
 
 状态写入入口见 [[state-and-events]]。
 
@@ -39,8 +39,8 @@ Controller 命令 → GachaService.roll()
 
 ### 可核对的例子：十连只完成两抽
 
-`tests/engine/gacha-service.test.ts` 的测试池单抽花费 120，余额为 300 时请求 10 抽：前两抽完成，第三抽前余额不足，结果保留两条并标记 `stopped: insufficient-currency`。已完成抽取不会因后续余额不足而撤销。另一个测试令 `guaranteedAt = 10`、当前 pity 为 9，下一抽命中 featured 并把 pity 归零。
+`tests/engine/character/gacha-service.test.ts` 的测试池单抽花费 120，余额为 300 时请求 10 抽：前两抽完成，第三抽前余额不足，结果保留两条并标记 `stopped: insufficient-currency`。已完成抽取不会因后续余额不足而撤销。另一个测试令 `guaranteedAt = 10`、当前 pity 为 9，下一抽命中 featured 并把 pity 归零。
 
 未知卡池、未注册模式、配置不完整或没有可抽成员会抛错；与余额不足的正常中止不是同一种结果。扣费在实际抽取之前，因此不能把所有意外异常都描述成整次调用原子回滚；具体异常的副作用要结合调用路径核实。
 
-源码与测试：`src/arona-clicker/services/economy/gacha-service.ts` 的 `roll()`、`baClassic`，`tests/engine/gacha-service.test.ts` 的 G-01、G-03、G-09。培养和好感如何消费持有状态见 [[character-growth]]。
+源码与测试：`src/arona-clicker/services/economy/gacha-service.ts` 的 `roll()`、`baClassic`，`tests/engine/character/gacha-service.test.ts` 的 G-01、G-03、G-09。培养和好感如何消费持有状态见 [[character-growth]]。

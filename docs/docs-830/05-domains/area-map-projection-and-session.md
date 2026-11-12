@@ -32,4 +32,4 @@ Area、AreaMap 与 Node 各自投影 `existence`、`name`、`utility`、`conditi
 
 排查“按钮可见但无法移动”时，检查点击时的 `ready`、节点 / 目标信息、动作条件、Area `enterCondition` 和最终旅行结果。排查“地图册能看到但打不开”时，检查当前地图定义、存在知识与 `openCondition`；不要把收录当成当前浏览许可。
 
-源码：`src/arona-clicker/services/world/area-map-query.ts`、`area-map-commands.ts`、`area-travel-routes.ts`、`src/ui/workspace/area-map-controller.ts`、`area-map-session.ts`、`area-map-dom.ts`。测试：`tests/engine/area-map-query.test.ts`、`area-map-commands.test.ts`、`area-map-fast-travel.test.ts`、`tests/ui/area-map-controller.test.ts`、`area-map-session.test.ts`。
+源码：`src/arona-clicker/services/world/area-map-query.ts`、`area-map-commands.ts`、`area-travel-routes.ts`、`src/ui/workspace/area-map-controller.ts`、`area-map-session.ts`、`area-map-dom.ts`。测试：`tests/engine/area-map/area-map-query.test.ts`、`area-map-commands.test.ts`、`area-map-fast-travel.test.ts`、`tests/ui/area-map/area-map-controller.test.ts`、`area-map-session.test.ts`。

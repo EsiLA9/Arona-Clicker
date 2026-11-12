@@ -6,7 +6,7 @@ import { describe, test, expect } from 'vitest';
 import {
   cond,
 } from '../../../src/engine/types';
-import { variant, CharacterVariantBuilder, gachaPool, GachaPoolBuilder } from '../../../src/arona-clicker/content/def-factory';
+import { variant, CharacterVariantBuilder, gachaPool, GachaPoolBuilder } from '../../../src/arona-clicker/content/def-factory/index';
 import { GachaMode } from '../../../src/data-services/contracts/gacha-pool';
 import { Resource } from '../../../src/arona-clicker/types/ids';
 import type { GachaPoolDef } from '../../../src/data-services/contracts/gacha-pool';

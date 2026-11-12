@@ -393,6 +393,14 @@ export class UIController {
   private readonly runtimeEditorVisibilityHandler = (): void => {
     if (document.visibilityState === 'hidden') flushRuntimeEditorDraft(this);
   };
+  private readonly onDebugShortcut = (event: KeyboardEvent): void => {
+    if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+      event.preventDefault();
+      this.game.enhancements.dumpEnhancementDebug();
+      this.toast.show('Enhancement 条件诊断已写入日志', 'info');
+      this.render();
+    }
+  };
 
   // --- 疏散出去的领域模块 ---
   /** 聊天流（ID 计数 / 剧情指纹 / 路由 / 同步）。 */
@@ -533,18 +541,15 @@ export class UIController {
       if (this.started) refreshLightImpl(this);
     }, 1000);
     // 全局快捷键：Ctrl+Shift+D → Enhancement 条件诊断
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-        e.preventDefault();
-        this.game.enhancements.dumpEnhancementDebug();
-        this.toast.show('Enhancement 条件诊断已写入日志', 'info');
-        this.render();
-      }
-    });
+    document.addEventListener('keydown', this.onDebugShortcut);
   }
 
   destroy(): void {
+    document.removeEventListener('keydown', this.onDebugShortcut);
     this.storyEditor.dispose();
+    this.selectorPage.dispose();
+    this.popovers.dispose();
+    this.modal.dispose();
     this.columns.dispose();
     this.chat.reset();
     this.scroll.reset();

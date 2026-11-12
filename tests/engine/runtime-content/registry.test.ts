@@ -1,0 +1,971 @@
+import type { AchievementDef, Datapack, MilestoneDef, MilestoneListenerDef } from '../../../src/data-services/contracts/datapack';
+import type {
+  OperationActionDef,
+  OperationCardPoolDef,
+  OperationEventContentDef,
+  OperationLocationDef,
+  OperationSceneActionChoiceDef,
+  OperationScenePurchaseOfferDef,
+  OperationStrategyProfileDef,
+  StudentOperationProfileDef,
+} from '../../../src/data-services/contracts/operation';
+// ============================================================
+// engine/registry.test.ts
+// ============================================================
+import { describe, test, expect } from 'vitest';
+import { Registry } from '../../../src/data-services/registry/registry';
+import { } from '../../../src/engine/types/index';
+import { extra } from '../../../src/engine/extra/index';
+
+const sampleDatapack: Datapack = {
+  name: 'test',
+  version: '1.0.0',
+  inits: [
+    { id: 'test:init:init_a', name: 'Test Init', description: '', defaultAreas: ['test:area:area_1'] },
+  ],
+  areas: [
+    { id: 'test:area:area_1', initId: 'test:init:init_a', name: 'Test Area', description: '', defaultSpots: ['test:spot:spot_1'] },
+  ],
+  spots: [
+    {
+      id: 'test:spot:spot_1', areaId: 'test:area:area_1', name: 'Test Spot', description: '',
+      purchaseOptions: [{ id: 'free', costs: [] }],
+      levelUpgrades: [],
+      tags: [],
+    },
+  ],
+  enhancements: [],
+  activeStories: [],
+  passiveStories: [],
+  stories: [],
+  items: [],
+  funcletDefs: [],
+  characters: [],
+  
+};
+
+const TEST_OPERATION_CHARACTER_ID = 'test-character';
+const TEST_OPERATION_EVENT_ID = 'test:operation-event:carousel_demo';
+const TEST_OPERATION_LOCATION_ID = 'test:operation-location:control_room';
+const TEST_OPERATION_ACTION_ID = 'test:operation-action:inspect_panel';
+const TEST_OPERATION_PROFILE_ID = 'test:student-operation-profile:guide';
+const TEST_OPERATION_STRATEGY_ID = 'test:operation-strategy-profile:protective';
+const TEST_OPERATION_POOL_ID = 'test:operation-card-pool:common';
+const testOperationCharacter = { id: TEST_OPERATION_CHARACTER_ID } as Datapack['characters'][number];
+
+  const testOperationAction: OperationActionDef = {
+  id: TEST_OPERATION_ACTION_ID,
+  title: TEST_OPERATION_ACTION_ID,
+  allowedParticipantKinds: ['student'],
+  requiredCapabilityIds: [],
+  reasonIds: ['inspect-panel'],
+  tagIds: [],
+  target: { kind: 'none' },
+  effects: [{ kind: 'eventFact', factId: 'panel-inspected', op: 'reveal' }],
+};
+
+const testOperationLocation: OperationLocationDef = {
+  id: TEST_OPERATION_LOCATION_ID,
+  stage: 'combat',
+  enabledActionIds: [TEST_OPERATION_ACTION_ID],
+  combinationRules: [],
+  maxBeats: 1,
+  routeEdges: [],
+};
+
+const testStudentOperationProfile: StudentOperationProfileDef = {
+  id: TEST_OPERATION_PROFILE_ID,
+  characterId: TEST_OPERATION_CHARACTER_ID,
+  candidateActionIds: [TEST_OPERATION_ACTION_ID],
+  actionPriorityIds: [TEST_OPERATION_ACTION_ID],
+  capabilityIds: [],
+  reasonIds: [],
+  strategyProfileId: TEST_OPERATION_STRATEGY_ID,
+  cardPoolIds: [],
+};
+
+const testOperationStrategyProfile: OperationStrategyProfileDef = {
+  id: TEST_OPERATION_STRATEGY_ID,
+  biases: [{ tagId: 'protect', biasBps: 15000 }],
+};
+
+const testOperationCardPool: OperationCardPoolDef = {
+  id: TEST_OPERATION_POOL_ID,
+  entries: [{ actionId: TEST_OPERATION_ACTION_ID, weight: 5 }],
+};
+
+const testOperationEvent: OperationEventContentDef = {
+  id: TEST_OPERATION_EVENT_ID,
+  title: '测试行动',
+  description: '测试事件的简短介绍。',
+  initId: 'test:init:init_a',
+  resumeVersion: 1,
+  locationIds: [TEST_OPERATION_LOCATION_ID],
+  initialLocationId: TEST_OPERATION_LOCATION_ID,
+  maxLocationVisits: 2,
+  tracks: [{ id: 'queue', initial: 1, min: 0, max: 3 }],
+  factIds: ['panel-inspected'],
+  knownFactIds: [],
+  itemIds: [],
+  heldItemIds: [],
+  cardPoolIds: [TEST_OPERATION_POOL_ID],
+  actors: [{ id: 'student_1', type: 'student', hp: { initial: 3, min: 0, max: 3 } }],
+  participants: [{ actorId: 'student_1', kind: 'student', profileId: TEST_OPERATION_PROFILE_ID }],
+  playerRouteState: { playerCost: 0 },
+};
+
+const operationDatapack = (overrides: Partial<Datapack> = {}): Datapack => ({
+  ...sampleDatapack,
+  characters: [testOperationCharacter],
+  operationEvents: [testOperationEvent],
+  operationLocations: [testOperationLocation],
+  operationActions: [testOperationAction],
+  studentOperationProfiles: [testStudentOperationProfile],
+  operationStrategyProfiles: [testOperationStrategyProfile],
+  operationCardPools: [testOperationCardPool],
+  ...overrides,
+});
+
+const TEST_PURCHASE_LOCATION_ID = 'test:operation-location:supply_room';
+const TEST_PURCHASE_ACTION_ID = 'test:operation-action:purchase_supply';
+const TEST_PURCHASE_FACT_ID = 'purchased-supply';
+const TEST_PURCHASE_ITEM_ID = 'supply-kit';
+const TEST_PURCHASE_OFFER: OperationScenePurchaseOfferDef = {
+  id: 'supply-kit',
+  actionId: TEST_PURCHASE_ACTION_ID,
+  playerCost: 2,
+  purchaseFactId: TEST_PURCHASE_FACT_ID,
+};
+
+const testPurchaseAction: OperationActionDef = {
+  id: TEST_PURCHASE_ACTION_ID,
+  title: 'Purchase supply kit',
+  allowedParticipantKinds: ['student'],
+  requiredCapabilityIds: [],
+  reasonIds: [],
+  tagIds: [],
+  target: { kind: 'none' },
+  effects: [{ kind: 'heldItem', itemId: TEST_PURCHASE_ITEM_ID, op: 'grant' }],
+};
+
+const createPurchaseLocation = (options: {
+  readonly sceneActionChoice?: OperationSceneActionChoiceDef;
+  readonly purchaseOffers?: readonly OperationScenePurchaseOfferDef[];
+} = {}): OperationLocationDef => ({
+  id: TEST_PURCHASE_LOCATION_ID,
+  stage: 'scene',
+  enabledActionIds: [],
+  combinationRules: [],
+  scenes: [{
+    id: 'supply-choice',
+    title: 'Supply choice',
+    actionMode: 'global',
+    sceneActionBatches: 1,
+    sceneActions: [
+      { id: 'choice-a', actionId: TEST_OPERATION_ACTION_ID, scope: 'global', playerCost: 0, performerPolicy: 'none' },
+      { id: 'choice-b', actionId: TEST_OPERATION_ACTION_ID, scope: 'global', playerCost: 0, performerPolicy: 'none' },
+    ],
+    sceneActionChoice: options.sceneActionChoice ?? {
+      candidateSceneActionIds: ['choice-a', 'choice-b'],
+      chooseExactly: 1,
+    },
+    purchaseOffers: options.purchaseOffers ?? [TEST_PURCHASE_OFFER],
+    completion: { kind: 'track', trackId: 'queue', operator: 'gte', value: 1 },
+  }],
+  routeEdges: [],
+});
+
+const purchaseOperationDatapack = (
+  options: {
+    readonly event?: Partial<OperationEventContentDef>;
+    readonly location?: OperationLocationDef;
+    readonly purchaseAction?: OperationActionDef;
+  } = {},
+): Datapack => operationDatapack({
+  operationEvents: [{
+    ...testOperationEvent,
+    locationIds: [TEST_PURCHASE_LOCATION_ID],
+    initialLocationId: TEST_PURCHASE_LOCATION_ID,
+    factIds: ['panel-inspected', TEST_PURCHASE_FACT_ID],
+    itemIds: [TEST_PURCHASE_ITEM_ID],
+    ...options.event,
+  }],
+  operationLocations: [options.location ?? createPurchaseLocation()],
+  operationActions: [testOperationAction, options.purchaseAction ?? testPurchaseAction],
+});
+
+function expectPurchaseDatapackRejectedBeforeMerge(datapack: Datapack, message: RegExp): void {
+  const registry = new Registry();
+  expect(() => registry.load(datapack)).toThrow(message);
+  expect(registry.inits.has('test:init:init_a')).toBe(false);
+  expect(registry.operationEvents.size).toBe(0);
+  expect(registry.operationLocations.size).toBe(0);
+  expect(registry.operationActions.size).toBe(0);
+}
+
+const makeMilestone = (id = 'test:milestone:credit_1000'): MilestoneDef => ({
+  id,
+  condition: { target: 'resource', key: 'credit', comparator: '>=', value: 1000 },
+});
+
+const makeListener = (
+  id = 'test:milestone-listener:credit_1000',
+  milestoneId = 'test:milestone:credit_1000',
+  areaId = 'test:area:area_1',
+): MilestoneListenerDef => ({
+  id,
+  milestoneId,
+  areaId,
+  then: [{ op: 'addResource', target: 'credit', value: 1000 }],
+});
+
+const makeAchievement = (
+  id = 'test:achievement:credit_1000',
+  listenerId = 'test:milestone-listener:credit_1000',
+): AchievementDef => ({
+  id,
+  listenerId,
+  title: '积累资源',
+  clue: '继续经营。',
+  rewardDescription: '获得资源。',
+});
+
+describe('Registry', () => {
+  test('should load a valid datapack', () => {
+    const reg = new Registry();
+    expect(() => reg.load(sampleDatapack)).not.toThrow();
+    expect(reg.inits.get('test:init:init_a')).toBeDefined();
+    expect(reg.areas.get('test:area:area_1')).toBeDefined();
+    expect(reg.spots.get('test:spot:spot_1')).toBeDefined();
+  });
+
+  test('tracks resource and CharacterVariant source Datapacks through override and clear', () => {
+    const variant = { id: 'Hoshino' } as NonNullable<Datapack['characterVariants']>[number];
+    const resourceDisplays = [{ resourceId: 'test:resource:credit', label: 'Credit' }];
+    const registry = new Registry();
+
+    registry.load({
+      ...sampleDatapack,
+      modName: 'test',
+      resourceDisplays,
+      characterVariants: [variant],
+    });
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBe('test');
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBe('test');
+
+    registry.load({
+      ...sampleDatapack,
+      modName: 'override-pack',
+      resourceDisplays,
+      characterVariants: [variant],
+    });
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBe('override-pack');
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBe('override-pack');
+
+    registry.clear();
+    expect(registry.resourceDisplayOwnerOf('test:resource:credit')).toBeUndefined();
+    expect(registry.characterVariantOwnerOf('Hoshino')).toBeUndefined();
+  });
+
+  test('merges, queries, and clears Gameplay B Datapack tables including Strategy and CardPools', () => {
+    const reg = new Registry();
+    reg.load(operationDatapack());
+
+    expect(reg.operationEvents.get(TEST_OPERATION_EVENT_ID)).toEqual(testOperationEvent);
+    expect(reg.operationLocations.get(TEST_OPERATION_LOCATION_ID)).toEqual(testOperationLocation);
+    expect(reg.operationActions.get(TEST_OPERATION_ACTION_ID)).toEqual(testOperationAction);
+    expect(reg.studentOperationProfiles.get(TEST_OPERATION_PROFILE_ID)).toEqual(testStudentOperationProfile);
+    expect(reg.operationStrategyProfiles.get(TEST_OPERATION_STRATEGY_ID)).toEqual(testOperationStrategyProfile);
+    expect(reg.operationCardPools.get(TEST_OPERATION_POOL_ID)).toEqual(testOperationCardPool);
+
+    reg.clear();
+    expect(reg.operationEvents.size).toBe(0);
+    expect(reg.operationLocations.size).toBe(0);
+    expect(reg.operationActions.size).toBe(0);
+    expect(reg.studentOperationProfiles.size).toBe(0);
+    expect(reg.operationStrategyProfiles.size).toBe(0);
+    expect(reg.operationCardPools.size).toBe(0);
+  });
+
+  test('resolves Operation references against prior Registry tables and same-pack content', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, characters: [testOperationCharacter] });
+
+    reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationLocations: [testOperationLocation],
+      operationActions: [testOperationAction],
+      studentOperationProfiles: [testStudentOperationProfile],
+      operationStrategyProfiles: [testOperationStrategyProfile],
+      operationCardPools: [testOperationCardPool],
+    });
+    expect(() => reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationEvents: [testOperationEvent],
+    })).not.toThrow();
+
+    const samePack = new Registry();
+    expect(() => samePack.load(operationDatapack())).not.toThrow();
+  });
+
+  test('accepts an auto Character Scene as its own progress source', () => {
+    const sceneLocation: OperationLocationDef = {
+      id: TEST_OPERATION_LOCATION_ID,
+      stage: 'scene',
+      enabledActionIds: [TEST_OPERATION_ACTION_ID],
+      combinationRules: [],
+      objectives: [{
+        id: 'rest-complete',
+        description: 'The Rest objective is reached.',
+        kind: 'primary',
+        predicate: { kind: 'track', trackId: 'queue', operator: 'gte', value: 2 },
+      }],
+      scenes: [{
+        id: 'rest',
+        title: 'Rest',
+        autoCharacterActions: true,
+        completion: { kind: 'track', trackId: 'queue', operator: 'gte', value: 2 },
+      }],
+      routeEdges: [],
+    };
+    expect(() => new Registry().load(operationDatapack({ operationLocations: [sceneLocation] }))).not.toThrow();
+  });
+
+  test('rejects malformed Operation IDs and missing route, action, Profile, Character, and Predicate references before merge', () => {
+    const invalidType = operationDatapack({
+      operationActions: [{ ...testOperationAction, id: 'test:shop:wrong_type' }],
+    });
+    expect(() => new Registry().load(invalidType)).toThrow(/Operation Action id .*typeName.*operation-action/);
+
+    const { stage: _stage, ...missingStageLocation } = testOperationLocation;
+    expect(() => new Registry().load(operationDatapack({
+      operationLocations: [missingStageLocation as OperationLocationDef],
+    }))).toThrow(/stage must be combat or scene/);
+
+    const reg = new Registry();
+    reg.load(operationDatapack());
+    const invalidEvent = {
+      ...testOperationEvent,
+      locationIds: ['test:operation-location:missing'],
+      initialLocationId: 'test:operation-location:missing',
+      objectives: [{
+        id: 'primary_goal', description: 'Find the control panel.', kind: 'primary' as const,
+        predicate: { kind: 'track' as const, trackId: 'missing-track', operator: 'gte' as const, value: 1 },
+      }],
+    };
+    expect(() => reg.load({
+      ...sampleDatapack,
+      inits: [], areas: [], spots: [], characters: [],
+      operationEvents: [invalidEvent], operationLocations: [], operationActions: [], studentOperationProfiles: [],
+    })).toThrow(/locationIds references an unknown OperationLocation/);
+    expect(reg.operationEvents.get(TEST_OPERATION_EVENT_ID)).toEqual(testOperationEvent);
+    expect(reg.operationLocations.has(TEST_OPERATION_LOCATION_ID)).toBe(true);
+
+    const missingAction = operationDatapack({
+      operationLocations: [{ ...testOperationLocation, enabledActionIds: ['test:operation-action:missing'] }],
+      operationActions: [],
+    });
+    expect(() => new Registry().load(missingAction)).toThrow(/enabledActionIds references an unknown OperationAction/);
+
+    const missingCharacter = operationDatapack({
+      studentOperationProfiles: [{ ...testStudentOperationProfile, characterId: 'missing-character' }],
+    });
+    expect(() => new Registry().load(missingCharacter)).toThrow(/characterId references an unknown Character/);
+
+    const missingProfile = operationDatapack({
+      operationEvents: [{
+        ...testOperationEvent,
+        participants: [{ actorId: 'student_1', kind: 'student', profileId: 'test:student-operation-profile:missing' }],
+      }],
+    });
+    expect(() => new Registry().load(missingProfile)).toThrow(/profileId references an unknown StudentOperationProfile/);
+
+    const missingPool = operationDatapack({
+      operationEvents: [{ ...testOperationEvent, cardPoolIds: ['test:operation-card-pool:missing'] }],
+    });
+    expect(() => new Registry().load(missingPool)).toThrow(/cardPoolIds references an unknown OperationCardPool/);
+
+    const missingStrategy = operationDatapack({
+      studentOperationProfiles: [{ ...testStudentOperationProfile, strategyProfileId: 'test:operation-strategy-profile:missing' }],
+    });
+    expect(() => new Registry().load(missingStrategy)).toThrow(/strategyProfileId references an unknown OperationStrategyProfile/);
+
+    const unknownContextFact = operationDatapack({
+      operationCardPools: [{ ...testOperationCardPool, selector: { requiredFactIds: ['not-an-event-fact'] } }],
+    });
+    expect(() => new Registry().load(unknownContextFact)).toThrow(/selector.requiredFactIds references an undeclared Event fact/);
+
+    const invalidHandSize = operationDatapack({
+      operationEvents: [{ ...testOperationEvent, characterHandSize: 11 }],
+    });
+    expect(() => new Registry().load(invalidHandSize)).toThrow(/characterHandSize must be between 1 and 10/);
+
+    expect(() => new Registry().load(operationDatapack({
+      operationCardPools: [{ ...testOperationCardPool, entries: [{ actionId: TEST_OPERATION_ACTION_ID, weight: 0 }] }],
+    }))).toThrow(/weight must be between 1 and 100000/);
+
+    expect(() => new Registry().load(operationDatapack({
+      operationStrategyProfiles: [{ ...testOperationStrategyProfile, id: 'test:operation-action:wrong_type' }],
+    }))).toThrow(/OperationStrategyProfile id .*typeName.*operation-strategy-profile/);
+
+    const missingRoute = operationDatapack({
+      operationLocations: [{
+        ...testOperationLocation,
+        routeEdges: [{ id: 'back_path', targetLocationId: 'test:operation-location:missing', label: 'Back', description: 'Return.' }],
+      }],
+    });
+    expect(() => new Registry().load(missingRoute)).toThrow(/targetLocationId references a Location outside this Event/);
+
+    const missingPredicate = operationDatapack({
+      operationEvents: [{
+        ...testOperationEvent,
+        objectives: [{
+          id: 'primary_goal', description: 'Find the control panel.', kind: 'primary',
+          predicate: { kind: 'track', trackId: 'missing-track', operator: 'gte', value: 1 },
+        }],
+      }],
+    });
+    expect(() => new Registry().load(missingPredicate)).toThrow(/predicate.trackId references an undeclared Event track/);
+  });
+
+  test('rejects malformed M-of-N and PurchaseOffer contracts before Registry merge', () => {
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        sceneActionChoice: { candidateSceneActionIds: ['choice-a', 'choice-b'], chooseExactly: 3 },
+      }),
+    }), /sceneActionChoice\.chooseExactly must be between 1 and the candidate count/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        sceneActionChoice: { candidateSceneActionIds: ['choice-a', 'missing-choice'], chooseExactly: 1 },
+      }),
+    }), /sceneActionChoice\.candidateSceneActionIds references an undeclared SceneAction: missing-choice/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      event: { factIds: ['panel-inspected'] },
+    }), /purchaseFactId references an undeclared Event fact: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      event: { knownFactIds: [TEST_PURCHASE_FACT_ID] },
+    }), /purchaseFactId must not be initially known: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      location: createPurchaseLocation({
+        purchaseOffers: [TEST_PURCHASE_OFFER, { ...TEST_PURCHASE_OFFER, id: 'supply-kit-again' }],
+      }),
+    }), /purchaseFactId is already used by another PurchaseOffer: purchased-supply/);
+
+    expectPurchaseDatapackRejectedBeforeMerge(purchaseOperationDatapack({
+      purchaseAction: { ...testPurchaseAction, effects: [] },
+    }), /purchaseOffers\[0\]\.actionId must reference.*at least one Event Track, Fact, or held-item reward effect/);
+  });
+
+  test('should merge, query, and clear milestone definitions', () => {
+    const reg = new Registry();
+    const milestone = {
+      id: 'test:milestone:credit_1000',
+      condition: { target: 'resource' as const, key: 'credit', comparator: '>=' as const, value: 1000 },
+    };
+    reg.load({ ...sampleDatapack, milestones: [milestone] });
+
+    expect(reg.milestones.get(milestone.id)).toEqual(milestone);
+
+    reg.clear();
+    expect(reg.milestones.size).toBe(0);
+  });
+
+  test('should reject duplicate milestone IDs and IDs with a different entity type', () => {
+    const reg = new Registry();
+    const milestone = {
+      id: 'test:milestone:credit_1000',
+      condition: { target: 'resource' as const, key: 'credit', comparator: '>=' as const, value: 1000 },
+    };
+    expect(() => reg.load({ ...sampleDatapack, milestones: [milestone, milestone] })).toThrow(/Duplicate milestone id/);
+    expect(() => reg.load({ ...sampleDatapack, milestones: [{ ...milestone, id: 'test:trigger:credit_1000' }] }))
+      .toThrow(/Milestone id .*typeName.*milestone/);
+  });
+
+  test('should merge, query, and clear milestone listeners and achievements', () => {
+    const reg = new Registry();
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    reg.load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    });
+
+    expect(reg.milestoneListeners.get(listener.id)).toEqual(listener);
+    expect(reg.achievements.get(achievement.id)).toEqual(achievement);
+
+    reg.clear();
+    expect(reg.milestoneListeners.size).toBe(0);
+    expect(reg.achievements.size).toBe(0);
+  });
+
+  test('should reject duplicate IDs and invalid entity types for new definitions', () => {
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener, listener],
+    })).toThrow(/Duplicate milestone listener id/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [{ ...listener, id: 'test:achievement:wrong_type' }],
+    })).toThrow(/MilestoneListener id .*typeName.*milestone-listener/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement, achievement],
+    })).toThrow(/Duplicate achievement id/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [{ ...achievement, id: 'test:milestone:wrong_type' }],
+    })).toThrow(/Achievement id .*typeName.*achievement/);
+  });
+
+  test('should accept same-pack and previously loaded milestone references', () => {
+    const reg = new Registry();
+    const milestone = makeMilestone();
+    reg.load({ ...sampleDatapack, milestones: [milestone] });
+    const listener = makeListener();
+    const achievement = makeAchievement();
+    expect(() => reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    })).not.toThrow();
+    expect(reg.milestoneListeners.has(listener.id)).toBe(true);
+    expect(reg.achievements.has(achievement.id)).toBe(true);
+
+    const samePackRegistry = new Registry();
+    expect(() => samePackRegistry.load({
+      ...sampleDatapack,
+      milestones: [milestone],
+      milestoneListeners: [listener],
+      achievements: [achievement],
+    })).not.toThrow();
+  });
+
+  test('should reject missing milestone, area, and listener references with definition IDs', () => {
+    const missingMilestone = makeListener('test:milestone-listener:missing_milestone', 'test:milestone:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, milestoneListeners: [missingMilestone] }))
+      .toThrow(/MilestoneListener "test:milestone-listener:missing_milestone" references unknown milestone/);
+
+    const missingArea = makeListener('test:milestone-listener:missing_area', 'test:milestone:credit_1000', 'test:area:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, milestones: [makeMilestone()], milestoneListeners: [missingArea] }))
+      .toThrow(/MilestoneListener "test:milestone-listener:missing_area" references unknown area/);
+
+    const missingListener = makeAchievement('test:achievement:missing_listener', 'test:milestone-listener:missing');
+    expect(() => new Registry().load({ ...sampleDatapack, achievements: [missingListener] }))
+      .toThrow(/Achievement "test:achievement:missing_listener" references unknown MilestoneListener/);
+  });
+
+  test('should reject multiple listeners per milestone and achievements per listener', () => {
+    const listener = makeListener();
+    const anotherListener = makeListener('extension:milestone-listener:credit_1000');
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener, anotherListener],
+    })).toThrow(/MilestoneListeners .*reference the same Milestone/);
+
+    const achievement = makeAchievement();
+    const anotherAchievement = makeAchievement('extension:achievement:credit_1000');
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [achievement, anotherAchievement],
+    })).toThrow(/Achievements .*reference the same MilestoneListener/);
+  });
+
+  test('should enforce one-to-one references across loaded datapacks', () => {
+    const listener = makeListener();
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, milestones: [makeMilestone()], milestoneListeners: [listener] });
+    const conflictingListener = makeListener('extension:milestone-listener:credit_1000');
+    expect(() => reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [conflictingListener],
+    })).toThrow(/MilestoneListeners .*reference the same Milestone/);
+
+    const achievementRegistry = new Registry();
+    achievementRegistry.load({
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+      achievements: [makeAchievement()],
+    });
+    expect(() => achievementRegistry.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      milestones: [],
+      milestoneListeners: [],
+      achievements: [makeAchievement('extension:achievement:credit_1000')],
+    })).toThrow(/Achievements .*reference the same MilestoneListener/);
+  });
+
+  test.each(['unknownOp', 'loot', 'travelToArea', 'setSpotMaxLevel', 'removeSpotMaxLevel'])(
+    'should reject non-executable Listener then op %s from runtime JSON',
+    op => {
+      const listener = {
+        ...makeListener(),
+        then: [{ op, target: 'credit', value: 1 }],
+      };
+      const datapack = {
+        ...sampleDatapack,
+        milestones: [makeMilestone()],
+        milestoneListeners: [listener],
+      } as unknown as Datapack;
+      expect(() => new Registry().load(datapack)).toThrow(
+        new RegExp(`MilestoneListener "${listener.id}" then\\[0\\] op "${op}" is not executable`),
+      );
+    },
+  );
+
+  test('should reject a non-array Listener then value from runtime JSON', () => {
+    const listener = { ...makeListener(), then: { op: 'addResource' } };
+    const datapack = {
+      ...sampleDatapack,
+      milestones: [makeMilestone()],
+      milestoneListeners: [listener],
+    } as unknown as Datapack;
+    expect(() => new Registry().load(datapack)).toThrow(
+      /MilestoneListener "test:milestone-listener:credit_1000" then 必须是效果数组/,
+    );
+  });
+
+  test('should reject duplicate IDs', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      inits: [
+        { id: 'test:init:init_a', name: 'A', description: '', defaultAreas: [] },
+        { id: 'test:init:init_a', name: 'A dup', description: '', defaultAreas: [] },
+      ],
+    };
+    expect(() => reg.load(dp)).toThrow(/Duplicate/);
+  });
+
+  test('should reject broken references (area → unknown init)', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      inits: [],
+    };
+    expect(() => reg.load(dp)).toThrow(/unknown init/);
+  });
+
+  test('should reject broken references (spot → unknown area)', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      areas: [],
+    };
+    expect(() => reg.load(dp)).toThrow(/unknown area/);
+  });
+
+  test('should accept an explicit Spot with no purchase route', () => {
+    const reg = new Registry();
+    const dp = {
+      ...sampleDatapack,
+      spots: [{ ...sampleDatapack.spots[0], purchaseOptions: [] }],
+    } satisfies Datapack;
+    expect(() => reg.load(dp)).not.toThrow();
+  });
+
+  test('should reject an upgrade without an explicit payment group', () => {
+    const reg = new Registry();
+    const dp = {
+      ...sampleDatapack,
+      spots: [{
+        ...sampleDatapack.spots[0],
+        levelUpgrades: [{ level: 2, paymentOptions: [], effects: [] }],
+      }],
+    } satisfies Datapack;
+    expect(() => reg.load(dp)).toThrow(/paymentOptions.*至少需要一个支付方案/);
+  });
+
+  test('should build relationship indices', () => {
+    const reg = new Registry();
+    reg.load(sampleDatapack);
+    expect(reg.areasOfInit('test:init:init_a')).toEqual(['test:area:area_1']);
+    expect(reg.spotsOfArea('test:area:area_1')).toEqual(['test:spot:spot_1']);
+  });
+
+  test('should index hierarchical tags with parent containing children', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      spots: [
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_1', tags: [['office'], ['field']] },
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_2', tags: [['office', 'layout']] },
+        { ...sampleDatapack.spots[0], id: 'test:spot:spot_3', tags: [['office', 'layout', 'desk']] },
+      ],
+    });
+    // 查询 office：命中 office 及其所有 child（office/layout, office/layout/desk）
+    expect(reg.spotsWithTag(['office'])).toEqual(expect.arrayContaining(['test:spot:spot_1', 'test:spot:spot_2', 'test:spot:spot_3']));
+    // 查询 office/layout：命中自身与其 child，不含 spot_1
+    expect(reg.spotsWithTag(['office', 'layout'])).toEqual(expect.arrayContaining(['test:spot:spot_2', 'test:spot:spot_3']));
+    expect(reg.spotsWithTag(['office', 'layout'])).not.toContain('test:spot:spot_1');
+    // 查询叶子：仅 spot_3
+    expect(reg.spotsWithTag(['office', 'layout', 'desk'])).toEqual(['test:spot:spot_3']);
+  });
+
+  test('should clear all data', () => {
+    const reg = new Registry();
+    reg.load(sampleDatapack);
+    reg.clear();
+    expect(reg.inits.size).toBe(0);
+    expect(reg.areas.size).toBe(0);
+    expect(reg.spots.size).toBe(0);
+  });
+
+  test('should merge multiple datapacks', () => {
+    const reg = new Registry();
+    reg.load(sampleDatapack);
+    reg.load({
+      name: 'extension',
+      version: '1.0.0',
+      inits: [
+        { id: 'test:init:init_b', name: 'Init B', description: '', defaultAreas: [] },
+      ],
+      areas: [],
+      spots: [],
+      enhancements: [],
+      activeStories: [],
+      passiveStories: [],
+      stories: [],
+      items: [],
+      funcletDefs: [],
+      characters: [],
+      
+    });
+    expect(reg.inits.size).toBe(2);
+  });
+
+  test('should merge datapack extras into a flat-key expanded tree', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      extras: {
+        'meta/author': extra.str('tester'),
+        'balance/start': extra.int(10),
+        'balance/nested/tax': extra.float(0.1),
+      },
+    });
+    expect(reg.extras).toEqual(
+      extra.dict({
+        meta: extra.dict({ author: extra.str('tester') }),
+        balance: extra.dict({
+          start: extra.int(10),
+          nested: extra.dict({ tax: extra.float(0.1) }),
+        }),
+      }),
+    );
+    expect(reg.getExtra('balance/start')).toEqual(extra.int(10));
+    expect(reg.getExtra('meta/nope')).toBeUndefined();
+  });
+
+  test('should deep-merge extras from multiple datapacks (later overrides leaves)', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      extras: { 'meta/author': extra.str('tester'), 'meta/debug': extra.bool(false) },
+    });
+    reg.load({
+      ...sampleDatapack,
+      extras: { 'meta/author': extra.str('override'), 'balance/start': extra.int(99) },
+    });
+    expect(reg.getExtra('meta/author')).toEqual(extra.str('override'));
+    expect(reg.getExtra('meta/debug')).toEqual(extra.bool(false));
+    expect(reg.getExtra('balance/start')).toEqual(extra.int(99));
+  });
+
+  test('should reject flat-key conflicts in datapack extras', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      extras: {
+        'meta': extra.int(1),
+        'meta/author': extra.str('tester'),
+      },
+    };
+    expect(() => reg.load(dp)).toThrow(/Invalid datapack extras/);
+  });
+
+  test('should reject invalid Def-level extra', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      spots: [
+        {
+          ...sampleDatapack.spots[0],
+          // 外层必须是 dict（ExtraCompound 类型约束）；内层 int 非整数 → 运行时校验拒绝
+          extra: { t: 'dict', v: { phase: { t: 'int', v: 1.5 } } },
+        },
+      ],
+    };
+    expect(() => reg.load(dp)).toThrow(/Invalid extra on spot/);
+  });
+
+  test('should clear extras on clear()', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, extras: { 'meta/author': extra.str('tester') } });
+    reg.clear();
+    expect(reg.extras).toEqual(extra.dict({}));
+  });
+
+  test('should load tag defs and expose them', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'office', name: '办公室', description: '行政与布局设施' },
+        { id: 'office/defense', name: '防御部', description: '驻防设施' },
+      ],
+    });
+    expect(reg.tagDefs.size).toBe(2);
+    expect(reg.tagDefs.get('base:office')?.name).toBe('办公室');
+  });
+
+  test('should resolve tag name by exact match, else inherit from parent', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'office', name: '办公室', description: '行政与布局设施' },
+        { id: 'office/defense', name: '防御部' },
+      ],
+    });
+    // 精确命中
+    expect(reg.tagName(['office'])).toBe('办公室');
+    expect(reg.tagName(['office', 'defense'])).toBe('防御部');
+    // 未定义子 tag：沿路径向上继承父定义
+    expect(reg.tagName(['office', 'defense', 'desk'])).toBe('防御部');
+    expect(reg.tagDescription(['office', 'defense', 'desk'])).toBeUndefined();
+    // 无任何定义：回退路径串
+    expect(reg.tagName(['millennium'])).toBe('millennium');
+  });
+
+  test('should merge tag defs across datapacks (later overrides)', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [{ id: 'office', name: '办公室', description: 'v1' }],
+    });
+    reg.load({
+      ...sampleDatapack,
+      tags: [{ id: 'office', name: '办公区' }, { id: 'field', name: '野外' }],
+    });
+    expect(reg.tagName(['office'])).toBe('办公区');
+    expect(reg.tagName(['field'])).toBe('野外');
+  });
+
+  test('should reject duplicate tag ids', () => {
+    const reg = new Registry();
+    const dp: Datapack = {
+      ...sampleDatapack,
+      tags: [
+        { id: 'office', name: 'A' },
+        { id: 'office', name: 'B' },
+      ],
+    };
+    expect(() => reg.load(dp)).toThrow(/Duplicate/);
+  });
+
+  test('should reject duplicate canonical TagRef ids', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, tags: [{ id: 'office', name: 'A' }] });
+    expect(() => reg.load({ ...sampleDatapack, modName: 'extension', tags: [{ id: 'base:office', name: 'B' }] })).toThrow(/canonical tag id/);
+  });
+
+  test('should resolve an explicit cross-namespace tag parent', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'base:office', name: '办公室' },
+        { id: 'extension:office-special', parent: 'base:office', name: '特殊办公室' },
+      ],
+      spots: [{ ...sampleDatapack.spots[0], tags: [['extension:office-special']] }],
+    });
+    reg.validateTagRefs();
+    expect(reg.spotsWithTag(['base:office'])).toContain('test:spot:spot_1');
+    expect(reg.tagName(['extension:office-special'])).toBe('特殊办公室');
+  });
+
+  test('should reject an unknown explicit tag parent after merge', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [{ id: 'extension:office-special', parent: 'base:office', name: '特殊办公室' }],
+    });
+    expect(() => reg.validateTagRefs()).toThrow(/unknown parent/);
+  });
+
+  test('should reject an explicit tag parent cycle', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      tags: [
+        { id: 'base:a', parent: 'base:b', name: 'A' },
+        { id: 'base:b', parent: 'base:a', name: 'B' },
+      ],
+    });
+    expect(() => reg.validateTagRefs()).toThrow(/cycle/);
+  });
+
+  test('should reject malformed entity and affector TagPath values', () => {
+    const malformedSpot = { ...sampleDatapack.spots[0], tags: [['office', 'bad:child']] };
+    expect(() => new Registry().load({ ...sampleDatapack, spots: [malformedSpot] })).toThrow(/modName:tagPath/);
+    expect(() => new Registry().load({
+      ...sampleDatapack,
+      affectorPacks: [{ id: 'test:affectorpack:tag', entries: [{ id: 'e', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['bad:tag:path'] }, category: 'mul', value: 2 }] }] }],
+    })).toThrow(/modName:tagPath/);
+  });
+
+  test('should assign bare tags to the datapack namespace', () => {
+    const reg = new Registry();
+    reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      tags: [{ id: 'office', name: '扩展办公室' }],
+      spots: [{ ...sampleDatapack.spots[0], tags: [['office']] }],
+    });
+    expect(reg.spotsWithTag(['extension:office'])).toContain('test:spot:spot_1');
+    expect(reg.spotsWithTag(['base:office'])).not.toContain('test:spot:spot_1');
+    expect(reg.tagName(['extension:office'])).toBe('扩展办公室');
+  });
+
+  test('declared bare tags keep their owning datapack across load order', () => {
+    const reg = new Registry();
+    reg.load({ ...sampleDatapack, modName: 'base', spots: sampleDatapack.spots.map(s => ({ ...s, tags: [['office']] })) });
+    reg.load({
+      ...sampleDatapack,
+      modName: 'extension',
+      inits: sampleDatapack.inits.map(i => ({ ...i, defaultAreas: [] })),
+      areas: sampleDatapack.areas.map(a => ({ ...a, defaultSpots: [] })),
+      spots: sampleDatapack.spots.map(s => ({ ...s, id: `${s.id}-extension`, tags: [['office']] })),
+    });
+    expect(reg.effectiveSpotTags('test:spot:spot_1')).toEqual([['office']]);
+    expect(reg.effectiveSpotTags('test:spot:spot_1-extension')).toEqual([['office']]);
+    expect(reg.spotsWithTag(['base:office'])).toContain('test:spot:spot_1');
+    expect(reg.spotsWithTag(['base:office'])).not.toContain('test:spot:spot_1-extension');
+    expect(reg.tagNameForSpotTag('test:spot:spot_1-extension', ['office'])).toBe('office');
+  });
+});

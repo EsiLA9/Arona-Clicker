@@ -39,4 +39,4 @@
 - 字段规则及类型守卫：`src/arona-clicker/state/per-init-fields.ts`。
 - 全局 / 局部条目过滤：`src/arona-clicker/state/snapshot.ts`。
 - 切换与恢复入口：`src/arona-clicker/services/world/init-service.ts`。
-- 字段清单与快照三操作测试：`tests/engine/per-init-fields.test.ts`；完整存档与恢复测试见 [[save-system-and-recovery]]。
+- 字段清单与快照三操作测试：`tests/engine/world/per-init-fields.test.ts`；完整存档与恢复测试见 [[save-system-and-recovery]]。

@@ -65,4 +65,4 @@ Area、AreaMap 和本地 Node 通过 `reveal` 声明四个独立信息面：`exi
 
 若地图无法打开，依次检查当前位置入口、地图存在信息、`openCondition` 和当前定义集合；节点可见但不可用时检查 `actionCondition`、目标信息、目标 `enterCondition` 及真实路线，不以连线或地图收录替代旅行预检。
 
-源码：`src/data-services/contracts/area-map.ts`、`world.ts`、`world-reveal.ts`、`registry/area-map-validation.ts`、`src/arona-clicker/services/world/area-map-query.ts`、`area-map-commands.ts`、`base-datapack-source.ts`。测试：`tests/data/area-map-demo.test.ts`、`area-map-registry.test.ts`、`tests/engine/area-map-commands.test.ts`、`area-map-fast-travel.test.ts`、`tests/ui/runtime-editor-definition.test.ts`。
+源码：`src/data-services/contracts/area-map.ts`、`world.ts`、`world-reveal.ts`、`registry/area-map-validation.ts`、`src/arona-clicker/services/world/area-map-query.ts`、`area-map-commands.ts`、`base-datapack-source.ts`。测试：`tests/data/area-map/area-map-demo.test.ts`、`area-map-registry.test.ts`、`tests/engine/area-map/area-map-commands.test.ts`、`area-map-fast-travel.test.ts`、`tests/ui/runtime-editor/runtime-editor-definition.test.ts`。

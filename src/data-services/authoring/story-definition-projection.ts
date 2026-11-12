@@ -257,15 +257,33 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     if (hasOwn(x, 'avatarMode')) { if (!enums(x.avatarMode, ['auto', 'hide', 'show'])) fail(`${path}.avatarMode`, 'avatarMode 无效'); else out.avatarMode = x.avatarMode; }
     return out;
   };
+  const pacing = (v: unknown, path: string): Obj => {
+    const x = object(v, path, ['typing', 'thinking']) ?? {};
+    const out: Obj = {};
+    for (const key of ['typing', 'thinking']) if (hasOwn(x, key)) {
+      const value = number(x[key], `${path}.${key}`);
+      if (value < 0) fail(`${path}.${key}`, '节奏值不能为负数');
+      out[key] = value;
+    }
+    return out;
+  };
+  const appearance = (v: unknown, path: string, click: boolean): Obj => {
+    const x = object(v, path, click ? ['style'] : ['template', 'style', 'presentation']) ?? {};
+    const { presentation: dialogue, ...visual } = x;
+    return { ...performance(visual, path, click),
+      ...(hasOwn(x, 'presentation') ? { presentation: presentation(dialogue, `${path}.presentation`) } : {}) };
+  };
   const performance = (v: unknown, path: string, click: boolean): Obj => {
-    const x=object(v,path,click?['style','layout']:['template','style','layout'])??{};
-    const out:Obj={...x};
+    const x=object(v,path,click?['style','layout']:['template','style','layout','pacing'])??{};
+    const { pacing: timing, ...visual } = x;
+    const out:Obj={...visual};
     if (hasOwn(x,'style')) out.style=style(x.style,`${path}.style`);
     if (plain(x.layout)) {
       out.layout={...x.layout};
       if (x.layout.mode==='positioned') for (const k of ['x','y']) (out.layout as Obj)[k]=number(x.layout[k],`${path}.layout.${k}`);
     }
     for (const issue of storyPerformanceIssues(out,click)) fail(`${path}${issue.path}`,issue.message);
+    if (hasOwn(x, "pacing")) out.pacing = pacing(timing, `${path}.pacing`);
     return out;
   };
   const content = (v: unknown, path: string): Obj => {
@@ -633,20 +651,18 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
       return [base];
     }
     if (type === 'talklet') {
-      const x = object(nodeValue, p, [...common, 'stageId', 'content', 'presentation', 'pacing', 'performance']) ?? {};
+      const x = object(nodeValue, p, [...common, 'stageId', 'content', 'presentation', 'pacing', 'appearance', 'performance']) ?? {};
       base.stageId = string(x.stageId, `${p}.stageId`, true); base.content = content(x.content, `${p}.content`);
       if (hasOwn(x,'performance')) base.performance=performance(x.performance,`${p}.performance`,false);
+      if (hasOwn(x,'appearance')) base.appearance=appearance(x.appearance,`${p}.appearance`,false);
       if (hasOwn(x, 'presentation')) base.presentation = presentation(x.presentation, `${p}.presentation`);
-      if (hasOwn(x, 'pacing')) {
-        const pacing = object(x.pacing, `${p}.pacing`, ['typing', 'thinking']) ?? {}; const out: Obj = {};
-        for (const k of ['typing', 'thinking']) if (hasOwn(pacing, k)) { const n = number(pacing[k], `${p}.pacing.${k}`); if (n < 0) fail(`${p}.pacing.${k}`, '节奏值不能为负数'); out[k] = n; }
-        base.pacing = out;
-      }
+      if (hasOwn(x, 'pacing')) base.pacing = pacing(x.pacing, `${p}.pacing`);
       return base;
     }
     if (type === 'click') {
-      const x = object(nodeValue, p, [...common, 'stageId', 'interaction', 'performance']) ?? {};
+      const x = object(nodeValue, p, [...common, 'stageId', 'interaction', 'appearance', 'performance']) ?? {};
       if (hasOwn(x,'performance')) base.performance=performance(x.performance,`${p}.performance`,true);
+      if (hasOwn(x,'appearance')) base.appearance=appearance(x.appearance,`${p}.appearance`,true);
       base.stageId = string(x.stageId, `${p}.stageId`, true); base.interaction = interaction(x.interaction, `${p}.interaction`); return base;
     }
     if (type === 'operation') {

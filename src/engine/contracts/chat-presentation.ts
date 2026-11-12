@@ -15,14 +15,8 @@ export interface ChatTextStyle {
   backgroundColor?: string;
 }
 
-/** 节点自身的有限演出参数；省略时使用普通聊天流外观。 */
-export interface StoryNodePerformance {
-  /** 正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。 */
-  readonly template?: 'message' | 'default' | 'title' | 'badge' | 'note';
-  /** 流内与定位展示均可使用的有限样式。 */
-  readonly style?: ChatTextStyle;
-  /** 定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。 */
-  readonly layout?: { readonly mode: 'flow' } | {
+/** 定位可把内容与聊天窗格的同名基准点相连。旧定义以窗格左下角为原点。 */
+export type StoryNodeLayout = { readonly mode: 'flow' } | {
     readonly mode: 'positioned'; readonly x: number; readonly y: number;
     /** 默认 percent，按窗格宽高计算比例。px 使用 CSS 像素。 */
     readonly unit?: 'percent' | 'px';
@@ -31,6 +25,16 @@ export interface StoryNodePerformance {
     /** 旧式定位的横向锚点，只在缺省 anchor 时使用。 */
     readonly align?: 'left' | 'center' | 'right';
   };
+
+/** 运行时聊天输出中的视觉参数。 */
+export type StoryNodeTemplate = 'message' | 'default' | 'title' | 'badge' | 'note';
+
+export interface StoryNodePerformance {
+  /** 正文模板；message 保留角色、图片和气泡，其他模板显示正文文字。 */
+  readonly template?: StoryNodeTemplate;
+  /** 流内与定位展示均可使用的有限样式。 */
+  readonly style?: ChatTextStyle;
+  readonly layout?: StoryNodeLayout;
 }
 
 /** 当前剧情运行内的展示目标；同一节点重复到达的可见实例统一清除。 */

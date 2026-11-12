@@ -5,7 +5,7 @@
  * 尚未覆盖的字段。本文件只验证编辑器已支持的校验规则，不作为 Runtime 内容的全量回归。
  */
 import { describe, expect, it } from 'vitest';
-import { validateDatapack } from '../validate';
+import { validateDatapack } from '../validate/index';
 
 describe('divider 横条（UI 语义分组，非数据字段）', () => {
   it('含 divider 的表校验正常，且不报未知字段', () => {

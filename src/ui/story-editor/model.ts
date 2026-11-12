@@ -6,7 +6,7 @@ import type { StoryNode, StoryOperationNode, StoryTransferNode, StoryTalkletNode
 import { isStoryLocalFlagAction, validStoryFlagName } from '../../data-services/validation/story-run-flags';
 import { localFlagAction, localFlagInput, parseLocalFlagInput, type LocalFlagInputs, type LocalFlagInput } from './flag-fields';
 import { projectStoryDefinition, stripLegacyStoryReplies } from '../../data-services/authoring/story-definition-projection';
-import { applyLiteralKinds, clearNodeEditorState, hasActiveStructuredErrors, editProperty as editStoryProperty, removeProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
+import { applyLiteralKinds, liftLegacyStoryDesign, restoreStoryDraftDesign, clearNodeEditorState, hasActiveStructuredErrors, editProperty as editStoryProperty, removeProperty, missingEnabledOptionalIssues, readProperty as readStoryProperty, selectDiscriminant } from './property-model';
 
 export type StoryDraftNode = Exclude<StoryNode, StoryOperationNode | StoryTransferNode | StoryMoveToAreaNode | StoryMoveToCharaspaceNode>
   | (Omit<StoryOperationNode, 'action'> & { action?: StoryOperationNode['action'] })
@@ -69,7 +69,7 @@ export interface StoryEditorState {
   target: StoryEditorTarget | null;
   selectedNodeId: string | null;
   inspectorView?: 'story' | 'node';
-  nodeDesignerTab?: 'basic' | 'performance';
+  nodeDesignerTab?: 'basic' | 'appearance' | 'performance';
   /** Session-only positioned previews, independently toggled per draft and node. */
   performanceEditing?: Record<string, string[]>;
   storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
@@ -199,6 +199,31 @@ export function storyDefinitionFromDraft(input: StoryDraft | StoryDraftDocument,
   const activeStages = new Set<string>();
   for (const [index, node] of nodes.entries()) {
     if (!node || typeof node !== 'object') continue;
+    liftLegacyStoryDesign(node);
+    const appearance = node.appearance as Record<string, unknown> | undefined;
+    const performance = node.performance as Record<string, unknown> | undefined;
+    if (node.type === 'click') {
+      if (appearance) { delete appearance.presentation; delete appearance.template; }
+      if (performance) delete performance.pacing;
+    } else if (node.type === 'talklet') {
+      const content = node.content as { kind?: string } | undefined;
+      const dialogue = appearance?.presentation as { side?: string } | undefined;
+      if (performance && (content?.kind !== 'talk' || dialogue?.side === 'right')) delete performance.pacing;
+    } else {
+      delete node.appearance;
+      delete node.performance;
+    }
+    for (const [key, group, fields] of [
+      ['appearance', appearance, ['presentation', 'style']],
+      ['performance', performance, ['pacing']],
+    ] as const) {
+      if (!group || typeof group !== 'object' || Array.isArray(group)) continue;
+      for (const field of fields) {
+        const value = group[field];
+        if (value && typeof value === 'object' && !Array.isArray(value) && !Object.keys(value).length) delete group[field];
+      }
+      if (!Object.keys(group).length) delete node[key];
+    }
     if (node.type === 'talklet' || node.type === 'click') if (typeof node.stageId === 'string') activeStages.add(node.stageId);
     if (node.type === 'operation' && node.action && typeof node.action === 'object') {
       const action = node.action as Record<string, unknown>;
@@ -278,14 +303,7 @@ export function selectStory(state: StoryEditorState, key: string, sources: Reado
       draft = { draftId: `source:${source.id}`, sourceId: source.id, document, savedAt: null, dirty: false, persisted: false,
         editorState: { version: 1, branches: Object.create(null), optionals: Object.create(null), optionalPaths: Object.create(null), optionalBranches: Object.create(null), rows: Object.create(null), rawInputs: Object.create(null), sourceStageIds: Object.keys(source.stages ?? {}),
           sourceUnreferencedStageIds: Object.keys(source.stages ?? {}).filter(id => !source.nodes.some(node => (node.type === 'talklet' || node.type === 'click') && node.stageId === id)), inactiveStageIds: [] } };
-      const editorState = draft.editorState!;
-      for (const node of draft.document.nodes) if (node.type === 'talklet' && node.pacing !== undefined
-        && (node.content.kind === 'narration' || node.presentation?.side === 'right')) {
-        editorState.branches[`${node.id}|side:pacing`] = cloneStory(node.pacing);
-        const { pacing: _pacing, ...active } = node;
-        const index = draft.document.nodes.findIndex(item => item.id === node.id);
-        if (index >= 0) draft.document.nodes[index] = active;
-      }
+      restoreStoryDraftDesign(draft);
       state.drafts.push(draft);
     }
   }
@@ -363,7 +381,7 @@ export function appendNode(state: StoryEditorState, kind: 'text' | 'click' | 'op
     const sender = senders.find(item => item.id === input.sender);
     if (!sender) return;
     node = { id, type: 'talklet', stageId, content: sender.id === 'narrator' ? { kind: 'narration', text: input.text }
-      : { kind: 'talk', ...(sender.id.startsWith('character:') ? { characterId: sender.id.slice('character:'.length) } : { speaker: sender.speaker }), text: input.text }, ...(sender.id === 'narrator' ? {} : { presentation: { side: sender.id === 'teacher' ? 'right' : 'left' } }) };
+      : { kind: 'talk', ...(sender.id.startsWith('character:') ? { characterId: sender.id.slice('character:'.length) } : { speaker: sender.speaker }), text: input.text }, ...(sender.id === 'narrator' ? {} : { appearance: { presentation: { side: sender.id === 'teacher' ? 'right' : 'left' } } }) };
     input.text = '';
   } else if (kind === 'click') node = { id, type: 'click', stageId, interaction: { kind: 'button', text: '' } };
   else node = { id, type: kind };
@@ -378,9 +396,9 @@ export function senderForNode(node: StoryTalkletNode, senders: readonly StorySen
   if (node.content.kind === 'narration') return 'narrator';
   const characterId = node.content.characterId;
   if (characterId !== undefined) return senders.find(sender => sender.id === `character:${characterId}`)?.id ?? 'original';
-  if (node.presentation?.side === 'right' && node.content.speaker === '老师') return 'teacher';
+  if ((node.appearance?.presentation ?? node.presentation)?.side === 'right' && node.content.speaker === '老师') return 'teacher';
   const speaker = node.content.speaker;
-  return senders.find(sender => sender.id !== 'teacher' && sender.speaker === speaker && node.presentation?.side !== 'right')?.id ?? 'original';
+  return senders.find(sender => sender.id !== 'teacher' && sender.speaker === speaker && (node.appearance?.presentation ?? node.presentation)?.side !== 'right')?.id ?? 'original';
 }
 export function senderChangeAllowed(_node: StoryTalkletNode, sender: StorySender): boolean {
   return Boolean(sender.id);
@@ -407,7 +425,7 @@ export function editNode(state: StoryEditorState, field: 'text' | 'sender', valu
           if (sender.id==='anonymous') removeProperty(draft,node.id,['content','speaker']);
           else editStoryProperty(draft, node.id, ['content', 'speaker'], sender.speaker ?? '');
         }
-        editStoryProperty(draft, node.id, ['presentation', 'side'], sender.id === 'teacher' ? 'right' : 'left');
+        editStoryProperty(draft, node.id, ['appearance', 'presentation', 'side'], sender.id === 'teacher' ? 'right' : 'left');
       }
       const active = currentNode(state);
       if (active?.type !== 'talklet') return false;

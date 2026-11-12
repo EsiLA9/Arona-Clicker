@@ -25,12 +25,12 @@
 
 Spot 的 `maxLevel` 是可选整数。作者输入空字符串时，校验把它视为未设置；构建结果省略该键。输入 `5` 时，构建结果包含 `maxLevel: 5`；负数不能通过校验。相反，必填数值字段的空输入仍会报缺少字段。这个区别由字段策略和 `isAbsentAuthoringValue()` 决定，而非表单统一把所有空值写成零。
 
-测试 `tests/data/content-policy.test.ts` 的“int 与可选数值语义”和“未设置的可选字段整键省略”分别覆盖校验与输出。要新增编辑字段，除了允许输入，还应确认物化结果、消费者和失效路径；否则表单看似保存成功，其他系统可能仍使用旧定义。
+测试 `tests/data/runtime-content/content-policy.test.ts` 的“int 与可选数值语义”和“未设置的可选字段整键省略”分别覆盖校验与输出。要新增编辑字段，除了允许输入，还应确认物化结果、消费者和失效路径；否则表单看似保存成功，其他系统可能仍使用旧定义。
 
 ## 代码中的 Def Builder
 
 `src/arona-clicker/content/def-factory/` 下的 `SpotBuilder`、`InitBuilder`、`CharacterBuilder` 等是代码侧的类型化构造器，供默认内容和测试组装符合合同的定义。它们与 `ContentAuthoringPolicy` 分工不同：前者帮助 TypeScript 内容作者构造 Def；后者描述 Runtime 编辑器允许收集、验证和提交哪些输入。
 
-源码入口：`src/data-services/authoring/content-policy-types.ts`、`content-policies.ts`、`content-policy.ts`、`content-policy-dsl.ts`、`src/arona-clicker/services/runtime/runtime-content-coordinator.ts`、`src/arona-clicker/content/def-factory/`。测试见 `tests/data/content-policy.test.ts`、`content-policy-world-module.test.ts`、`tests/engine/runtime-spot-field-authoring.test.ts`、`tests/engine/def-factory/spot.test.ts`。
+源码入口：`src/data-services/authoring/content-policy-types.ts`、`content-policies.ts`、`content-policy.ts`、`content-policy-dsl.ts`、`src/arona-clicker/services/runtime/runtime-content-coordinator.ts`、`src/arona-clicker/content/def-factory/`。测试见 `tests/data/runtime-content/content-policy.test.ts`、`content-policy-world-module.test.ts`、`tests/engine/runtime-content/runtime-spot-field-authoring.test.ts`、`tests/engine/def-factory/spot.test.ts`。
 
 继续阅读：[[package-io-and-source-layers]]、[[session-and-tick]]。

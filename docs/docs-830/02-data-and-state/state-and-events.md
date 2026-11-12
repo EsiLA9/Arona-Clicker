@@ -32,7 +32,7 @@ UI 命令 → Runtime / 领域服务 → StateMutationService → PlayerState �
 
 ### 例子：资源变化
 
-`StateMutationService.changeResource()` 更新对应资源桶后发出 `resourceChanged`，事件中包含资源 ID、变化量和新值；订阅者据此更新派生结果或检查响应规则。测试 `tests/engine/state-mutation-service.test.ts` 中的 `mutates state and emits one resource event` 将状态结果与事件一起核对。`isGlobalResource()` 按产品侧全局资源 ID 集合选择 `globalResources` 或当前 Init 的 `resources`，因此调用前应区分资源 ID 和当前数量。
+`StateMutationService.changeResource()` 更新对应资源桶后发出 `resourceChanged`，事件中包含资源 ID、变化量和新值；订阅者据此更新派生结果或检查响应规则。测试 `tests/engine/core/state-mutation-service.test.ts` 中的 `mutates state and emits one resource event` 将状态结果与事件一起核对。`isGlobalResource()` 按产品侧全局资源 ID 集合选择 `globalResources` 或当前 Init 的 `resources`，因此调用前应区分资源 ID 和当前数量。
 
 地图首次收录发出 `areaMapCollected`，并驱动 `hasAreaMap` 条件、地图册投影和相应订阅者；同一 Init 重复收录是 no-op。知识写入发出 `informationRevealed`，条件知识与显式剧情告知都经过信息揭示领域的目标校验。事件通知写入已发生的状态变化，不代表地图已经打开或区域已经到访。
 
@@ -51,6 +51,6 @@ sequenceDiagram
 
 事件用于表达已发生的变化，订阅者负责对该变化作出反应。运行时调用与事件通知是两种不同协作方式。
 
-主要源码：`src/arona-clicker/state/state-mutation-service.ts`、`src/engine/core/event-bus.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。写入和事件测试见 `tests/engine/state-mutation-service.test.ts`。
+主要源码：`src/arona-clicker/state/state-mutation-service.ts`、`src/engine/core/event-bus.ts`、`src/arona-clicker/runtime/runtime-wiring.ts`。写入和事件测试见 `tests/engine/core/state-mutation-service.test.ts`。
 
 继续阅读：[[session-and-tick]]、[[read-model-and-ui]]。

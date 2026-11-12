@@ -73,6 +73,6 @@ Trigger 是一条“**某类事件发生时，检查条件，满足后执行效�
 - 声明类型：`src/engine/types/trigger.ts` 的 `TriggerEventDef`、`TriggerDef`。
 - Builder：`src/engine/def-factory/trigger.ts` 的 `TriggerBuilder`。
 - 匹配、注册、执行：`src/engine/effect/trigger-system.ts` 的 `ON_KIND_TO_EVENT`、`processType()`、`matchesEvent()`、`fire()`。
-- 行为测试：`tests/engine/trigger-system.test.ts`、`tests/engine/trigger-kind.test.ts`。
+- 行为测试：`tests/engine/core/trigger-system.test.ts`、`tests/engine/core/trigger-kind.test.ts`。
 
 继续阅读：[[trigger-welcome-example]]；系统概览见 [[event-effects-triggers]]。

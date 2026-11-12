@@ -1,6 +1,6 @@
 # 示例：购买两份零食
 
-本文沿着 `tests/engine/shop-service.test.ts` 的真实测试数据，观察商店预览、成功结算与余额不足的区别。交易的职责、库存范围和物品服务关系见 [[resources-and-commerce]]。
+本文沿着 `tests/engine/runtime-content/shop-service.test.ts` 的真实测试数据，观察商店预览、成功结算与余额不足的区别。交易的职责、库存范围和物品服务关系见 [[resources-and-commerce]]。
 
 ## 测试内容与前提
 
@@ -38,12 +38,12 @@
 
 - 定义与结算：`src/arona-clicker/services/economy/shop-service.ts` 的 `preview()`、`checkout()`。
 - 状态与事件提交：`src/arona-clicker/state/state-mutation-service.ts` 中的商店事务入口。
-- 可执行例子：`tests/engine/shop-service.test.ts` 中“聚合扣款”“支付不足”和“preview 是临时快照”测试。
+- 可执行例子：`tests/engine/runtime-content/shop-service.test.ts` 中“聚合扣款”“支付不足”和“preview 是临时快照”测试。
 
 按项目统一测试入口运行：
 
 ```text
-npm test -- tests/engine/shop-service.test.ts
+npm test -- tests/engine/runtime-content/shop-service.test.ts
 ```
 
 命令是供读者复验的入口；测试是否在某次文档修改中实际运行，应单独报告。
