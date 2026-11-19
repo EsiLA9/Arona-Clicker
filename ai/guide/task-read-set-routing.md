@@ -36,7 +36,7 @@ related_modules:
 | 实体字段 / 枚举 / Datapack Schema | [[ai/guide/context-packs/datapack-schema]] 中命中的子题 | Schema 生成与相关定向测试、类型检查 |
 | 生产 / GameNum / Affector / Trigger | [[ai/guide/context-packs/production]] 中命中的子题 | 生产 / Effect 定向测试、类型检查 |
 | 角色 / 抽卡 / 培养 / 通讯录 | [[ai/guide/context-packs/character]] 中命中的子题 | 角色域定向测试、类型检查 |
-| 游戏内 UI / 主题 / 表现 | [[ai/guide/context-packs/ui-presentation]] 中命中的子题 | UI 定向测试；涉及交互时浏览器验收 |
+| 游戏内 UI / 主题 / 表现 | [[ai/guide/context-packs/ui-presentation]] 中命中的子题 | UI 定向测试；按 [[ai/guide/conventions/testing]] 选择浏览器验证 |
 | 世界线 / Init / Spot / Lobby / 存档 | [[ai/guide/context-packs/world-lifecycle]] 中命中的子题 | 生命周期 / 存档定向测试、类型检查 |
 | 文档维护 / 上下文治理 | [[ai/guide/conventions/doc-maintenance]] | `npm run check:docs`、`git --no-pager diff --check` |
 | 玩法需求讨论与 Task 规划 | [[ai/guide/task-workflow]]、相关 Task；按事实问题选择领域包 | 逐项记录事实依据 |

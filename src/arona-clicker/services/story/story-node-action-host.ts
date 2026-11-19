@@ -94,6 +94,9 @@ export function formatStoryEffectReceipt(receipt: EffectReceipt, registry: Regis
 }
 
 function hasVisitedStoryCondition(group: ConditionGroup): boolean {
+  const first = group.conditions[0];
+  if (group.type === 'OR' && first && 'target' in first && first.target === 'alwaysTrue'
+    && first.comparator === '==' && first.value === 1) return false;
   return group.conditions.some(condition => 'conditions' in condition
     ? hasVisitedStoryCondition(condition)
     : condition.target === 'visitedStoryInChain');

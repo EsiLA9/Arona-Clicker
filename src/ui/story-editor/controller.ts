@@ -1,21 +1,24 @@
-import { currentRelatedFlagCatalog } from './flag-catalog-view';
+import { currentRelatedFlagCatalog, currentStoryFlagCatalog } from './flag-catalog-view';
 import { changeEntryActivation, defaultEntryActivation, type EntryActivation } from './entry-activation';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { emptyStoryAuthoring, validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { acceptEditorStoryRename, knownModStoryIds, planEditorStoryRename, storyEditingMod, storyEditingMods } from './identity';
 import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
 import { openStoryEditorDialog } from './editor-dialog';
+import { openConditionTreeDialog } from './condition-tree-dialog';
+import { entryConditionField, STORY_CONDITION_TARGETS } from './condition-fields';
 import { openReferenceNavi, prepareReferenceNavi, referenceChoices, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
 import { ENTRY_FIELD_SEEDS } from './authoring-view';
 import { buildStoryRelations } from './relations-model';
-import { buildStoryFlagCatalog, flagImportKey } from './flag-catalog';
+import { buildStoryFlagCatalog, flagImportKey, storyFlagNames } from './flag-catalog';
 import { openLocalFlagNavi } from './local-flag-navi';
 import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
 import { StoryInlineTextEditor } from './inline-text';
 import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
-import { valueAt, type ValuePath } from './structured-value';
+import { setValueAt, valueAt, type ValuePath } from './structured-value';
 import type { StoryAuthoringPreview } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
 import type { PanelState } from '../components/shared/app-shell';
@@ -593,6 +596,11 @@ export class StoryEditorController {
         }
         this.requestRefresh(); return;
       }
+      const conditionTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-entry-condition]') : null;
+      if (conditionTrigger && root.contains(conditionTrigger)) {
+        if (!conditionTrigger.disabled) this.editEntryCondition(conditionTrigger);
+        return;
+      }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
       const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
@@ -609,6 +617,7 @@ export class StoryEditorController {
       const inspectorTab = element.dataset.columnAction?.startsWith('story-editor-inspector-tab:') ? element.dataset.columnAction.slice('story-editor-inspector-tab:'.length) : undefined;
       const entryTab = element.dataset.columnAction?.startsWith('story-editor-entry-tab:') ? element.dataset.columnAction.slice('story-editor-entry-tab:'.length) : undefined;
       if (entryTab && ['basic','rewards','gates'].includes(entryTab) && this.state.target?.kind==='entry') {
+        if (entryTab !== this.state.entryEditorTab) this.closeEditorDialog();
         const body=this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
         const scrolls=this.entryTabScroll.get(this.state.target.id)??{};
         scrolls[this.state.entryEditorTab??'basic']=body?.scrollTop??0;
@@ -1490,6 +1499,73 @@ export class StoryEditorController {
   private closeEditorDialog(): void {
     if (this.editorDialog?.isConnected) this.ctrl.modal.close();
     this.editorDialog = undefined;
+  }
+
+  private editEntryCondition(trigger: HTMLButtonElement): void {
+    const target = this.state.target;
+    const draft = currentAuthoringDraft(this.state);
+    if (target?.kind !== 'entry' || !draft?.authoring || this.state.storageBlocked) return;
+    const table = draft.authoring.activeStories.some(row => row.id === target.id) ? 'activeStories' : 'passiveStories';
+    const index = draft.authoring[table].findIndex(row => row.id === target.id);
+    const entry = draft.authoring[table][index];
+    const path = this.parsePropertyPath(trigger.dataset.valuePath);
+    if (!entry || path?.[0] !== table || path[1] !== index) return;
+    const relative = path.slice(2);
+    const field = entryConditionField(relative);
+    if (!field || relative[0] === 'block' && table !== 'passiveStories') return;
+    const scope = '$authoring';
+    const parentPath = relative.slice(0, -1);
+    const rule = valueAt(entry, parentPath);
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return;
+    const key = structuredKey(draft, scope, path);
+    const original = valueAt(entry, relative);
+    const originalSignature = JSON.stringify(original);
+    const ctx = createUIContext(this.ctrl.game);
+    this.editorDialog = openConditionTreeDialog(this.ctrl.modal, ctx, trigger, {
+      original,
+      label: field.label,
+      defaultTrue: field.optional,
+      targets: relative[0] === 'conditionalRewards' ? STORY_CONDITION_TARGETS
+        : STORY_CONDITION_TARGETS.filter(([target]) => target !== 'visitedStoryInChain'),
+      state: this.state,
+      availableInits: entry.availableInits ?? [],
+      globalFlags: storyFlagNames(currentStoryFlagCatalog(ctx, this.state), 'global'),
+      pendingValue: suffix => draft.structuredInputs?.[structuredKey(draft, scope, [...path, ...suffix])]?.text,
+      beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
+      onClose: () => { this.editorDialog = undefined; },
+      commit: condition => {
+        if (!this.isOpen() || this.state.storageBlocked || this.state.target?.kind !== 'entry'
+          || this.state.target.id !== target.id || currentAuthoringDraft(this.state) !== draft) {
+          return '条件所属 Entry 已变化，请关闭后重新打开。';
+        }
+        const currentIndex = draft.authoring?.[table].findIndex(row => row === entry) ?? -1;
+        const currentRelative = [...relative];
+        if (relative.length === 3) {
+          const rows = valueAt(entry, [relative[0]]);
+          currentRelative[1] = Array.isArray(rows) ? rows.indexOf(rule) : -1;
+        }
+        const currentPath = [table, currentIndex, ...currentRelative];
+        if (currentIndex < 0 || currentRelative[1] === -1 || structuredKey(draft, scope, currentPath) !== key
+          || JSON.stringify(valueAt(entry, currentRelative)) !== originalSignature) {
+          return '条件已变化，请关闭后重新打开。';
+        }
+        try {
+          const candidate = structuredClone(entry);
+          if (!setValueAt(candidate, currentRelative, condition)) return '无法写入条件。';
+          validateStoryAuthoringShape({ ...emptyStoryAuthoring(), [table]: [candidate] }, true);
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+        if (!writeStructuredValue(draft, scope, currentPath, condition)) return '无法写入条件。';
+        for (const values of [draft.structuredInputs, draft.structuredRows]) {
+          if (!values) continue;
+          for (const item of Object.keys(values)) if (item === key || item.startsWith(key.slice(0, -1) + ',')) delete values[item];
+        }
+        this.state.error = null;
+        this.state.notice = null;
+        this.requestRefresh();
+      },
+    });
   }
 
   private changeStoryId(trigger?: HTMLElement): void {

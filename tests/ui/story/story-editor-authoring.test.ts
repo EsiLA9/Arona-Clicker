@@ -19,6 +19,21 @@ describe('Story authoring UI and draft API', () => {
   const q = <T extends HTMLElement = HTMLElement>(selector: string): T => { const item = root.querySelector<T>(selector); expect(item,selector).not.toBeNull(); return item!; };
   const click = (selector: string) => { if(selector==='[data-editor-action="new"]') createStoryForTest(game,ctrl); else q<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
   const change = (element: HTMLInputElement | HTMLSelectElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
+  const conditionControl = <T extends HTMLElement = HTMLButtonElement>(selector: string): T => {
+    const item = document.querySelector<T>(`.story-condition-dialog ${selector}`);
+    expect(item, selector).not.toBeNull();
+    return item!;
+  };
+  const openTriggerTree = (condition?: import('../../../src/engine/types/expression').ConditionGroup, availableInits: string[] = []) => {
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    if (condition) entry.triggerCondition = condition;
+    entry.availableInits = availableInits;
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    click('[data-column-action="story-editor-entry-tab:gates"]');
+    click('[data-entry-condition="triggerCondition"]');
+    return entry;
+  };
   const valueControl = (scope: string, path: (string|number)[], attr: string) => {
     const found = [...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[${attr}]`)].find(x=>x.dataset.valueScope===scope&&x.dataset.valuePath===JSON.stringify(path));
     expect(found,JSON.stringify(path)).toBeTruthy(); return found!;
@@ -119,6 +134,334 @@ describe('Story authoring UI and draft API', () => {
     const role=[...game.registry.characterVariants.keys()][0];
     change(owner,role); expect(entry.owner).toBe(role);
     expect(entry.activation).toEqual({kind:'active'});
+  });
+  it('adds blank child nodes without leaving the parent and applies only a completed tree', () => {
+    const entry = openTriggerTree();
+    const mode = conditionControl<HTMLSelectElement>('[data-condition-field="mode"]');
+    const tree = conditionControl('[data-condition-tree]');
+    const details = conditionControl('[data-condition-properties]');
+    expect(mode.value).toBe('OR');
+    conditionControl('[data-condition-add="group"]').click();
+    expect(conditionControl('[data-condition-field="mode"]')).toBe(mode);
+    expect(conditionControl('[data-condition-select="1"]').textContent).toBe('子组 · 待填写');
+    expect(entry.triggerCondition).toEqual({ type: 'OR', conditions: [] });
+
+    conditionControl('[data-condition-select="1"]').click();
+    const operator = conditionControl<HTMLSelectElement>('[data-condition-field="operator"]');
+    expect(operator.value).toBe('');
+    change(operator, 'AND');
+    conditionControl('[data-condition-add="leaf"]').click();
+    expect(conditionControl('[data-condition-field="operator"]')).toBe(operator);
+    expect(conditionControl('[data-condition-select="2"]').textContent).toBe('条件 · 待填写');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(conditionControl('[data-condition-error]').hidden).toBe(false);
+    expect(conditionControl('[data-condition-select="2"]').getAttribute('aria-pressed')).toBe('true');
+
+    const target = conditionControl<HTMLSelectElement>('[data-condition-field="target"]');
+    expect(target.value).toBe('');
+    expect(document.querySelector('.story-condition-dialog [data-condition-field="value"]')).toBeNull();
+    change(target, 'resource');
+    const comparator = conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]');
+    const value = conditionControl<HTMLInputElement>('[data-condition-field="value"]');
+    expect([comparator.value, value.value]).toEqual(['', '']);
+    expect(value.closest('label')?.firstChild?.textContent).toBe('资源数量');
+    change(conditionControl<HTMLInputElement>('[data-condition-field="key"]'), 'base:resource:pyroxene');
+    change(comparator, '>=');
+    expect(conditionControl('[data-condition-open-editor]')).toBeTruthy();
+    value.focus();
+    change(value, '40');
+    expect(document.activeElement).toBe(value);
+    expect(conditionControl('[data-condition-tree]')).toBe(tree);
+    expect(conditionControl('[data-condition-properties]')).toBe(details);
+    expect(conditionControl('[data-condition-select="2"]').textContent).toContain('≥ 40');
+    expect(entry.triggerCondition.conditions).toEqual([]);
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    ctrl.flushUIUpdates();
+    expect(entry.triggerCondition).toEqual({
+      type: 'OR', conditions: [{
+        type: 'AND', conditions: [{ target: 'resource', key: 'base:resource:pyroxene', comparator: '>=', value: 40 }],
+      }],
+    });
+    expect(ctrl.modal.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(q('[data-entry-condition="triggerCondition"]'));
+    click('[data-authoring-action="apply"]');
+    expect(ctrl.storyEditor.state.error).toBeNull();
+    expect(game.registry.activeStories.get(entry.id)?.triggerCondition).toEqual(entry.triggerCondition);
+  });
+  it('uses subject-specific labels in the default form and clears settings when the target changes', () => {
+    const [character, otherCharacter] = [...game.registry.characters.values()];
+    const entry = openTriggerTree({
+      type: 'OR', conditions: [{ target: 'protoStat', key: character.id, comparator: '>=', value: 3 }],
+    });
+    conditionControl('[data-condition-select="1"]').click();
+    const field = (name: string) => conditionControl<HTMLInputElement | HTMLSelectElement>(`[data-condition-field="${name}"]`);
+    const caption = (name: string) => field(name).closest('label')?.firstChild?.textContent;
+    expect(['key', 'comparator', 'value'].map(caption)).toEqual(['角色原型', '次数关系', '累计获得次数']);
+    expect(conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]').selectedOptions[0].textContent).toBe('至少');
+    expect(conditionControl('[data-condition-select="1"]').textContent).toContain('累计获得次数 至少 3');
+    change(field('key'), otherCharacter.id);
+    change(field('value'), '4');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition.conditions[0]).toEqual({ target: 'protoStat', key: otherCharacter.id, comparator: '>=', value: 4 });
+
+    click('[data-entry-condition="triggerCondition"]');
+    conditionControl('[data-condition-select="1"]').click();
+    change(field('target'), 'flag');
+    expect(['key', 'value'].map(caption)).toEqual(['存档标记名称', '标记比较值']);
+    expect(['key', 'comparator', 'value'].map(name => field(name).value)).toEqual(['', '', '']);
+    conditionControl('.modal-foot .modal-close').click();
+    expect(entry.triggerCondition.conditions[0]).toMatchObject({ target: 'protoStat', value: 4 });
+  });
+  it('returns from a staged area picker and round-trips other area comparisons', () => {
+    const areas = [...game.registry.areas.values()];
+    const first = areas[0];
+    const second = areas.find(area => area.initId !== first.initId)!;
+    const legacy = { target: 'area', key: first.id, comparator: '>', value: 1 } as const;
+    const original = { target: 'area', key: first.id, comparator: '==', value: 1 } as const;
+    const entry = openTriggerTree({ type: 'OR', conditions: [original, legacy] }, [second.initId]);
+    const left = conditionControl('[data-condition-tree]');
+    const detail = conditionControl('[data-condition-properties]');
+    conditionControl('[data-condition-select="1"]').click();
+    expect(document.querySelector('.story-condition-dialog [data-condition-field="value"]')).toBeNull();
+    const key = conditionControl<HTMLInputElement>('[data-condition-field="key"]');
+    expect(game.registry.areas.get(key.list!.options[0].value)?.initId).toBe(second.initId);
+    expect(conditionControl('[data-condition-reference-summary]').textContent).toContain(first.name);
+    const selectArea = () => {
+      conditionControl('[data-condition-open-editor]').click();
+      expect(conditionControl('.condition-tree-layout').hidden).toBe(true);
+      expect(conditionControl('.condition-reference-picker').children).toHaveLength(3);
+      conditionControl(`[data-condition-picker-filter="${second.initId}"]`).click();
+      expect(document.querySelector(`[data-condition-picker-choice="${first.id}"]`)).toBeNull();
+      const search = conditionControl<HTMLInputElement>('[data-condition-subfield="search"]');
+      search.focus();
+      change(search, second.id);
+      expect(document.activeElement).toBe(search);
+      conditionControl(`[data-condition-picker-choice="${second.id}"]`).click();
+      expect(conditionControl('.condition-reference-detail').textContent).toContain(second.id);
+    };
+    selectArea();
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(conditionControl('[data-condition-error]').textContent).toContain('请先确认或返回');
+    conditionControl('[data-condition-subeditor="back"]').click();
+    expect(key.value).toBe(first.id);
+    expect(document.activeElement).toBe(conditionControl('[data-condition-open-editor]'));
+    selectArea();
+    conditionControl('[data-condition-subeditor="confirm"]').click();
+    expect(key.value).toBe(second.id);
+    expect(conditionControl('[data-condition-tree]')).toBe(left);
+    expect(conditionControl('[data-condition-properties]')).toBe(detail);
+    expect(entry.triggerCondition.conditions[0]).toEqual(original);
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="area-relation"]'), 'out');
+    expect(conditionControl('[data-condition-select="1"]').textContent).toContain('不在');
+
+    conditionControl('[data-condition-select="2"]').click();
+    expect(conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]').value).toBe('>');
+    expect(conditionControl<HTMLInputElement>('[data-condition-field="value"]').value).toBe('1');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition.conditions).toEqual([{ target: 'area', key: second.id, comparator: '==', value: 0 }, legacy]);
+  });
+  it('shares manual reference input and Global search for character variants', () => {
+    const [first, second] = [...game.registry.characterVariants.values()];
+    const entry = openTriggerTree({ type: 'OR', conditions: [{ target: 'affectionLevel', key: first.id, comparator: '>=', value: 2 }] });
+    conditionControl('[data-condition-select="1"]').click();
+    const key = conditionControl<HTMLInputElement>('[data-condition-field="key"]');
+    expect([...key.list!.options].find(option => option.value === second.id)?.getAttribute('label')).toBe(`${second.displayName || second.id} · Global`);
+    change(key, 'custom:variant:future');
+    expect(key.value).toBe('custom:variant:future');
+    expect(conditionControl('[data-condition-reference-summary]').hidden).toBe(true);
+    conditionControl('[data-condition-open-editor]').click();
+    conditionControl('[data-condition-picker-filter="global"]').click();
+    change(conditionControl<HTMLInputElement>('[data-condition-subfield="search"]'), second.displayName || second.id);
+    conditionControl(`[data-condition-picker-choice="${second.id}"]`).click();
+    conditionControl('[data-condition-subeditor="confirm"]').click();
+    expect(key.value).toBe(second.id);
+    expect(conditionControl('[data-condition-reference-summary]').textContent).toContain('Global');
+    expect(entry.triggerCondition.conditions[0]).toMatchObject({ key: first.id });
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition.conditions[0]).toMatchObject({ key: second.id });
+  });
+  it('round-trips legacy AND and expands and edits its branches in True mode', () => {
+    const legacy = { type: 'AND', conditions: [{ target: 'alwaysTrue', key: '', comparator: '!=', value: 1 }] } as const;
+    const original = { ...legacy, conditions: [...legacy.conditions] };
+    const entry = openTriggerTree(original);
+    expect(conditionControl('[data-condition-select="1"]').textContent).toBe('全部满足 · AND');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition).toBe(original);
+
+    click('[data-entry-condition="triggerCondition"]');
+    const mode = conditionControl<HTMLSelectElement>('[data-condition-field="mode"]');
+    const branch = conditionControl('[data-condition-select="1"]');
+    change(mode, 'true');
+    expect(conditionControl('[data-condition-select="0"]').textContent).toBe('恒为 True');
+    expect(conditionControl('[data-condition-select="1"]')).toBe(branch);
+    expect(branch.hasAttribute('draggable')).toBe(true);
+    conditionControl('[data-condition-toggle="0"]').click();
+    expect(document.querySelector('[data-condition-select="1"]')).toBeNull();
+    conditionControl('[data-condition-toggle="0"]').click();
+    conditionControl('[data-condition-toggle="1"]').click();
+    expect(document.querySelector('[data-condition-select="2"]')).toBeNull();
+    conditionControl('[data-condition-toggle="1"]').click();
+    conditionControl('[data-condition-select="2"]').click();
+    const comparator = conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]');
+    expect(comparator.disabled).toBe(false);
+    expect(comparator.value).toBe('!=');
+    change(comparator, '==');
+    conditionControl('[data-condition-select="0"]').click();
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="mode"]'), 'OR');
+    expect(conditionControl('[data-condition-select="1"]').textContent).toBe('全部满足 · AND');
+    expect(conditionControl('[data-condition-select="1"]').getAttribute('draggable')).toBe('true');
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="mode"]'), 'true');
+    conditionControl('.modal-foot .modal-close').click();
+    expect(entry.triggerCondition).toBe(original);
+  });
+
+  it('validates and persists True-mode children, then evaluates them after switching to OR', () => {
+    const original = { type: 'AND', conditions: [] } as const;
+    const entry = openTriggerTree({ ...original, conditions: [] });
+    conditionControl('[data-condition-add="group"]').click();
+    expect(conditionControl('[data-condition-select="0"]').getAttribute('aria-pressed')).toBe('true');
+    expect(conditionControl('[data-condition-select="1"]').textContent).toBe('子组 · 待填写');
+    conditionControl('[data-condition-select="1"]').click();
+    conditionControl('[data-condition-add="leaf"]').click();
+    expect(conditionControl('[data-condition-select="2"]').textContent).toBe('条件 · 待填写');
+    expect(conditionControl<HTMLSelectElement>('[data-condition-field="operator"]').value).toBe('');
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="operator"]'), 'AND');
+    conditionControl('[data-condition-toggle="1"]').click();
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(conditionControl('[data-condition-select="2"]').getAttribute('aria-pressed')).toBe('true');
+    expect(conditionControl('[data-condition-error]').textContent).toBe('请选择判断对象。');
+    expect(entry.triggerCondition).toEqual(original);
+
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="target"]'), 'alwaysTrue');
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]'), '!=');
+    change(conditionControl<HTMLInputElement>('[data-condition-field="value"]'), 'bogus');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(conditionControl('[data-condition-error]').hidden).toBe(false);
+    expect(entry.triggerCondition).toEqual(original);
+    change(conditionControl<HTMLInputElement>('[data-condition-field="value"]'), '1');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    ctrl.flushUIUpdates();
+    expect(q('.story-editor-trigger-condition').textContent).toContain('恒为 True');
+    expect(game.conditionSystem.evaluateGroup(entry.triggerCondition, game.state)).toBe(true);
+    click('[data-authoring-action="check"]');
+    expect(ctrl.storyEditor.state.error).toBeNull();
+
+    click('[data-entry-condition="triggerCondition"]');
+    const mode = conditionControl<HTMLSelectElement>('[data-condition-field="mode"]');
+    expect(mode.value).toBe('true');
+    expect(document.querySelector('[data-condition-select="3"]')).toBeNull();
+    change(mode, 'OR');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition).toEqual({
+      type: 'OR', conditions: [{ type: 'AND', conditions: [{ target: 'alwaysTrue', key: '', comparator: '!=', value: 1 }] }],
+    });
+    expect(game.conditionSystem.evaluateGroup(entry.triggerCondition, game.state)).toBe(false);
+  });
+  it('edits the original reward rule after a reorder and offers the reward chain context', () => {
+    const entry = openTriggerTree();
+    conditionControl('.modal-foot .modal-close').click();
+    const rule = { condition: { type: 'AND' as const, conditions: [] }, effects: [] };
+    const other = { condition: { type: 'OR' as const, conditions: [] }, effects: [] };
+    entry.completionStrategy = 'conditional';
+    entry.conditionalRewards = [rule, other];
+    click('[data-column-action="story-editor-entry-tab:rewards"]');
+    click('.story-editor-reward-row [data-entry-condition="conditionalRewards"]');
+    conditionControl('[data-condition-add="leaf"]').click();
+    conditionControl('[data-condition-select="1"]').click();
+    const target = conditionControl<HTMLSelectElement>('[data-condition-field="target"]');
+    expect([...target.options].some(option => option.value === 'visitedStoryInChain')).toBe(true);
+    change(target, 'alwaysTrue');
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]'), '==');
+    change(conditionControl<HTMLInputElement>('[data-condition-field="value"]'), '1');
+    click('.story-editor-reward-row [data-value-action="down"]');
+    expect(entry.conditionalRewards[1]).toBe(rule);
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.conditionalRewards[0]).toBe(other);
+    expect(other.condition.conditions).toEqual([]);
+    expect(rule.condition.conditions.at(-1)).toEqual({ target: 'alwaysTrue', key: '', comparator: '==', value: 1 });
+  });
+  it('preserves missing optional conditions and untouched legacy reaction leaves', () => {
+    const entry = openTriggerTree();
+    conditionControl('.modal-foot .modal-close').click();
+    const reveal = { reveal: 'existence' as const };
+    const leaf = { target: 'alwaysTrue' as const, key: '', comparator: '==' as const, value: 1 };
+    const reaction = { id: 'r', on: { kind: 'tick' as const, every: 10 }, condition: leaf, effects: [] };
+    entry.revealTriggers = [reveal];
+    entry.reactions = [reaction];
+    click('[data-column-action="story-editor-entry-tab:basic"]');
+    click('[data-column-action="story-editor-entry-tab:gates"]');
+    const revealButton = '[data-entry-condition="revealTriggers"]';
+    click(revealButton);
+    expect(conditionControl<HTMLSelectElement>('[data-condition-field="mode"]').value).toBe('true');
+    conditionControl('.modal-foot .modal-close').click();
+    expect(reveal).not.toHaveProperty('condition');
+    click(revealButton);
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="mode"]'), 'OR');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    ctrl.flushUIUpdates();
+    expect(reveal).toEqual({ reveal: 'existence', condition: { type: 'OR', conditions: [] } });
+    (q(revealButton).closest('.story-editor-trigger-condition')!.querySelector('[data-value-action="remove"]') as HTMLButtonElement).click();
+    ctrl.flushUIUpdates();
+    expect(reveal).toEqual({ reveal: 'existence' });
+
+    click('[data-entry-condition="reactions"]');
+    conditionControl('[data-condition-select="1"]').click();
+    const target = conditionControl<HTMLSelectElement>('[data-condition-field="target"]');
+    expect([...target.options].some(option => option.value === 'visitedStoryInChain')).toBe(false);
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(reaction.condition).toBe(leaf);
+    click('[data-entry-condition="reactions"]');
+    conditionControl('[data-condition-select="1"]').click();
+    change(conditionControl<HTMLInputElement>('[data-condition-field="value"]'), '2');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(reaction).toEqual({ id: 'r', on: { kind: 'tick', every: 10 }, condition: {
+      type: 'OR', conditions: [{ ...leaf, value: 2 }],
+    }, effects: [] });
+  });
+  it('edits and removes the passive Entry unblock condition', () => {
+    click('[data-authoring-add="passiveStories"]');
+    const entry = draft().authoring!.passiveStories[0];
+    entry.block = { type: 'AND', conditions: [] };
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    click('[data-column-action="story-editor-entry-tab:gates"]');
+    const blockButton = '[data-entry-condition="block"]';
+    click(blockButton);
+    change(conditionControl<HTMLSelectElement>('[data-condition-field="mode"]'), 'OR');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    ctrl.flushUIUpdates();
+    expect(entry.block).toEqual({ type: 'OR', conditions: [] });
+    (q(blockButton).closest('.story-editor-trigger-condition')!.querySelector('[data-value-action="remove"]') as HTMLButtonElement).click();
+    expect(entry).not.toHaveProperty('block');
+  });
+  it('reparents a condition while preserving its selection and rejects a group dropped into a descendant', () => {
+    const leaf = { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } as const;
+    const entry = openTriggerTree({
+      type: 'OR', conditions: [{ type: 'AND', conditions: [{ type: 'OR', conditions: [leaf] }] }, { type: 'AND', conditions: [] }],
+    });
+    const move = (source: string, target: string) => {
+      const values = new Map<string, string>();
+      const transfer = {
+        setData: (type: string, value: string) => values.set(type, value),
+        getData: (type: string) => values.get(type),
+      };
+      for (const [type, selector] of [['dragstart', source], ['dragover', target], ['drop', target]]) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'dataTransfer', { value: transfer });
+        conditionControl(selector).dispatchEvent(event);
+      }
+    };
+    move('[data-condition-select="1"]', '[data-condition-into="2"]');
+    expect(conditionControl('[data-condition-into="1"]').parentElement?.querySelector('[data-condition-into="2"]')).not.toBeNull();
+    conditionControl('[data-condition-select="3"]').click();
+    conditionControl('[data-condition-toggle="4"]').click();
+    move('[data-condition-select="3"]', '[data-condition-into="4"]');
+    expect(conditionControl('[data-condition-into="4"]').parentElement?.querySelector('[data-condition-select="3"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(conditionControl<HTMLSelectElement>('[data-condition-field="comparator"]').value).toBe('==');
+    move('[data-condition-select="4"]', '[data-condition-before="1"]');
+    conditionControl('[data-modal-action="apply-condition-tree"]').click();
+    expect(entry.triggerCondition.conditions).toEqual([
+      { type: 'AND', conditions: [leaf] }, { type: 'AND', conditions: [{ type: 'OR', conditions: [] }] },
+    ]);
   });
   it('suggests existing catalog levels from loaded content and drafts but accepts new names',()=>{
     const [registered,other]=[...game.registry.activeStories.values()];

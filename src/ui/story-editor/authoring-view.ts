@@ -11,16 +11,19 @@ import { buildBackgroundView, renderBackground } from '../presentation/backgroun
 import { renderTabs } from '../components/shared/tabs';
 import { baseStoryHierarchy } from '../../arona-clicker/content/story/story-hierarchy';
 import { withAuthoredStoryCatalog } from '../columns/authored-story-catalog';
+import { isTrueConditionRoot } from './condition-tree-model';
+import { entryConditionField } from './condition-fields';
+import type { Condition, ConditionGroup } from '../../engine/types/expression';
 
 export const ENTRY_FIELD_SEEDS: Record<string, { label: string; value: unknown }> = {
   owner: { label: '归属角色', value: '' },
   openingTitle: { label: '开幕标题', value: '' }, travelToStartContext: { label: '前往起始场景', value: true },
   replayable: { label: '可重读', value: true }, availableInits: { label: '允许的 Init', value: [] },
-  triggerCondition: { label: '触发条件', value: { type: 'AND', conditions: [] } },
+  triggerCondition: { label: '触发条件', value: { type: 'OR', conditions: [] } },
   completionReward: { label: '完成奖励', value: { first: [], repeat: [] } }, completionStrategy: { label: '完成策略', value: 'simple' },
   conditionalRewards: { label: '条件奖励', value: [] }, branchGuards: { label: '分支门控', value: [] }, revealTriggers: { label: '揭示条件', value: [] },
   reactions: { label: '完结反应', value: [] }, followUps: { label: '独立后续', value: [] },
-  block: { label: '阻塞条件', value: { type: 'AND', conditions: [] } }, interruptible: { label: '可打断', value: true },
+  block: { label: '解除阻塞条件', value: { type: 'AND', conditions: [] } }, interruptible: { label: '可打断', value: true },
   leaveArea: { label: '允许离开区域', value: true }, blocksInteraction: { label: '阻塞玩家交互', value: false },
   tags: { label: '标签', value: [] }, extra: { label: '扩展数据', value: { t: 'dict', v: {} } },
 };
@@ -53,7 +56,32 @@ function authoringValueRenderer(ctx: UIContext, state: StoryEditorState, draft: 
   const localFlags = [...new Set(flags.uses.filter(use=>use.kind==='local').map(use=>use.name))].map(name=>({value:name,label:name}));
   const entryRefs = [...storyEntries(state,ctx.game.registry.storyEntries).values()].filter(x=>typeof x.id==='string'&&Boolean(x.id)).map(x=>({value:x.id,label:String(x.openingTitle ?? x.id)}));
   const storyRefs = [...ctx.game.registry.stories.values(), ...state.drafts.map(x=>x.document)].map(x=>({value:x.id,label:x.name}));
-  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,state.storageBlocked,0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs,flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags});
+  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,state.storageBlocked,0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs,flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags},
+    scope === '$authoring' && (path[0] === 'activeStories' || path[0] === 'passiveStories')
+      ? (fieldPath, value) => renderEntryConditionField(ctx, state, draft, fieldPath, value) : undefined);
+}
+
+function renderEntryConditionField(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, path: readonly (string | number)[], value: unknown): string | undefined {
+  const field = entryConditionField(path.slice(2));
+  if (!field) return;
+  const e = ctx.escapeHtml;
+  const locked = state.storageBlocked ? ' disabled' : '';
+  const group = value as Partial<ConditionGroup> | undefined;
+  const leaf = value as Partial<Condition> | undefined;
+  const summary = isTrueConditionRoot(value) ? '恒为 True'
+    : value === undefined ? field.absent ?? '待配置'
+    : Array.isArray(group?.conditions) && group.type === 'AND' ? `全部满足 · ${group.conditions.length} 项`
+    : Array.isArray(group?.conditions) && group.type === 'OR'
+      ? group.conditions.length ? `任一满足 · ${group.conditions.length} 个分支` : '空 OR · 恒不成立'
+      : typeof leaf?.target === 'string' ? '单条条件' : '待配置';
+  const attrs = `data-value-scope="$authoring" data-value-path="${e(JSON.stringify(path))}"`;
+  return `<section class="story-editor-trigger-condition" data-editor-key="entry-condition:${e(structuredKey(draft, '$authoring', path))}">
+    <div><h3>${e(field.label)}</h3><p>${e(summary)}</p></div>
+    <div class="story-editor-actions">
+      <button type="button" class="mini-action" data-entry-condition="${e(String(path[2]))}" ${attrs}${locked}>${value === undefined ? '配置条件' : '编辑条件'}</button>
+      ${field.optional && value !== undefined ? `<button type="button" class="mini-action" data-value-action="remove" ${attrs}${locked}>移除条件</button>` : ''}
+    </div>
+  </section>`;
 }
 function renderAuthoringRow(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools', index: number): string {
   const row = draft.authoring![table][index];
@@ -97,8 +125,10 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
   const activationDetail=row.activation.kind==='random'?value('$authoring',[...base,'activation','weight'],row.activation.weight,'基础权重')+value('$authoring',[...base,'activation','repeatable'],row.activation.repeatable,'正式重复触发')+value('$authoring',[...base,'activation','cooldownFrames'],row.activation.cooldownFrames??0,'Entry 冷却帧数'):
     row.activation.kind==='affection'?value('$authoring',[...base,'activation','when'],row.activation.when,'好感等级或前置 Story')+value('$authoring',[...base,'activation','cooldownFrames'],row.activation.cooldownFrames??0,'Entry 冷却帧数'):'';
   const applicableDetail=detailKeys.filter(key=>key!=='owner'&&(row.activation.kind!=='active'||!['interruptible','leaveArea','blocksInteraction','block'].includes(key)));
-  const addableDetail=applicableDetail.filter(key=>!(key in row));
-  const detail=activationDetail+(row.activation.kind==='affection'||'owner' in row?ownerField:'')+applicableDetail.filter(key=>key in row).map(key=>editor(key,ENTRY_FIELD_SEEDS[key]?.label??key)).join('')+`<label class="story-editor-property">添加详细门控字段<select data-authoring-field="${table}" data-authoring-index="${index}"${locked}><option value="">选择字段…</option>${addableDetail.map(key=>`<option value="${key}">${e(ENTRY_FIELD_SEEDS[key]?.label??key)}</option>`).join('')}${row.activation.kind!=='affection'&&!( 'owner' in row)?'<option value="owner">归属角色</option>':''}</select></label><h3>所在抽取池</h3><button type="button" class="mini-action" data-authoring-add="passivePools"${state.storageBlocked||row.activation.kind!=='random'?' disabled':''}>新增关联抽取池</button>${draft.authoring!.passivePools.flatMap((pool,poolIndex) => pool.children.some(child=>child.id===id)||poolTokens.has(structuredKey(draft,'$authoring',['passivePools',poolIndex]))?[`<details class="story-editor-entry-pool" data-editor-key="entry-pool:${e(structuredKey(draft,'$authoring',['passivePools',poolIndex]))}"><summary>${e(pool.name ?? pool.id)}${pool.children.some(child=>child.id===id)?'':' · 本次编辑，已解除关联'}</summary>${renderAuthoringRow(ctx,state,draft,'passivePools',poolIndex)}</details>`]:[]).join('')}`;
+  const addableDetail=applicableDetail.filter(key=>key!=='triggerCondition'&&!(key in row));
+  const gateFields = applicableDetail.map(key => key === 'triggerCondition' || key in row
+    ? editor(key, ENTRY_FIELD_SEEDS[key]?.label ?? key) : '').join('');
+  const detail=activationDetail+(row.activation.kind==='affection'||'owner' in row?ownerField:'')+gateFields+`<label class="story-editor-property">添加详细门控字段<select data-authoring-field="${table}" data-authoring-index="${index}"${locked}><option value="">选择字段…</option>${addableDetail.map(key=>`<option value="${key}">${e(ENTRY_FIELD_SEEDS[key]?.label??key)}</option>`).join('')}${row.activation.kind!=='affection'&&!( 'owner' in row)?'<option value="owner">归属角色</option>':''}</select></label><h3>所在抽取池</h3><button type="button" class="mini-action" data-authoring-add="passivePools"${state.storageBlocked||row.activation.kind!=='random'?' disabled':''}>新增关联抽取池</button>${draft.authoring!.passivePools.flatMap((pool,poolIndex) => pool.children.some(child=>child.id===id)||poolTokens.has(structuredKey(draft,'$authoring',['passivePools',poolIndex]))?[`<details class="story-editor-entry-pool" data-editor-key="entry-pool:${e(structuredKey(draft,'$authoring',['passivePools',poolIndex]))}"><summary>${e(pool.name ?? pool.id)}${pool.children.some(child=>child.id===id)?'':' · 本次编辑，已解除关联'}</summary>${renderAuthoringRow(ctx,state,draft,'passivePools',poolIndex)}</details>`]:[]).join('')}`;
   const page=state.entryEditorTab==='rewards'?rewards:state.entryEditorTab==='gates'?detail:basic;
   return `<section class="story-editor-authoring" data-editor-key="entry-authoring:${e(draft.draftId)}"><div data-editor-key="entry-tabs">${tabs}</div><section data-editor-key="entry-page:${state.entryEditorTab??'basic'}" role="tabpanel">${page}</section></section>`;
 }

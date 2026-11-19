@@ -112,6 +112,120 @@
 .story-editor-dialog__preview > :first-child { margin-top: 0; }
 .story-editor-dialog__preview > :last-child { margin-bottom: 0; }
 .story-editor-dialog__preview-text { white-space: pre-wrap; }
+
+.story-editor-trigger-condition {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 16px;
+   padding: 10px 12px;
+   border: 1px solid var(--line);
+   border-radius: 8px;
+}
+.story-editor-trigger-condition :is(h3, p) { margin: 0; }
+.modal-panel.story-condition-dialog { height: min(740px, 82vh); }
+.story-condition-dialog > .modal-body { flex: 1; overflow: hidden; }
+.condition-tree-layout {
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+   gap: 20px;
+   height: 100%;
+}
+.condition-tree-pane {
+   min-width: 0;
+   min-height: 0;
+   overflow: auto;
+   overscroll-behavior: contain;
+}
+.condition-tree-pane:first-child {
+   z-index: 0;
+   padding: 10px;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+}
+.condition-tree-pane[data-condition-properties] { z-index: 1; }
+.condition-tree-list, .condition-tree-list ul { margin: 0; padding: 0; list-style: none; }
+.condition-tree-list ul {
+   margin-inline-start: 14px;
+   padding-inline-start: 10px;
+   border-inline-start: 1px solid var(--line);
+}
+.condition-tree-row {
+   display: flex;
+   align-items: center;
+   min-height: 36px;
+   border: 1px solid var(--line);
+   border-radius: 8px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+}
+.condition-tree-row:has([aria-pressed="true"]) {
+   border-color: var(--cyan);
+   background: color-mix(in srgb, var(--panel-light) 88%, var(--cyan));
+}
+.condition-tree-row.is-drop-target { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.condition-tree-layout .condition-tree-row > button {
+   border: 0;
+   background: transparent;
+   color: inherit;
+   font: inherit;
+   cursor: pointer;
+}
+.condition-tree-node {
+   flex: 1;
+   min-width: 0;
+   padding: 5px 10px;
+   text-align: start;
+   overflow-wrap: anywhere;
+}
+.condition-tree-row > .condition-tree-node[draggable="true"] { cursor: grab; }
+.condition-tree-disclosure { padding: 5px 2px 5px 10px; }
+.condition-tree-gap { height: 8px; }
+.condition-tree-gap.is-drop-target { background: linear-gradient(var(--cyan), var(--cyan)) center / 100% 2px no-repeat; }
+.condition-tree-fields { display: grid; gap: 14px; align-content: start; padding-inline-end: 4px; }
+.story-condition-dialog .modal-body .condition-tree-fields > h3:first-child { margin: 0; }
+.condition-tree-fields > .story-editor-actions:empty { display: none; }
+.condition-reference-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 8px; }
+.condition-reference-control > small { grid-column: 1 / -1; }
+.story-condition-dialog :is(.condition-tree-layout, .condition-reference-page, .modal-foot)[hidden] { display: none; }
+.condition-reference-page { height: 100%; }
+.condition-reference-picker {
+   display: grid;
+   grid-template-columns: minmax(132px, .7fr) minmax(0, 2fr) minmax(174px, 1fr);
+   gap: 16px;
+   height: 100%;
+}
+.condition-reference-picker > section {
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   gap: 8px;
+   min-width: 0;
+   overflow: auto;
+   overscroll-behavior: contain;
+}
+.condition-reference-picker > :is(.condition-reference-filters, .condition-reference-detail) {
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+}
+.story-condition-dialog .modal-body .condition-reference-picker h3:first-child { margin: 0; }
+.condition-reference-cards { display: flex; flex-wrap: wrap; align-content: start; gap: 8px; overflow: auto; }
+.condition-reference-cards > .condition-reference-card { flex: 1 1 145px; width: auto; overflow-wrap: anywhere; }
+.condition-reference-picker :is(.condition-reference-card, .mini-action)[aria-pressed="true"] {
+   border-color: var(--cyan);
+   background: color-mix(in srgb, var(--panel-light) 88%, var(--cyan));
+}
+.condition-reference-detail > .story-editor-actions { margin-top: auto; }
+.condition-tree-fields [data-condition-remove] {
+   min-height: 34px;
+   padding: 7px 12px;
+   border: 1px solid var(--line);
+   border-radius: 8px;
+   color: var(--danger);
+   font-size: 13px;
+}
+.condition-tree-error { flex: 1; align-self: center; margin: 0; }
 .story-editor-column input,
 .story-editor-column select,
 .story-editor-column textarea {

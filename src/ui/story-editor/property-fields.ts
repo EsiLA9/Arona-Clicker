@@ -12,6 +12,7 @@ import type { StoryDraft, StoryDraftNode, StoryEditorState } from './model';
 import { localFlagInput } from './flag-fields';
 import { isOptionalEnabled, literalKindAt, propertyKey, readStoryNodeBody, rowIdAt } from './property-model';
 import { storyReferenceOptions, type StoryReferenceKind } from './property-options';
+import { STORY_CONDITION_COMPARATORS, STORY_CONDITION_HINTS, STORY_CONDITION_REFERENCES, STORY_CONDITION_TARGETS } from './condition-fields';
 import { renderChatTexts, resolveStorySpeaker, type ChatTextEntry } from '../components/story/story';
 import { renderChatEntry, renderStoryClickPreview, renderStoryClickAppearance, renderStoryNodePlacement } from '../components/story/story';
 import { projectStoryContent, storyNodeDisplay } from '../../data-services/authoring/story-content-display';
@@ -420,12 +421,10 @@ function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value
   if(group) {
     const rows=array(obj.conditions); return `<section class="story-editor-condition" data-editor-key="condition:${pathText(path)}">${labelledChoices(ctx,'条件关系',[['AND','全部满足'],['OR','任一满足']],val(obj,'type'),[...path,'type'],state)}<div class="story-editor-actions"><button type="button" class="mini-action" data-story-condition-add="leaf" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件</button><button type="button" class="mini-action" data-story-condition-add="group" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件组</button></div>${rows.map((child,index)=>`<div class="story-editor-condition-child" data-editor-key="condition-row:${pathText(path)}:${index}">${conditionEditor(ctx,state,[...path,'conditions',index],child)}<button type="button" class="mini-action mini-action--danger" data-story-row-action="remove-index" data-story-row-path="${esc(ctx,pathText([...path,'conditions']))}" data-story-row-index="${index}"${disabled(state)}>删除</button></div>`).join('')}</section>`;
   }
-  const targets: [string,string][]=[['alwaysTrue','恒真'],['resource','资源'],['spotLevel','设施等级'],['manager','经理'],['flag','标记'],['hasEnh','拥有强化'],['hasTag','拥有标签'],['countTags','标签数量'],['tagCount','分类统计'],['stat','统计函数'],['hasReadStory','完成 Story'],['hasReadStoryInRun','本次 Run 完成 Story'],['visitedStoryInChain','链路经过 Story'],['extra','Extra'],['protoStat','原型统计'],['affectionLevel','好感等级'],['area','当前区域']];
-  const refKinds: Record<string,StoryReferenceKind> = {resource:'resource',spotLevel:'spot',manager:'spot',hasEnh:'enhancement',hasReadStory:'story',hasReadStoryInRun:'story',visitedStoryInChain:'story',protoStat:'character',affectionLevel:'variant',area:'area'};
-  const conditionRef = refKinds[String(val(obj,'target'))];
-  const hints: Record<string,string> = {alwaysTrue:'恒真条件使用 == 1，无需条件键。',flag:'持久 flags 的名称；不会读取 Entry 局部标记。',hasTag:'填写设施层级标签路径。',countTags:'填写设施层级标签路径，比较拥有数量。',tagCount:'填写 kind:tag，例如 characters:school/abydos。',stat:'填写统计函数调用，例如 $FunctionName 参数。',extra:'填写 ExtraPath，读取合并视图数值。'};
-  const conditionHint = hints[String(val(obj,'target'))] ?? '从当前内容目录选择判断对象。';
-  return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${labelledChoices(ctx,'条件目标',targets,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state,conditionRef?'ref':'text',conditionRef,conditionHint,val(obj,'target')==='flag'?'global':undefined)}${labelledChoices(ctx,'比较方式',[['==','等于'],['!=','不等于'],['>=','大于等于'],['<=','小于等于'],['>','大于'],['<','小于']],val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
+  const target = STORY_CONDITION_TARGETS.find(([id]) => id === val(obj,'target'))?.[0];
+  const conditionRef = target && STORY_CONDITION_REFERENCES[target];
+  const conditionHint = (target && STORY_CONDITION_HINTS[target]) ?? '从当前内容目录选择判断对象。';
+  return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${labelledChoices(ctx,'条件目标',STORY_CONDITION_TARGETS,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state,conditionRef?'ref':'text',conditionRef,conditionHint,target==='flag'?'global':undefined)}${labelledChoices(ctx,'比较方式',STORY_CONDITION_COMPARATORS,val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
   const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['areaContinue','到地点继续']],state)];

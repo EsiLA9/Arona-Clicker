@@ -301,6 +301,12 @@ describe('StoryNodeActionHost', () => {
     const chainEntry = activeEntry('entry:chain', { triggerCondition: { type: 'AND', conditions: [{ target: 'visitedStoryInChain', key: 'story:old', comparator: '==', value: 1 }] } });
     const chainHarness = harness([chainEntry]);
     expect(chainHarness.host.preflight({ kind: 'entryRequest', request: { entryId: chainEntry.id, entryType: 'active', owner: null, intent: 'ordinary' } }, source)).toBe('EntryChainConditionUnsupported');
+    const trueEntry = activeEntry('entry:true', { triggerCondition: { type: 'OR', conditions: [
+      { target: 'alwaysTrue', key: '$storyEditor:true', comparator: '==', value: 1 },
+      ...chainEntry.triggerCondition.conditions,
+    ] } });
+    const trueHarness = harness([trueEntry]);
+    expect(trueHarness.host.preflight({ kind: 'entryRequest', request: { entryId: trueEntry.id, entryType: 'active', owner: null, intent: 'ordinary' } }, source)).toBeUndefined();
     const cardAction: StoryAction = { kind: 'overlay', command: { command: 'show', id: 'overlay:card', content: { kind: 'entryCard', card: { request: { entryId: 'entry:target', entryType: 'active', owner: null, intent: 'card' } } } } };
     expect(h.host.preflight(cardAction, globalSource)).toBe('OverlayCardRoutingUnsupported');
   });

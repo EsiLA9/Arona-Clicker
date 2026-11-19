@@ -127,7 +127,7 @@ export function addStoryAuthoringRow(draft: StoryDraft, table: 'activeStories' |
   const id = `${mod}:${table === 'passivePools' ? 'passivepool' : table === 'activeStories' ? 'activestory' : 'passivestory'}:${name}`;
   if (table === 'passivePools') draft.authoring.passivePools.push({ id, name: '新被动池', children: [] });
   else {
-    const entry = { id, storyId: draft.document.id, availableInits: [], triggerCondition: { type: 'AND' as const, conditions: [] }, replayable: true };
+    const entry = { id, storyId: draft.document.id, availableInits: [], triggerCondition: { type: 'OR' as const, conditions: [] }, replayable: true };
     if (table === 'activeStories') draft.authoring.activeStories.push({ ...entry, activation: {kind:'active'} });
     else if(affectionOwner) draft.authoring.passiveStories.push({...entry,owner:affectionOwner,activation:{kind:'affection',when:{kind:'level',level:1}}});
     else draft.authoring.passiveStories.push({ ...entry, activation: { kind: 'random' as const, weight: 1, repeatable: false } });

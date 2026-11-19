@@ -83,6 +83,12 @@ Choice 属性只围绕选项文案、出现条件、选择标记与后续节点�
 
 Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry 链接与新增、校验、隔离试播与目标包保存；Entry 与 PassivePool 详情在 Entry 中栏编辑。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。另存为新身份复制正文，保留原 Story / 外部引用，新副本重新配置入口。
 
+StoryEntry 的「详细门控」从摘要打开触发条件树。新建 Entry 的触发条件是空 OR，恒不成立。既有空 AND 显示为「恒为 True」，非空 AND 放在 OR 下作为完整子组，未改动时确认保留原值。添加条件或子组只在弹窗中插入待填写节点，选中后再配置；两种模式均可编辑整棵树，确认时定位首个未完成或非法的节点。True 无子项时仍保存为空 AND，有子项时用 OR 的首个恒真条件短路求值并保留子树。重新打开时首项由编辑器识别为 True 模式，切回 OR 后移除该首项。树的节点身份、展开与选中状态属于弹窗会话。入口为 `src/ui/story-editor/condition-tree-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
+
+单条条件按判断对象选择表单。默认数值表单用业务字段标题，当前区域的 `== 1` 和 `== 0` 分别显示为「位于」和「不在」，其他比较沿用区域状态值表单。实体引用使用同一份目录提供手输候选与搜索视图。候选优先匹配 Entry 的允许 Init，缺省时参考当前 Init，其次列出 Global，再列出其他 Init 和未标明归属的实体。确认选择只回填当前条件节点，整棵树仍由弹窗底部确认写入草稿。入口为 `src/ui/story-editor/condition-reference-navi.ts`。
+
+被动 Entry 的解除阻塞条件、每条条件奖励、揭示规则和完结反应共用上述条件树。规则的揭示目标、事件和效果保留在原行。未设置的揭示或反应条件以恒真打开，取消保留缺省；可选条件可显式移除。旧单条条件未改动时保留原结构。每次确认按规则的稳定身份写回当前行；判断对象「链路经过 Story」可在有独立剧情链上下文的条件奖励中选用。
+
 `structured-value.ts` 提供 JSON、全部 ValueExpression 运算及数值来源、Extra 各类型、条件 / 效果 / 反应 / 后续的构造模板。字段以平铺标题与控件编辑，可增删字段、增删换序列表；引用提供当前目录及未发布草稿候选。切换构造明确替换本项。theme 的 palette / tokens / nodes / background 和 Story Extra 不再仅供只读。`structuredInputs/structuredRows` 只随作者草稿保存，稳定行身份与原始错误输入不进入正式内容；无效数字即使保留了上一合法值，也会阻止提交。作者输入与渲染限 128 层 JSON（覆盖引擎 Extra 32 层）；超过时显式拒绝。
 
 `GameCommands.validateStoryAuthoring/applyStoryAuthoring` 接受一组 `stories/activeStories/passiveStories/passivePools` 及显式 removed 列表。`Registry.saveStoryAuthoring()` 在候选表上完成作者形状、Story 正式投影、引用、单层子调用和池循环检查，全部通过后才更改正式表；删除被引用内容会拒绝。应用后重建 Entry 标签声明 / 收集索引，不写玩家进度。旧的单文档 `saveStoryDefinition` 入口仍保留，不能代替多内容事务。

@@ -104,6 +104,12 @@ ModalManager 的普通弹窗沿用 panel / panel-light / ink-on-* 主题角色�
 
 Story 复杂编辑弹窗由 `story-editor/editor-dialog.ts` 复用 ModalManager。标题与底部操作固定，正文独立滚动，可使用 `.story-editor-dialog__split` 并排放置编辑内容和预览。通过右上角关闭或底部取消退出，关闭后回到入口控件。更改 Story ID 首先使用该外壳，左侧修改名称和目标编辑副本，右侧显示引用影响。输入仅更新弹窗内容，确认后沿用现有工作区更新。行为验证见 `tests/ui/story/story-editor-identity.test.ts`。
 
+StoryEntry 触发条件使用同一弹窗外壳。左侧树按层级展开，行间横线用于插入，高亮组边框表示移入组尾。右侧显示选中节点属性，各栏有独立滚动容器。添加只插入「待填写」子项并保留选中组，确认时定位首个未完成节点。树节点和属性控件按编辑会话内身份局部更新，确认后才协调工作区。入口为 `story-editor/condition-tree-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
+
+组合节点始终提供添加条件和添加子组。True 模式也支持编辑、拖动和删除子项，确认时校验并保留子树。右侧属性栏的层级高于左侧树，保持独立滚动。
+
+单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
+
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 
 Map 的相邻地点选择由类型化 `FlowMapLocations` 投影到标准 Talklet。Talklet 只提供一个静态卡牌落点宿主；`renderMapActionCardButton()` 共用角色当前行动卡与 Flow 地点选择卡的卡面骨架，地点卡保持 82×58 固定尺寸，并按宿主的左右对齐、间距配置排列。卡片角度从稳定实例身份派生，刷新不会改变。宿主 / 插槽通过 `mapCardHostAttributes()` 与 `mapCardAttachmentAttributes()` 静态表达。地点卡只提供 `selectLocation` 入口，通过点击或键盘选中，再由 Map Workspace 统一 Click 按钮调用 Controller 和现有 MapRun 移动命令；空选择时该按钮阻塞。地点卡不提供卡牌目标或目标编辑入口。静态 DOM 附着、Hover 状态与作用关系保持为不同信息。当前地点与路线状态来自 Map View；锁定边不可选。遭遇或活动阻挡期间不显示；成功移动后回收旧选择条目并留下斜体旁白“从……移动到了……”。待选项只在当前 Workspace 交互会话中保留，不进入存档或历史。

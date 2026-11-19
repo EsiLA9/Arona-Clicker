@@ -58,8 +58,10 @@ const TITLES: Record<string, string> = {
 export const valueTitle = (key: string | number): string => typeof key === 'number' ? `第 ${key + 1} 项` : TITLES[key] ?? key;
 
 /** Flat rows retain a path heading; object structure does not introduce nested cards or scrolling hosts. */
-export function renderStructuredValue(ctx: UIContext, scope: string, path: ValuePath, value: unknown, title: string, inputs: StructuredInputs = {}, disabled = false, depth = 0, identity?: (scope: string, path: ValuePath) => string, references?: Record<string, readonly {value:string;label:string}[]>): string {
+export function renderStructuredValue(ctx: UIContext, scope: string, path: ValuePath, value: unknown, title: string, inputs: StructuredInputs = {}, disabled = false, depth = 0, identity?: (scope: string, path: ValuePath) => string, references?: Record<string, readonly {value:string;label:string}[]>, renderField?: (path: ValuePath, value: unknown) => string | undefined): string {
   const e = ctx.escapeHtml; const key = identity?.(scope, path) ?? JSON.stringify([scope, ...path]);
+  const field = renderField?.(path, value);
+  if (field !== undefined) return field;
   const attrs = `data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify(path))}"`;
   const locked = disabled ? ' disabled' : '';
   const mode = value === undefined ? 'unset' : value === null ? 'null' : Array.isArray(value) ? 'array' : object(value) ? 'object' : typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'boolean' : 'string';
@@ -78,9 +80,11 @@ export function renderStructuredValue(ctx: UIContext, scope: string, path: Value
       const move = Array.isArray(value) ? `<div class="story-editor-actions"><button type="button" class="mini-action" data-value-action="up" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===0 || disabled ? ' disabled' : ''}>上移</button><button type="button" class="mini-action" data-value-action="down" data-value-scope="${e(scope)}" data-value-path="${e(JSON.stringify([...path,segment]))}"${Number(segment)===value.length-1 || disabled ? ' disabled' : ''}>下移</button></div>` : '';
       const flagNames = object(value) && (value.target === 'flag' && name === 'key' || value.op === 'setFlag' && name === 'target') ? references?.$globalFlags
         : object(value) && value.kind === 'localFlag' && name === 'name' || path.at(-1) === 'returnFlags' ? references?.$localFlags : undefined;
-      return renderStructuredValue(ctx, scope, [...path, segment], child, `${title} / ${valueTitle(segment)}`, inputs, disabled, depth + 1, identity, flagNames ? { ...references, [segment]: flagNames } : references) + move;
+      return renderStructuredValue(ctx, scope, [...path, segment], child, `${title} / ${valueTitle(segment)}`, inputs, disabled, depth + 1, identity, flagNames ? { ...references, [segment]: flagNames } : references, renderField) + move;
     }).join('');
-    content = `${Array.isArray(value) ? '' : `<label class="story-editor-property">新字段名称<input data-editor-key="new-key:${e(key)}" data-value-key ${attrs} value="${e(inputs[key + ':new-key']?.text ?? '')}"${locked}></label>`}<button type="button" class="mini-action" data-value-action="add" ${attrs}${locked}>${Array.isArray(value) ? '添加列表项' : '添加字段'}</button>${children}`;
+    const unsetCondition = object(value) && !Object.prototype.hasOwnProperty.call(value, 'condition')
+      ? renderField?.([...path, 'condition'], undefined) : undefined;
+    content = `${Array.isArray(value) ? '' : `<label class="story-editor-property">新字段名称<input data-editor-key="new-key:${e(key)}" data-value-key ${attrs} value="${e(inputs[key + ':new-key']?.text ?? '')}"${locked}></label>`}<button type="button" class="mini-action" data-value-action="add" ${attrs}${locked}>${Array.isArray(value) ? '添加列表项' : '添加字段'}</button>${children}${unsetCondition ?? ''}`;
   } else if (mode === 'null' || value === undefined) content = `<p class="story-editor-hint">${value === null ? '空值仍表示键存在。' : '选择值类型后开始编辑；未设置的字段不写入内容。'}</p>`;
   else if (mode === 'boolean') content = `<label class="story-editor-property">值<select data-editor-key="value:${e(key)}" data-value-input="boolean" ${attrs}${locked}><option value="false"${value === false ? ' selected' : ''}>false</option><option value="true"${value === true ? ' selected' : ''}>true</option></select></label>`;
   else {
