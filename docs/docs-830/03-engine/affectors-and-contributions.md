@@ -15,9 +15,9 @@
 
 ## 条件新鲜度与更新
 
-Affector 条目的条件登记到共享 `ConditionDepIndex`。相关资源、Spot 等级、标签、物品或角色进度事件命中时，只重新检查受影响实例；包含 `stat` 或未知 target 的条件进入轮询集合，在 Tick 时复核。`Active` 翻转或 entry 集变化后，AffectorEngine 发出运行时变化事件，GameNumSystem 据此同步 zone 记录和 flow 贡献，并使受影响计算节点失效。
+Affector 条目的条件登记到共享 `ConditionDepIndex`。相关资源、Spot 等级、标签、物品或角色进度事件命中时，只重新检查受影响实例。包含 `stat` 或未知 target 的条件进入轮询集合，在 Tick 时复核。`Active` 翻转、entry 集变化或 Pack 替换后，AffectorEngine 发出包含受影响实例 ID 的事件。GameNumSystem 按来源更新 zone 记录和 flow 贡献，仅使涉及的节点失效。
 
-普通 `effects` 只在实例由非 Active 转为 Active 时执行一次；Active 状态中不重复执行。持续逻辑必须声明为 `perTickEffects`；数值贡献使用 `flows` 和 `zoneModifiers`，由 GameNumSystem 在求值时组合。`setSpotMaxLevel` 等声明型 Effect 由宿主按当前实例动态查询。
+普通 `effects` 在实例由非 Active 转为 Active 时执行一次。读档重建与同 ID 热替换只更新条件、持续贡献及每帧效果的登记，跳过激活发奖。每帧只遍历有 `perTickEffects` 的活跃条目。数值贡献使用 `flows` 和 `zoneModifiers`，由 GameNumSystem 按需求值。`setSpotMaxLevel` 等声明型 Effect 由宿主按当前实例动态查询。
 
 ## 一次激活与持续贡献的区别
 

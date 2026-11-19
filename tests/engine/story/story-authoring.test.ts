@@ -5,6 +5,7 @@ import { baseDatapack } from '../../../src/data/test-datapack';
 import { emptyStoryAuthoring } from '../../../src/data-services/authoring/story-authoring';
 import type { StoryNode } from '../../../src/data-services/contracts/story-node';
 import type { StoryAuthoringPreview } from '../../../src/arona-clicker/contracts/runtime/story-authoring';
+import { Resource } from '../../../src/arona-clicker/types/ids';
 
 const makePatch = () => ({ ...emptyStoryAuthoring(),
   stories: [{ id: 'test:story:authoring', name: '作者故事', startContext: { type: 'area' as const, areaId: baseDatapack.areas[0].id }, stages: { s: { advance: 'input' as const } }, nodes: [
@@ -99,14 +100,33 @@ describe('Story authoring transactions', () => {
     const source=runtime.packManager.listPacks().find(x=>x.manifest.modName==='base')!;
     const editing=runtime.packManager.cloneAsEditing(source.id).pack;
     const patch=makePatch();patch.stories[0].id='base:story:authoring';patch.activeStories[0].id='base:activestory:authoring';patch.activeStories[0].storyId='base:story:authoring';
+    const conditionalRewards=[
+      {condition:{type:'AND',conditions:[{target:'visitedStoryInChain',key:'base:story:authoring',comparator:'==',value:1}]},effects:[{op:'addResource',target:Resource.Pyroxene,value:5}]},
+      {condition:{type:'AND',conditions:[]},effects:[{op:'addResource',target:Resource.Pyroxene,value:3}]},
+    ];
+    Object.assign(patch.activeStories[0],{
+      completionStrategy:'conditional',
+      completionReward:{first:[{op:'addResource',target:Resource.Pyroxene,value:2}],repeat:[{op:'addResource',target:Resource.Pyroxene,value:1}]},
+      conditionalRewards,
+    });
     expect(runtime.saveStoryAuthoringToPack(source.id,patch)).toMatchObject({ok:false});
     const checked=runtime.saveStoryAuthoringToPack(editing.id,patch);expect(checked,checked.message).toMatchObject({ok:true});
     const saved=runtime.packManager.getPack(editing.id)!;
     expect(saved.datapack.items).toEqual(editing.datapack.items);
     expect(saved.datapack.stories.some(x=>x.id==='base:story:authoring')).toBe(true);
+    const savedEntry=saved.datapack.activeStories?.find(entry=>entry.id==='base:activestory:authoring');
+    expect(savedEntry).toMatchObject({
+      completionStrategy:'conditional',
+      completionReward:{first:[{op:'addResource',target:Resource.Pyroxene,value:2}],repeat:[{op:'addResource',target:Resource.Pyroxene,value:1}]},
+      conditionalRewards,
+    });
     expect(runtime.registry.stories.has('base:story:authoring')).toBe(false);
     const exported=runtime.exportPackRecord(editing.id);expect(exported.ok).toBe(true);
-    const reloaded=new GameInstance();try{reloaded.init([exported.pack!.datapack]);expect(reloaded.registry.activeStories.has('base:activestory:authoring')).toBe(true);}finally{reloaded.storyService.dispose();reloaded.stop();}
+    const reloaded=new GameInstance();try{
+      reloaded.init([exported.pack!.datapack]);
+      const reloadedEntry=reloaded.registry.activeStories.get('base:activestory:authoring');
+      expect(reloadedEntry).toMatchObject({completionStrategy:'conditional',completionReward:savedEntry?.completionReward,conditionalRewards:savedEntry?.conditionalRewards});
+    }finally{reloaded.storyService.dispose();reloaded.stop();}
   });
   it('rejects a referenced deletion and leaves all live content untouched', () => {
     const game=start();expect(game.applyStoryAuthoring(makePatch())).toMatchObject({ok:true});

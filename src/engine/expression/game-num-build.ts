@@ -2,7 +2,7 @@
 // engine/expression/game-num-build.ts — GameNumSystem 树构建
 // 从 game-num.ts 拆出：buildAll / buildResourceGain（显式四级层级树）
 //   / buildZoneNode / rebuildZoneIndex / registerZoneNode
-//   / ensureFlowsNodes / scopeTags / setParent / collect / gainResourceDeps
+//   / attachAffectorFlow / scopeTags / setParent / collect / gainResourceDeps
 //
 // Phase 6 起每资源一棵显式层级树（tree-design.md §2）：
 //   primitiveGain:<res> = globalProduct + globalFlat + globalFlows
@@ -19,6 +19,7 @@
 import type { Value, ValueExpression } from '../types';
 import type { GameEvent } from '../types/index';
 import type { GameNumState } from '../contracts/state-query';
+import type { AffectorFlow } from '../contracts/affector';
 import type { GameNumSystem } from './game-num';
 import type { GameNum, ZoneNode } from './game-num-internal';
 import { qualifyTagPath, TagPath } from '../core/tag';
@@ -37,16 +38,18 @@ export function buildAll(system: GameNumSystem, state?: GameNumState): void {
   system.parents.clear();
   system.allNodes = [];
   system.zoneNodes = [];
-  system.syncedAffectorSources.clear();
   system.sourceEffectLocations.clear();
+  system.zoneKeyResourceDeps.clear();
   system.spotProductNodes.clear();
   system.spotFullNodes.clear();
   system.spotExtraNodes.clear();
   system.areaExtraNodes.clear();
   system.initExtraNodes.clear();
   system.flowsNodeById.clear();
-  system.affectorFlowsNodes = new Map();
-  system.affectorFlowSources = new Map();
+  system.flowNodesByInput.clear();
+  system.flowNodesByInstance.clear();
+  system.affectorFlowSources.clear();
+  system.flowIndexReady = false;
   zoneNodeMaps.set(system, new Map());
 
   const resourceSet = new Set<string>();
@@ -263,11 +266,13 @@ function resolveFlowsMount(system: GameNumSystem, mountEntityId: string): string
   return undefined;
 }
 
-function createFlowsNode(system: GameNumSystem, mount: string | undefined, resource: string, applySpotMultiplier = false): GameNum {
+type FlowNode = Extract<GameNum, { kind: 'affectorFlows' }>;
+
+function createFlowsNode(system: GameNumSystem, mount: string | undefined, resource: string, applySpotMultiplier = false): FlowNode {
   const id = `flows:${mount ?? 'global'}:${resource}${applySpotMultiplier ? ':product' : ''}`;
   const existing = system.flowsNodeById.get(id);
   if (existing) return existing;
-  const node: GameNum = {
+  const node: FlowNode = {
     id,
     kind: 'affectorFlows',
     resource,
@@ -275,16 +280,37 @@ function createFlowsNode(system: GameNumSystem, mount: string | undefined, resou
     ...(applySpotMultiplier ? { applySpotMultiplier: true } : {}),
   };
   system.flowsNodeById.set(id, node);
-  const list = system.affectorFlowsNodes.get(resource) ?? [];
-  list.push(node);
-  system.affectorFlowsNodes.set(resource, list);
   return node;
 }
 
 /** 把 flows 节点挂到对应层级：Spot 主产出进 spotProduct，其余 Spot flow 进 spotExtra；area/init → 各自 Extra；其他 → 资源树根（global）。 */
-function attachFlowsNode(system: GameNumSystem, mount: string | undefined, resource: string, applySpotMultiplier = false): void {
+export function attachAffectorFlow(system: GameNumSystem, mountEntityId: string, flow: AffectorFlow): FlowNode {
+  const { resource, applySpotMultiplier = false } = flow;
+  if (!system.gains.has(resource)) {
+    const gain = buildResourceGain(system, resource);
+    system.gains.set(resource, gain);
+    system.resourceSet.add(resource);
+    const deps = new Set<string>();
+    nodeResourceDeps(gain, deps);
+    system.gainResourceDeps.set(resource, deps);
+    system.mayReadResources ||= deps.size > 0;
+    for (const spotId of system.registry.spots.keys()) {
+      const next = system.spotResourceSubtrees.get(`${spotId}@${resource}`)!;
+      const current = system.spotSubtrees.get(spotId);
+      if (!current) system.spotSubtrees.set(spotId, next);
+      else if (current.id === `spotTotal:${spotId}`) appendChild(system, current, next);
+      else {
+        const aggregate: GameNum = { id: `spotTotal:${spotId}`, kind: 'add', children: [current, next] };
+        system.spotSubtrees.set(spotId, aggregate);
+        setParent(system, current, aggregate);
+        setParent(system, next, aggregate);
+        collect(system, aggregate);
+      }
+    }
+  }
+  const mount = resolveFlowsMount(system, mountEntityId);
   const node = createFlowsNode(system, mount, resource, applySpotMultiplier);
-  if ((system.parents.get(node.id) ?? []).length > 0) return;
+  if (system.parents.get(node.id)?.length) return node;
   let parent: GameNum | undefined;
   if (mount !== undefined) {
     if (applySpotMultiplier) {
@@ -296,24 +322,11 @@ function attachFlowsNode(system: GameNumSystem, mount: string | undefined, resou
       ?? system.initExtraNodes.get(`${mount}@${resource}`);
   }
   if (!parent) parent = system.gains.get(resource);
-  if (!parent || parent.kind !== 'add') return;
-  parent.children.push(node);
-  setParent(system, node, parent);
-  collect(system, node);
-}
-
-/** 按当前活跃 Affector 实例补齐缺失的 flows 节点（buildAll 收尾与实例变化时调用；幂等）。 */
-export function ensureFlowsNodes(system: GameNumSystem, affector: { getActiveInstances(): readonly { mountEntityId: string; packId: string; activeEntryIds: readonly string[]; activeEntryIdSet?: ReadonlySet<string> }[]; getPack(id: string): { entries: readonly { id: string; flows?: readonly { resource: string; applySpotMultiplier?: boolean }[] }[] } | undefined }): void {
-  for (const instance of affector.getActiveInstances()) {
-    const pack = affector.getPack(instance.packId);
-    if (!pack) continue;
-    for (const entry of pack.entries) {
-      if (!(instance.activeEntryIdSet?.has(entry.id) ?? instance.activeEntryIds.includes(entry.id))) continue;
-      for (const flow of entry.flows ?? []) {
-        attachFlowsNode(system, resolveFlowsMount(system, instance.mountEntityId), flow.resource, flow.applySpotMultiplier === true);
-      }
-    }
+  if (parent) {
+    appendChild(system, parent, node);
+    collect(system, node);
   }
+  return node;
 }
 
 // ---- zone 节点 ----
@@ -557,6 +570,8 @@ export function collect(system: GameNumSystem, node: GameNum): void {
 
 /** Value 叶子的资源依赖：仅 source='res' 直接读 state.resources。 */
 function valueResourceDeps(val: Value, out: Set<string>): void {
+  // shortcut: funclets invalidate on any resource change until their dependencies are indexed.
+  if (val.source === 'funclet') out.add('*');
   if (val.source !== 'res') return;
   const id = String(val.params.resource ?? '');
   if (id) out.add(id);

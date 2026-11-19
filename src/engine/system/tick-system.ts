@@ -35,6 +35,17 @@ export class TickSystem {
     (this.mutations as StateMutationPort & { setState?: (state: object) => void }).setState?.(state);
   }
 
+  /** Evaluate every resource before the host commits any offline gains. */
+  planOfflineProduction(state: TickState, frames: number): ProductionResult[] {
+    const productions: ProductionResult[] = [];
+    for (const resource of this.gameNumSystem.getResources()) {
+      const gain = this.gameNumSystem.evaluateResourceGain(resource, state);
+      if (gain <= 0) continue;
+      productions.push({ spotId: '', resource, amount: gain * frames });
+    }
+    return productions;
+  }
+
   /** Execute one unified tick and settle every owned Spot once. */
   tick(): TickResult {
     const state = this._state;

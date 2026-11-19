@@ -37,6 +37,7 @@ import {
   removeTagEffect as removeTagEffectImpl,
   removeTagEffectsBySource as removeTagEffectsBySourceImpl,
   syncAffectorZoneEffects as syncAffectorZoneEffectsImpl,
+  indexExistingZoneEffects,
   markAllDirty,
   markDirty,
   markZoneDirty,
@@ -90,10 +91,7 @@ export class GameNumSystem {
   /** initId@res -> initExtra（initFlat + initFlows + Σ areaExtra）。 */
   initExtraNodes = new Map<string, GameNum>();
   /** flows 节点 id -> 节点（ensureFlowsNodes 幂等创建用）。 */
-  flowsNodeById = new Map<string, GameNum>();
-
-  /** 活跃 Affector 源集合，用于按 source 反查撤回区记录。 */
-  syncedAffectorSources = new Set<string>();
+  flowsNodeById = new Map<string, Extract<GameNum, { kind: 'affectorFlows' }>>();
   /** source -> 其写入区表的位置，撤销时不扫描整张 state 表。 */
   sourceEffectLocations = new Map<string, Set<{ table: 'tag' | 'entity'; key: string; recordId: string }>>();
 
@@ -103,12 +101,12 @@ export class GameNumSystem {
   mayReadResources = false;
   /** 区表 key -> 该键下登记记录 expr 所读资源集合（register 时累积，resourceChanged 定向失效用）。 */
   zoneKeyResourceDeps = new Map<string, Set<string>>();
-  /** flows expr 所读资源集合（syncAffectorZoneEffects 重建；resourceChanged 定向失效用）。 */
-  flowsResourceDeps = new Map<string, Set<string>>();
-  /** resource -> flows 节点列表（flows 按挂载层级分发出多个节点，Phase 6）。 */
-  affectorFlowsNodes = new Map<string, GameNum[]>();
+  /** 输入资源 -> 读取它的 flow 节点。 */
+  flowNodesByInput = new Map<string, Map<GameNum, number>>();
+  flowNodesByInstance = new Map<string, Set<Extract<GameNum, { kind: 'affectorFlows' }>>>();
+  flowIndexReady = false;
   /** `(resource, mount, applySpotMultiplier)` -> 当前活跃 flow 来源；仅由 Affector 同步过程重建。 */
-  affectorFlowSources = new Map<string, readonly GameNumFlowSource[]>();
+  affectorFlowSources = new Map<string, Map<string, GameNumFlowSource[]>>();
 
   /** 已登记资源集合（Datapack/Affector 产出 + state.resources）。 */
   resourceSet = new Set<string>();
@@ -122,21 +120,14 @@ export class GameNumSystem {
 
     const invalidate = () => this.invalidateProduction();
     this.bus?.on('enhancementAdded', invalidate);
-    this.bus?.on('enhancementRemoved', () => {
-      this.invalidateProduction();
-      if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
-    });
+    this.bus?.on('enhancementRemoved', invalidate);
     this.bus?.on('spotTagChanged', () => {
       // spot 有效标签变化（T6 状态层覆盖）：zoneIndex 按构建期标签建的，
       // 必须先按当前有效 tags 重建反路由，否则后续 sync 仍命中旧 spot 集。
       this.rebuildZoneIndex();
       this.invalidateProduction();
-      if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
     });
-    this.bus?.on('spotLevelChanged', () => {
-      this.invalidateProduction();
-      if (this.affectorEngine && this.state) this.syncAffectorZoneEffects(this.affectorEngine, this.state);
-    });
+    this.bus?.on('spotLevelChanged', invalidate);
     this.bus?.on('spotDefinitionChanged', event => this.onSpotDefinitionChanged(event));
     this.bus?.on('managerChanged', invalidate);
     this.bus?.on('extraChanged', invalidate);
@@ -145,7 +136,7 @@ export class GameNumSystem {
     });
     // Affector 生命周期 / 激活 entry 集变化 → 重同步区表与 flows
     // （T7 事件化：替代 Affector 反向持 GameNum 的 notifyGameNum 通道）
-    this.bus?.on('affectorRuntimeChanged', () => this.onAffectorInstancesChanged());
+    this.bus?.on('affectorRuntimeChanged', event => this.onAffectorInstancesChanged(event.instanceIds));
   }
 
   /**
@@ -157,32 +148,23 @@ export class GameNumSystem {
    */
   onResourceChanged(resource: string): void {
     for (const [gainId, deps] of this.gainResourceDeps) {
-      if (!deps.has(resource)) continue;
+      if (!deps.has(resource) && !deps.has('*')) continue;
       const gain = this.gains.get(gainId);
       if (gain) markSubtreeDirty(gain);
     }
     for (const [key, deps] of this.zoneKeyResourceDeps) {
-      if (deps.has(resource)) markZoneDirty(this, key);
+      if (deps.has(resource) || deps.has('*')) markZoneDirty(this, key);
     }
-    for (const node of this.affectorFlowsNodes.get(resource) ?? []) {
-      markDirty(this, node);
-    }
-    for (const [flowResource, deps] of this.flowsResourceDeps) {
-      if (!deps.has(resource)) continue;
-      for (const node of this.affectorFlowsNodes.get(flowResource) ?? []) markDirty(this, node);
-    }
+    for (const node of this.flowNodesByInput.get(resource)?.keys() ?? []) markDirty(this, node);
+    for (const node of this.flowNodesByInput.get('*')?.keys() ?? []) markDirty(this, node);
   }
 
   /**
-   * Affector 实例集合 / 激活 entry 集变化（mount / unmount / recheck 翻转）：
-   * 同步区表记录 + 补齐缺失的层级 flows 节点 + 全部 flows 节点失效（缓存值随活跃集变化）。
+   * Affector 实例变化只更新该来源的区记录、flow 与缓存。
    */
-  onAffectorInstancesChanged(): void {
+  onAffectorInstancesChanged(instanceIds: readonly string[]): void {
     if (!this.state) return;
-    this.syncAffectorZoneEffects(this.affectorEngine, this.state);
-    for (const nodes of this.affectorFlowsNodes.values()) {
-      for (const node of nodes) markDirty(this, node);
-    }
+    syncAffectorZoneEffectsImpl(this, this.affectorEngine, this.state, instanceIds);
   }
 
   /** Registry 已提交单个 Spot 后，定向替换其 GameNum 子树。 */
@@ -195,7 +177,7 @@ export class GameNumSystem {
       valueSystem: this.valueSystem,
       registry: this.registry,
       affectorEngine: this.affectorEngine,
-      affectorFlowSources: this.affectorFlowSources,
+      affectorFlowSources: this.flowIndexReady ? this.affectorFlowSources : undefined,
     };
   }
 
@@ -239,6 +221,7 @@ export class GameNumSystem {
   }
 
   syncAffectorZoneEffects(affector: GameNumAffectorContext, state: GameNumState): void {
+    if (!this.flowIndexReady) indexExistingZoneEffects(this, state);
     syncAffectorZoneEffectsImpl(this, affector, state);
   }
 

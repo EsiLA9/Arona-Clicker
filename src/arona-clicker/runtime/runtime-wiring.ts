@@ -69,6 +69,7 @@ export interface WiringHooks {
   getState(): PlayerState;
   setState(next: PlayerState): void;
   refreshVisibility(): void;
+  settleOfflineTicks(frames: number): void;
 }
 
 /** 组装全部子系统并接线；调用方随后即可使用 GameInstance。 */
@@ -366,6 +367,7 @@ export function wireGameInstance(
 
   g.sessionService = new SessionService({
     doTick: () => g.tick(),
+    doOfflineTicks: hooks.settleOfflineTicks,
     devLog: g.devLog,
     eventBus: g.eventBus,
     effectEngine: g.effectEngine,

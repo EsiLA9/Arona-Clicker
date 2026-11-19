@@ -89,7 +89,7 @@ Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry 链
 
 编辑器不提供 Entry 的 kizuna 关联字段或 Click 的 kizunaCard 创建入口；已有 Entry.kizuna / kizunaCard 内容仍由底层兼容机制投影、校验与播放。新编写的跨 Entry 内容使用剧情入口卡选择目标 StoryEntry。`areaContinue` 仍编辑同一游标的续播地点。
 
-目录信息保存于 Entry 的 `extra.v.storyCatalog`，其值为 dict，category / part / chapter 为 str；category 与 part 必填，chapter 可空。`withAuthoredStoryCatalog()` 从已应用 Entry 投影目录，不修改内置表；重定位条目避免重复，分类身份编码后不占用导航的分隔符。作者通过“配置故事目录”创建这组元数据，随 Entry 一起保存 / 导出。
+StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、`part`、可选 `chapter` 与可选数字 `order`；分类和篇章为自由文本，不要求预注册，目录投影按现有 ID 或名称匹配，未匹配时创建作者目录项。Story Editor 汇总内置层级、已载入 Entry 与当前草稿，为分类 / 篇章 / 章节提供建议，同时允许输入新名称。旧 `extra.v.storyCatalog` 只作为导入迁移格式，会转为 `catalog`；当前 Entry 校验不接受旧字段。`withAuthoredStoryCatalog()` 从内置层级和 Entry 元数据投影导航目录，不修改内置表。
 
 `createStoryAuthoringPreview()` 使用已载入数据包、当前 Story 作者表、玩家快照与候选内容创建独立 GameInstance；使用原重读播放器验证输入、分支和父子串联，跳过持久效果 / 奖励，移动与演出仅影响隔离实例。除播放条目外，`getProjection()` 返回只读虚拟场景、解析后的主题 token / 背景与当前 Run 覆盖层快照；不向 UI 暴露 GameInstance、PlayerState 或可变 Map。Story 编辑器用正式聊天覆盖层 renderer 呈现这些数据，位置画布写回当前 Story 动作的 x / y 草稿字段。Controller 跟随子通道，并仅在播放投影变化时刷新；换 Story、离开或销毁编辑器时释放定时器与实例。它不等价于正式奖励 / 旅行验收。
 
@@ -144,6 +144,6 @@ Vite 配置把 `/game` 与 `/editor` 分别路由到游戏 UI 和独立 Editor H
 
 ## StoryEntry 基础分类
 
-Entry 中栏将激活方式、历史归档与普通公共字段分别编辑。激活方式明确选择主动接取、随机抽取或好感／角色阶段；地区兜底、权重／重复／冷却、等级／前置 Story 只在适用分支出现。好感入口新建时要求选择有效角色。切换配置先展示当前与目标含义，取消或候选草稿保存失败保留原分支；池仍关联该 Entry、错误输入尚未修正或配置在确认期间变化时拒绝切换。身份和 ModId 不随分类变更。
+Entry 中栏分别编辑激活方式、故事目录位置与普通公共字段。激活方式明确选择主动接取、随机抽取或好感／角色阶段；地区兜底、权重／重复／冷却、等级／前置 Story 只在适用分支出现。好感入口新建时要求选择有效角色。切换配置先展示当前与目标含义，取消或候选草稿保存失败保留原分支；池仍关联该 Entry、错误输入尚未修正或配置在确认期间变化时拒绝切换。身份和 ModId 不随分类变更。
 
-历史归档使用 catalog 普通字段，不再编辑 Extra.storyCatalog。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。
+故事目录位置使用 `catalog` 普通字段，不再编辑 `Extra.storyCatalog`。目录建议聚合内置层级、已载入 Entry 与当前草稿；字段保持自由文本，未注册的新分类／篇章／章节也可直接输入。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。

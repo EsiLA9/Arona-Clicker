@@ -42,15 +42,16 @@ function escapeHtml(s: string): string {
 /** 渲染弹窗骨架（供复用/测试）。 */
 export function renderModalShell(opts: ModalOptions): string {
   const width = opts.width ? ` style="max-width:${opts.width}px"` : '';
+  const title = opts.title ? escapeHtml(opts.title) : '';
   const dismissable = opts.dismissable ?? true;
   const panelClass = opts.panelClass ? ` ${opts.panelClass}` : '';
   const overlayClass = opts.panelClass === 'user-theme-modal' ? ' modal-overlay-user-theme' : '';
   const headClass = opts.panelClass === 'user-theme-modal' ? ' modal-head-user-theme' : '';
   return `
     <div class="modal-overlay${overlayClass}" ${dismissable ? 'data-modal-overlay' : ''}>
-      <section class="modal-panel${panelClass}" role="dialog" aria-modal="true"${width}>
+      <section class="modal-panel${panelClass}" role="dialog" aria-modal="true"${title ? ` aria-label="${title}"` : ''}${width}>
         <header class="modal-head${headClass}" ${opts.panelClass === 'user-theme-modal' ? 'data-user-theme-drag' : ''}>
-          <span class="eyebrow">${opts.title ? escapeHtml(opts.title) : ''}</span>
+          <span class="eyebrow">${title}</span>
           <button class="modal-close icon-button" aria-label="关闭" title="关闭">×</button>
         </header>
         <div class="modal-body">${opts.body}</div>
@@ -69,13 +70,14 @@ export class ModalManager {
   };
 
   /** 打开弹窗（重复 open 会替换内容）。 */
-  open(opts: ModalOptions): void {
+  open(opts: ModalOptions): HTMLElement {
     this.ensureContainer();
     this.el!.innerHTML = renderModalShell(opts);
     this.el!.classList.add('is-open');
     this.dismissable = opts.dismissable ?? true;
     this.closeHandler = opts.onClose;
     this.actionHandler = opts.onAction;
+    return this.el!.querySelector<HTMLElement>('.modal-panel')!;
   }
 
   close(): void {

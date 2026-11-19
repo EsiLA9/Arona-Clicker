@@ -138,6 +138,43 @@ describe('AffectorEngine', () => {
     expect(engine.getInstance(instance.instanceId)?.state).toBe('Removed');
   });
 
+  test('同 ID 热替换更新条件和每帧效果，保留原有发奖结果', () => {
+    const state = emptyState();
+    const bus = new EventBus();
+    const mutations = new StateMutationService(bus);
+    const engine = new AffectorEngine(new Registry(), new ConditionSystem(), mutations, bus);
+    engine.setState(state);
+    const pack = (key: string, amount: number) => ({
+      id: 'pack',
+      entries: [{
+        id: 'entry',
+        condition: { type: 'AND' as const, conditions: [{ target: 'resource' as const, key, comparator: '>=' as const, value: 1 }] },
+        effects: [{ op: 'addResource' as const, target: 'reward', value: 1 }],
+        perTickEffects: [{ op: 'addResource' as const, target: 'tickReward', value: amount }],
+      }],
+    });
+    mutations.setResource('old', 1);
+    engine.registerPack(pack('old', 1));
+    const instance = engine.mount('pack', 'spot')!;
+    engine.applyActiveEffects();
+    expect(state.resources).toMatchObject({ reward: 1, tickReward: 1 });
+
+    mutations.setResource('new', 1);
+    engine.registerPack(pack('new', 3));
+    mutations.setResource('old', 0);
+    engine.applyActiveEffects();
+    expect(state.resources).toMatchObject({ reward: 1, tickReward: 4 });
+    mutations.setResource('new', 0);
+    expect(instance.state).toBe('Latent');
+    engine.applyActiveEffects();
+    expect(state.resources.tickReward).toBe(4);
+    mutations.setResource('new', 1);
+    expect(state.resources.reward).toBe(2);
+    engine.unmount(instance.instanceId);
+    engine.applyActiveEffects();
+    expect(state.resources.tickReward).toBe(4);
+  });
+
   test('only active entries provide Area connections', () => {
     const state = emptyState();
     const engine = new AffectorEngine(new Registry(), new ConditionSystem(), new StateMutationService(new EventBus()));

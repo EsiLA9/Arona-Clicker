@@ -17,6 +17,7 @@ import {
 } from '../../engine/types';
 import type { SpotTagOverrideState as SpotTagOverride } from '../../engine/contracts/state-query';
 import type { StatsContext } from '../../engine/contracts/stats';
+import type { ProductionResult } from '../../engine/contracts/tick';
 import type { CharaCustomOverride } from '../types/chara-profile';
 import type { DupRewards } from '../../data-services/contracts/gacha-pool';
 import type { AreaStoryDelivery, CompletedStory } from '../types/story-state';
@@ -305,6 +306,28 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
       newValue,
     });
     return newValue;
+  }
+
+  /** Commit the whole offline settlement before resource notifications can run effects. */
+  commitOfflineProduction(productions: readonly ProductionResult[], frames: number): void {
+    const state = this.current;
+    const frame = state.totalFrames + frames;
+    if (!Number.isSafeInteger(frames) || frames <= 0 || !Number.isSafeInteger(frame)) {
+      throw new RangeError('Invalid offline frame count');
+    }
+    const events = productions.map(({ resource, amount }) => {
+      const bucket = isGlobalResource(resource) ? state.globalResources : state.resources;
+      const newValue = (bucket?.[resource] ?? 0) + amount;
+      if (amount <= 0 || !Number.isFinite(amount) || !Number.isFinite(newValue)) {
+        throw new RangeError(`Invalid offline production for ${resource}`);
+      }
+      return { type: 'resourceChanged' as const, resource, delta: amount, newValue };
+    });
+    for (const { resource, newValue } of events) this.resourceBucket(resource)[resource] = newValue;
+    state.totalFrames = frame;
+    this.statsService?.recordTick(frames);
+    for (const { resource, delta } of events) this.statsService?.recordResourceChange(resource, delta);
+    for (const event of events) this.emit(event);
   }
 
   setResource(resource: string, value: number): number {

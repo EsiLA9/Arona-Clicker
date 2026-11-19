@@ -87,6 +87,7 @@ export interface StoryEditorState {
   copyStoryId?: string;
   previewEntryId?: string;
   entryPoolContext?: { entryId: string; poolKeys: string[] };
+  entryEditorTab?: 'basic' | 'rewards' | 'gates';
   preview?: { playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null; story: import('../../arona-clicker/contracts/runtime/results').StoryView | null; projection: import('../../arona-clicker/contracts/runtime/story-authoring').StoryAuthoringPreviewProjection | null };
   themeContentEdit?: { session: import('../../arona-clicker/services/presentation/theme-content-editor-service').ThemeContentEditSession; draft: import('../../arona-clicker/services/presentation/theme-content-editor-service').EditableThemeContent; previewing: boolean; rows: Record<string,string[]>; error?: string };
 }

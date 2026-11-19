@@ -4,4 +4,5 @@
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0369-story-entry-editor-tabs]] | 待处理 | 交由 Luna 建立保存与应用基线 |
+| [[ai/plan/task-0371-cross-init-state-affector-implementation]] | 待处理 | 固定错线发奖、钱包不一致及 Operation 越线提交的回归用例 |
+| [[ai/plan/task-0369-story-entry-editor-tabs]] | 进行中 | 三页 UI 与奖励运行时已实现；混合奖励包往返已测，宽屏浏览器走查仍待完成 |

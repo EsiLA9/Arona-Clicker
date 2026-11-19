@@ -18,7 +18,7 @@ Extra 的 `int`、`float`、`str`、`bool`、`list` 和 `dict` 都是带类型�
 
 `GameNumSystem.buildAll()` 依据 Registry 定义、当前状态与 Affector 贡献，为资源构造分层表达式树：Init、Area、Spot 的基础产出、固定增量、乘区及 flows 在对应层级组合。TickSystem 读取资源树求值产出，再经状态写入服务增加资源。
 
-生产树带有父子索引和资源依赖。资源变化只让读取该资源的 gain、zone 或 flow 子树失效；Spot 等级、标签、管理角色、Extra、Enhancement 和 Affector 激活集变化则更新相应区表或缓存。Registry 整体重载会重建生产树；单 Spot 内容热改可定向替换该 Spot 子树。普通 Tick 不必重新解析所有定义。
+生产树带有父子索引和资源依赖。资源变化让读取该资源的 gain、zone 或 flow 节点失效，固定产出的 flow 可以跨帧复用。包含 Funclet 的表达式在资源变化时保守失效。Affector 挂卸或替换时，按实例更新其 flow 和乘区贡献。Spot 等级、标签、管理角色、Extra 和 Enhancement 变化仍会使相关缓存失效。Registry 整体重载或 Spot 定义变化时重建生产树。
 
 GameNum 负责计算结果，不直接提交 PlayerState。`ValueSystem` 为表达式提供通用求值；GameNum 再补充按世界层级组织的产出规则和增量失效。
 

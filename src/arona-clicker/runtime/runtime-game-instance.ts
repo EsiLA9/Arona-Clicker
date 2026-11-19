@@ -475,6 +475,7 @@ export class GameInstance {
       getState: () => this._state,
       setState: next => { this._state = next; },
       refreshVisibility: () => this.refreshVisibility(),
+      settleOfflineTicks: frames => this.settleOfflineTicks(frames),
     }, options);
     const variantTranslation = new VariantTranslationService({
       content: options.variantTranslationContentResolver,
@@ -1941,6 +1942,16 @@ export class GameInstance {
     this.statsService.recordTick();
     this.devLog.recordTick(result);
     return result;
+  }
+
+  private settleOfflineTicks(frames: number): void {
+    if (!this._state.activeInit) return;
+    const productions = this.tickSystem.planOfflineProduction(this._state, frames);
+    // Invalidate every changed input before the first synchronous resource listener can query gains.
+    for (const { resource } of productions) this.gameNumSystem.onResourceChanged(resource);
+    this.mutations.commitOfflineProduction(productions, productions.length ? frames : 1);
+    this.affectorEngine.recheckPollingConditions();
+    this.recheckStudentBlocks();
   }
 
   /**

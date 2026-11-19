@@ -206,11 +206,11 @@ export class StatsService implements StatsQueryContext {
   recordAreaEntered(areaId: AreaId): void {
     this.stats.session.currentArea = areaId;
   }
-recordTick(): void {
-    this.stats.global.framesActive++;
-    this.stats.session.counters.framesActive++;
+  recordTick(frames = 1): void {
+    this.stats.global.framesActive += frames;
+    this.stats.session.counters.framesActive += frames;
     const init = this.currentInitStats();
-    if (init) init.framesInInit++;
+    if (init) init.framesInInit += frames;
   }
 
   // --- 内部（快照读写 + 层级选择） ---

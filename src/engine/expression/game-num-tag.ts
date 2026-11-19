@@ -21,7 +21,7 @@ import type { GameNum } from './game-num-internal';
 import type { GameNumFlowSource } from '../contracts/evaluation-context';
 import { tagId } from '../core/tag';
 import { TagEffectRecord, EntityRef, entityKey, ZoneModifierDecl } from './tag-effect';
-import { exprResourceDepsOf, ensureFlowsNodes } from './game-num-build';
+import { attachAffectorFlow, exprResourceDepsOf } from './game-num-build';
 import { flowBucketKey } from './game-num-eval';
 
 // ---- 区表写入 ----
@@ -131,6 +131,17 @@ function removeSourceLocation(
   if (locations.size === 0) system.sourceEffectLocations.delete(record.source);
 }
 
+export function indexExistingZoneEffects(system: GameNumSystem, state: GameNumState): void {
+  for (const [table, effects] of [['tag', state.tagEffects], ['entity', state.entityEffects]] as const) {
+    for (const [key, records] of Object.entries(effects ?? {})) {
+      for (const record of records) {
+        addSourceLocation(system, record, table, key);
+        accumulateKeyResourceDeps(system, key, record);
+      }
+    }
+  }
+}
+
 // ---- 定向失效（zoneIndex 反查） ----
 
 /** 按 tagKey / entityKey 反查命中的 zone 节点并沿 parents 传播 markDirty。 */
@@ -143,62 +154,73 @@ export function markZoneDirty(system: GameNumSystem, key: string): void {
 
 // ---- Affector 桥接 ----
 
-export function syncAffectorZoneEffects(system: GameNumSystem, affector: GameNumAffectorContext, state: GameNumState): void {
-  const activeSources = new Set<string>();
-  for (const instance of affector.getActiveInstances()) {
+export function syncAffectorZoneEffects(
+  system: GameNumSystem, affector: GameNumAffectorContext, state: GameNumState, changedIds?: readonly string[],
+): void {
+  const previousIds = changedIds && affector.getInstance ? changedIds : new Set([
+    ...system.flowNodesByInstance.keys(),
+    ...[...system.sourceEffectLocations.keys()]
+      .filter(source => source.startsWith('affector:'))
+      .map(source => source.slice('affector:'.length)),
+  ]);
+  for (const instanceId of previousIds) {
+    removeTagEffectsBySource(system, state, `affector:${instanceId}`);
+    for (const node of system.flowNodesByInstance.get(instanceId) ?? []) {
+      const key = flowBucketKey(node.resource, node.mount, node.applySpotMultiplier);
+      const bucket = system.affectorFlowSources.get(key)!;
+      for (const previous of bucket.get(instanceId) ?? []) {
+        updateFlowReaders(system, node, previous.resourceDeps, -1);
+      }
+      bucket.delete(instanceId);
+      if (bucket.size === 0) system.affectorFlowSources.delete(key);
+      markDirty(system, node);
+    }
+    system.flowNodesByInstance.delete(instanceId);
+  }
+  const active = changedIds && affector.getInstance
+    ? changedIds.map(id => affector.getInstance!(id)).filter(instance => instance?.state === 'Active')
+    : affector.getActiveInstances();
+  for (const instance of active) {
+    if (!instance) continue;
     const source = `affector:${instance.instanceId}`;
-    activeSources.add(source);
-    removeTagEffectsBySource(system, state, source);
     const pack = affector.getPack(instance.packId);
     if (!pack) continue;
+    const nodes = new Set<Extract<GameNum, { kind: 'affectorFlows' }>>();
     for (const entry of pack.entries) {
       if (!isActiveEntry(instance, entry.id)) continue;
       for (const modifier of entry.zoneModifiers ?? []) {
         const packModName = pack.id.includes(':') ? pack.id.split(':')[0] : 'base';
         registerAffectorModifier(system, state, source, modifier, instance.mountEntityId, packModName);
       }
-    }
-  }
-  for (const source of system.syncedAffectorSources) {
-    if (!activeSources.has(source)) removeTagEffectsBySource(system, state, source);
-  }
-  system.syncedAffectorSources = activeSources;
-  ensureFlowsNodes(system, affector);
-  rebuildActiveFlowIndex(system, affector);
-}
-
-/** 同步活跃 flow 的 bucket 与资源依赖；求值阶段不再扫描所有 Active Affector。 */
-function rebuildActiveFlowIndex(system: GameNumSystem, affector: GameNumAffectorContext): void {
-  const flowsDeps = new Map<string, Set<string>>();
-  const flowSources = new Map<string, GameNumFlowSource[]>();
-  for (const instance of affector.getActiveInstances()) {
-    const pack = affector.getPack(instance.packId);
-    if (!pack) continue;
-    for (const entry of pack.entries) {
-      if (!isActiveEntry(instance, entry.id)) continue;
       for (const flow of entry.flows ?? []) {
-        const bucket = flowBucketKey(flow.resource, resolveFlowMount(system, instance.mountEntityId), flow.applySpotMultiplier === true);
-        const sources = flowSources.get(bucket) ?? [];
-        sources.push({ flow });
-        flowSources.set(bucket, sources);
-        if (typeof flow.value === 'number') continue;
-        const deps = exprResourceDepsOf(flow.value);
-        if (deps.size === 0) continue;
-        const set = flowsDeps.get(flow.resource) ?? new Set<string>();
-        for (const d of deps) set.add(d);
-        flowsDeps.set(flow.resource, set);
+        if (!flow.resource) continue;
+        const node = attachAffectorFlow(system, instance.mountEntityId, flow);
+        nodes.add(node);
+        const key = flowBucketKey(node.resource, node.mount, node.applySpotMultiplier);
+        const resourceDeps = typeof flow.value === 'number' ? new Set<string>() : exprResourceDepsOf(flow.value);
+        const bucket = system.affectorFlowSources.get(key) ?? new Map<string, GameNumFlowSource[]>();
+        const flows = bucket.get(instance.instanceId) ?? [];
+        flows.push({ flow, resourceDeps });
+        bucket.set(instance.instanceId, flows);
+        system.affectorFlowSources.set(key, bucket);
+        updateFlowReaders(system, node, resourceDeps, 1);
+        markDirty(system, node);
       }
     }
+    if (nodes.size > 0) system.flowNodesByInstance.set(instance.instanceId, nodes);
   }
-  system.flowsResourceDeps = flowsDeps;
-  system.affectorFlowSources = flowSources;
+  system.flowIndexReady = true;
 }
 
-function resolveFlowMount(system: GameNumSystem, mountEntityId: string): string | undefined {
-  if (system.registry.spots.has(mountEntityId)) return mountEntityId;
-  if (system.registry.areas?.has(mountEntityId)) return mountEntityId;
-  if (system.registry.inits?.has(mountEntityId)) return mountEntityId;
-  return undefined;
+function updateFlowReaders(system: GameNumSystem, node: GameNum, inputs: ReadonlySet<string>, delta: 1 | -1): void {
+  for (const input of inputs) {
+    const readers = system.flowNodesByInput.get(input) ?? new Map<GameNum, number>();
+    const count = (readers.get(node) ?? 0) + delta;
+    if (count > 0) readers.set(node, count);
+    else readers.delete(node);
+    if (readers.size > 0) system.flowNodesByInput.set(input, readers);
+    else system.flowNodesByInput.delete(input);
+  }
 }
 
 function isActiveEntry(instance: { activeEntryIds: readonly string[]; activeEntryIdSet?: ReadonlySet<string> }, entryId: string): boolean {

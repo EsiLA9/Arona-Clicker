@@ -2,8 +2,7 @@
 // engine/affector-engine.ts — Affector 生命周期管理
 //
 // 可知性/可达性层级的最末层：生效（AccessStage.active）。
-// 已挂载的效果体由 condition 决定 Latent/Active，每 tick 全量重估，
-// Active 才应用效果。
+// 已挂载的效果体由 condition 决定 Latent/Active，依赖事件触发复核。
 // ============================================================
 
 import {
@@ -11,6 +10,7 @@ import {
   AffectorPackDef,
   AffectorPackRef,
   AffectorState,
+  Effect,
   AreaConnectionDef,
   ActiveAreaConnection,
   GameEvent,
@@ -55,8 +55,10 @@ export class AffectorEngine extends EventDrivenReactor {
   private packsSnapshot: readonly AffectorPackDef[] | null = null;
   private packsRevision = 0;
   private readonly instances = new Map<string, AffectorInstance>();
+  private readonly mountedByPack = new Map<string, Set<string>>();
   /** Active 子集供运行时热路径迭代；公开快照仍经 getActiveInstances() 隔离。 */
   private readonly activeInstances = new Map<string, AffectorInstance>();
+  private readonly tickEffects = new Map<string, Effect[][]>();
   /** 实例 id → 其 entry 条件的事件依赖（命中即定向 recheck，替代全量重估）。 */
   private readonly condDeps = new ConditionDepIndex<string>();
   /** 条件含 stat/未知 target 的实例：事件无法精确命中，保留每 Tick 轮询。 */
@@ -121,11 +123,9 @@ export class AffectorEngine extends EventDrivenReactor {
    * 即「以新加载的 Datapack 为第一判断依据」）。调用方在整体替换（reload）时须先 clear()。
    */
   load(packs: AffectorPackDef[]): void {
-    for (const pack of packs) {
-      this.warnDuplicateEntryIds(pack);
-      this.packs.set(pack.id, pack);
-    }
-    if (packs.length > 0) this.invalidatePacksSnapshot();
+    this.withRuntimeChangeBatch(() => {
+      for (const pack of packs) this.registerPack(pack);
+    });
   }
 
   /** 清空全部 pack 注册（整体替换数据包时使用）。 */
@@ -140,6 +140,14 @@ export class AffectorEngine extends EventDrivenReactor {
     this.warnDuplicateEntryIds(pack);
     this.packs.set(pack.id, pack);
     this.invalidatePacksSnapshot();
+    this.withRuntimeChangeBatch(() => {
+      for (const instanceId of this.mountedByPack.get(pack.id) ?? []) {
+        this.condDeps.unregister(instanceId);
+        this.pollingInstances.delete(instanceId);
+        this.registerConditionDeps(instanceId, pack.id);
+        this.recheck(instanceId, 'replace');
+      }
+    });
   }
 
   /** entry id 重复 → 同 id 会被 activeEntryIds 隐式视为同时激活（04h §3.2），数据包作者需知悉。 */
@@ -172,14 +180,16 @@ export class AffectorEngine extends EventDrivenReactor {
       }
     });
     this.instances.clear();
+    this.mountedByPack.clear();
     this.activeInstances.clear();
+    this.tickEffects.clear();
     this.condDeps.clear();
     this.pollingInstances.clear();
     this.maxLevelOverridesCache = null;
     this.runtimeChangePending.clear();
   }
 
-  mount(packRef: AffectorPackRef, mountEntityId: string): AffectorInstance | null {
+  mount(packRef: AffectorPackRef, mountEntityId: string, restoring = false): AffectorInstance | null {
     if (!this.state) return null;
     // 解析引用：内联完整包 → 派生/采用其 id 并注册；id 字符串 → 查已注册表
     let packId: string;
@@ -213,8 +223,11 @@ export class AffectorEngine extends EventDrivenReactor {
       activeEntryIdSet: new Set(),
     };
     this.instances.set(instance.instanceId, instance);
+    const mounted = this.mountedByPack.get(packId) ?? new Set<string>();
+    mounted.add(instanceId);
+    this.mountedByPack.set(packId, mounted);
     this.registerConditionDeps(instance.instanceId, packId);
-    this.withRuntimeChangeBatch(() => this.recheck(instance.instanceId));
+    this.withRuntimeChangeBatch(() => this.recheck(instance.instanceId, restoring ? 'restore' : 'normal'));
     this.eventBus?.emit({
       type: 'affectorMounted',
       instanceId: instance.instanceId,
@@ -226,13 +239,17 @@ export class AffectorEngine extends EventDrivenReactor {
 
   unmount(instanceId: string, reason = 'unmounted'): boolean {
     const instance = this.instances.get(instanceId);
-    if (!instance) return false;
+    if (!instance || instance.state === 'Removed') return false;
     this.maxLevelOverridesCache = null;
     const oldState = instance.state;
     instance.state = 'Removed';
     instance.activeEntryIds = [];
     (instance.activeEntryIdSet as Set<string> | undefined)?.clear();
     this.activeInstances.delete(instanceId);
+    this.tickEffects.delete(instanceId);
+    const mounted = this.mountedByPack.get(instance.packId);
+    mounted?.delete(instanceId);
+    if (mounted?.size === 0) this.mountedByPack.delete(instance.packId);
     this.condDeps.unregister(instanceId);
     this.pollingInstances.delete(instanceId);
     this.eventBus?.emit({
@@ -246,7 +263,7 @@ export class AffectorEngine extends EventDrivenReactor {
     return true;
   }
 
-  recheck(instanceId: string): AffectorState | null {
+  recheck(instanceId: string, reason: 'normal' | 'restore' | 'replace' = 'normal'): AffectorState | null {
     const instance = this.instances.get(instanceId);
     if (!instance || instance.state === 'Removed' || !this.state) return instance?.state ?? null;
     const pack = this.packs.get(instance.packId);
@@ -264,11 +281,30 @@ export class AffectorEngine extends EventDrivenReactor {
     instance.state = activeEntryIds.length > 0 ? 'Active' : 'Latent';
     if (instance.state === 'Active') this.activeInstances.set(instanceId, instance);
     else this.activeInstances.delete(instanceId);
+    const entriesChanged = oldEntryIds.length !== activeEntryIds.length
+      || activeEntryIds.some((id, i) => oldEntryIds[i] !== id);
+    if (entriesChanged || reason === 'replace') {
+      const batches = pack.entries.flatMap(entry =>
+        instance.activeEntryIdSet?.has(entry.id) && entry.perTickEffects?.length ? [entry.perTickEffects] : []);
+      if (batches.length > 0) {
+        const insertIntoExistingOrder = oldState === 'Active' && !this.tickEffects.has(instanceId);
+        this.tickEffects.set(instanceId, batches);
+        if (insertIntoExistingOrder) {
+          // Preserve activation order if an already-active instance starts running tick effects.
+          for (const id of this.activeInstances.keys()) {
+            const effects = this.tickEffects.get(id);
+            if (!effects) continue;
+            this.tickEffects.delete(id);
+            this.tickEffects.set(id, effects);
+          }
+        }
+      } else this.tickEffects.delete(instanceId);
+    }
     // 激活沿（Latent→Active）一次性执行 entry.effects 全量（Phase 4.3）：
     // addResource 一次性发放，setFlag/addItem 等一次性 op 同样只在此执行一次；
     // 持续产出走 flows，每 tick 逻辑走 perTickEffects（applyActiveEffects）；
     // setSpotMaxLevel/removeSpotMaxLevel 为声明类 op，由 getSpotMaxLevelOverrides 动态读取。
-    if (oldState !== 'Active' && instance.state === 'Active') {
+    if (reason === 'normal' && oldState !== 'Active' && instance.state === 'Active') {
       const grants = pack.entries
         .filter(entry => instance.activeEntryIdSet?.has(entry.id) ?? activeEntryIds.includes(entry.id))
         .flatMap(entry => entry.effects.filter(effect => !DECLARATIVE_EFFECT_OPS.has(effect.op)));
@@ -279,9 +315,6 @@ export class AffectorEngine extends EventDrivenReactor {
     }
     // 状态翻转或激活 entry 集变化（Active 内 entry 条件增减）都会改变
     // zoneModifiers / flows 的有效集 → 发事件通知 GameNum 重同步区表并失效 flows
-    const entriesChanged =
-      oldEntryIds.length !== activeEntryIds.length ||
-      activeEntryIds.some((id, i) => oldEntryIds[i] !== id);
     if (entriesChanged) this.eventBus?.emit({ type: 'affectorEntriesChanged', instanceId });
     if (oldState !== instance.state) {
       this.eventBus?.emit({
@@ -291,7 +324,7 @@ export class AffectorEngine extends EventDrivenReactor {
         newState: instance.state,
       });
     }
-    if (entriesChanged || oldState !== instance.state) this.noteRuntimeChange(instanceId);
+    if (entriesChanged || oldState !== instance.state || reason === 'replace') this.noteRuntimeChange(instanceId);
     return instance.state;
   }
 
@@ -350,10 +383,10 @@ export class AffectorEngine extends EventDrivenReactor {
   }
 
   private flushRuntimeChanges(): void {
-    if (this.runtimeChangePending.size > 0) {
-      this.eventBus?.emit({ type: 'affectorRuntimeChanged', instanceIds: [...this.runtimeChangePending] });
-    }
+    if (this.runtimeChangePending.size === 0) return;
+    const instanceIds = [...this.runtimeChangePending];
     this.runtimeChangePending.clear();
+    this.eventBus.emit({ type: 'affectorRuntimeChanged', instanceIds });
   }
 
   /** 返回当前 Active Affector 提供的服务能力及来源，不暴露内部实例表。 */
@@ -576,19 +609,23 @@ export class AffectorEngine extends EventDrivenReactor {
     }
   }
 
-  applyActiveEffects(): void {
-    if (!this.state) return;
+  recheckPollingConditions(): void {
     // 条件可能由统计驱动（stat 无专属事件），仅这类实例保留每 Tick 重估；
     // 其余实例的条件翻转由事件驱动定向 recheck 保证新鲜
-    for (const instanceId of [...this.pollingInstances]) this.recheck(instanceId);
-    for (const instance of this.activeInstances.values()) {
-      const pack = this.packs.get(instance.packId);
-      if (!pack) continue;
-      for (const entry of pack.entries) {
-        if (!instance.activeEntryIdSet?.has(entry.id)) continue;
-        // effects 已在激活沿一次性执行（recheck）；每 tick 只执行显式声明的 perTickEffects
-        const perTick = entry.perTickEffects ?? [];
-        if (perTick.length === 0) continue;
+    if (this.pollingInstances.size === 0) return;
+    this.withRuntimeChangeBatch(() => {
+      for (const instanceId of [...this.pollingInstances]) this.recheck(instanceId);
+    });
+  }
+
+  applyActiveEffects(): void {
+    if (!this.state) return;
+    this.recheckPollingConditions();
+    if (this.tickEffects.size === 0) return;
+    for (const [id, batches] of [...this.tickEffects]) {
+      for (const perTick of batches) {
+        const current = this.tickEffects.get(id);
+        if (current !== batches && !current?.includes(perTick)) continue;
         if (this.effectEngine) this.effectEngine.applyEffects(perTick);
         else this.mutations.applyEffects(perTick);
       }
@@ -602,7 +639,7 @@ export class AffectorEngine extends EventDrivenReactor {
    * itemCollected / enhancementAdded / spotLevelChanged 事件的状态重建路径：
    * init / enterInit（世界线切换）/ restoreFromSave / reset。
    */
-  reconcileMounts(): void {
+  reconcileMounts(restoring = false): void {
     const state = this.state;
     if (!state) return;
     const expected = new Map<string, { ref: AffectorPackRef; mountEntityId: string }>();
@@ -634,7 +671,7 @@ export class AffectorEngine extends EventDrivenReactor {
           this.unmount(instance.instanceId, 'mount condition no longer holds');
         }
       }
-      for (const m of expected.values()) this.mount(m.ref, m.mountEntityId);
+      for (const m of expected.values()) this.mount(m.ref, m.mountEntityId, restoring);
     });
     // 区表/flows 重同步由 mount/unmount 过程中的 affector 事件驱动（GameNum 自行订阅）
   }

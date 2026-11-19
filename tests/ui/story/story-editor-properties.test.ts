@@ -846,7 +846,7 @@ describe('Story Editor property panel', () => {
     const tabs=(page:string)=>{q<HTMLButtonElement>(`[data-column-action="story-editor-designer:${page}"]`).click();ctrl.flushUIUpdates();};
     tabs('performance');
     expect(draft().document).toEqual(before);
-    expect(property(['content','text']) === body).toBe(true);
+    expect(property<HTMLTextAreaElement>(['content','text'])).toBe(body);
     expect(q<HTMLElement>('[data-story-designer-page="basic"]').hidden).toBe(true);
     selectBranch(['performance','layout'],'mode','positioned');
     expect(root.querySelector('[data-story-overlay-canvas]')).toBeNull();

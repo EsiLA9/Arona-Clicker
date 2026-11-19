@@ -13,6 +13,7 @@ import { TICK_INTERVAL_MS } from '../system/tick-system';
 
 export interface SessionServiceOptions {
   doTick: () => TickResult;
+  doOfflineTicks: (frames: number) => void;
   devLog: DevLog;
   eventBus: EventBus;
   effectEngine: EffectEngine;
@@ -47,11 +48,16 @@ export class SessionService {
   start(): void {
     if (this._running) return;
     this._running = true;
-    if (!this.offlineBasePending) this.lastTickTimestamp = Date.now();
-
-    // 计算离线收益
-    this.processOfflineProgress();
+    const offlineBase = this.offlineBasePending ? this.lastTickTimestamp : undefined;
+    this.lastTickTimestamp = Date.now();
     this.offlineBasePending = false;
+    try {
+      if (offlineBase !== undefined && Number.isFinite(offlineBase)) this.processOfflineProgress(offlineBase);
+    } catch (error) {
+      if (this.tickInterval === null) this._running = false;
+      throw error;
+    }
+    if (!this._running || this.tickInterval !== null) return;
 
     this.tickInterval = setInterval(() => {
       this.opts.doTick();
@@ -75,11 +81,9 @@ export class SessionService {
     this.opts.devLog.record('自动生产循环已暂停', { source: 'runtime', level: 'warning' });
   }
 
-  /** 计算离线收益（上限 8 小时，产出耗尽后提前终止）。 */
-  private processOfflineProgress(): void {
-    // 简单实现：离线时间的帧数直接累加
-    const offlineMs = Date.now() - this.lastTickTimestamp;
-    let offlineFrames = Math.floor(offlineMs / 1000);
+  /** 按恢复后的产出率结算离线收益（上限 8 小时）。 */
+  private processOfflineProgress(offlineBase: number): void {
+    let offlineFrames = Math.floor((this.lastTickTimestamp - offlineBase) / TICK_INTERVAL_MS);
 
     // 上限 8 小时 = 28800 帧，防止陈旧存档一次性补算过多导致卡顿
     const maxOfflineFrames = 8 * 60 * 60;
@@ -98,11 +102,7 @@ export class SessionService {
         level: 'info',
         details: 'offline progress',
       });
-      for (let i = 0; i < offlineFrames; i++) {
-        const result = this.opts.doTick();
-        // 产出全部耗尽（容量已满）时提前终止
-        if (result.productions.length === 0) break;
-      }
+      this.opts.doOfflineTicks(offlineFrames);
       this.opts.effectEngine.setState(this.opts.getState());
       this.opts.eventBus.flush();
     }

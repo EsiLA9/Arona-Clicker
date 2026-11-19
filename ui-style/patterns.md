@@ -102,6 +102,8 @@ Story 编辑器中栏在每个节点前及列表末尾提供轻量插入空位�
 
 ModalManager 的普通弹窗沿用 panel / panel-light / ink-on-* 主题角色：标题 18px、正文与表单 14px、辅助说明及内容区小操作 13px；共享外壳提供 24px 内容留白、42px 表单高度、40px 底部按钮、可换行操作区和焦点反馈。原生表单元素保留语义，以背景、边框、圆角与继承字体消除浏览器默认外观差异；危险操作保留危险变体，checkbox / radio / range 不套文本框尺寸。主题编辑器与 Runtime Datapack 专用表单继续自主管理布局。仅修改 `css/modal.css`，不改变 DOM、业务字段、滚动宿主和关闭生命周期；验证见 Modal / Story 身份 / 商店 / Spot 支付共 22 项定向测试，以及 `.test-artifacts/modal-layout-preview.png` 样例截图。
 
+Story 复杂编辑弹窗由 `story-editor/editor-dialog.ts` 复用 ModalManager。标题与底部操作固定，正文独立滚动，可使用 `.story-editor-dialog__split` 并排放置编辑内容和预览。通过右上角关闭或底部取消退出，关闭后回到入口控件。更改 Story ID 首先使用该外壳，左侧修改名称和目标编辑副本，右侧显示引用影响。输入仅更新弹窗内容，确认后沿用现有工作区更新。行为验证见 `tests/ui/story/story-editor-identity.test.ts`。
+
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 
 Map 的相邻地点选择由类型化 `FlowMapLocations` 投影到标准 Talklet。Talklet 只提供一个静态卡牌落点宿主；`renderMapActionCardButton()` 共用角色当前行动卡与 Flow 地点选择卡的卡面骨架，地点卡保持 82×58 固定尺寸，并按宿主的左右对齐、间距配置排列。卡片角度从稳定实例身份派生，刷新不会改变。宿主 / 插槽通过 `mapCardHostAttributes()` 与 `mapCardAttachmentAttributes()` 静态表达。地点卡只提供 `selectLocation` 入口，通过点击或键盘选中，再由 Map Workspace 统一 Click 按钮调用 Controller 和现有 MapRun 移动命令；空选择时该按钮阻塞。地点卡不提供卡牌目标或目标编辑入口。静态 DOM 附着、Hover 状态与作用关系保持为不同信息。当前地点与路线状态来自 Map View；锁定边不可选。遭遇或活动阻挡期间不显示；成功移动后回收旧选择条目并留下斜体旁白“从……移动到了……”。待选项只在当前 Workspace 交互会话中保留，不进入存档或历史。
@@ -137,4 +139,4 @@ Map 的单位关系检查使用 `src/ui/workspace/map-relation-presentation.ts` 
 
 超级图鉴的中文分类与类型标签由 `src/ui/runtime-editor/codex/content-labels.ts` 提供；名称、说明、关系与可靠来源来自只读内容查询。主路径为资料／被引用，完整出向关系、字段树和 JSON 进入技术详情；未知字段仍可展开。`tests/ui/workspace/workspace-frame.test.ts` 验证内容工具 Frame 的直接子项、`pane-switch`、无游戏主题 Host，以及有操作内容时才输出 footer。更新边界与来源限制见 [[ui-refresh-focus-scroll]]、[[read-model-and-ui]]。此为已采用的工具特例，不改变游戏工作区默认主题规则。
 
-StoryEntry 基础配置复用原中栏表单和右栏关系／Flag 卡片：激活方式、历史归档独立成组，只显示当前三类分支的合法字段，公共高级内容仍使用原结构编辑器。切换用 ModalManager 展示含义并确认，候选草稿先保存成功再提交；错误、取消和过期确认保留原分支。抽取池只列直接关联项，以稳定结构行 key 的 details 展开；编辑中解除关联保留本次面板，离开 Entry 后重新反查，展开状态随局部协调保持，不增加滚动宿主。入口为 entry-activation.ts、authoring-view.ts 与 dom.ts；DOM／存储失败回归见 tests/ui/story/story-editor-authoring.test.ts。
+StoryEntry 中栏在稳定的中心滚动宿主内提供「基本信息／奖励信息／详细门控」Switch。切页只替换当前页内容；页签与每页滚动归 UI 会话状态，作者输入留在原 Story 草稿，保存／校验／应用固定在列 footer。基本信息包含激活方式与故事目录位置；目录输入动态建议内置层级、已载入 Entry 与当前草稿中的分类／篇章／章节，同时允许新名称。奖励页将默认首／重效果和有序条件 outcome 分组呈现，复杂条件与 Effect 仍复用结构值编辑器；详细门控按激活类型显示字段并提供缺省字段添加。右栏关系／Flag 来源与列滚动宿主保留。类型切换继续用 ModalManager 审核并在候选草稿保存成功后提交。抽取池仅展示直接关联项，用稳定结构行 key 的 details 展开。入口为 `authoring-view.ts`、`controller.ts` 与 `dom.ts`；切页、草稿连续性、奖励行和激活回归见 `tests/ui/story/story-editor-authoring.test.ts` 与 `tests/ui/story/story-editor-entry-activation.test.ts`；未做浏览器视觉走查。

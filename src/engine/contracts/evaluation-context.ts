@@ -67,6 +67,7 @@ export interface GameNumRegistryContext {
 /** GameNum 读取 Affector 生命周期数据所需的最小端口。 */
 export interface GameNumAffectorContext {
   getActiveInstances(): readonly AffectorInstance[];
+  getInstance?(instanceId: string): AffectorInstance | undefined;
   getPack(id: string): AffectorPackDef | undefined;
   getFlowResources?(): readonly string[];
 }
@@ -74,4 +75,5 @@ export interface GameNumAffectorContext {
 /** GameNum 内部维护的活跃 flow 来源；按 resource / mount bucket 查询。 */
 export interface GameNumFlowSource {
   readonly flow: AffectorFlow;
+  readonly resourceDeps: ReadonlySet<string>;
 }

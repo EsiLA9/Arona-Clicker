@@ -26,14 +26,13 @@ describe('Story 完结奖励（conditionalRewards）', () => {
   });
 
   test('conditionalRewards：分歧 flag 决定完结奖励（突击 +50，谈判 +20）', () => {
-    // flag 条件只区分"存在与否"（value=1 表示存在且非空），
-    // 突击与谈判都设置 route flag → 两条条件都会命中第一条。
-    // 因此本测试用"突击命中高奖励"验证机制，精确档位由 visitedStoryInChain 测试覆盖。
+    // flag 条件只区分"存在与否"（value=1 表示存在且非空）；两条都命中时两份条件奖励均结算。
     const entry: StoryEntryDef = {
       ...desertEntry,
       id: 'test:story:assault_mission',
       storyId: 'test:story:desert_intro',
       completionStrategy: 'conditional',
+      completionReward: { first: [{ op: 'addResource', target: Resource.Pyroxene, value: 3 }] },
       conditionalRewards: [
         { condition: and(cond('flag', 'route', '==', 1)), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 50 }] },
         { condition: and(), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 20 }] },
@@ -43,21 +42,20 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     game.init([baseDatapack, pack]);
     finishWelcome(game);
     game.story.startActiveStory('test:story:assault_mission');
-    finishStory(game, 0); // 走突击 → route flag 存在 → 命中第一条 +50
-    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(50);
+    finishStory(game, 0); // 默认首奖 +3，两个命中条件依序 +50、+20
+    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(73);
   });
 
-  test('conditionalRewards 保底：无任何条件命中时发放兜底包', () => {
+  test('conditionalRewards 无命中时仍发放默认首奖', () => {
     const entry: StoryEntryDef = {
       ...desertEntry,
       id: 'test:story:fallback_mission',
       storyId: 'test:story:desert_intro',
       completionStrategy: 'conditional',
+      completionReward: { first: [{ op: 'addResource', target: Resource.Pyroxene, value: 7 }] },
       conditionalRewards: [
         // 永不命中的条件
         { condition: and(cond('flag', 'never_set', '==', 1)), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 99 }] },
-        // 兜底：无条件
-        { condition: and(), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 5 }] },
       ],
     };
     const pack = makePack([entry], [desertIntro, desertAssault, desertNegotiate, desertEpilogue]);
@@ -65,7 +63,23 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     finishWelcome(game);
     game.story.startActiveStory('test:story:fallback_mission');
     finishStory(game, 1); // 走谈判
-    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(5);
+    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(7);
+  });
+
+  test('simple 策略只结算默认奖励，不读取条件 outcomes', () => {
+    const entry: StoryEntryDef = {
+      ...desertEntry,
+      id: 'test:story:simple_mission',
+      storyId: 'test:story:desert_intro',
+      completionStrategy: 'simple',
+      completionReward: { first: [{ op: 'addResource', target: Resource.Pyroxene, value: 4 }] },
+      conditionalRewards: [{ condition: and(), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 90 }] }],
+    };
+    game.init([baseDatapack, makePack([entry], [desertIntro, desertAssault, desertNegotiate, desertEpilogue])]);
+    finishWelcome(game);
+    game.story.startActiveStory(entry.id);
+    finishStory(game, 1);
+    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(4);
   });
 
   test('visitedStoryInChain：条件奖励可引用链内经过的 Story', () => {
@@ -74,6 +88,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
       id: 'test:story:chain_mission',
       storyId: 'test:story:desert_intro',
       completionStrategy: 'conditional',
+      completionReward: { first: [{ op: 'addResource', target: Resource.Pyroxene, value: 2 }] },
       conditionalRewards: [
         // 走过突击分支 → 高奖励（不依赖 flag，直接看经过的 Story）
         { condition: and(cond('visitedStoryInChain', 'test:story:desert_assault', '==', 1)), effects: [{ op: 'addResource', target: Resource.Pyroxene, value: 30 }] },
@@ -87,7 +102,7 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     finishWelcome(game);
     game.story.startActiveStory('test:story:chain_mission');
     finishStory(game, 0);
-    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(30);
+    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(32);
 
     // 重置走谈判 → +15
     game.reset();
@@ -95,6 +110,6 @@ describe('Story 完结奖励（conditionalRewards）', () => {
     finishWelcome(game);
     game.story.startActiveStory('test:story:chain_mission');
     finishStory(game, 1);
-    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(15);
+    expect(game.state.globalResources?.[Resource.Pyroxene] ?? 0).toBe(17);
   });
 });

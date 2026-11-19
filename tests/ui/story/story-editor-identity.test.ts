@@ -66,6 +66,27 @@ describe('Story identity UI',()=>{
     expect(ctrl.storyEditor.state.target?.id).toBe(draft.document.id);expect(ctrl.storyEditor.state.visits.some(visit=>visit.target.id===old)).toBe(false);
     expect(q('[data-story-inspector-panel="flags"]').hidden).toBe(false);expect(game.packManager.getPack(pack.id)!.datapack.stories.some(story=>story.id===draft.document.id)).toBe(false);
   });
+  it('updates the editor dialog preview in place and cancels without losing the Story workspace', () => {
+    const draft = create(editing().id);
+    const originalId = draft.document.id;
+    const trigger = q<HTMLButtonElement>('[data-editor-action="rename-id"]');
+    const workspaceBody = q('.story-editor-center .workspace-column__body');
+    trigger.click();
+    const dialog = q('.story-editor-dialog[role="dialog"][aria-label="更改 Story ID"]');
+    const body = q('.story-editor-dialog > .modal-body');
+    const name = q('[data-story-new-id]');
+    change('[data-story-new-id]', 'preview_only');
+    expect(dialog.querySelector('[data-story-rename-preview]')?.textContent).toContain('base:story:preview_only');
+    expect(q('.story-editor-dialog > .modal-body')).toBe(body);
+    expect(document.activeElement).toBe(name);
+    click('.app-modal .modal-overlay');
+    expect(ctrl.modal.isOpen()).toBe(true);
+    click('.story-editor-dialog .modal-foot .modal-close');
+    expect(ctrl.modal.isOpen()).toBe(false);
+    expect(draft.document.id).toBe(originalId);
+    expect(q('.story-editor-center .workspace-column__body')).toBe(workspaceBody);
+    expect(document.activeElement).toBe(trigger);
+  });
   it('fixes the ModId after creation and rejects a full cross-Mod ID in the name field',()=>{
     const pack=editing(), draft=create(pack.id), old=draft.document.id;
     const other=game.packManager.createEmptyEditing({modId:'other',versionId:'1'}).pack;

@@ -70,7 +70,7 @@ export interface GameNumEvalDeps {
   registry: GameNumRegistryContext;
   affectorEngine: GameNumAffectorContext;
   /** GameNumSystem 的活跃 flow 索引；未提供时保留旧扫描路径，便于独立求值测试。 */
-  affectorFlowSources?: ReadonlyMap<string, readonly GameNumFlowSource[]>;
+  affectorFlowSources?: ReadonlyMap<string, ReadonlyMap<string, readonly GameNumFlowSource[]>>;
 }
 
 /** 取实体 tags（spot 按「有效 tags」= 声明 + 运行时增撤，docs-824/08 T6；其余读声明；自下而上聚合用）。 */
@@ -260,9 +260,11 @@ export function evaluateAffectorFlowsNode(node: GameNum & { kind: 'affectorFlows
   // test/save state is being rebuilt, so ownership is checked at evaluation time.
   if (node.mount !== undefined && deps.registry.spots.has(node.mount) && (state.spotLevels[node.mount] ?? 0) <= 0) return 0;
   let sum = 0;
-  const indexed = deps.affectorFlowSources?.get(flowBucketKey(node.resource, node.mount, node.applySpotMultiplier));
-  if (indexed) {
-    for (const source of indexed) sum += resolveFlowValue(source.flow, state, deps.valueSystem);
+  if (deps.affectorFlowSources) {
+    const sources = deps.affectorFlowSources.get(flowBucketKey(node.resource, node.mount, node.applySpotMultiplier));
+    for (const flows of sources?.values() ?? []) {
+      for (const { flow } of flows) sum += resolveFlowValue(flow, state, deps.valueSystem);
+    }
     return sum;
   }
   for (const instance of deps.affectorEngine.getActiveInstances()) {

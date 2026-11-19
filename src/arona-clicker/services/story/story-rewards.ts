@@ -36,16 +36,14 @@ function settle(ctx: StoryRewardsContext, source: NonNullable<RewardsSettlement>
 
 /** Entry owns reward policy; first/repeat is decided against the terminal Story ID. */
 export function applyCompletionReward(ctx: StoryRewardsContext, entry: StoryEntryDef, terminalStoryId: string): RewardsSettlement {
-  if (entry.completionStrategy === 'conditional' && entry.conditionalRewards?.length) {
-    const matched = entry.conditionalRewards.find(reward => ctx.conditionSystem.evaluateGroup(reward.condition, ctx.getState()));
-    if (!matched?.effects.length) return null;
-    return settle(ctx, 'conditional', matched.effects);
-  }
-  if (!entry.completionReward) return null;
   const first = !ctx.hasCompletedStory(terminalStoryId);
-  const effects = first ? entry.completionReward.first : entry.completionReward.repeat;
-  if (!effects?.length) return null;
-  return settle(ctx, first ? 'first' : 'repeat', effects);
+  const simpleEffects = first ? entry.completionReward?.first : entry.completionReward?.repeat;
+  const conditionalEffects = entry.completionStrategy === 'conditional'
+    ? (entry.conditionalRewards ?? []).filter(reward => ctx.conditionSystem.evaluateGroup(reward.condition, ctx.getState())).flatMap(reward => reward.effects)
+    : [];
+  const effects = [...(simpleEffects ?? []), ...conditionalEffects];
+  if (!effects.length) return null;
+  return settle(ctx, conditionalEffects.length ? 'conditional' : first ? 'first' : 'repeat', effects);
 }
 
 /** Passive cooldown is rooted in the source Entry and any containing pool declaration. */

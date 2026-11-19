@@ -82,7 +82,7 @@ export function restoreFromSave(ctx: RestoreContext, saveData: SaveData): void {
   ctx.effectEngine.setState(state);
   ctx.tickSystem.setState(state);
   ctx.tagStatService.setState(state);
-  ctx.affectorEngine.reconcileMounts();
+  ctx.affectorEngine.reconcileMounts(true);
   ctx.initService.reconcileInformationRevealWatches();
   const init = ctx.registry.inits.get(state.activeInit);
   ctx.initService.logInitReachability('世界线可及性：读取存档');

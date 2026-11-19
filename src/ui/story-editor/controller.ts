@@ -5,6 +5,7 @@ import { acceptEditorStoryRename, knownModStoryIds, planEditorStoryRename, story
 import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
+import { openStoryEditorDialog } from './editor-dialog';
 import { openReferenceNavi, prepareReferenceNavi, referenceChoices, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
 import { ENTRY_FIELD_SEEDS } from './authoring-view';
@@ -116,7 +117,10 @@ export class StoryEditorController {
   private draggingNodeId: string | null = null;
   private readonly inspectorScroll = new Map<string,number>();
   private readonly inspectorTabs = new Map<string,StoryEditorState['storyInspectorTab']>();
+  private readonly entryTabScroll = new Map<string,Partial<Record<'basic'|'rewards'|'gates',number>>>();
+  private readonly entryTabs = new Map<string,'basic'|'rewards'|'gates'>();
   private pendingInspectorScroll?: number;
+  private pendingEntryScroll?: number;
   private nodeClipboard?: StoryNodeClipboard;
   private readonly nodeMenu = new StoryNodeContextMenu();
   private overlayDrag?: { pointerId: number; draftId: string; nodeId: string; path: PropertyPath; overlay: HTMLElement; canvas: HTMLElement; pixels: boolean; x: number; y: number; baseX: number; baseY: number; offsetX: number; offsetY: number };
@@ -130,6 +134,7 @@ export class StoryEditorController {
   private previewSignature = '';
   private pendingVisit?: StoryEditorVisit;
   private selectionNaviOpen = false;
+  private editorDialog?: HTMLElement;
   private readonly requiredFlagDropdown: RequiredFlagDropdown;
   private readonly inlineText: StoryInlineTextEditor;
   constructor(private readonly ctrl: UIController, readonly persistence = new StoryDraftPersistence()) {
@@ -190,9 +195,17 @@ export class StoryEditorController {
     const keepFlagInspector = this.state.storyInspectorTab === 'flags' && (this.state.inspectorView === 'story' || !currentNode(this.state));
     if (!this.save(false, false)) return;
     this.nodeMenu.close(); this.closeSelectionNavi();
+    this.closeEditorDialog();
     this.requiredFlagDropdown.close();
     this.rememberInspectorScroll();
     this.rememberVisit();
+    if(this.state.target?.kind==='entry'){
+      const body=this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
+      const scrolls=this.entryTabScroll.get(this.state.target.id)??{};
+      scrolls[this.state.entryEditorTab??'basic']=body?.scrollTop??0;
+      this.entryTabScroll.set(this.state.target.id,scrolls);
+      this.entryTabs.set(this.state.target.id,this.state.entryEditorTab??'basic');
+    }
     const visit = historyIndex === undefined
       ? [...this.state.visits].reverse().find(visit => visit.target.kind === target.kind && visit.target.id === target.id)
       : this.state.visits[historyIndex];
@@ -211,6 +224,8 @@ export class StoryEditorController {
       this.state.target = { ...target };
       this.state.selectedNodeId = null;
       this.state.insertionBeforeNodeId = null;
+      this.state.entryEditorTab=this.entryTabs.get(target.id)??'basic';
+      this.pendingEntryScroll=this.entryTabScroll.get(target.id)?.[this.state.entryEditorTab]??0;
     }
     this.revealNodeId = null; this.pendingFocus = undefined; this.focusName = false;
     if (visit && target.kind === 'story') {
@@ -239,6 +254,7 @@ export class StoryEditorController {
     this.inlineText.dispose();
     this.requiredFlagDropdown.dispose();
     this.nodeMenu.close(); this.closeSelectionNavi();
+    this.closeEditorDialog();
     this.closeAuthoringPreview();
     this.closeThemeContentEdit();
     this.save(false, false);
@@ -306,7 +322,7 @@ export class StoryEditorController {
     this.closeAuthoringPreview();
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
-    if (saved) { this.nodeMenu.close(); this.closeSelectionNavi(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
+    if (saved) { this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
     if (!saved) this.requestRefresh();
     return saved;
   }
@@ -397,6 +413,11 @@ export class StoryEditorController {
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body');
       if (body) body.scrollTop = this.pendingInspectorScroll;
       this.pendingInspectorScroll = undefined;
+    }
+    if (this.pendingEntryScroll !== undefined) {
+      const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
+      if (body) body.scrollTop = this.pendingEntryScroll;
+      this.pendingEntryScroll = undefined;
     }
     if (this.revealNodeId) {
       const nodeId = this.revealNodeId;
@@ -572,9 +593,9 @@ export class StoryEditorController {
         }
         this.requestRefresh(); return;
       }
-      const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
+      const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
         const beforeNodeId = element.hasAttribute('data-story-insertion-end') ? null : element.dataset.storyInsertionBefore ?? null;
@@ -586,7 +607,16 @@ export class StoryEditorController {
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
       const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
       const inspectorTab = element.dataset.columnAction?.startsWith('story-editor-inspector-tab:') ? element.dataset.columnAction.slice('story-editor-inspector-tab:'.length) : undefined;
-      if (inspectorTab && ['overview','relations','flags','tools'].includes(inspectorTab)) {
+      const entryTab = element.dataset.columnAction?.startsWith('story-editor-entry-tab:') ? element.dataset.columnAction.slice('story-editor-entry-tab:'.length) : undefined;
+      if (entryTab && ['basic','rewards','gates'].includes(entryTab) && this.state.target?.kind==='entry') {
+        const body=this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
+        const scrolls=this.entryTabScroll.get(this.state.target.id)??{};
+        scrolls[this.state.entryEditorTab??'basic']=body?.scrollTop??0;
+        this.entryTabScroll.set(this.state.target.id,scrolls);
+        this.state.entryEditorTab=entryTab as NonNullable<StoryEditorState['entryEditorTab']>;
+        this.entryTabs.set(this.state.target.id,this.state.entryEditorTab);
+        this.pendingEntryScroll=scrolls[this.state.entryEditorTab]??0;
+      } else if (inspectorTab && ['overview','relations','flags','tools'].includes(inspectorTab)) {
         this.rememberInspectorScroll(); this.state.inspectorView = 'story';
         this.state.storyInspectorTab = inspectorTab as typeof this.state.storyInspectorTab; this.restoreInspectorScroll();
       } else if (element.dataset.storyRenameNodeId) this.openNodeIdPrompt(element.dataset.storyRenameNodeId, element.dataset.storyRenameNodeId);
@@ -621,7 +651,7 @@ export class StoryEditorController {
         this.browseStory(source);
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
       else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
-      else this.action(element.dataset.editorAction ?? '');
+      else this.action(element.dataset.editorAction ?? '', element);
       this.requestRefresh();
     };
     const input = (event: Event): void => {
@@ -1181,6 +1211,24 @@ export class StoryEditorController {
     this.state.error = null; this.state.notice = null;
     try {
       const add = target.dataset.authoringAdd;
+      if(target.hasAttribute('data-authoring-init-rewards')){
+        const id=this.state.target?.kind==='entry'?this.state.target.id:undefined;
+        const table=draft.authoring!.activeStories.some(item=>item.id===id)?'activeStories':'passiveStories';
+        const index=draft.authoring![table].findIndex(item=>item.id===id);
+        if(index<0)throw new Error('Entry 已不存在。');
+        writeStructuredValue(draft,'$authoring',[table,index,'completionReward'],{first:[],repeat:[]});
+        return;
+      }
+      if(target.hasAttribute('data-authoring-add-condition-reward')){
+        const id=this.state.target?.kind==='entry'?this.state.target.id:undefined;
+        const table=draft.authoring!.activeStories.some(item=>item.id===id)?'activeStories':'passiveStories';
+        const index=draft.authoring![table].findIndex(item=>item.id===id);
+        if(index<0)throw new Error('Entry 已不存在。');
+        const rows=(draft.authoring![table][index] as StoryEntryDef).conditionalRewards??[];
+        writeStructuredValue(draft,'$authoring',[table,index,'conditionalRewards'],[...rows,{condition:{type:'AND',conditions:[]},effects:[]}]);
+        structuredKey(draft,'$authoring',[table,index,'conditionalRewards',rows.length]);
+        return;
+      }
       if(add==='affection'){this.reviewEntryActivation(draft,defaultEntryActivation('affection'));return;}
       if (add === 'activeStories' || add === 'passiveStories' || add === 'passivePools') {
         const entry=this.state.target?.kind==='entry'?storyEntries(this.state,this.ctrl.game.registry.storyEntries).get(this.state.target.id):undefined;
@@ -1439,36 +1487,59 @@ export class StoryEditorController {
       }});
   }
 
-  private changeStoryId(): void {
+  private closeEditorDialog(): void {
+    if (this.editorDialog?.isConnected) this.ctrl.modal.close();
+    this.editorDialog = undefined;
+  }
+
+  private changeStoryId(trigger?: HTMLElement): void {
     const draft=currentDraft(this.state);
     if (!draft || this.state.storageBlocked) return;
     const fromId=draft.document.id, mod=fromId.split(':')[0], e=createUIContext(this.ctrl.game).escapeHtml;
     const packs=storyEditingMods(this.ctrl.game).filter(pack=>pack.modName===mod && (!draft.targetPackId || (pack.packRecordId ?? pack.id)===draft.targetPackId));
     const preferred=draft.targetPackId ?? this.state.targetPackId ?? (packs.length===1 ? packs[0].packRecordId ?? packs[0].id : '');
     let selected: ReturnType<typeof storyEditingMod> | undefined;
-    const showError=(error:unknown)=>{const message=document.querySelector<HTMLElement>('[data-story-identity-error]');if(message){message.textContent=error instanceof Error?error.message:String(error);message.hidden=false;}};
+    const showError = (error: unknown) => {
+      message.textContent = error instanceof Error ? error.message : String(error);
+      message.hidden = false;
+    };
+    const toStoryId = () => `${mod}:story:${name.value.trim()}`;
     const selectPack=()=>{
-      const id=document.querySelector<HTMLSelectElement>('[data-story-rename-mod]')?.value ?? '';
+      const id = packSelect.value;
       selected=undefined;
+      preview.textContent = '请选择编辑副本并输入有效的新名称。';
       try {
         selected=storyEditingMod(this.ctrl.game,id);
-        const to=`${mod}:story:${document.querySelector<HTMLInputElement>('[data-story-new-id]')?.value.trim() ?? ''}`;
+        const to = toStoryId();
         const plan=planEditorStoryRename(this.state,id,selected.record.datapack,draft.draftId,to,new Set([...this.ctrl.game.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
-        const preview=document.querySelector<HTMLElement>('[data-story-rename-preview]');
-        if(preview) preview.textContent=`${fromId} → ${to}\n${plan.published?'确认后将保存到此 Mod，重新载入后生效。':'仅修改草稿，正式保存沿用目标 Mod。'}\n${plan.references.length} 处引用${plan.references.length?'：\n'+plan.references.map(ref=>`${ref.id} ${ref.path}`).join('\n'):''}`;
-        const error=document.querySelector<HTMLElement>('[data-story-identity-error]');if(error)error.hidden=true;
+        preview.textContent=`${fromId} → ${to}\n${plan.published?'确认后将保存到此 Mod，重新载入后生效。':'仅修改草稿，正式保存沿用目标 Mod。'}\n${plan.references.length} 处引用${plan.references.length?'：\n'+plan.references.map(ref=>`${ref.id} ${ref.path}`).join('\n'):''}`;
+        message.hidden = true;
       } catch(error) {showError(error);}
     };
-    this.ctrl.modal.open({title:'更改 Story ID',panelClass:'story-editor-identity',width:640,
-      body:`<label class="story-editor-property">所属 ModId（创建后固定）<input name="story-mod-id" value="${e(mod)}" readonly></label><label class="story-editor-property">保存到编辑副本<select data-story-rename-mod><option value="">选择编辑副本</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)}</option>`).join('')}</select></label><label class="story-editor-property">Story ID 名称<input data-story-new-id value="${e(fromId.split(':')[2])}" placeholder="story_1"></label><p class="story-editor-hint">仅修改 Story ID 的名称部分；已创建 Story 的 ModId 不可更改。</p>${packs.length?'':'<p>请先为此 Mod 创建编辑副本。</p>'}<p class="story-editor-hint" data-story-rename-preview style="white-space:pre-wrap"></p><p class="story-editor-error" data-story-identity-error hidden></p>`,
-      footer:'<button type="button" class="modal-close">取消</button><button type="button" class="mini-action" data-modal-action="rename-story-id">确认更改</button>',
+    const panel = openStoryEditorDialog(this.ctrl.modal, {
+      title: '更改 Story ID', panelClass: 'story-editor-identity',
+      body: `<div class="story-editor-dialog__split">
+        <div class="story-editor-dialog__fields">
+          <label class="story-editor-property">所属 ModId（创建后固定）<input name="story-mod-id" value="${e(mod)}" readonly></label>
+          <label class="story-editor-property">保存到编辑副本<select data-story-rename-mod><option value="">选择编辑副本</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)}</option>`).join('')}</select></label>
+          <label class="story-editor-property">Story ID 名称<input data-story-new-id value="${e(fromId.split(':')[2])}" placeholder="story_1"></label>
+          ${packs.length ? '' : '<p>请先为此 Mod 创建编辑副本。</p>'}
+          <p class="story-editor-error" data-story-identity-error hidden></p>
+        </div>
+        <section class="story-editor-dialog__preview" aria-label="引用影响">
+          <h3>引用影响</h3>
+          <p class="story-editor-dialog__preview-text" data-story-rename-preview></p>
+        </section>
+      </div>`,
+      footer:'<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="rename-story-id">确认更改</button>',
+      onClose: () => { this.editorDialog = undefined; },
       onAction:action=>{
         if(action!=='rename-story-id' || !this.isOpen() || this.state.storageBlocked || currentDraft(this.state)!==draft || draft.document.id!==fromId)return;
         try {
           if(!selected)throw new Error('请选择编辑态 Mod。');
           const packId=selected.record.packRecordId, live=storyEditingMod(this.ctrl.game,packId);
           if(live.entry.contentDigest!==selected.entry.contentDigest)throw new Error('目标 Mod 已变化，请重新选择 Mod 并核对引用。');
-          const toId=`${mod}:story:${document.querySelector<HTMLInputElement>('[data-story-new-id]')?.value.trim() ?? ''}`;
+          const toId = toStoryId();
           const plan=planEditorStoryRename(this.state,packId,live.record.datapack,draft.draftId,toId,new Set([...this.ctrl.game.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
           if(plan.published){
             const result=this.ctrl.commands.renameStoryInPack?.(packId,{fromId,toId,expectedDigest:selected.entry.contentDigest ?? '',patch:plan.patch});
@@ -1484,15 +1555,22 @@ export class StoryEditorController {
           for(const [key,value] of this.inspectorScroll){const parts=JSON.parse(key);if(parts[0]?.kind==='story' && parts[0].id===fromId){parts[0].id=toId;this.inspectorScroll.set(JSON.stringify(parts),value);this.inspectorScroll.delete(key);}}
           const saved=this.save(false,false);
           this.state.notice=plan.published?(saved?'Story ID 与引用已保存到 Mod，请重新载入后使用。':'Mod 已保存，但本地草稿保存失败；当前内容仍在编辑中，请勿关闭。'):'Story ID 与草稿引用已更新。';
-          this.ctrl.modal.close();this.requestRefresh();
+          this.closeEditorDialog();this.requestRefresh();
         }catch(error){showError(error);}
-      }});
-    document.querySelector('[data-story-rename-mod]')?.addEventListener('change',selectPack);
-    document.querySelector('[data-story-new-id]')?.addEventListener('input',selectPack);
+      },
+    }, trigger);
+    this.editorDialog = panel;
+    const name = panel.querySelector<HTMLInputElement>('[data-story-new-id]')!;
+    const packSelect = panel.querySelector<HTMLSelectElement>('[data-story-rename-mod]')!;
+    const preview = panel.querySelector<HTMLElement>('[data-story-rename-preview]')!;
+    const message = panel.querySelector<HTMLElement>('[data-story-identity-error]')!;
+    packSelect.addEventListener('change', selectPack);
+    name.addEventListener('input', selectPack);
+    name.focus({ preventScroll: true });
     selectPack();
   }
 
-  private action(action: string): void {
+  private action(action: string, trigger?: HTMLElement): void {
     if (action === 'history-back' || action === 'history-forward') { this.browseHistory(action === 'history-back' ? -1 : 1); return; }
     if (this.state.storageBlocked && action !== 'info') return;
     if (action === 'save-to-runtime') { this.saveToRuntime(); return; }
@@ -1500,7 +1578,7 @@ export class StoryEditorController {
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
     if (action === 'new') {
       this.createStoryInMod();
-    } else if (action === 'rename-id') this.changeStoryId();
+    } else if (action === 'rename-id') this.changeStoryId(trigger);
     else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') this.state.sidebarMode = 'senders';
     else if (action === 'info' || action === 'rename') { this.closeThemeContentEdit();this.rememberInspectorScroll(); this.state.selectedNodeId = null; this.state.inspectorView = 'story'; if (action === 'rename') this.state.storyInspectorTab = 'overview'; this.restoreInspectorScroll(); this.focusName = action === 'rename'; }

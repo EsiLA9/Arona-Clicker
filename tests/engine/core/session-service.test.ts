@@ -17,9 +17,11 @@ describe('SessionService offline base', () => {
     const eventBus = new EventBus();
     const mutations = new StateMutationService(eventBus);
     const effectEngine = new EffectEngine(mutations);
-    let frames = 0;
+    const doTick = vi.fn(() => ({ frame: 1, productions: [] }));
+    const doOfflineTicks = vi.fn();
     const session = new SessionService({
-      doTick: () => ({ frame: ++frames, productions: [{ spotId: 'spot', resource: 'credit', amount: 1 }] }),
+      doTick,
+      doOfflineTicks,
       devLog: new DevLog({ clock: () => 10_000 }),
       eventBus,
       effectEngine,
@@ -28,7 +30,30 @@ describe('SessionService offline base', () => {
 
     session.setLastTick(0);
     session.start();
-    expect(frames).toBe(10);
+    expect(doOfflineTicks.mock.calls).toEqual([[10]]);
+    expect(doTick).not.toHaveBeenCalled();
+    session.stop();
+  });
+
+  test('离线提交后的通知抛错，重试启动不会重复补算', () => {
+    now.mockReturnValue(10_000);
+    const eventBus = new EventBus();
+    const mutations = new StateMutationService(eventBus);
+    const doOfflineTicks = vi.fn(() => { throw new Error('notification failed'); });
+    const session = new SessionService({
+      doTick: () => ({ frame: 1, productions: [] }),
+      doOfflineTicks,
+      devLog: new DevLog(),
+      eventBus,
+      effectEngine: new EffectEngine(mutations),
+      getState: () => ({ resources: {}, spotLevels: {}, spotManagers: {}, flags: {} }),
+    });
+
+    session.setLastTick(0);
+    expect(() => session.start()).toThrow('notification failed');
+    expect(session.running).toBe(false);
+    session.start();
+    expect(doOfflineTicks.mock.calls).toHaveLength(1);
     session.stop();
   });
 
@@ -37,9 +62,10 @@ describe('SessionService offline base', () => {
     const eventBus = new EventBus();
     const mutations = new StateMutationService(eventBus);
     const effectEngine = new EffectEngine(mutations);
-    let frames = 0;
+    const doOfflineTicks = vi.fn();
     const session = new SessionService({
-      doTick: () => ({ frame: ++frames, productions: [{ spotId: 'spot', resource: 'credit', amount: 1 }] }),
+      doTick: () => ({ frame: 1, productions: [] }),
+      doOfflineTicks,
       devLog: new DevLog({ clock: () => 10_000 }),
       eventBus,
       effectEngine,
@@ -50,7 +76,7 @@ describe('SessionService offline base', () => {
     session.stop();
     now.mockReturnValue(20_000);
     session.start();
-    expect(frames).toBe(0);
+    expect(doOfflineTicks).not.toHaveBeenCalled();
     session.stop();
   });
 });

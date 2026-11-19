@@ -12,7 +12,7 @@ import type { Datapack } from '../../../src/data-services/contracts/datapack';
 //   Affector 条件翻转（资源阈值 → flows 进出，notifyGameNum 链）
 // 多帧 tick 基线由 game-num-snapshot.test.ts 覆盖。
 // ============================================================
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { Expr, value, cond, and } from '../../../src/engine/types';
@@ -31,6 +31,7 @@ const AREA = 'test:area:a';
 const INIT = 'test:init:a';
 const ENH_ZONE = 'test:enhancement:zone-expr';
 const ENH_GATE = 'test:enhancement:gate-flows';
+const ACTIVATION = 'test:resource:activation';
 
 const datapack = {
   name: 'test:dp:invalidation',
@@ -104,7 +105,7 @@ const datapack = {
           entries: [
             {
               id: 'e1',
-              effects: [],
+              effects: [{ op: 'addResource', target: ACTIVATION, value: 1 }],
               condition: and(cond('resource', CREDIT, '>=', 100)),
               flows: [{ resource: CREDIT, value: 10 }],
             },
@@ -143,6 +144,49 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
     expect(gain()).toBe(47);
     game.mutations.changeResource(CREDIT, -35);
     expect(gain()).toBe(12);
+  });
+
+  test('固定 flow 不随同资源的动态 flow 一起失效', () => {
+    game.mutations.setSpotLevel(PRINTER, 1);
+    game.mutations.setSpotLevel(RES_SPOT, 1);
+    expect(gain()).toBe(12);
+    const fixed = game.gameNumSystem.flowsNodeById.get(`flows:${PRINTER}:${CREDIT}:product`)!;
+    expect(fixed.dirty).toBe(false);
+    game.mutations.changeResource(CREDIT, 10);
+    expect(fixed.dirty).toBe(false);
+    expect(gain()).toBe(22);
+  });
+
+  test('热替换只撤回原来源，新资源可入账，同桶其他来源继续响应输入', () => {
+    const nextResource = 'test:resource:hot';
+    const readCredit = Expr.val(value('res', { resource: CREDIT }));
+    for (const id of ['test:pack:one', 'test:pack:two']) {
+      game.affectorEngine.registerPack({
+        id, entries: [{ id: 'entry', effects: [], flows: [{ resource: CREDIT, value: readCredit }] }],
+      });
+      game.affectorEngine.mount(id, 'test:item:source');
+    }
+    game.mutations.setResource(CREDIT, 10);
+    expect(gain()).toBe(20);
+    game.affectorEngine.registerPack({
+      id: 'test:pack:one', entries: [{ id: 'entry', effects: [], flows: [{ resource: nextResource, value: 3 }] }],
+    });
+    expect(gain()).toBe(10);
+    expect(game.gameNumSystem.evaluateResourceGain(nextResource, game.state)).toBe(3);
+    game.mutations.setResource(CREDIT, 15);
+    expect(gain()).toBe(15);
+    game.affectorEngine.unmount('test:pack:one@test:item:source');
+    expect(game.gameNumSystem.evaluateResourceGain(nextResource, game.state)).toBe(0);
+  });
+
+  test('读档重建持续贡献，已发放的激活奖励只记一次', () => {
+    game.mutations.setResource(CREDIT, 100);
+    game.mutations.addEnhancement(ENH_GATE);
+    expect(game.state.resources[ACTIVATION]).toBe(1);
+    expect(gain()).toBe(10);
+    game.load(game.save());
+    expect(game.state.resources[ACTIVATION]).toBe(1);
+    expect(gain()).toBe(10);
   });
 
   test('setSpotLevel/addSpotLevel → owned/功能 flows 立即反映', () => {
@@ -207,5 +251,59 @@ describe('Phase 5 陈旧读回归（事件驱动精确失效）', () => {
     game.tick();
     // 上一帧入账触发 resourceChanged 定向失效，本帧 res_spot 读到余额 12（自反增）
     expect(game.state.resources[CREDIT]).toBe(36);
+  });
+
+  test('读档离线按同一个起始状态批量结算，在线 Tick 恢复后再检查里程碑', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(40_000_000);
+    try {
+      const pyroxene = 'base:resource:pyroxene';
+      game.mutations.setSpotLevel(RES_SPOT, 1);
+      game.mutations.setResource(CREDIT, 10);
+      game.load({ ...game.save(), timestamp: 0 });
+      game.affectorEngine.registerPack({
+        id: 'test:pack:offline',
+        entries: [{
+          id: 'entry', effects: [],
+          flows: [{ resource: pyroxene, value: Expr.val(value('res', { resource: CREDIT })) }],
+          perTickEffects: [{ op: 'addResource', target: 'test:resource:per-tick', value: 1 }],
+        }],
+      });
+      game.affectorEngine.mount('test:pack:offline', 'test:item:offline');
+      const onCredit = vi.fn(() => game.state.globalResources?.[pyroxene]);
+      const tickEvent = vi.fn();
+      game.eventBus.on('resourceChanged', event => { if (event.resource === CREDIT) onCredit(); });
+      game.eventBus.on('tick', tickEvent);
+      const priorProduction = game.statsService.evaluate(`$GlobalProducedAmount ${CREDIT}`)!;
+      game.start();
+      expect(game.state.totalFrames).toBe(28_800);
+      expect(game.state.resources[CREDIT]).toBe(10 + 15 * 28_800);
+      expect(game.state.globalResources?.[pyroxene]).toBe(10 * 28_800);
+      expect(game.statsService.evaluate(`$GlobalProducedAmount ${CREDIT}`)).toBe(priorProduction + 15 * 28_800);
+      expect(game.statsService.evaluate('$GlobalFramesActive')).toBe(28_800);
+      expect(onCredit.mock.results).toEqual([{ type: 'return', value: 10 * 28_800 }]);
+      expect(tickEvent).not.toHaveBeenCalled();
+      expect(game.state.resources['test:resource:per-tick']).toBeUndefined();
+      const milestone = 'base:trigger:first_credit_milestone';
+      expect(game.state.triggersCompleted).not.toContain(milestone);
+      game.stop();
+      game.start();
+      expect(game.state.totalFrames).toBe(28_800);
+      game.tick();
+      expect(game.state.triggersCompleted).toContain(milestone);
+      expect(game.state.resources['test:resource:per-tick']).toBe(1);
+    } finally {
+      game.stop();
+      now.mockRestore();
+    }
+  });
+
+  test('无产出只累计首帧，期间没有在线 Tick 事件', () => {
+    game.sessionService.setLastTick(Date.now() - 20_000);
+    const tickEvent = vi.fn();
+    game.eventBus.on('tick', tickEvent);
+    game.start();
+    expect(game.state.totalFrames).toBe(1);
+    expect(game.statsService.evaluate('$GlobalFramesActive')).toBe(1);
+    expect(tickEvent).not.toHaveBeenCalled();
   });
 });

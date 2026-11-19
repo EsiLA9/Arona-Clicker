@@ -32,6 +32,17 @@ describe('completion reward committed receipts', () => {
     ] });
   });
 
+  test('mixed default and matched conditional rewards report conditional source', () => {
+    const h = setup();
+    const conditionalEntry: ActiveStoryEntry = { ...entry, completionStrategy: 'conditional', conditionalRewards: [
+      { condition: { type: 'AND', conditions: [] }, effects: [{ op: 'addItem', target: 'bonus-ticket', value: 1 }] },
+    ] };
+    expect(applyCompletionReward(h.context, conditionalEntry, entry.storyId)).toMatchObject({
+      source: 'conditional',
+      effects: [...entry.completionReward!.first!, ...conditionalEntry.conditionalRewards![0].effects],
+    });
+  });
+
   test('carries a committed reward prefix on notification failure and never retries the legacy API', () => {
     const h = setup();
     const legacy = vi.spyOn(h.engine, 'applyEffects');

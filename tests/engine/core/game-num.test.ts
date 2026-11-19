@@ -340,9 +340,10 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
   test('Affector zoneModifiers 经 syncAffectorZoneEffects 写入 tagEffects 并生效', () => {
     const fakeAffector = {
       getActiveInstances: () => [
+        ...game.affectorEngine.getActiveInstances(),
         { instanceId: 'pack@spot', packId: 'pack', mountEntityId: 'spot', state: 'Active', activeEntryIds: ['e1'] },
       ],
-      getPack: (id: string) => ({
+      getPack: (id: string) => id !== 'pack' ? game.affectorEngine.getPack(id) : ({
         id,
         entries: [{ id: 'e1', effects: [], zoneModifiers: [{ target: { kind: 'tag', tag: ['office'] }, category: 'mul', value: 2 }] }],
       }),
@@ -361,7 +362,8 @@ describe('GameNum tag 效果（自下而上聚合）/ Affector 桥接', () => {
       getPack: (id: string) => ({ id, entries: [{ id: 'e1', effects: [], flows: [{ resource: CREDIT, value: 6 }] }] }),
     } as unknown as AffectorEngine;
     game.gameNumSystem.syncAffectorZoneEffects(fakeAffector, game.state);
-    expect([...game.gameNumSystem.affectorFlowSources.values()].flat().map(source => source.flow.value)).toEqual([6]);
+    const sources = [...game.gameNumSystem.affectorFlowSources.values()].flatMap(bucket => [...bucket.values()].flat());
+    expect(sources.map(source => source.flow.value)).toEqual([6]);
   });
 
   test('Affector tag modifier uses the pack namespace for a bare tag', () => {

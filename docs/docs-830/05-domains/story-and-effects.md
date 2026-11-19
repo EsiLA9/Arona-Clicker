@@ -122,7 +122,7 @@ Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 
 
 StoryEntry 将正文引用 `storyId`、归属角色 `owner`、历史编排 `catalog` 与正式激活 `activation` 分开。公共资格、重读和完结能力保存在公共记录；激活配置有且只有三类：`active` 为主动接取，可省略地区兜底，或声明 `current-area` / `fixed-area` 投放；`random` 保存基础权重、重复触发及冷却；`affection` 要求角色 owner，以等级或前置 Story 完成触发单次角色阶段，尾段仍优先。原顶层 type、weight、affectionRequired、pushAfterStory 不再是作者字段，active/passive 启动通道由 `storyEntryType()` 派生。Datapack 保留 activeStories 与 passiveStories 两个分区，后者容纳 random / affection；ID 和运行完成记录的身份保持不变。
 
-历史目录位置提升为 `catalog.category/part/chapter/order`，三类入口均可编排，不赋予首次播放资格，也不写入完成或已读状态；原 Extra.storyCatalog 与产品目录的逐条归属已转写，目录分组名称和顺序继续由产品模型维护。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
+故事目录位置保存在 `catalog.category/part/chapter/order`，三类入口均可编排；分类和篇章是自由文本，可复用现有 ID / 名称，也可创建新目录项，章节与顺序可选。目录元数据只决定导航归属与顺序，不赋予首次播放资格，也不写入完成或已读状态；旧 `Extra.storyCatalog` 已迁移为顶层 `catalog`。目录分组名称与静态层级由产品模型提供，Story Editor 汇总内置层级、已载入 Entry 和当前草稿提示现有值。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
 
 合同／导入边界见 `contracts/story-entry.ts`、`validation/story-entry.ts` 和 Registry；运行消费见 `story-entry-selection.ts`、`story-availability-delivery-mount.ts`、`passive-pool-system.ts`。回归入口为 `tests/data/story/story-entry-activation.test.ts`、`tests/engine/story/story-entry-fallback.test.ts` 及既有 Entry／池／重读测试。
 
