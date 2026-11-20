@@ -49,6 +49,7 @@ import type { SpotTagOverrideState as SpotTagOverride } from '../../engine/contr
 import { TagPath, tagDisplay, tagKey, parseTagRef, isTagRef, qualifyTagPath, tagRef } from '../../engine/core/tag';
 import { expandFlatKeys, extra, getAtPath, mergeExtra } from '../../engine/extra/index';
 import { RegistryError, validateDatapack } from './registry-validate';
+import { validateStoryDirectories, validateStoryDirectoryPlacements, type RegisteredStoryDirectory } from './story-directory-validation';
 import { effectiveDefMetadata } from '../contracts/common';
 import type { EffectiveDefMetadata, ResourceDisplayDef, ResolvedTagDef } from '../contracts/common';
 import type { AreaDef, InitDef, SpotDef } from '../contracts/world';
@@ -109,6 +110,10 @@ export class Registry {
   private _tagOwnerModNames = new Map<string, string>();
   private _enhancements: Map<string, EnhancementDef> = new Map();
   private _stories: Map<string, StoryDef> = new Map();
+  private _storyDirectories = new Map<string, RegisteredStoryDirectory>();
+  private _storyDirectoryContentMods = new Map<string, string>();
+  private _storyDirectoryEntryMods = new Map<string, string>();
+  private _storyDirectoryCharacterMods = new Map<string, string>();
   /**
    * 剧情入口注册表：id 为对外故事 id；演出经 entry.storyId 重定向到 _stories。
    * 含主线 / 支线 / 羁绊剧情入口（原 KizunaStoryEntry 已并入）。
@@ -236,6 +241,21 @@ export class Registry {
         table: 'stories',
         merge: dp => { for (const story of dp.stories) { const candidate = structuredClone(story); this._stories.set(story.id, stripLegacyStoryReplies(candidate) ? candidate : story); } },
         clear: () => this._stories.clear(),
+      },
+      {
+        table: 'storyDirectories',
+        merge: dp => {
+          for (const definition of dp.storyDirectories ?? []) this._storyDirectories.set(definition.id, { definition, modName: this.currentPackModName });
+          for (const row of dp.stories) this._storyDirectoryContentMods.set(row.id, this.currentPackModName);
+          for (const row of [...dp.activeStories, ...dp.passiveStories]) this._storyDirectoryEntryMods.set(row.id, this.currentPackModName);
+          for (const character of dp.characters ?? []) if (!this._storyDirectoryCharacterMods.has(character.id)) this._storyDirectoryCharacterMods.set(character.id, this.currentPackModName);
+        },
+        clear: () => {
+          this._storyDirectories.clear();
+          this._storyDirectoryContentMods.clear();
+          this._storyDirectoryEntryMods.clear();
+          this._storyDirectoryCharacterMods.clear();
+        },
       },
       {
         table: 'activeStories',
@@ -695,6 +715,11 @@ export class Registry {
       if (stories.length > 0) {
         throw new RegistryError(`Init "${initId}" 仍被 Story 归属引用：${stories.map(story => story.id).join('、')}`);
       }
+      const directories = [...this._storyDirectories.values()].filter(row => row.definition.initId === initId);
+      const placements = [...this.storyEntries.values()].filter(entry => entry.directoryPlacements?.some(row => row.initId === initId));
+      if (directories.length || placements.length) {
+        throw new RegistryError(`Init "${initId}" 仍被故事目录引用：${[...directories.map(row => row.definition.id), ...placements.map(row => row.id)].join('、')}`);
+      }
       this._inits.delete(initId);
       this._initSourceModNames.delete(initId);
     }
@@ -897,12 +922,16 @@ export class Registry {
   /** Current-session authoring upsert; validation and cloning finish before mutation. */
   saveStoryDefinition(story: StoryDef): void {
     const candidate = prepareStoryDefinition(story, this.storyDefinitionReferences());
+    validateStoryDirectoryPlacements([candidate], [], this._storyDirectories, this._storyDirectoryCharacterMods,
+      new Set(this.inits.keys()), (id, kind) => this.storyDirectoryContentOwner(id, kind));
     validateStoryContinuations([...this.storyEntries.values()], [...this._stories.values()].filter(value => value.id !== candidate.id).concat(candidate), new Set(this.areas.keys()));
     this._stories.set(candidate.id, candidate);
   }
   /** Validate the whole Story author transaction before touching any live table. */
-  saveStoryAuthoring(patch: StoryAuthoringPatch, validateOnly = false): void {
+  saveStoryAuthoring(patch: StoryAuthoringPatch, validateOnly = false, checkDirectoryPlacements = true): void {
     validateStoryAuthoringShape(patch);
+    if (checkDirectoryPlacements) validateStoryDirectoryPlacements(patch.stories, [...patch.activeStories, ...patch.passiveStories], this._storyDirectories,
+      this._storyDirectoryCharacterMods, new Set(this.inits.keys()), (id, kind) => this.storyDirectoryContentOwner(id, kind));
     const stories = new Map(mergeStoryRows([...this.stories.values()].filter(x => !patch.removed?.stories?.includes(x.id)), patch.stories).map(x => [x.id, x]));
     const active = mergeStoryRows([...this.activeStories.values()].filter(x => !patch.removed?.activeStories?.includes(x.id)), patch.activeStories);
     const passive = mergeStoryRows([...this.passiveStories.values()].filter(x => !patch.removed?.passiveStories?.includes(x.id)), patch.passiveStories);
@@ -915,8 +944,8 @@ export class Registry {
       for (const entry of entries.values()) for (const follow of entry.followUps ?? []) if (!entries.has(follow.outcome.storyEntryId)) throw new Error(`独立后续目标不存在：${follow.outcome.storyEntryId}`);
       for (const init of this.inits.values()) if (init.startStoryId && !stories.has(init.startStoryId) && !entries.has(init.startStoryId)) throw new Error(`Init 起始故事不存在：${init.startStoryId}`);
     }
-    this.validate({ name: 'Story authoring', version: '1', inits: [], areas: [], spots: [], enhancements: [],
-      items: [], characters: [], characterVariants: [...this.characterVariants.values()], funcletDefs: [], stories: [...stories.values()], activeStories: active, passiveStories: passive, passivePools: pools });
+    this.validateDefinitions({ name: 'Story authoring', version: '1', inits: [], areas: [], spots: [], enhancements: [],
+      items: [], characters: [], characterVariants: [...this.characterVariants.values()], funcletDefs: [], stories: [...stories.values()], activeStories: active, passiveStories: passive, passivePools: pools }, true);
     const poolMap = new Map(pools.map(x => [x.id, x]));
     const walk = (id: string, path: Set<string>): void => {
       if (path.has(id)) throw new Error(`被动池不能循环引用：${id}`);
@@ -954,6 +983,11 @@ export class Registry {
   /** 随机闲聊入口（对外故事 id → Entry）。 */
   get passiveStories(): ReadonlyMap<string, PassiveStoryEntry> { return this._passiveStories; }
   get passivePools(): ReadonlyMap<string, PassivePoolDef> { return this._passivePools; }
+  get storyDirectories(): ReadonlyMap<string, RegisteredStoryDirectory> { return this._storyDirectories; }
+  storyDirectoryContentOwner(id: string, kind: 'story' | 'entry' = 'entry'): string | undefined {
+    return (kind === 'story' ? this._storyDirectoryContentMods : this._storyDirectoryEntryMods).get(id);
+  }
+  storyDirectoryCharacterOwner(id: string): string | undefined { return this._storyDirectoryCharacterMods.get(id); }
   /**
    * 剧情入口合并只读视图（active + passive）。供需要统一遍历/按 id 查询的消费方（指纹、可见性、剧情服务）。
    */
@@ -1535,22 +1569,7 @@ export class Registry {
 
   /** 加载并验证数据包 */
   load(datapack: Datapack): void {
-    validateDatapack(datapack, {
-      initIds: new Set(this._inits.keys()),
-      areaIds: new Set(this._areas.keys()),
-      storyEntryIds: new Set(this.storyEntries.keys()),
-      storyEntries: this.storyEntries, passivePools: this.passivePools, characterVariantIds: new Set(this.characterVariants.keys()), storyIds: new Set(this.stories.keys()),
-      milestoneIds: new Set(this._milestones.keys()),
-      milestoneListeners: this._milestoneListeners,
-      achievements: this._achievements,
-      characterIds: new Set<string>(this._characters.keys()),
-      itemTypes: new Map(Array.from(this._items, ([id, item]) => [id, item.type] as const)),
-      locations: this._operationLocations,
-      actions: this._operationActions,
-      profiles: this._studentOperationProfiles,
-      strategyProfiles: this._operationStrategyProfiles,
-      cardPools: this._operationCardPools,
-    });
+    this.validate(datapack);
     this.currentPackModName = datapack.modName ?? 'base';
     const incomingTagKeys = new Set<string>();
     for (const tag of datapack.tags ?? []) {
@@ -1567,11 +1586,19 @@ export class Registry {
 
   /** 使用当前注册表的已知 Init / Area 校验一个待合并数据包，不改变注册表。 */
   validate(datapack: Datapack): void {
+    this.validateDefinitions(datapack);
+    validateStoryDirectories(datapack, this._storyDirectories, new Set(this.inits.keys()), this._storyDirectoryCharacterMods, new Set(this.pics.keys()));
+  }
+
+  private validateDefinitions(datapack: Datapack, completeStoryTables = false): void {
     validateDatapack(datapack, {
       initIds: new Set(this._inits.keys()),
       areaIds: new Set(this._areas.keys()),
-      storyEntryIds: new Set(this.storyEntries.keys()),
-      storyEntries: this.storyEntries, passivePools: this.passivePools, characterVariantIds: new Set(this.characterVariants.keys()), storyIds: new Set(this.stories.keys()),
+      ...(completeStoryTables ? {} : {
+        storyEntryIds: new Set(this.storyEntries.keys()), storyEntries: this.storyEntries,
+        passivePools: this.passivePools, storyIds: new Set(this.stories.keys()), storyDocuments: this.stories,
+      }),
+      characterVariantIds: new Set(this.characterVariants.keys()),
       milestoneIds: new Set(this._milestones.keys()),
       milestoneListeners: this._milestoneListeners,
       achievements: this._achievements,

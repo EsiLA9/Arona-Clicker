@@ -6,7 +6,7 @@ export type StoryReferenceKind = 'story' | 'entry' | 'activeEntry' | 'passiveEnt
 
 export function storyReferenceDocuments(ctx: UIContext, state?: StoryEditorState) {
   const stories = new Map<string, { id: string; name: string; initId?: string }>(ctx.game.registry.stories);
-  for (const draft of state?.drafts ?? []) stories.set(draft.document.id, draft.document);
+  for (const draft of state?.drafts ?? []) if (!draft.entryOnly || !stories.has(draft.document.id)) stories.set(draft.document.id, draft.document);
   return stories;
 }
 

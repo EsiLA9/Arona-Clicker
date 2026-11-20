@@ -115,6 +115,7 @@ function migrateEntryDraft(draft: Record<string, unknown>): boolean {
   return true;
 }
 export class StoryDraftPersistence {
+  private savedRows = new Map<string, Record<string, unknown>>();
   constructor(private readonly storage: StorageAdapter = new LocalStorageAdapter()) {}
 
   load(state: StoryEditorState): void {
@@ -123,24 +124,42 @@ export class StoryDraftPersistence {
       if (raw === null) return;
       const value: unknown = JSON.parse(raw);
       if (!record(value) || value.version !== 1 || !Array.isArray(value.drafts)) throw new Error('草稿版本或结构不受支持');
+      if (value.recoveryDrafts !== undefined && !Array.isArray(value.recoveryDrafts)) throw new Error('恢复草稿结构不受支持');
+      const recovery = new Map<string, Record<string, unknown>>();
+      for (const row of value.recoveryDrafts ?? []) {
+        if (!record(row) || typeof row.draftId !== 'string' || recovery.has(row.draftId)) throw new Error('恢复草稿身份无效');
+        recovery.set(row.draftId, row);
+      }
+      const saved = new Map<string, Record<string, unknown>>();
+      for (const row of value.drafts) {
+        if (!record(row) || typeof row.draftId !== 'string' || saved.has(row.draftId)) throw new Error('草稿身份重复');
+        saved.set(row.draftId, row);
+      }
       const ids = new Set<string>();
       const documentIds = new Set<string>();
       const sources = new Set<string>();
       const drafts: StoryDraft[] = [];
       let removedLegacyReplies = false;
       let migratedEntries = false;
-      for (const draft of value.drafts) {
+      for (const draft of new Map([...saved, ...recovery]).values()) {
+        const recovering = recovery.has(String(draft.draftId));
         if (!record(draft) || typeof draft.draftId !== 'string' || !draft.draftId || ids.has(draft.draftId)
           || !(draft.sourceId === null || typeof draft.sourceId === 'string') || !validDocument(draft.document)
-          || typeof draft.savedAt !== 'number' || !Number.isFinite(draft.savedAt)) throw new Error('草稿数据不完整');
-        if (!optionalString(draft.targetPackId) || !optionalString(draft.renamedFromId)) throw new Error('草稿所属 Mod 无效');
-        if (typeof draft.sourceId === 'string' && (sources.has(draft.sourceId) || (draft.document as Record<string, unknown>).id !== draft.sourceId
+          || !(recovering && draft.savedAt === null || typeof draft.savedAt === 'number' && Number.isFinite(draft.savedAt))) throw new Error('草稿数据不完整');
+        const packSource = draft.packSource;
+        if (packSource !== undefined && (!record(packSource) || typeof packSource.packRecordId !== 'string' || typeof packSource.modName !== 'string'
+          || typeof packSource.label !== 'string' || !optionalString(packSource.digest) || !Array.isArray(packSource.dependencies)
+          || !packSource.dependencies.every(id => typeof id === 'string'))) throw new Error('草稿所选数据包来源无效');
+        if (!optionalString(draft.targetPackId) || !optionalString(draft.renamedFromId) || !optionalString(draft.entryOnly)) throw new Error('草稿所属 Mod 无效');
+        const scope = String(record(packSource) ? packSource.packRecordId : draft.targetPackId ?? '');
+        const sourceKey = JSON.stringify([scope, draft.entryOnly ?? '', draft.sourceId]);
+        if (typeof draft.sourceId === 'string' && (sources.has(sourceKey) || (draft.document as Record<string, unknown>).id !== draft.sourceId
           && !(draft.renamedFromId === draft.sourceId && draft.targetPackId && draft.sourceId.split(':')[0] === String((draft.document as Record<string, unknown>).id).split(':')[0]))) throw new Error('来源身份冲突');
-        const documentId = (draft.document as Record<string, unknown>).id as string;
+        const documentId = JSON.stringify([scope, draft.entryOnly ?? '', (draft.document as Record<string, unknown>).id]);
         if (documentIds.has(documentId)) throw new Error('Story 身份重复');
         documentIds.add(documentId);
         ids.add(draft.draftId);
-        if (draft.sourceId) sources.add(draft.sourceId);
+        if (draft.sourceId) sources.add(sourceKey);
         // The envelope has been checked here; incomplete payloads remain draft nodes, never StoryDef.
         const document = cloneStory(draft.document) as StoryDraft['document'];
         removedLegacyReplies = stripLegacyStoryReplies(document) || removedLegacyReplies;
@@ -150,7 +169,10 @@ export class StoryDraftPersistence {
         if (draft.authoring !== undefined) validateStoryAuthoringShape(draft.authoring as never, true);
         if (draft.structuredRows !== undefined && (!record(draft.structuredRows) || !Object.values(draft.structuredRows).every(rows => Array.isArray(rows) && rows.every(id=>typeof id==='string') && new Set(rows).size===rows.length))) throw new Error('结构化行身份无效');
         if (draft.structuredInputs !== undefined && (!record(draft.structuredInputs) || !Object.values(draft.structuredInputs).every(input => record(input) && typeof input.text === 'string' && (input.error === undefined || typeof input.error === 'string')))) throw new Error('结构化输入草稿无效');
-        drafts.push({ draftId: draft.draftId, sourceId: draft.sourceId, document, savedAt: draft.savedAt, dirty: false, persisted: true,
+        drafts.push({ draftId: draft.draftId, sourceId: draft.sourceId, document, savedAt: draft.savedAt as number | null,
+          dirty: recovering, persisted: saved.has(draft.draftId),
+          ...(packSource === undefined ? {} : { packSource: cloneStory(packSource) as unknown as StoryDraft['packSource'] }),
+          ...(draft.entryOnly === undefined ? {} : { entryOnly: draft.entryOnly as string }),
           ...(draft.targetPackId === undefined ? {} : {targetPackId:draft.targetPackId as string}),
           ...(draft.renamedFromId === undefined ? {} : {renamedFromId:draft.renamedFromId as string}),
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: cloneStory(draft.localFlagInputs) }),
@@ -167,34 +189,54 @@ export class StoryDraftPersistence {
         this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify(value));
       }
       state.drafts = drafts;
+      this.savedRows = saved;
+      if (typeof value.sourceSelection === 'string' && /^(pack|draft):.+/.test(value.sourceSelection)) state.sourceSelection = value.sourceSelection;
       const current = drafts.find(draft => draft.draftId === value.currentId);
-      state.target = current ? { kind: 'story', id: current.document.id } : null;
-      if (removedLegacyReplies) this.save(state, true);
+      state.target = current ? current.entryOnly ? { kind: 'entry', id: current.entryOnly } : { kind: 'story', id: current.document.id } : null;
+      if (removedLegacyReplies) this.save(state, true, draft => !recovery.has(draft.draftId));
     } catch (error) {
       state.storageBlocked = true;
       state.error = `无法读取本地 Story 草稿，原数据已保留，请先备份并检查存储：${error instanceof Error ? error.message : String(error)}`;
     }
   }
 
-  save(state: StoryEditorState, force = false): boolean {
-    for (const draft of state.drafts) if (stripLegacyStoryReplies(draft.document)) draft.dirty = true;
-    if (!force && !state.drafts.some(draft => draft.dirty)) return true;
+  save(state: StoryEditorState, force = false, canSave: (draft: StoryDraft) => boolean = () => true): boolean {
+    const allDrafts = [...state.drafts, ...(state.parkedDrafts ?? [])];
+    for (const draft of allDrafts) if (stripLegacyStoryReplies(draft.document)) draft.dirty = true;
+    if (!force && !allDrafts.some(draft => draft.dirty)) return true;
     if (state.storageBlocked) return false;
     const savedAt = Date.now();
-    const drafts = state.drafts.filter(draft => draft.persisted || draft.dirty);
+    const drafts = allDrafts.filter(draft => draft.persisted || draft.dirty);
     try {
       if (!drafts.every(draft => validDocument(draft.document) && validFlagInputs(draft.localFlagInputs, draft.document) && validEditorState(draft.editorState, draft.document) && validFlagImports(draft.flagImports))) throw new Error('草稿基本结构或节点身份无效');
-      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: currentAuthoringDraft(state)?.draftId ?? null,
-        drafts: drafts.map(draft => ({ draftId: draft.draftId, sourceId: draft.sourceId, document: draft.document, savedAt: draft.dirty ? savedAt : draft.savedAt,
+      const saved = new Map<string, Record<string, unknown>>();
+      const recoveryDrafts: Record<string, unknown>[] = [];
+      const committed: StoryDraft[] = [];
+      for (const draft of drafts) {
+        const allowed = canSave(draft);
+        const row = { draftId: draft.draftId, sourceId: draft.sourceId, document: draft.document, savedAt: allowed && draft.dirty ? savedAt : draft.savedAt,
           ...(draft.targetPackId === undefined ? {} : {targetPackId:draft.targetPackId}),
+          ...(draft.packSource === undefined ? {} : {packSource:draft.packSource}),
+          ...(draft.entryOnly === undefined ? {} : {entryOnly:draft.entryOnly}),
           ...(draft.renamedFromId === undefined ? {} : {renamedFromId:draft.renamedFromId}),
           ...(draft.localFlagInputs === undefined ? {} : { localFlagInputs: draft.localFlagInputs }),
           ...(draft.editorState === undefined ? {} : { editorState: draft.editorState }),
           ...(draft.flagImports === undefined ? {} : { flagImports: draft.flagImports }),
           ...(draft.authoring === undefined ? {} : { authoring: draft.authoring }),
           ...(draft.structuredInputs === undefined ? {} : { structuredInputs: draft.structuredInputs }),
-          ...(draft.structuredRows === undefined ? {} : { structuredRows: draft.structuredRows }) })) }));
-      for (const draft of drafts) {
+          ...(draft.structuredRows === undefined ? {} : { structuredRows: draft.structuredRows }) };
+        const previous = this.savedRows.get(draft.draftId);
+        if (allowed) { saved.set(draft.draftId, cloneStory(row)); committed.push(draft); }
+        else {
+          if (previous) saved.set(draft.draftId, previous);
+          if (draft.dirty) recoveryDrafts.push(row);
+        }
+      }
+      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: currentAuthoringDraft(state)?.draftId ?? null,
+        ...(state.sourceSelection ? { sourceSelection: state.sourceSelection } : {}),
+        drafts: [...saved.values()], ...(recoveryDrafts.length ? { recoveryDrafts } : {}) }));
+      this.savedRows = saved;
+      for (const draft of committed) {
         if (draft.dirty) draft.savedAt = savedAt;
         draft.dirty = false;
         draft.persisted = true;

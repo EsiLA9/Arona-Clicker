@@ -1,6 +1,7 @@
 import { validateStoryEntryActivation } from '../validation/story-entry';
 import { validateStoryContinuations } from '../validation/story-continuations';
 import type { AchievementDef, Datapack, MilestoneListenerDef } from '../contracts/datapack';
+import type { StoryNodeDocument } from '../contracts/story-node';
 import { validateOperationDatapackContent, type OperationContentValidationContext } from './operation-content-validation';
 // ============================================================
 // data-services/registry-validate.ts — 数据包静态校验（纯函数）
@@ -1141,6 +1142,7 @@ export interface DatapackValidationContext extends OperationContentValidationCon
   readonly passivePools?: ReadonlyMap<string, import('../contracts/passive-pool').PassivePoolDef>;
   readonly characterVariantIds?: ReadonlySet<string>;
   readonly storyIds?: ReadonlySet<string>;
+  readonly storyDocuments?: ReadonlyMap<string, StoryNodeDocument>;
   readonly itemTypes?: ReadonlyMap<string, ItemDef['type']>;
   readonly areaIds?: ReadonlySet<string>;
   readonly storyEntryIds?: ReadonlySet<string>;
@@ -1493,7 +1495,9 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
     }
   }
 
-  validateStoryContinuations([...dp.activeStories, ...dp.passiveStories], dp.stories, areaIds);
+  const storyDocuments = new Map(context.storyDocuments);
+  for (const story of dp.stories) storyDocuments.set(story.id, story);
+  validateStoryContinuations([...dp.activeStories, ...dp.passiveStories], [...storyDocuments.values()], areaIds, knownEntries);
 
   // 校验 Extra 数据：各 Def 的 extra 字段 + 数据包 extras 常量表（统一规则，见 docs/13 §8）
   const checkDefExtras = <T extends { id?: unknown; extra?: ExtraValue }>(

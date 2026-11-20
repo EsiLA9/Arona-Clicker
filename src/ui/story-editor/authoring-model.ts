@@ -71,12 +71,14 @@ export function constructStructuredValue(draft: StoryDraft, scope: string, path:
   for (const input of Object.keys(draft.structuredInputs ?? {})) if (input === key || input.startsWith(key.slice(0, -1) + ',')) delete draft.structuredInputs![input];
   return writeStructuredValue(draft, scope, path, presetValue(kind));
 }
-export function compileStoryAuthoring(state: StoryEditorState): { ok: true; patch: StoryAuthoringPatch } | { ok: false; message: string } {
+export function compileStoryAuthoring(state: StoryEditorState, include?: (draft: StoryDraft) => boolean): { ok: true; patch: StoryAuthoringPatch } | { ok: false; message: string } {
   const patch = emptyStoryAuthoring();
   const current = currentAuthoringDraft(state);
   if (!current) return { ok: false, message: '先选择 Story。' };
+  const drafts = include ? state.drafts.filter(include) : state.drafts;
+  const standalone = new Set(drafts.flatMap(draft => draft.entryOnly ? [draft.entryOnly] : []));
   const needed = new Set([current.document.id]);
-  const entries = new Map(state.drafts.flatMap(x => [...(x.authoring?.activeStories ?? []), ...(x.authoring?.passiveStories ?? [])]).map(x => [x.id,x]));
+  const entries = new Map(drafts.flatMap(x => [...(x.authoring?.activeStories ?? []), ...(x.authoring?.passiveStories ?? [])]).map(x => [x.id,x]));
   const visit = (value: unknown): void => {
     if (!value || typeof value !== 'object') return;
     if (Array.isArray(value)) { value.forEach(visit); return; }
@@ -87,17 +89,20 @@ export function compileStoryAuthoring(state: StoryEditorState): { ok: true; patc
     }
   };
   let size = 0;
-  while (size !== needed.size) { size = needed.size; for (const draft of state.drafts) if (needed.has(draft.document.id)) { visit(draft.document); visit(draft.authoring); } }
-  for (const draft of state.drafts) {
+  while (size !== needed.size) { size = needed.size; for (const draft of drafts) if (needed.has(draft.document.id)) { visit(draft.document); visit(draft.authoring); } }
+  for (const draft of drafts) {
     if (!needed.has(draft.document.id)) continue;
-    const result = storyDefinitionFromDraft(draft);
-    if (!result.ok) return result;
-    patch.stories.push(result.story);
+    if (!draft.entryOnly || !include && draft === current && !drafts.some(item => !item.entryOnly && item.document.id === draft.document.id)) {
+      const result = storyDefinitionFromDraft(draft);
+      if (!result.ok) return result;
+      patch.stories.push(result.story);
+    }
     for (const [table, ids] of Object.entries(draft.authoring?.removed ?? {})) {
       patch.removed ??= {}; const key = table as keyof NonNullable<StoryAuthoringPatch['removed']>;
       patch.removed[key] = [...new Set([...(patch.removed[key] ?? []), ...ids])];
     }
     for (const table of STORY_AUTHORING_TABLES) if (table !== 'stories') for (const row of draft.authoring?.[table] ?? []) {
+      if (!draft.entryOnly && table !== 'passivePools' && standalone.has(row.id)) continue;
       const prior = patch[table].find(x => x.id === row.id);
       if (prior && JSON.stringify(prior) !== JSON.stringify(row)) return { ok: false, message: `${row.id} 在多个草稿中有冲突修改，请统一后再提交。` };
       if (!prior) (patch[table] as { id: string }[]).push(structuredClone(row));
@@ -109,7 +114,7 @@ export function copyStoryIdentity(state: StoryEditorState, draft: StoryDraft, id
   if (!/^[a-z0-9_-]+:story:[a-z0-9_-]+$/.test(id) || existing.has(id) || state.drafts.some(x => x.document.id === id)) return false;
   const copy: StoryDraft = structuredClone(draft);
   copy.draftId = crypto.randomUUID(); copy.sourceId = null; copy.document = { ...copy.document, id };
-  delete copy.renamedFromId; delete copy.targetPackId;
+  delete copy.renamedFromId; delete copy.targetPackId; delete copy.entryOnly; delete copy.packSource;
   const rebindDisplayTargets=(value:unknown):void=>{
     if(!value||typeof value!=='object')return;
     const row=value as Record<string,unknown>;
@@ -123,7 +128,7 @@ export function copyStoryIdentity(state: StoryEditorState, draft: StoryDraft, id
 }
 export function addStoryAuthoringRow(draft: StoryDraft, table: 'activeStories' | 'passiveStories' | 'passivePools', affectionOwner?: string): void {
   draft.authoring ??= emptyStoryAuthoring();
-  const mod = draft.document.id.split(':')[0]; const name = `entry_${crypto.randomUUID().replace(/-/g, '')}`;
+  const mod = draft.packSource?.modName ?? draft.document.id.split(':')[0]; const name = `entry_${crypto.randomUUID().replace(/-/g, '')}`;
   const id = `${mod}:${table === 'passivePools' ? 'passivepool' : table === 'activeStories' ? 'activestory' : 'passivestory'}:${name}`;
   if (table === 'passivePools') draft.authoring.passivePools.push({ id, name: '新被动池', children: [] });
   else {

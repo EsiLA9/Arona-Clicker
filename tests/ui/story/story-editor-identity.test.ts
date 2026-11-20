@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AronaClickerRuntime } from '../../../src/arona-clicker/runtime/runtime';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
-import { currentDraft, storyDefinitionFromDraft } from '../../../src/ui/story-editor/model';
+import { currentDraft } from '../../../src/ui/story-editor/model';
 import { emptyStoryAuthoring } from '../../../src/data-services/authoring/story-authoring';
 import { LocalStorageAdapter } from '../../../src/data-services/persistence/storage-adapter';
 import '../../../src/ui/runtime/service-definitions';
@@ -111,9 +111,8 @@ describe('Story identity UI',()=>{
   it('keeps the original on save failure, then commits pack identity and references together and reloads the draft',()=>{
     const pack=editing(), draft=create(pack.id), old=draft.document.id;
     draft.document={...draft.document,startContext:{type:'area',areaId:baseDatapack.areas[0].id},nodes:[{id:'jump',type:'transfer',transfer:{mode:'goto',storyId:old}}]};
-    const projected=storyDefinitionFromDraft(draft);if(!projected.ok)throw new Error(projected.message);
-    const patch={...emptyStoryAuthoring(),stories:[projected.story]};
-    expect(game.saveStoryAuthoringToPack(pack.id,patch)).toMatchObject({ok:true});draft.sourceId=old;
+    click('[data-authoring-action="pack"]');
+    expect(game.getPackRecord(pack.id)?.datapack.stories.some(story => story.id === old)).toBe(true);
     ctrl.storyEditor.requestRefresh();ctrl.flushUIUpdates();click('[data-editor-action="rename-id"]');change('[data-story-new-id]','opening');
     const save=vi.spyOn(game,'renameStoryInPack').mockReturnValueOnce({ok:false,message:'storage full'});
     click('[data-modal-action="rename-story-id"]');expect(draft.document.id).toBe(old);expect(ctrl.modal.isOpen()).toBe(true);

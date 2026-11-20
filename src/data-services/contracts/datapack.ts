@@ -12,6 +12,7 @@ import type { ItemDef } from './item';
 import type { EnhancementDef } from './enhancement';
 import type { PassivePoolDef } from './passive-pool';
 import type { StoryDef } from './story';
+import type { StoryDirectoryDef } from './story-directory';
 import type { ActiveStoryEntry, PassiveStoryEntry } from './story-entry';
 import type {
   ResourceDisplayDef,
@@ -110,6 +111,8 @@ export interface Datapack {
    */
   passivePools?: PassivePoolDef[];
   stories: StoryDef[];
+  /** Explicit Init directory structure and Mod-owned automatic directory presentation. */
+  storyDirectories?: StoryDirectoryDef[];
   items: ItemDef[];
   dropTables?: DropTableDef[];
   affectorPacks?: AffectorPackDef[];

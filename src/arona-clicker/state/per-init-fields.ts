@@ -115,7 +115,7 @@ export const PER_INIT_FIELD_SPECS = [
   field('resources', () => ({})), spotField('spotLevels'), spotField('spotManagers'),
   field('visitedAreas', () => []), field('collectedAreaMapIds', () => []), field('totalFrames', () => 0), field('inventory', () => ({})),
   enhancementField, field('storyLog', () => []), field('areaStoryDeliveries', () => []), field('storyReadLogs', () => ({})),
-  field('storyEntryReads', () => ({})),
+  field('storyEntryReads', () => ({})), field('storyDirectoryPaths', () => ({})),
   field('flags', () => ({})), field('triggersCompleted', () => []), field('currentAreaId', () => undefined), extrasSpec,
   characterContainer('roster', 'roster', () => ({})), characterContainer('fragments', 'roster', () => ({})),
   characterContainer('gachaState', 'gacha', () => ({})), characterContainer('chatRead', 'chatRead', () => ({})),

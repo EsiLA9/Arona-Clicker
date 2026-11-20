@@ -6,7 +6,7 @@
 // ============================================================
 
 import { THEME_NODES, buildThemeTree, buildThemeVars, heroGradient, type ThemeTree, type ThemeVarName } from '../presentation/theme-tree';
-import { INK_ON_DARK, rgbTriplet } from '../../engine/core/color';
+import { INK_ON_LIGHT, rgbTriplet } from '../../engine/core/color';
 import type { UIController } from './controller';
 import { buildBackgroundView, renderBackground } from '../presentation/background-service';
 import type { ResolvedTheme } from '../../engine/core/theme-runtime';
@@ -130,7 +130,7 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
   for (const [key, value] of Object.entries(semantic)) style.setProperty(key, value);
   const rootNodes = resolveThemeNodes({ colors: palette }, tokens, nodeOverrides);
   for (const [key, value] of Object.entries(buildScopedThemeCompatibilityVars(rootNodes))) style.setProperty(key, value);
-  const canvasInk = ink?.text ?? INK_ON_DARK;
+  const canvasInk = ink?.text ?? INK_ON_LIGHT;
   style.setProperty('--ink-on-canvas', canvasInk);
   style.setProperty('--muted-on-canvas', `color-mix(in srgb, ${canvasInk} 58%, transparent)`);
   applyThemeScopes(ctrl, tokens, palette, nodeOverrides, resolved.scopeNodeOverrides, resolved.presentation);
@@ -155,7 +155,11 @@ export function applyTheme(ctrl: UIController, syncRuntime = true): void {
 
 /** UI-only theme selection; the gameplay theme remains owned by ColorSystem. */
 export function uiTheme(ctrl: UIController): ResolvedTheme {
-  return (ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme?.resolve() : undefined) ?? ctrl.game.colorSystem.runtimeTheme();
+  const runtime = ctrl.game.colorSystem.runtimeTheme();
+  return (ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme?.resolve() : undefined)
+    ?? (runtime.layers.includes('user-theme-preview') ? runtime : undefined)
+    ?? ctrl.serviceThemeOverride
+    ?? runtime;
 }
 
 function applyThemeScopes(ctrl: UIController, tokens: Record<string, string>, palette: string[], rootOverrides: ReadonlyMap<import('../presentation/theme-palette').ThemeNodeName, string>, scopeOverrides: Record<string, Partial<Record<import('../presentation/theme-palette').ThemeNodeName, string>>>, presentation: import('../../engine/types/theme').PresentationDef): void {

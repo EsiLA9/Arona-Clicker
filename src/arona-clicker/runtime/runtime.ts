@@ -1,4 +1,7 @@
-import { patchStoryDatapack, STORY_AUTHORING_TABLES, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
+import { emptyStoryAuthoring, patchStoryDatapack, STORY_AUTHORING_TABLES, validateStoryAuthoringShape, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
+import type { StoryDef } from '../../data-services/contracts/story';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackSource } from '../contracts/runtime/runtime';
+import type { StoryAuthoringPreviewTarget } from '../contracts/runtime/story-authoring';
 import { packStoryIdentityReferences, planStoryIdentityChange, type StoryIdentityChange } from '../../data-services/authoring/story-identity';
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
@@ -23,6 +26,7 @@ import { RuntimeDefinitionEditor, SpotContentService } from '../services/world/s
 import type { RuntimeModStateSnapshot, RuntimeSpotMutation, RuntimeSpotMutationResult, RuntimeSpotRevealTriggerDraft, RuntimeWorldApplyResult, RuntimeWorldDraft, RuntimeWorldStateSnapshot } from '../contracts/runtime/runtime-content';
 import { decodeSpotContent } from '../../data-services/authoring/content-policy-dsl';
 import { gameplayBMapDatapack } from '../content/gameplay-b/gameplay-b-map-datapack';
+import { retainStoryDirectoryProgress } from '../read-model/story-directory-view';
 
 export interface AronaClickerRuntimeOptions extends GameInstanceOptions {
   packStore?: PackSnapshotStore;
@@ -48,6 +52,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   packManager: PackManager;
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
   private activeDatapacks: readonly Datapack[] = [];
+  private readonly storyOverlaySources = new WeakMap<Datapack, string | undefined>();
   private runtimeMod: RuntimeModDraft | null = null;
   private runtimeEditorPackRecordId: string | null = null;
   private readonly runtimeContent: RuntimeContentCoordinator;
@@ -114,9 +119,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   override init(datapacks: Datapack[], options = {}): void {
+    const retained = new Map(this.activeDatapacks.filter(pack => datapacks.includes(pack)).map(pack =>
+      [pack, this.getRunningStoryPackId(pack.modName ?? 'base')] as const));
     this.activeDatapacks = [...datapacks];
     super.init(datapacks, options);
-    this.packManager.adoptRuntimeDatapacks(datapacks);
+    this.packManager.adoptRuntimeDatapacks(datapacks, retained);
     this.runtimeWorldContent.reset();
     this.clearRuntimeAreaTopology();
   }
@@ -288,6 +295,49 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     };
   }
 
+  getRunningStoryPackId(modName: string): string | undefined {
+    const datapack = this.activeDatapacks.find(pack => (pack.modName ?? 'base') === modName);
+    if (!datapack) return undefined;
+    if (this.storyOverlaySources.has(datapack)) return this.storyOverlaySources.get(datapack);
+    return this.packManager.runtimeState().get(`${modName}@${datapack.version}`);
+  }
+
+  getStoryPackSources(source: StoryPackSource) {
+    return structuredClone(this.resolveStoryPackSources(source));
+  }
+
+  private resolveStoryPackSources(source: StoryPackSource) {
+    const root = this.packManager.getPack(source.packRecordId);
+    const modName = root?.manifest.modName ?? source.modName;
+    const issues: string[] = [];
+    const datapacks: Datapack[] = [];
+    const images: Pick<StoredPack, 'manifest' | 'images'>[] = [];
+    const visited = new Set([modName]);
+    const visit = (name: string): void => {
+      if (visited.has(name)) return;
+      visited.add(name);
+      const active = this.activeDatapacks.find(pack => (pack.modName ?? 'base') === name);
+      const candidates = this.packManager.listPacks().filter(pack => pack.manifest.modName === name);
+      const selected = active
+        ? candidates.find(pack => pack.id === this.getRunningStoryPackId(name))
+        : candidates.length === 1 ? candidates[0] : undefined;
+      if (!active && !selected) {
+        issues.push(candidates.length ? `依赖 Mod「${name}」有多个本地来源，请先应用所需版本。` : `缺少依赖 Mod「${name}」。`);
+        return;
+      }
+      for (const dependency of selected?.manifest.dependencies ?? []) visit(dependency);
+      datapacks.push(active ?? selected!.datapack);
+      if (selected) images.push({ manifest: selected.manifest, images: selected.images });
+    };
+    visit('base');
+    for (const dependency of root?.manifest.dependencies ?? source.dependencies) visit(dependency);
+    if (root) {
+      datapacks.push(root.datapack);
+      images.push({ manifest: root.manifest, images: root.images });
+    }
+    return { datapacks, issues, images };
+  }
+
   getEditingPackDraft(packRecordId: string): RuntimeModDraft | null {
     const pack = this.packManager.getPack(packRecordId);
     if (!pack || packEditingMode(pack) !== 'editing') return null;
@@ -302,7 +352,9 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     const previousRuntimeMod = this.runtimeMod;
     try {
       const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
-      const datapacks = replaceRuntimeDatapack(active, cloneJson(pack.datapack), this.runtimeMod ? [this.runtimeMod.modName] : []);
+      const overlay = cloneJson(pack.datapack);
+      this.storyOverlaySources.set(overlay, packRecordId);
+      const datapacks = replaceRuntimeDatapack(active, overlay, this.runtimeMod ? [this.runtimeMod.modName] : []);
       this.validatePackDatapacks(datapacks);
       this.reloadPreservingState(datapacks);
       this.runtimeMod = draft;
@@ -608,6 +660,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       const replacedModNames = this.runtimeMod ? [this.runtimeMod.modName] : [];
       const background = active.filter(datapack => datapack.modName !== draft.modName
         && (!datapack.modName || !replacedModNames.includes(datapack.modName)));
+      this.storyOverlaySources.set(runtimePack, targetPackRecordId ?? undefined);
       const datapacks = replaceRuntimeDatapack(active, runtimePack, replacedModNames);
       const backgroundRegistry = new Registry();
       for (const datapack of background) backgroundRegistry.load(datapack);
@@ -653,22 +706,121 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     return this.runtimeMod;
   }
 
-  saveStoryAuthoringToPack(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult {
+  override validateStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult {
+    return packRecordId ? this.saveStoryAuthoringToPack(packRecordId, patch, true) : super.validateStoryAuthoring(patch);
+  }
+
+  override createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackSource) {
+    if (!source) return super.createStoryAuthoringPreview(patch, target);
+    const content = this.resolveStoryPackSources(source);
+    if (content.issues.length) return { ok: false as const, message: content.issues.join(' ') };
+    return this.previewStoryWithContent(patch, target, content);
+  }
+
+  override applyStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult {
+    try {
+      this.requireRunningStoryPack(packRecordId, patch);
+      return super.applyStoryAuthoring(patch);
+    } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  override saveStoryDefinition(story: StoryDef, packRecordId?: string): StoryDefinitionSaveResult {
+    try {
+      this.requireRunningStoryPack(packRecordId, { ...emptyStoryAuthoring(), stories: [story] });
+      return super.saveStoryDefinition(story);
+    } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  override restoreStoryDefinition(storyId: string, packRecordId?: string): StoryDefinitionRestoreResult {
+    try {
+      const story = this.registry.stories.get(storyId);
+      if (!story) throw new Error('当前游戏中找不到该 Story。');
+      this.requireRunningStoryPack(packRecordId, { ...emptyStoryAuthoring(), stories: [story] });
+      return super.restoreStoryDefinition(storyId);
+    } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  private requireRunningStoryPack(packRecordId: string | undefined, patch: StoryAuthoringPatch): void {
+    const pack = this.requireEditingPack(packRecordId ?? '');
+    const mod = pack.manifest.modName;
+    if (this.getRunningStoryPackId(mod) !== packRecordId) throw new Error('目标编辑态数据包当前未运行。可保存到包库，或应用该包后再更新当前游戏。');
+    this.assertStoryPackOwnership(pack, patch);
+    for (const table of STORY_AUTHORING_TABLES) {
+      const active = this.activeDatapacks.find(item => (item.modName ?? 'base') === mod);
+      for (const id of [...patch[table].map(row => row.id), ...(patch.removed?.[table] ?? [])]) {
+        const exists = this.registry[table].has(id);
+        const owner = table !== 'passivePools'
+          ? this.registry.storyDirectoryContentOwner(id, table === 'stories' ? 'story' : 'entry') : undefined;
+        const foreign = this.activeDatapacks.some(item => item !== active && (item[table] ?? []).some(row => row.id === id));
+        if (exists && (foreign || owner && owner !== mod)) throw new Error(`当前运行内容 ${id} 属于其他 Mod。`);
+      }
+    }
+  }
+
+  private assertStoryPackOwnership(pack: StoredPack, patch: StoryAuthoringPatch): void {
+    for (const table of STORY_AUTHORING_TABLES) {
+      const rows = pack.datapack[table] ?? [];
+      for (const row of patch[table]) {
+        if (!row.id.startsWith(`${pack.manifest.modName}:`) && !rows.some(item => item.id === row.id)) {
+          throw new Error(`目标包不拥有 ${row.id}；请先另存为目标命名空间的身份。`);
+        }
+      }
+      for (const id of patch.removed?.[table] ?? []) {
+        if (!rows.some(item => item.id === id)) throw new Error(`目标包不拥有待删除内容 ${id}`);
+      }
+    }
+  }
+
+  private validateStoryPackCandidate(pack: StoredPack, datapack: Datapack, patch?: StoryAuthoringPatch): void {
+    const { datapacks, issues } = this.resolveStoryPackSources({
+      packRecordId: pack.id, modName: pack.manifest.modName, dependencies: pack.manifest.dependencies,
+    });
+    if (issues.length) throw new Error(issues.join(' '));
+    const registry = this.validatePackDatapacks(replaceRuntimeDatapack(datapacks, datapack));
+    if (patch) {
+      for (const foreign of datapacks) {
+        if (foreign.modName === datapack.modName) continue;
+        for (const table of STORY_AUTHORING_TABLES) for (const row of patch[table]) {
+          if ((foreign[table] ?? []).some(existing => existing.id === row.id) && !(pack.datapack[table] ?? []).some(existing => existing.id === row.id)) {
+            throw new Error(`目标包不能覆盖其他 Mod 的内容：${row.id}`);
+          }
+        }
+      }
+      registry.saveStoryAuthoring(patch, true);
+    }
+  }
+
+  saveStoryAuthoringToPack(packRecordId: string, patch: StoryAuthoringPatch, checkOnly = false): StoryAuthoringResult {
     try {
       const pack = this.requireEditingPack(packRecordId);
-      const checked = this.validateStoryAuthoring(patch);
-      if (!checked.ok) return checked;
-      for (const table of STORY_AUTHORING_TABLES) for (const row of patch[table]) {
-        if (!row.id.startsWith(`${pack.datapack.modName ?? pack.manifest.modName}:`) && !(pack.datapack[table] ?? []).some(x => x.id === row.id)) throw new Error(`目标包不拥有 ${row.id}；请先另存为目标命名空间的身份。`);
-      }
-      for (const table of STORY_AUTHORING_TABLES) for (const id of patch.removed?.[table] ?? []) if (!(pack.datapack[table] ?? []).some(x => x.id === id)) throw new Error(`目标包不拥有待删除内容 ${id}`);
+      validateStoryAuthoringShape(patch);
+      this.assertStoryPackOwnership(pack, patch);
       const datapack = patchStoryDatapack(pack.datapack, patch);
-      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
-      this.validatePackDatapacks(replaceRuntimeDatapack(active, datapack));
+      this.validateStoryPackCandidate(pack, datapack, patch);
+      if (checkOnly) return { ok: true, message: '作者内容和目标 Mod 的目录位置校验通过。' };
       this.packManager.savePack({ ...pack, datapack, contentDigest: undefined });
       this.persistPackManagerSnapshot();
       return { ok: true, message: '已保存到编辑态数据包；重新载入该包后生效。可从包管理导出。' };
     } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+  }
+
+  saveStoryDirectoryToPack(packRecordId: string, directory: import('../../data-services/contracts/story-directory').StoryDirectoryDef, remove = false): StoryAuthoringResult {
+    try {
+      const pack = this.requireEditingPack(packRecordId);
+      const current = pack.datapack.storyDirectories ?? [];
+      const existing = current.find(row => row.id === directory.id);
+      if (remove && !existing) throw new Error('所选编辑态 Mod 没有这条目录配置。');
+      if (existing && (existing.initId !== directory.initId || existing.characterId !== directory.characterId)) throw new Error('目录身份和 Init 在建立后固定。');
+      const storyDirectories = current.filter(row => row.id !== directory.id);
+      if (!remove) storyDirectories.push(structuredClone(directory));
+      const datapack = { ...pack.datapack, storyDirectories };
+      this.validateStoryPackCandidate(pack, datapack);
+      this.packManager.savePack({ ...pack, datapack, contentDigest: undefined });
+      this.persistPackManagerSnapshot();
+      return { ok: true, message: '目录配置已保存到编辑态 Mod，重新载入该包后对玩家生效。' };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+    }
   }
 
   renameStoryInPack(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult {
@@ -688,8 +840,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         if (reference) throw new Error(`其他 Mod 仍引用此 Story：${other.manifest.modName} / ${reference.id} ${reference.path}`);
       }
       const {datapack} = planStoryIdentityChange(pack.datapack,change.patch,change.fromId,change.toId);
-      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
-      this.validatePackDatapacks(replaceRuntimeDatapack(active,datapack));
+      this.validateStoryPackCandidate(pack, datapack);
       this.packManager.savePack({...pack,datapack,contentDigest:undefined});
       this.persistPackManagerSnapshot();
       return {ok:true,message:'Story ID 与引用已保存到编辑态 Mod；重新载入该包后生效。'};
@@ -875,10 +1026,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     });
   }
 
-  private validatePackDatapacks(datapacks: readonly Datapack[]): void {
+  private validatePackDatapacks(datapacks: readonly Datapack[]): Registry {
     const registry = new Registry();
     for (const datapack of datapacks) registry.load(datapack);
     registry.validateAreaMapRefs();
+    return registry;
   }
 
   private createPackApplyTarget(): {
@@ -903,7 +1055,11 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         else this.imageStore.clear();
         if (checkpoint.saveData) this.load(checkpoint.saveData);
       },
-      reload: datapacks => this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit }),
+      reload: datapacks => {
+        const progress = retainStoryDirectoryProgress(this.registry, this.state);
+        this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit });
+        if (progress) this.mutations.retainStoryDirectoryProgress(progress);
+      },
       clearImages: () => this.imageStore.clear(),
       registerImages: (modName, images) => this.pics.register(modName, images),
     };

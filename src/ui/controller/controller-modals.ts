@@ -261,6 +261,7 @@ export function openUserThemeEditor(ctrl: UIController): void {
   save?.addEventListener('click', () => {
     const result = ctrl.game.userThemeService.apply(current.id, { ...current.draft, version: 1, tokens: current.draft.tokens });
     if (!result.ok) { showUserThemeError(modal, result.issues?.join('；') ?? result.message); return; }
+    ctrl.serviceThemeOverride = undefined;
     ctrl.modal.close(); ctrl.render(); ctrl.toast.show('用户主题已保存并应用', 'success');
   });
 }
@@ -548,7 +549,9 @@ function bindUserThemeEditor(ctrl: UIController, modal: Element, session: import
 }
 
 function resolvedLayersForTarget(ctrl: UIController, target: ThemeLayerTargetRef): readonly BackgroundLayerDef[] {
-  const runtime = (ctrl.storyEditor.isOpen() ? ctrl.storyEditor.state.uiTheme?.resolve(false) : undefined) ?? ctrl.game.colorSystem.selectorBaseTheme();
+  const runtime = ctrl.storyEditor.isOpen()
+    ? ctrl.storyEditor.state.uiTheme?.resolve(false) ?? ctrl.game.colorSystem.selectorBaseTheme()
+    : uiTheme(ctrl);
   const hostId = target.kind === 'global' ? 'global' : target.hostId;
   const globalHost = runtime.presentation?.hosts?.find(item => item.id === 'global');
   if (hostId === 'global') {

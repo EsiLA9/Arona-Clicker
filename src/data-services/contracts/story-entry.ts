@@ -4,6 +4,7 @@ import type { Condition, ConditionGroup, Effect } from '../../engine/types/expre
 import type { AreaId, InitId, StoryEntryId, StoryId } from '../../engine/types/ids';
 import type { RevealTrigger } from '../../engine/types/reveal';
 import type { TriggerEventDef } from '../../engine/types/trigger';
+import type { StoryEntryDirectoryPlacement } from './story-directory';
 
 export interface ConditionalReward { condition: ConditionGroup; effects: Effect[]; }
 export interface BranchGuard { storyId: StoryId; prerequisites: { storyId: StoryId; talkletIndex: number }[]; denialMessage: string; }
@@ -27,6 +28,8 @@ export interface StoryEntryBase {
   id: StoryEntryId; storyId: StoryId; availableInits: InitId[]; tags?: TagPath[]; triggerCondition: ConditionGroup;
   /** 历史目录位置；与正式激活方式、角色归属和完成状态独立。 */
   catalog?: StoryEntryCatalog;
+  /** Explicit placement in each applicable Init. Missing placements are inferred. */
+  directoryPlacements?: StoryEntryDirectoryPlacement[];
   owner?: string;
   completionReward?: { first?: Effect[]; repeat?: Effect[] };
   revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';

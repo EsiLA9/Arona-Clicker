@@ -1,13 +1,14 @@
 import { currentRelatedFlagCatalog, currentStoryFlagCatalog } from './flag-catalog-view';
 import { changeEntryActivation, defaultEntryActivation, type EntryActivation } from './entry-activation';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
-import { emptyStoryAuthoring, validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
+import { emptyStoryAuthoring, STORY_AUTHORING_TABLES, validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { acceptEditorStoryRename, knownModStoryIds, planEditorStoryRename, storyEditingMod, storyEditingMods } from './identity';
 import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
 import { openStoryEditorDialog } from './editor-dialog';
 import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
+import { openStoryDirectoryDialog } from './directory-dialog';
 import { openConditionTreeDialog } from './condition-tree-dialog';
 import { conditionReferenceChoices } from './condition-reference-navi';
 import { entryConditionField, STORY_CONDITION_TARGETS } from './condition-fields';
@@ -30,6 +31,11 @@ import { renderWorkspaceFrame, workspaceColumns, type WorkspaceFrameSpec } from 
 import type { WorkspaceLocation, WorkspaceNavigationState } from '../workspace/workspace-router';
 import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId, unbindStoryNodeFromChoiceOption } from './model';
 import { StoryDraftPersistence } from './persistence';
+import { ImageStore } from '../../data-services/assets/image-store';
+import { PicService } from '../../data-services/assets/pic-service';
+import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/contracts/runtime/runtime';
+import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
+import { storyPackCatalog, storyPackSource, storySourceGame } from './pack-source';
 import { createStoryEditorFrame, storySenders } from './view';
 import { StoryEditorTheme } from './theme';
 import { storyEditorSceneTarget } from './scene-view';
@@ -122,6 +128,7 @@ export class StoryEditorController {
   private draggingNodeId: string | null = null;
   private readonly inspectorScroll = new Map<string,number>();
   private readonly inspectorTabs = new Map<string,StoryEditorState['storyInspectorTab']>();
+  private readonly sourceVisits = new Map<string, { visits: StoryEditorVisit[]; index: number }>();
   private readonly entryTabScroll = new Map<string,Partial<Record<'basic'|'rewards'|'gates',number>>>();
   private readonly entryTabs = new Map<string,'basic'|'rewards'|'gates'>();
   private readonly catalogMemory: CatalogDialogMemory = { expanded: new Set(), treeScroll: 0 };
@@ -136,7 +143,7 @@ export class StoryEditorController {
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
   private preview?: StoryAuthoringPreview;
-  private previewLaunch?: { patch: StoryAuthoringPatch; target: StoryAuthoringPreviewTarget };
+  private previewLaunch?: { patch: StoryAuthoringPatch; target: StoryAuthoringPreviewTarget; source?: StoryPackSource };
   private previewTimer?: ReturnType<typeof setInterval>;
   private previewSignature = '';
   private previewReturnScroll?: Record<'left' | 'center' | 'right', number> & { launchKey?: string };
@@ -145,16 +152,222 @@ export class StoryEditorController {
   private editorDialog?: HTMLElement;
   private readonly requiredFlagDropdown: RequiredFlagDropdown;
   private readonly inlineText: StoryInlineTextEditor;
+  private liveRegistry?: ContentCatalogQueryPort;
+  private packCatalogSignature?: string;
   constructor(private readonly ctrl: UIController, readonly persistence = new StoryDraftPersistence()) {
     this.inlineText = new StoryInlineTextEditor(ctrl.root, ctrl.game, () => this.isOpen() ? currentDraft(this.state) : undefined,
-      () => this.state.storageBlocked, nodeId => {
+      () => this.writeBlocked, nodeId => {
         if (nodeId !== this.state.selectedNodeId) this.closeThemeContentEdit();
         this.rememberInspectorScroll(); this.state.inspectorView = 'node'; this.pendingInspectorScroll = undefined;
         this.state.selectedNodeId = nodeId;
       }, () => this.requestRefresh());
     this.requiredFlagDropdown = new RequiredFlagDropdown(ctrl.root,
       () => this.isOpen() ? JSON.stringify([this.state.target,this.state.selectedNodeId]) : '',
-      () => requiredFlagOptions(this.state,buildStoryRelations(this.state,ctrl.game.registry.stories,ctrl.game.registry.storyEntries)));
+      () => requiredFlagOptions(this.state,buildStoryRelations(this.state,this.registry.stories,this.registry.storyEntries)));
+  }
+
+  private get packQuery() { return this.ctrl.game as typeof this.ctrl.game & Partial<PackCatalogReadModel>; }
+  private get registry() { return this.state.sourceRegistry ?? this.ctrl.game.registry; }
+  private get editorGame() { return storySourceGame(this.ctrl.game, this.state); }
+  private get writeBlocked() {
+    const draft = currentAuthoringDraft(this.state);
+    return this.state.storageBlocked || Boolean(draft && !this.draftSaveAllowed(draft));
+  }
+
+  private packSource(id: string): StoryDraft['packSource'] {
+    const entry = this.packQuery.getPackCatalog?.().entries.find(pack => (pack.packRecordId ?? pack.id) === id);
+    return entry && storyPackSource(entry);
+  }
+
+  private draftSaveAllowed(draft: StoryDraft): boolean {
+    if (!this.state.sourceOptions) return true;
+    const source = draft.packSource;
+    if (!source || draft.targetPackId !== source.packRecordId || this.state.sourceSelection?.startsWith('draft:')) return false;
+    const pack = this.packQuery.getPackCatalog?.().entries.find(item => (item.packRecordId ?? item.id) === source.packRecordId);
+    return Boolean(pack?.editingMode === 'editing' && (!source.digest || source.digest === pack.contentDigest)
+      && (this.state.sourceSelection === `pack:${source.packRecordId}`
+        || !this.state.sourceSelection && this.packQuery.getRunningStoryPackId?.(source.modName) === source.packRecordId));
+  }
+
+  private persist(state = this.state, force = false): boolean {
+    return this.persistence.save(state, force, draft => this.draftSaveAllowed(draft));
+  }
+
+  private refreshPackSource(packId: string, previousDigest?: string): void {
+    const source = this.packSource(packId);
+    if (!source) return;
+    for (const draft of [...this.state.drafts, ...(this.state.parkedDrafts ?? [])]) {
+      if (draft.packSource?.packRecordId !== packId || draft.packSource.digest !== previousDigest) continue;
+      draft.packSource = source;
+      if (draft.persisted) draft.dirty = true;
+    }
+    this.syncSource(true);
+  }
+
+  private syncSource(force = false): void {
+    const query = this.packQuery;
+    if (!query.getRunningStoryPackId || !query.getStoryPackSources) return;
+    const catalog = query.getPackCatalog?.();
+    const sources = new Map(catalog?.entries.map(entry => {
+      const source = storyPackSource(entry);
+      return [source.packRecordId, source] as const;
+    }));
+    const editing = new Set(catalog?.entries.filter(entry => entry.editingMode === 'editing').map(entry => entry.packRecordId ?? entry.id));
+    const state = this.state, selection = state.sourceSelection ?? '';
+    const bank = [...state.drafts, ...(state.parkedDrafts ?? [])];
+    const previous = currentAuthoringDraft(state);
+    const recovery = selection.startsWith('draft:') ? bank.find(draft => draft.draftId === selection.slice(6)) : undefined;
+    const selected = selection.startsWith('pack:') ? sources.get(selection.slice(5)) : undefined;
+    const live = this.ctrl.game.registry;
+    const liveChanged = this.liveRegistry !== live;
+    this.liveRegistry = live;
+    const signature = JSON.stringify(catalog?.entries.map(item => [item.packRecordId ?? item.id, item.contentDigest]));
+    const catalogChanged = this.packCatalogSignature !== signature;
+    this.packCatalogSignature = signature;
+    state.sourceMod = selected?.modName;
+    if (liveChanged) {
+      this.sourceVisits.delete('');
+      if (!selection) { state.visits = []; state.visitIndex = -1; }
+    }
+    state.sourceOptions = (catalog?.entries ?? []).map(item => {
+      const id = item.packRecordId ?? item.id;
+      const running = query.getRunningStoryPackId!(item.modName) === id;
+      const applied = catalog?.panes?.some(pane => pane.runtimePackRecordId === id);
+      const status = running ? applied ? '已应用' : '临时载入' : '未应用';
+      return { value: `pack:${id}`, group: 'packs', label: `${sources.get(id)!.label} · ${status}` };
+    });
+    if (force || liveChanged || catalogChanged) {
+      const source = selected ?? recovery?.packSource;
+      const resolved = source ? query.getStoryPackSources(source) : undefined;
+      state.sourceRegistry = selection ? storyPackCatalog(resolved?.datapacks ?? []) : undefined;
+      state.sourcePics = state.sourceRegistry ? new PicService(state.sourceRegistry.pics, new ImageStore()) : undefined;
+      if (state.sourcePics instanceof PicService) for (const pack of resolved?.images ?? []) {
+        state.sourcePics.register(pack.manifest.modName, pack.images);
+      }
+      state.sourceWarning = resolved?.issues.join(' ') || (selection.startsWith('pack:') && !selected ? '这个数据包已不在包库。' : undefined);
+    }
+    const active: StoryDraft[] = [], parked: StoryDraft[] = [];
+    for (const draft of bank) {
+      if (!draft.packSource && draft.targetPackId) {
+        const source = sources.get(draft.targetPackId);
+        const record = source && query.getPackRecord?.(source.packRecordId);
+        if (record?.editingMode === 'editing' && (draft.sourceId
+          ? record.datapack.stories.some(row => row.id === draft.sourceId)
+          : draft.document.id.startsWith(`${source!.modName}:`))) draft.packSource = source;
+      }
+      const source = draft.packSource;
+      const current = source && sources.get(source.packRecordId);
+      const inSource = source && current && (!draft.targetPackId || editing.has(source.packRecordId))
+        && (!source.digest || source.digest === current.digest) && (selected
+        ? selected.packRecordId === source.packRecordId
+        : !selection && query.getRunningStoryPackId(source.modName) === source.packRecordId);
+      const viewing = !draft.dirty && !draft.persisted && !liveChanged && !catalogChanged && !force && draft.viewSource === selection;
+      if (recovery === draft || inSource || viewing) active.push(draft);
+      else if (draft.persisted || draft.dirty) parked.push(draft);
+    }
+    state.drafts = active;
+    state.parkedDrafts = parked;
+    for (const draft of [...parked, ...(recovery ? [recovery] : [])]) {
+      state.sourceOptions.push({ value: `draft:${draft.draftId}`, group: 'drafts',
+        label: `${draft.document.name || draft.document.id} · ${draft.packSource?.label ?? draft.document.id}` });
+    }
+    if (previous && !active.includes(previous)) {
+      this.closeEditorDialog(); this.closeSelectionNavi(); this.closeThemeContentEdit();
+      if (parked.includes(previous)) {
+        state.sourceSelection = `draft:${previous.draftId}`;
+        state.visits = []; state.visitIndex = -1;
+        this.syncSource(true);
+        return;
+      }
+      state.target = null; state.selectedNodeId = null; state.insertionBeforeNodeId = null;
+    }
+    const draft = currentAuthoringDraft(state);
+    const source = draft?.packSource;
+    const pack = source && catalog?.entries.find(entry => (entry.packRecordId ?? entry.id) === source.packRecordId);
+    state.readOnlyReason = recovery
+      ? `草稿已保留，暂时无法保存。原来源为 ${recovery.packSource?.label ?? recovery.document.id}。请从包库打开对应编辑态 Mod 后继续。`
+      : draft && !this.draftSaveAllowed(draft) ? '当前内容可查阅和试播。请从包库打开对应编辑态 Mod 后编辑。' : undefined;
+    state.canApplySource = Boolean(draft && this.draftSaveAllowed(draft) && pack && query.getRunningStoryPackId(pack.modName) === source?.packRecordId);
+  }
+
+  private selectSource(selection: string): void {
+    if (selection === (this.state.sourceSelection ?? '')) return;
+    if (!this.save(false, false)) return;
+    this.closeAuthoringPreview(); this.closeEditorDialog(); this.closeSelectionNavi(); this.closeThemeContentEdit();
+    this.requiredFlagDropdown.close(); this.nodeMenu.close();
+    const state = this.state;
+    const previous = currentAuthoringDraft(state);
+    this.rememberVisit();
+    this.sourceVisits.set(state.sourceSelection ?? '', { visits: state.visits, index: state.visitIndex });
+    const history = this.sourceVisits.get(selection);
+    state.sourceSelection = selection || undefined;
+    state.targetPackId = selection.startsWith('pack:') ? selection.slice(5) : undefined;
+    state.target = null; state.selectedNodeId = null; state.insertionBeforeNodeId = null;
+    state.visits = history?.visits ?? []; state.visitIndex = history?.index ?? -1;
+    state.search = ''; state.entrySearch = ''; state.storyInitFilter = '';
+    this.syncSource(true);
+    const draft = state.drafts.find(item => selection === `draft:${item.draftId}` || item === previous
+      || item.entryOnly === previous?.entryOnly && item.document.id === previous?.document.id);
+    if (draft) {
+      state.target = draft.entryOnly ? { kind: 'entry', id: draft.entryOnly } : { kind: 'story', id: draft.document.id };
+      this.pushVisit(); this.syncSource();
+    } else {
+      const last = state.visits[state.visitIndex]?.target;
+      if (last && this.hasTarget(last)) this.browseTarget(last, state.visitIndex);
+      else if (previous && this.registry.stories.has(previous.document.id)) this.browseTarget({ kind: 'story', id: previous.document.id });
+    }
+    this.requestRefresh();
+  }
+
+  private selectDocument(key: string): boolean {
+    if (!selectStory(this.state, key, this.registry.stories)) return false;
+    const draft = currentDraft(this.state)!;
+    if (this.state.sourceOptions && !draft.packSource) {
+      const mod = this.registry.storyDirectoryContentOwner(draft.document.id, 'story') ?? draft.document.id.split(':')[0];
+      this.bindDraftSource(draft, mod);
+    }
+    return true;
+  }
+
+  private bindDraftSource(draft: StoryDraft, mod?: string): void {
+    const scope = this.state.sourceSelection;
+    const selected = scope?.startsWith('pack:') ? this.packSource(scope.slice(5)) : undefined;
+    const id = mod && (scope ? selected?.modName === mod ? selected.packRecordId : undefined : this.packQuery.getRunningStoryPackId?.(mod));
+    if (id) {
+      draft.packSource = this.packSource(id);
+      const pack = this.packQuery.getPackCatalog?.().entries.find(item => (item.packRecordId ?? item.id) === id);
+      if (pack?.editingMode === 'editing') draft.targetPackId = id;
+    } else draft.viewSource = scope ?? '';
+  }
+
+  private selectEntryDocument(entry: StoryEntryDef): boolean {
+    const drafts = this.state.drafts;
+    if (drafts.some(draft => draft.entryOnly === entry.id)) return true;
+    const entryMod = this.registry.storyDirectoryContentOwner(entry.id);
+    const existing = drafts.some(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(row => row.id === entry.id));
+    if (existing && (!this.state.sourceOptions || !entryMod)) return true;
+    const key = this.storyKey(entry.storyId);
+    const linked = key && this.selectDocument(key) ? currentDraft(this.state) : undefined;
+    const storyMod = this.registry.storyDirectoryContentOwner(entry.storyId, 'story');
+    if (this.state.sourceOptions && (!linked || entryMod && entryMod !== storyMod)) {
+      const table = this.registry.activeStories.has(entry.id) ? 'activeStories' : 'passiveStories';
+      const draft: StoryDraft = {
+        draftId: crypto.randomUUID(), sourceId: linked?.sourceId ?? null, entryOnly: entry.id,
+        document: linked ? structuredClone(linked.document) : { id: entry.storyId, name: entry.storyId, nodes: [], stages: {} },
+        authoring: { ...emptyStoryAuthoring(), [table]: [structuredClone(entry)] },
+        dirty: false, persisted: false, savedAt: null,
+      };
+      this.bindDraftSource(draft, entryMod);
+      const pack = draft.targetPackId && this.packQuery.getPackRecord?.(draft.targetPackId);
+      for (const pool of pack ? pack.datapack.passivePools ?? [] : []) if (pool.children.some(child => child.id === entry.id)) {
+        draft.authoring!.passivePools.push(structuredClone(pool));
+      }
+      drafts.push(draft);
+      return true;
+    }
+    if (!linked) return false;
+    hydrateStoryAuthoring(linked, this.registry);
+    return true;
   }
 
   private inspectorScrollKey(): string { return JSON.stringify([this.state.target,this.state.storyInspectorTab]); }
@@ -166,8 +379,8 @@ export class StoryEditorController {
   }
   private restoreInspectorScroll(): void { this.pendingInspectorScroll = this.inspectorScroll.get(this.inspectorScrollKey()) ?? 0; }
   private storyKey(storyId: string): string | undefined {
-    return this.state.drafts.find(draft => draft.document.id === storyId)?.draftId
-      ?? (this.ctrl.game.registry.stories.has(storyId) ? `source:${storyId}` : undefined);
+    return this.state.drafts.find(draft => !draft.entryOnly && draft.document.id === storyId)?.draftId
+      ?? (this.registry.stories.has(storyId) ? `source:${storyId}` : undefined);
   }
   private captureVisit(): StoryEditorVisit | undefined {
     const target = this.state.target;
@@ -196,7 +409,8 @@ export class StoryEditorController {
     if (id) this.browseTarget({ kind: 'story', id });
   }
   private hasTarget(target: StoryEditorTarget): boolean {
-    return target.kind === 'story' ? !!this.storyKey(target.id) : storyEntries(this.state, this.ctrl.game.registry.storyEntries).has(target.id);
+    return target.kind === 'story' ? !!this.storyKey(target.id) : storyEntries(this.state, this.registry.storyEntries).has(target.id)
+      || this.state.drafts.some(draft => draft.entryOnly === target.id);
   }
   private browseTarget(target: StoryEditorTarget, historyIndex?: number): void {
     if (!this.hasTarget(target) || historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
@@ -219,16 +433,11 @@ export class StoryEditorController {
       : this.state.visits[historyIndex];
     this.closeAuthoringPreview(); this.previewReturnScroll = undefined; this.closeThemeContentEdit();
     if (target.kind === 'story') {
-      if (!selectStory(this.state, this.storyKey(target.id)!, this.ctrl.game.registry.stories)) return;
+      if (!this.selectDocument(this.storyKey(target.id)!)) return;
       this.state.targetPackId = currentDraft(this.state)?.targetPackId ?? this.state.targetPackId;
     } else {
-      const entry = storyEntries(this.state, this.ctrl.game.registry.storyEntries).get(target.id)!;
-      const owner = [...this.state.drafts].reverse().find(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(row => row.id === target.id));
-      if (!owner) {
-        const key = this.storyKey(entry.storyId);
-        if (!key || !selectStory(this.state, key, this.ctrl.game.registry.stories)) return;
-        hydrateStoryAuthoring(currentDraft(this.state)!, this.ctrl.game.registry);
-      }
+      const entry = storyEntries(this.state, this.registry.storyEntries).get(target.id);
+      if (entry && !this.selectEntryDocument(entry)) return;
       this.state.target = { ...target };
       this.state.selectedNodeId = null;
       this.state.insertionBeforeNodeId = null;
@@ -278,6 +487,7 @@ export class StoryEditorController {
     if (this.disposed) return;
     if (this.isOpen()) return;
     if (!this.loaded) { this.persistence.load(this.state); this.loaded = true; }
+    this.syncSource(true);
     const initialTheme = this.ctrl.selectorPage.currentTheme() ?? this.ctrl.game.colorSystem.runtimeTheme();
     if (this.state.uiTheme) this.state.uiTheme.setInitial(initialTheme);
     else this.state.uiTheme = new StoryEditorTheme(this.ctrl.game, initialTheme);
@@ -300,15 +510,21 @@ export class StoryEditorController {
     this.inlineText.finish();
     if (!this.loaded) return true;
     const draft = currentAuthoringDraft(this.state);
+    if (manual && draft && !this.draftSaveAllowed(draft)) {
+      this.persist();
+      this.state.error = this.state.error ?? this.state.readOnlyReason ?? '当前内容无法保存，请打开对应编辑态 Mod。';
+      if (refresh && this.isOpen()) this.requestRefresh();
+      return false;
+    }
     if (manual && draft && !draft.persisted) draft.dirty = true;
-    const saved = this.persistence.save(this.state);
+    const saved = this.persist();
     if (refresh && this.isOpen()) this.requestRefresh();
     return saved;
   }
   saveToRuntime(): boolean {
     const draft = currentDraft(this.state);
-    if (!draft || this.state.storageBlocked) return false;
-    if (draft.renamedFromId && draft.renamedFromId !== draft.document.id && this.ctrl.game.registry.stories.has(draft.renamedFromId)) {
+    if (!draft || this.writeBlocked) return false;
+    if (draft.renamedFromId && draft.renamedFromId !== draft.document.id && this.registry.stories.has(draft.renamedFromId)) {
       this.state.error = '此 Story 已在 Mod 中更改 ID，请先重新载入该 Mod。'; this.requestRefresh(); return false;
     }
     this.state.notice = null;
@@ -319,7 +535,9 @@ export class StoryEditorController {
       if (issue) this.locateIssue(draft, issue.path);
       this.requestRefresh(); return false;
     }
-    const result = this.ctrl.commands.saveStoryDefinition(compiled.story);
+    const result = draft.targetPackId
+      ? this.ctrl.commands.saveStoryDefinition(compiled.story, draft.targetPackId)
+      : this.ctrl.commands.saveStoryDefinition(compiled.story);
     if (!result.ok) { this.state.error = result.message; this.requestRefresh(); return false; }
     // Associate newly registered local stories so the source and draft stay one row.
     draft.sourceId = result.storyId;
@@ -386,8 +604,9 @@ export class StoryEditorController {
   }
   refresh(ctx: UIContext): boolean {
     if (!this.isOpen()) return false;
+    this.syncSource();
     const draft = currentDraft(this.state);
-    if (draft) hydrateStoryAuthoring(draft, this.ctrl.game.registry);
+    if (draft) hydrateStoryAuthoring(draft, this.registry);
     const frame = this.configureFrame(createStoryEditorFrame(ctx, this.state));
     const template = document.createElement('template');
     template.innerHTML = renderWorkspaceFrame(ctx, frame);
@@ -500,7 +719,7 @@ export class StoryEditorController {
         const before = gap.hasAttribute('data-story-insertion-end') ? null : gap.dataset.storyInsertionBefore!;
         if (!setInsertionPoint(this.state,before)) return;
         this.requestRefresh();
-        this.nodeMenu.open(anchor,event.clientX,event.clientY,'粘贴',!this.nodeClipboard || this.state.storageBlocked,() => {
+        this.nodeMenu.open(anchor,event.clientX,event.clientY,'粘贴',!this.nodeClipboard || this.writeBlocked,() => {
           if (!live() || !this.nodeClipboard) return;
           const pasted = pasteStoryNode(this.state,this.nodeClipboard,before);
           if (!pasted) return;
@@ -518,6 +737,25 @@ export class StoryEditorController {
       }
     };
     const click = (event: Event): void => {
+      const intent = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-action], [data-column-action], [data-authoring-action], [data-editor-directory]') : null;
+      if (intent?.dataset.editorAction === 'open-pack-manager') {
+        if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
+        return;
+      }
+      if (intent?.dataset.editorAction === 'copy-recovery') { this.copyRecovery(intent); return; }
+      if (intent?.dataset.editorAction === 'recover-source') {
+        const source = currentAuthoringDraft(this.state)?.packSource;
+        const editable = source && storyEditingMods(this.ctrl.game).some(pack => (pack.packRecordId ?? pack.id) === source.packRecordId);
+        const current = editable && source ? this.packSource(source.packRecordId) : undefined;
+        if (current && source?.digest && current.digest !== source.digest) {
+          this.state.error = '原编辑包已有其他改动，草稿仍保留。可在包库查看新版本，或将正文另存。';
+          this.requestRefresh();
+        } else if (current) this.selectSource(`pack:${current.packRecordId}`);
+        else if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
+        return;
+      }
+      if (this.writeBlocked && event.target instanceof Element && event.target.closest(
+        '[data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-condition-add], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind], [data-story-flag-import], [data-story-theme-content-open], [data-theme-content-action], [data-column-action^="story-editor-node-type:"]')) return;
       const previewControl = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-preview-confirm], [data-preview-toggle]') : null;
       if (previewControl && root.contains(previewControl)) {
         const view = this.state.preview;
@@ -571,7 +809,7 @@ export class StoryEditorController {
       if(designerTarget&&root.contains(designerTarget)&&!(designerTarget instanceof HTMLButtonElement&&designerTarget.disabled)) {
         const draft=currentDraft(this.state),node=currentNode(this.state);
         const group = designerTarget.dataset.storyResetDesign;
-        if ((group === 'appearance' || group === 'performance') && draft && node && !this.state.storageBlocked) {
+        if ((group === 'appearance' || group === 'performance') && draft && node && !this.writeBlocked) {
           removeProperty(draft,node.id,[group]);
           const prefix=`${node.id}|[${JSON.stringify(group)}`;
           for(const bucket of [draft.editorState?.branches,draft.editorState?.optionals,draft.editorState?.optionalPaths,draft.editorState?.optionalBranches,draft.editorState?.rawInputs]) if(bucket) for(const key of Object.keys(bucket)) if(key.startsWith(prefix)) delete bucket[key];
@@ -586,7 +824,7 @@ export class StoryEditorController {
       if(performanceToggle&&root.contains(performanceToggle)) {
         const draft=currentDraft(this.state),id=performanceToggle.dataset.storyPerformanceToggle;
         const node=draft?.document.nodes.find(node=>node.id===id);
-        if(draft&&node&&!performanceToggle.disabled&&!this.state.storageBlocked&&hasStoryNodeOverlay(node)) {
+        if(draft&&node&&!performanceToggle.disabled&&!this.writeBlocked&&hasStoryNodeOverlay(node)) {
           const sessions=this.state.performanceEditing??={};
           const editing=sessions[draft.draftId]??[];
           if(editing.includes(node.id)) {
@@ -602,7 +840,7 @@ export class StoryEditorController {
       }
       const positionTool = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-story-position-x], [data-story-position-y], [data-story-position-unit]') : null;
       if (positionTool && root.contains(positionTool)) {
-        if (!positionTool.disabled && !this.state.storageBlocked) this.applyPositionTool(positionTool);
+        if (!positionTool.disabled && !this.writeBlocked) this.applyPositionTool(positionTool);
         return;
       }
       const overlayPreset=event.target instanceof Element?event.target.closest<HTMLElement>('[data-story-overlay-preset]'):null;
@@ -626,7 +864,7 @@ export class StoryEditorController {
             else { editProperty(draft,node.id,[...path,name],''); this.state.error=null; }
           } else if(path&&themeTarget.dataset.storyThemeAddPalette) {
             const theme=valueAt(node,path.slice(0,-1)) as {colorGroupId?:string;palette?:unknown[]} | undefined;
-            const group=theme?.colorGroupId?this.ctrl.game.registry.colorGroups.get(theme.colorGroupId):undefined;
+            const group=theme?.colorGroupId?this.registry.colorGroups.get(theme.colorGroupId):undefined;
             const inherited=group?.slots.map(slot=>slot.color).slice(0,6) ?? [];
             const colors=readProperty(draft,node.id,path);
             if(!Array.isArray(colors)) editProperty(draft,node.id,path,inherited);
@@ -641,6 +879,11 @@ export class StoryEditorController {
       const conditionTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-entry-condition]') : null;
       if (conditionTrigger && root.contains(conditionTrigger)) {
         if (!conditionTrigger.disabled) this.editEntryCondition(conditionTrigger);
+        return;
+      }
+      const directoryTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-directory]') : null;
+      if (directoryTrigger && root.contains(directoryTrigger)) {
+        if (!directoryTrigger.disabled) this.editStoryDirectory(directoryTrigger);
         return;
       }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
@@ -669,7 +912,7 @@ export class StoryEditorController {
         this.pendingEntryScroll=scrolls[this.state.entryEditorTab]??0;
       } else if (inspectorTab && ['overview','relations','flags','tools'].includes(inspectorTab)) {
         this.rememberInspectorScroll(); this.state.inspectorView = 'story';
-        this.state.storyInspectorTab = inspectorTab as typeof this.state.storyInspectorTab; this.restoreInspectorScroll();
+        this.state.storyInspectorTab = inspectorTab as StoryEditorState['storyInspectorTab']; this.restoreInspectorScroll();
       } else if (element.dataset.storyRenameNodeId) this.openNodeIdPrompt(element.dataset.storyRenameNodeId, element.dataset.storyRenameNodeId);
       else if (element.hasAttribute('data-story-rename-option-id')) this.openChoiceOptionIdPrompt(element);
       else if (element.hasAttribute('data-story-choice-flag-unbind')) {
@@ -695,7 +938,7 @@ export class StoryEditorController {
       } else if (sidebarTab === 'stories' || sidebarTab === 'entries' || sidebarTab === 'senders') this.state.sidebarMode = sidebarTab;
       else if (sender) {
         const draft = currentDraft(this.state);
-        if (draft && storySenders(createUIContext(this.ctrl.game)).some(item => item.id === sender)) composer(this.state).sender = sender;
+        if (draft && storySenders(createUIContext(this.editorGame)).some(item => item.id === sender)) composer(this.state).sender = sender;
       } else if (element.dataset.editorEntry || element.dataset.editorEntryTarget) {
         this.browseTarget({ kind: 'entry', id: (element.dataset.editorEntry ?? element.dataset.editorEntryTarget)! });
       } else if (source) {
@@ -708,6 +951,7 @@ export class StoryEditorController {
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+      if (target.hasAttribute('data-editor-source')) { this.selectSource(target.value); return; }
       if (target.dataset.previewDecision !== undefined) {
         const view = this.state.preview;
         const id = target.closest<HTMLElement>('[data-preview-check]')?.dataset.previewCheck;
@@ -729,7 +973,7 @@ export class StoryEditorController {
         else if(target.dataset.themeContentKind==='number'&&target.value.trim()&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(target.value)&&Number.isFinite(Number(target.value)))value=Number(target.value);
         writeThemeContentValue(edit.draft,path,value);edit.error=undefined;this.requestRefresh();return;
       }
-      if (this.state.storageBlocked && !target.matches('[data-editor-search], [data-editor-story-init-filter], [data-editor-entry-search], [data-editor-sender-search]')) return;
+      if (this.writeBlocked && !target.matches('[data-editor-search], [data-editor-story-init-filter], [data-editor-entry-search], [data-editor-sender-search]')) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
       if (this.authoringInput(target, event.type)) { this.requestRefresh(); return; }
       if (draft && target.hasAttribute('data-story-body-node')) {
@@ -737,7 +981,7 @@ export class StoryEditorController {
         if (nodeId && node?.id === nodeId) editStoryNodeBody(draft, nodeId, target.value);
         this.requestRefresh(); return;
       }
-      const senders = storySenders(createUIContext(this.ctrl.game));
+      const senders = storySenders(createUIContext(this.editorGame));
       if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
       else if (target.hasAttribute('data-editor-story-init-filter') && event.type === 'change') this.state.storyInitFilter = target.value;
       else if (target.hasAttribute('data-editor-entry-search')) this.state.entrySearch = target.value;
@@ -751,9 +995,9 @@ export class StoryEditorController {
           : { type: 'area', areaId: previous?.type === 'area' ? previous.areaId : '' } };
         draft.dirty = true;
       } else if (draft && target.dataset.editorField === 'story-init' && event.type === 'change') {
-        if (target.value && !this.ctrl.game.registry.inits.has(target.value)) return;
+        if (target.value && !this.registry.inits.has(target.value)) return;
         if ((draft.document.initId ?? '') === target.value) return;
-        const { initId, ...document } = draft.document;
+        const { initId, directoryId, ...document } = draft.document;
         draft.document = target.value ? { ...document, initId: target.value } : document;
         draft.dirty = true;
       } else if (draft && target.dataset.editorField === 'story-context-area' && event.type === 'change') {
@@ -801,7 +1045,7 @@ export class StoryEditorController {
       if(event.target instanceof Element&&event.target.closest('[data-story-performance-toggle], [data-story-overlay-canvas]')) {event.preventDefault();return;}
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       const draft = currentDraft(this.state);
-      if (!target || !draft || this.state.storageBlocked || !root.contains(target) || !event.dataTransfer) { event.preventDefault(); return; }
+      if (!target || !draft || this.writeBlocked || !root.contains(target) || !event.dataTransfer) { event.preventDefault(); return; }
       const nodeId = target.dataset.editorNode ?? '';
       if (!nodeId || !draft.document.nodes.some(node => node.id === nodeId)) { event.preventDefault(); return; }
       const item: StoryEditorDragItem = { version: 1, kind: 'story-node', draftId: draft.draftId, nodeId };
@@ -814,16 +1058,16 @@ export class StoryEditorController {
       const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
       if (flagRow && root.contains(flagRow)) {
         const draft = currentDraft(this.state), nodeId = this.draggingNodeId;
-        if (!draft || this.state.target?.kind !== 'story' || this.state.storageBlocked || !nodeId || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
+        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || !nodeId || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
         for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
-        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.ctrl.game),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,nodeId) : {ok:false};
+        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,nodeId) : {ok:false};
         flagRow.classList.toggle('is-drop-target',plan.ok); flagRow.classList.toggle('is-drop-invalid',!plan.ok);
         event.preventDefault(); event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none'; return;
       }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
       const nodeId = this.draggingNodeId;
-      if (!flow || !draft || this.state.storageBlocked || !nodeId || !draft.document.nodes.some(node => node.id === nodeId)
+      if (!flow || !draft || this.writeBlocked || !nodeId || !draft.document.nodes.some(node => node.id === nodeId)
         || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
       clearStoryFlagDropStates(flow);
       const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
@@ -866,9 +1110,9 @@ export class StoryEditorController {
       const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
       if (flagRow && root.contains(flagRow)) {
         const draft = currentDraft(this.state), item = readStoryDragItem(event);
-        if (!draft || this.state.target?.kind !== 'story' || this.state.storageBlocked || !item || item.draftId !== draft.draftId) return;
+        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || !item || item.draftId !== draft.draftId) return;
         event.preventDefault();
-        const result = flagRow.dataset.storyFlagKind === 'local' ? bindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.ctrl.game),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false,reason:'全局标记不能作为节点的局部执行条件。'};
+        const result = flagRow.dataset.storyFlagKind === 'local' ? bindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false,reason:'全局标记不能作为节点的局部执行条件。'};
         this.state.error = result.ok ? null : result.reason;
         this.state.inspectorView = 'story'; this.state.storyInspectorTab = 'flags';
         for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
@@ -877,7 +1121,7 @@ export class StoryEditorController {
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
       const item = readStoryDragItem(event);
-      if (!flow || !draft || this.state.storageBlocked || !item || item.draftId !== draft.draftId || !draft.document.nodes.some(node => node.id === item.nodeId)) return;
+      if (!flow || !draft || this.writeBlocked || !item || item.draftId !== draft.draftId || !draft.document.nodes.some(node => node.id === item.nodeId)) return;
       const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
       if (readerFlag) {
         event.preventDefault();
@@ -920,7 +1164,7 @@ export class StoryEditorController {
       if (flow) { clearStoryFlagDropStates(flow); highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId); }
     };
     const overlayPointerDown = (event: PointerEvent): void => {
-      if (event.button !== 0 || this.state.storageBlocked) return;
+      if (event.button !== 0 || this.writeBlocked) return;
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-chat-text]') : null;
       const canvas = target?.closest<HTMLElement>('[data-story-overlay-canvas]'); const draft = currentDraft(this.state);
       const node = draft?.document.nodes.find(node=>node.id===canvas?.dataset.storyOverlayNode);
@@ -983,7 +1227,7 @@ export class StoryEditorController {
       const scene = card.hasAttribute('data-editor-start-context') ? draft.document.startContext
         : node?.type === 'moveToArea' ? { type: 'area' as const, areaId: node.areaId ?? '' }
           : node?.type === 'moveToCharaspace' ? { type: 'chara' as const, characterId: node.characterId ?? '' } : undefined;
-      const target = storyEditorSceneTarget(createUIContext(this.ctrl.game), scene);
+      const target = storyEditorSceneTarget(createUIContext(this.editorGame), scene);
       if (!target) return;
       this.state.uiTheme?.selectDefinition(target.theme ?? {}, target.name);
       this.ctrl.refreshTheme();
@@ -1076,7 +1320,7 @@ export class StoryEditorController {
   private openNodeIdPrompt(nodeId: string, initialValue: string): void {
     const draftId = currentDraft(this.state)?.draftId;
     if (!draftId) return;
-    const ctx = createUIContext(this.ctrl.game);
+    const ctx = createUIContext(this.editorGame);
     this.ctrl.modal.open({ title: '更改节点 ID', width: 440,
       body: `<p>建议使用便于辨认的手写 ID。ID 会定位已保存的播放游标；改名后旧游标将从 StoryEntry 重新开始。发布内容后尽量不要再改。</p><label class="story-editor-property">节点 ID<input data-story-generated-node-id value="${ctx.escapeHtml(initialValue)}" autocomplete="off"></label><p class="story-editor-error" data-story-generated-node-id-error hidden></p>`,
       footer: '<button type="button" class="modal-close">保留当前 ID</button><button type="button" class="primary-button" data-modal-action="rename-story-node-id">更改 ID</button>',
@@ -1102,7 +1346,7 @@ export class StoryEditorController {
     const optionIndex = Number(button.dataset.storyOptionIndex);
     const oldId = button.dataset.storyOptionId;
     if (!draft || !nodeId || !Number.isInteger(optionIndex) || !oldId) return;
-    const ctx = createUIContext(this.ctrl.game);
+    const ctx = createUIContext(this.editorGame);
     this.ctrl.modal.open({ title: '更改选项 ID', width: 440,
       body: `<p>建议使用便于辨认的手写 ID。保存内容后若旧游标无法匹配，会从 StoryEntry 重新开始；发布后尽量不要改。</p><label class="story-editor-property">选项 ID<input data-story-option-id-input value="${ctx.escapeHtml(oldId)}" autocomplete="off"></label><p class="story-editor-error" data-story-option-id-error hidden></p>`,
       footer: '<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="rename-story-option-id">更改 ID</button>',
@@ -1172,7 +1416,7 @@ export class StoryEditorController {
       if(!Array.isArray(current)||current.length>=6){edit.error='色槽最多六个。';return;}current.push({role:'accent',color:'#ffffff'});edit.error=undefined;return;
     }
     if(action==='add-palette'){
-      const theme=edit.draft as {colorGroupId?:string;palette?:string[]};const inherited=theme.colorGroupId?this.ctrl.game.registry.colorGroups.get(theme.colorGroupId)?.slots.map(slot=>slot.color).slice(0,6)??[]:[];
+      const theme=edit.draft as {colorGroupId?:string;palette?:string[]};const inherited=theme.colorGroupId?this.registry.colorGroups.get(theme.colorGroupId)?.slots.map(slot=>slot.color).slice(0,6)??[]:[];
       const palette=Array.isArray(current)?current as string[]:[];if(palette.length>=6){edit.error='色板最多六色。';return;}
       if(!Array.isArray(current)&&inherited.length)theme.palette=[...inherited];else{theme.palette=palette;theme.palette.push(inherited[palette.length]??inherited.at(-1)??'');}edit.error=undefined;return;
     }
@@ -1205,8 +1449,8 @@ export class StoryEditorController {
     this.previewTimer = undefined; this.preview?.close(); this.preview = undefined; this.previewLaunch = undefined;
     this.state.preview = undefined; this.previewSignature = '';
   }
-  private startAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, trigger?: HTMLElement): void {
-    const result = this.ctrl.commands.createStoryAuthoringPreview(patch, target);
+  private startAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, trigger?: HTMLElement, source?: StoryPackSource): void {
+    const result = source ? this.ctrl.commands.createStoryAuthoringPreview(patch, target, source) : this.ctrl.commands.createStoryAuthoringPreview(patch, target);
     if (!result.ok) {
       if (this.preview) this.updateAuthoringPreview(result.message);
       else this.state.error = result.message;
@@ -1222,7 +1466,7 @@ export class StoryEditorController {
         launchKey: trigger.dataset.editorKey,
       };
     }
-    this.previewLaunch = { patch, target };
+    this.previewLaunch = { patch, target, source };
     this.preview = result.preview;
     this.updateAuthoringPreview();
     this.previewTimer = setInterval(() => this.updateAuthoringPreview(), 200);
@@ -1282,6 +1526,7 @@ export class StoryEditorController {
       editStructuredValue(draft,scope,path,target.dataset.valueInput!,target.value);
       if (this.state.target?.kind === 'entry' && scope === '$authoring' && path.length === 3 && (path[0] === 'activeStories' || path[0] === 'passiveStories') && path[2] === 'id') {
         this.state.target = { kind: 'entry', id: String(valueAt(draft.authoring, path)) };
+        if (draft.entryOnly) draft.entryOnly = this.state.target.id;
       }
     }
     else if (target.hasAttribute('data-value-key')) {
@@ -1290,25 +1535,25 @@ export class StoryEditorController {
     return true;
   }
   private reviewEntryActivation(draft: import('./model').StoryDraft, next: EntryActivation, entry?: StoryEntryDef): void {
-    const e=createUIContext(this.ctrl.game).escapeHtml;
+    const e=createUIContext(this.editorGame).escapeHtml;
     const previous=entry ? JSON.stringify(entry.activation) : undefined;
     const describe=(value:EntryActivation):string=>value.kind==='active'?`主动接取；${value.fallback?.kind==='fixed-area'?`接取地区 ${value.fallback.areaId}`:value.fallback?'当前地区兜底':'不兜底投放'}`:value.kind==='random'?`随机抽取；基础权重 ${value.weight}；${value.repeatable?'可重复触发':'单次触发'}；冷却 ${value.cooldownFrames ?? 0} 帧`:`角色阶段；${value.when.kind==='level'?`好感等级 ${value.when.level}`:`前置故事 ${value.when.storyId}`}；冷却 ${value.cooldownFrames ?? 0} 帧`;
     this.ctrl.modal.open({title:entry?'更改激活配置':'新建好感／角色阶段入口',width:560,
-      body:`${entry?`<p>确认替换当前激活配置？</p><p>当前：${e(describe(entry.activation))}</p><p>替换为：${e(describe(next))}</p>${next.kind==='active'?'<p>当前被动播放限制和完结后的对话暂停配置也将移除。</p>':''}`:''}${next.kind==='affection'?`<label>归属角色<select data-entry-activation-owner><option value="">选择角色</option>${[...this.ctrl.game.registry.characterVariants.values()].map(role=>`<option value="${e(role.id)}"${entry?.owner===role.id?' selected':''}>${e(role.displayName)} · ${e(role.id)}</option>`).join('')}</select></label>`:''}<p class="story-editor-error" data-entry-activation-error hidden></p>`,
+      body:`${entry?`<p>确认替换当前激活配置？</p><p>当前：${e(describe(entry.activation))}</p><p>替换为：${e(describe(next))}</p>${next.kind==='active'?'<p>当前被动播放限制和完结后的对话暂停配置也将移除。</p>':''}`:''}${next.kind==='affection'?`<label>归属角色<select data-entry-activation-owner><option value="">选择角色</option>${[...this.registry.characterVariants.values()].map(role=>`<option value="${e(role.id)}"${entry?.owner===role.id?' selected':''}>${e(role.displayName)} · ${e(role.id)}</option>`).join('')}</select></label>`:''}<p class="story-editor-error" data-entry-activation-error hidden></p>`,
       footer:'<button type="button" class="modal-close">取消</button><button type="button" class="mini-action" data-modal-action="confirm-entry-activation">确认</button>',
       onAction:action=>{
-        if(action!=='confirm-entry-activation'||currentAuthoringDraft(this.state)!==draft||this.state.storageBlocked)return;
+        if(action!=='confirm-entry-activation'||currentAuthoringDraft(this.state)!==draft||this.writeBlocked)return;
         try{
           const owner=next.kind==='affection'?document.querySelector<HTMLSelectElement>('[data-entry-activation-owner]')?.value:entry?.owner;
-          if(next.kind==='affection'&&(!owner||!this.ctrl.game.registry.characterVariants.has(owner)))throw new Error('请选择归属角色。');
+          if(next.kind==='affection'&&(!owner||!this.registry.characterVariants.has(owner)))throw new Error('请选择归属角色。');
           const candidate=structuredClone(draft);
           if(entry){
             if(JSON.stringify(entry.activation)!==previous)throw new Error('当前激活配置已变化，请关闭后重新核对。');
-            if(next.kind!=='random'&&[...this.ctrl.game.registry.passivePools.values()].some(pool=>pool.children.some(child=>child.id===entry.id)&&!draft.authoring?.passivePools.some(row=>row.id===pool.id)))throw new Error('请先从关联抽取池中移除此 Entry。');
+            if(next.kind!=='random'&&[...this.registry.passivePools.values()].some(pool=>pool.children.some(child=>child.id===entry.id)&&!draft.authoring?.passivePools.some(row=>row.id===pool.id)))throw new Error('请先从关联抽取池中移除此 Entry。');
             changeEntryActivation(candidate,entry.id,next,owner);
           }else addStoryAuthoringRow(candidate,'passiveStories',owner);
           const pending={...this.state,drafts:this.state.drafts.map(row=>row===draft?candidate:row)};
-          if(!this.persistence.save(pending))throw new Error(pending.error ?? '草稿保存失败，原配置已保留。');
+          if(!this.persist(pending))throw new Error(pending.error ?? '草稿保存失败，原配置已保留。');
           Object.assign(draft,candidate);
           this.state.error=null;
           this.ctrl.modal.close();this.requestRefresh();
@@ -1324,7 +1569,7 @@ export class StoryEditorController {
     if (target.dataset.authoringAction === 'close-preview') { this.closeAuthoringPreview(); return; }
     if (target.dataset.authoringAction === 'restart-preview') {
       const launch = this.previewLaunch;
-      if (launch) this.startAuthoringPreview(launch.patch, launch.target);
+      if (launch) this.startAuthoringPreview(launch.patch, launch.target, undefined, launch.source);
       return;
     }
     if (target.dataset.authoringAction === 'preview') {
@@ -1333,17 +1578,20 @@ export class StoryEditorController {
       if (!draft) return;
       this.inlineText.finish();
       this.state.error = null;
-      hydrateStoryAuthoring(draft, this.ctrl.game.registry);
+      hydrateStoryAuthoring(draft, this.registry);
       const compiled = compileStoryAuthoring(this.state);
       if (!compiled.ok) { this.state.error = compiled.message; return; }
       const entryId = this.state.target?.kind === 'entry' ? this.state.target.id
-        : storyPreviewEntries(this.state, draft, this.ctrl.game.registry.storyEntries).entryId;
-      this.startAuthoringPreview(compiled.patch, entryId || { storyId: draft.document.id }, target);
+        : storyPreviewEntries(this.state, draft, this.registry.storyEntries).entryId;
+      const selection = this.state.sourceSelection;
+      const source = selection?.startsWith('pack:') ? this.packSource(selection.slice(5))
+        : selection?.startsWith('draft:') ? draft.packSource : undefined;
+      this.startAuthoringPreview(compiled.patch, entryId || { storyId: draft.document.id }, target, source);
       return;
     }
-    if (this.state.storageBlocked) return;
+    if (this.writeBlocked) return;
     const draft = currentAuthoringDraft(this.state); if (!draft) return;
-    hydrateStoryAuthoring(draft,this.ctrl.game.registry);
+    hydrateStoryAuthoring(draft,this.registry);
     this.state.error = null; this.state.notice = null;
     try {
       const add = target.dataset.authoringAdd;
@@ -1367,14 +1615,21 @@ export class StoryEditorController {
       }
       if(add==='affection'){this.reviewEntryActivation(draft,defaultEntryActivation('affection'));return;}
       if (add === 'activeStories' || add === 'passiveStories' || add === 'passivePools') {
-        const entry=this.state.target?.kind==='entry'?storyEntries(this.state,this.ctrl.game.registry.storyEntries).get(this.state.target.id):undefined;
+        const entry=this.state.target?.kind==='entry'?storyEntries(this.state,this.registry.storyEntries).get(this.state.target.id):undefined;
         if(add==='passivePools'&&entry&&entry.activation.kind!=='random')throw new Error('只有随机入口可以加入抽取池。');
         addStoryAuthoringRow(draft,add);
         if(add==='passivePools'&&entry)draft.authoring!.passivePools.at(-1)!.children.push({id:entry.id,weight:1});
         return;
       }
       if (target.hasAttribute('data-authoring-copy')) {
-        if (!copyStoryIdentity(this.state,draft,this.state.copyStoryId?.trim() ?? '',new Set(this.ctrl.game.registry.stories.keys()))) throw new Error('请输入尚未使用的完整 Story ID：mod:story:name。');
+        const id = this.state.copyStoryId?.trim() ?? '';
+        if (draft.packSource && !id.startsWith(`${draft.packSource.modName}:story:`)) throw new Error('请输入当前编辑态 Mod 下的新 Story ID。');
+        if (!copyStoryIdentity(this.state,draft,id,new Set(this.registry.stories.keys()))) throw new Error('请输入尚未使用的完整 Story ID：mod:story:name。');
+        if (draft.packSource) {
+          const copy = currentDraft(this.state)!;
+          copy.packSource = draft.packSource;
+          copy.targetPackId = draft.targetPackId;
+        }
         this.closeAuthoringPreview(); return;
       }
       if (target.dataset.authoringCatalog) {
@@ -1393,7 +1648,7 @@ export class StoryEditorController {
           const key = structuredKey(draft,scope,path);
           for (const input of Object.keys(draft.structuredInputs ?? {})) if (input === key || input.startsWith(key.slice(0,-1)+',')) delete draft.structuredInputs![input];
           writeStructuredValue(draft,scope,path,undefined,true);
-          if (scope === '$authoring' && path.length === 2 && (path[0] === 'activeStories' || path[0] === 'passiveStories') && this.state.target?.kind === 'entry') this.browseTarget({ kind: 'story', id: draft.document.id });
+          if (!draft.entryOnly && scope === '$authoring' && path.length === 2 && (path[0] === 'activeStories' || path[0] === 'passiveStories') && this.state.target?.kind === 'entry') this.browseTarget({ kind: 'story', id: draft.document.id });
         } else if (action === 'up' || action === 'down') {
           const parentPath = path.slice(0,-1); const parent = valueAt(structuredRoot(draft,scope),parentPath); const from = Number(path[path.length-1]); const to = from + (action === 'up' ? -1 : 1);
           if (Array.isArray(parent) && to >= 0 && to < parent.length) {
@@ -1413,9 +1668,13 @@ export class StoryEditorController {
         }
         return;
       }
-      const compiled = compileStoryAuthoring(this.state); if (!compiled.ok) throw new Error(compiled.message);
       const kind = target.dataset.authoringAction;
-      if (kind==='apply' && draft.renamedFromId && draft.renamedFromId!==draft.document.id && this.ctrl.game.registry.stories.has(draft.renamedFromId)) throw new Error('此 Story 已在 Mod 中更改 ID，请先重新载入该 Mod。');
+      const ownerPackId = draft.targetPackId;
+      const previousDigest = draft.packSource?.digest;
+      const compiled = compileStoryAuthoring(this.state, this.state.sourceOptions
+        ? item => item.targetPackId === ownerPackId && this.draftSaveAllowed(item) : undefined);
+      if (!compiled.ok) throw new Error(compiled.message);
+      if (kind==='apply' && draft.renamedFromId && draft.renamedFromId!==draft.document.id && this.registry.stories.has(draft.renamedFromId)) throw new Error('此 Story 已在 Mod 中更改 ID，请先重新载入该 Mod。');
       if (kind==='pack') {
         const id=draft.targetPackId ?? this.state.targetPackId;
         if (!id) throw new Error('请选择允许编辑的目标包。');
@@ -1423,14 +1682,31 @@ export class StoryEditorController {
         if (!draft.sourceId && record.datapack.stories?.some(story=>story.id===draft.document.id)) throw new Error('目标 Mod 已出现同名 Story，请更改 ID，避免覆盖。');
         this.state.targetPackId=id;
       }
-      const result = kind === 'check' ? this.ctrl.commands.validateStoryAuthoring(compiled.patch)
-        : kind === 'apply' ? this.ctrl.commands.applyStoryAuthoring(compiled.patch)
+      if (ownerPackId && this.state.sourceOptions && kind !== 'copy') {
+        const pack = storyEditingMod(this.ctrl.game, ownerPackId).record;
+        for (const table of STORY_AUTHORING_TABLES) {
+          const rows = compiled.patch[table] as { id: string }[];
+          for (let index = rows.length - 1; index >= 0; index--) {
+            const row = rows[index];
+            const existing = this.registry[table].get(row.id);
+            if ((pack.datapack[table] ?? []).some(item => item.id === row.id) || !existing && row.id.startsWith(`${pack.manifest.modName}:`)) continue;
+            if (JSON.stringify(existing) !== JSON.stringify(row)) throw new Error(`${row.id} 属于其他 Mod，请打开其编辑态记录。`);
+            rows.splice(index, 1);
+          }
+        }
+      }
+      const hasDirectoryPlacement = compiled.patch.stories.some(story => story.directoryId)
+        || [...compiled.patch.activeStories, ...compiled.patch.passiveStories].some(entry => entry.directoryPlacements?.length);
+      const result = kind === 'check' ? this.ctrl.commands.validateStoryAuthoring(compiled.patch, this.state.sourceOptions || hasDirectoryPlacement ? ownerPackId : undefined)
+        : kind === 'apply' ? this.ctrl.commands.applyStoryAuthoring(compiled.patch, ownerPackId)
         : kind === 'pack' && this.state.targetPackId && this.ctrl.commands.saveStoryAuthoringToPack ? this.ctrl.commands.saveStoryAuthoringToPack(this.state.targetPackId,compiled.patch)
         : { ok: false, message: '请选择允许编辑的目标包。' };
       if (!result.ok) throw new Error(result.message);
-      if (kind==='pack') for (const item of this.state.drafts) if (compiled.patch.stories.some(story=>story.id===item.document.id)) {
+      if (kind==='pack') for (const item of this.state.drafts) if (!item.entryOnly && compiled.patch.stories.some(story=>story.id===item.document.id)) {
         item.targetPackId=this.state.targetPackId;item.sourceId ??= item.document.id;item.dirty=true;
+        if (this.state.sourceOptions && item.targetPackId) item.packSource = this.packSource(item.targetPackId);
       }
+      if (kind === 'pack' && this.state.sourceOptions && ownerPackId) this.refreshPackSource(ownerPackId, previousDigest);
       this.save(false,false); this.state.notice = result.message;
     } catch (error) { this.state.error = error instanceof Error ? error.message : String(error); }
   }
@@ -1510,11 +1786,11 @@ export class StoryEditorController {
   private openContentNavi(field: ReferenceField): void {
     const target = this.state.target, nodeId = this.state.selectedNodeId;
     const live = () => this.isOpen() && field.isConnected && !field.disabled
-      && !(field instanceof HTMLInputElement && field.readOnly) && !this.state.storageBlocked
+      && !(field instanceof HTMLInputElement && field.readOnly) && !this.writeBlocked
       && this.state.target?.kind === target?.kind && this.state.target?.id === target?.id && this.state.selectedNodeId === nodeId;
     if (!target || !live()) return;
     this.requiredFlagDropdown.close(); this.selectionNaviOpen = true;
-    const ctx = createUIContext(this.ctrl.game);
+    const ctx = createUIContext(this.editorGame);
     const storyRows = field.dataset.storyReference === 'story' ? conditionReferenceChoices(ctx, this.state, 'story', []) : undefined;
     openReferenceNavi(this.ctrl.modal, ctx, field, {
       storyRows,
@@ -1535,13 +1811,13 @@ export class StoryEditorController {
   private openFlagNavi(input: HTMLInputElement, includeInternal: boolean): void {
     this.requiredFlagDropdown.close();
     const target = this.state.target;
-    if (!target || this.state.storageBlocked) return;
+    if (!target || this.writeBlocked) return;
     const nodeId = this.state.selectedNodeId;
-    const catalog = () => buildStoryFlagCatalog(this.state,buildStoryRelations(this.state,this.ctrl.game.registry.stories,this.ctrl.game.registry.storyEntries),target);
-    const live = () => this.isOpen() && input.isConnected && !input.disabled && !input.readOnly && !this.state.storageBlocked
+    const catalog = () => buildStoryFlagCatalog(this.state,buildStoryRelations(this.state,this.registry.stories,this.registry.storyEntries),target);
+    const live = () => this.isOpen() && input.isConnected && !input.disabled && !input.readOnly && !this.writeBlocked
       && this.state.target?.kind === target.kind && this.state.target.id === target.id && this.state.selectedNodeId === nodeId;
     this.selectionNaviOpen = true;
-    openLocalFlagNavi(this.ctrl.modal,createUIContext(this.ctrl.game),catalog(),{
+    openLocalFlagNavi(this.ctrl.modal,createUIContext(this.editorGame),catalog(),{
       current:input.value,includeInternal,
       close:()=>{ this.selectionNaviOpen=false; if (input.isConnected) input.focus({preventScroll:true}); },
       select:(name,scope)=>{
@@ -1565,13 +1841,13 @@ export class StoryEditorController {
   }
   private confirmFlagImport(key: string): void {
     const owner = currentDraft(this.state);
-    if (!owner || this.state.storageBlocked) return;
-    const relations = buildStoryRelations(this.state, this.ctrl.game.registry.stories, this.ctrl.game.registry.storyEntries);
+    if (!owner || this.writeBlocked) return;
+    const relations = buildStoryRelations(this.state, this.registry.stories, this.registry.storyEntries);
     const boundary = buildStoryFlagCatalog(this.state, relations, { kind: 'story', id: owner.document.id },true).boundaries.find(item => item.key === key);
     if (!boundary || boundary.missing) return;
     const entry = relations.entries.get(boundary.call.to.id)!;
     const name = entry.openingTitle || entry.id;
-    this.ctrl.modal.open({ title: '获取 Entry 的 flag 信息', body: `<p>是否将“${createUIContext(this.ctrl.game).escapeHtml(name)}”涉及的 flag 纳入当前故事的清单？内部局部标记仍属于该 Entry，不会自动添加到回传白名单。</p>`,
+    this.ctrl.modal.open({ title: '获取 Entry 的 flag 信息', body: `<p>是否将“${createUIContext(this.editorGame).escapeHtml(name)}”涉及的 flag 纳入当前故事的清单？内部局部标记仍属于该 Entry，不会自动添加到回传白名单。</p>`,
       footer: '<button type="button" class="mini-action" data-modal-action="flag-import-no">不获取</button><button type="button" class="mini-action" data-modal-action="flag-import-yes">获取信息</button>',
       onAction: action => {
         if (!['flag-import-no', 'flag-import-yes'].includes(action) || currentDraft(this.state) !== owner) return;
@@ -1579,7 +1855,7 @@ export class StoryEditorController {
         const previousTarget = this.state.target;
         const previousNode = this.state.selectedNodeId;
         const previousGap = this.state.insertionBeforeNodeId;
-        if (boundary.call.from.kind === 'story' && !this.state.drafts.some(draft => draft.document.id === boundary.call.from.id)) selectStory(this.state, `source:${boundary.call.from.id}`, this.ctrl.game.registry.stories);
+        if (boundary.call.from.kind === 'story' && !this.state.drafts.some(draft => draft.document.id === boundary.call.from.id)) this.selectDocument(`source:${boundary.call.from.id}`);
         this.state.target = previousTarget; this.state.selectedNodeId = previousNode; this.state.insertionBeforeNodeId = previousGap;
         const stableKey = flagImportKey(this.state, relations, boundary.call);
         owner.flagImports ??= {};
@@ -1591,7 +1867,7 @@ export class StoryEditorController {
   }
   private createStoryInMod(): void {
     if (this.state.storageBlocked) return;
-    const packs=storyEditingMods(this.ctrl.game), e=createUIContext(this.ctrl.game).escapeHtml;
+    const packs=storyEditingMods(this.ctrl.game), e=createUIContext(this.editorGame).escapeHtml;
     const preferred=currentAuthoringDraft(this.state)?.targetPackId ?? this.state.targetPackId;
     this.ctrl.modal.open({title:'选择新 Story 所属 Mod',panelClass:'story-editor-identity',width:520,
       body:`<label class="story-editor-property">编辑态 Mod<select data-story-new-mod><option value="">选择编辑态 Mod</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)} · ${e(pack.version)}</option>`).join('')}</select></label>${packs.length?'':'<p>暂无编辑态 Mod，请先在包管理创建编辑副本。</p>'}<p class="story-editor-error" data-story-identity-error hidden></p>`,
@@ -1602,9 +1878,11 @@ export class StoryEditorController {
           const id=document.querySelector<HTMLSelectElement>('[data-story-new-mod]')?.value ?? '';
           const {record}=storyEditingMod(this.ctrl.game,id);
           if (!this.save(false,false)) throw new Error(this.state.error ?? '请先保存当前草稿。');
-          const known=new Set([...this.ctrl.game.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,record.manifest.modName)]);
+          if (this.state.sourceOptions) this.selectSource(`pack:${id}`);
+          const known=new Set([...this.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,record.manifest.modName)]);
           this.rememberVisit();this.closeAuthoringPreview();this.closeThemeContentEdit();
-          newStory(this.state,record.manifest.modName,known,id);this.state.targetPackId=id;
+          const draft = newStory(this.state,record.manifest.modName,known,id);this.state.targetPackId=id;
+          if (this.state.sourceOptions) draft.packSource = this.packSource(id);
           this.state.inspectorView=undefined;this.state.storyInspectorTab='overview';this.pushVisit();
           this.ctrl.modal.close();this.requestRefresh();
         } catch (error) {
@@ -1614,9 +1892,129 @@ export class StoryEditorController {
       }});
   }
 
+  private copyRecovery(trigger: HTMLElement): void {
+    const draft = currentAuthoringDraft(this.state);
+    if (!draft || this.state.storageBlocked || !this.state.sourceSelection?.startsWith('draft:')) return;
+    const packs = storyEditingMods(this.ctrl.game);
+    const e = createUIContext(this.editorGame).escapeHtml;
+    this.closeEditorDialog();
+    this.editorDialog = openStoryEditorDialog(this.ctrl.modal, {
+      title: '另存正文', panelClass: 'story-editor-identity',
+      body: `<p>复制正文到新的 Story。原草稿和关联入口会保留在原来源。</p>
+        <label class="story-editor-property">目标编辑态包<select data-recovery-pack>${packs.map(pack =>
+          `<option value="${e(pack.packRecordId ?? pack.id)}">${e(pack.name)} · ${e(pack.version)}</option>`).join('')}</select></label>
+        <label class="story-editor-property">新 Story ID<input data-recovery-story-id placeholder="mod:story:name"></label>
+        <p class="story-editor-error" data-recovery-error role="status"></p>`,
+      footer: `<button type="button" class="modal-cancel" data-modal-action="cancel">取消</button><button type="button" class="mini-action" data-modal-action="copy-recovery"${packs.length ? '' : ' disabled'}>核对并建立副本</button>`,
+      onClose: () => { this.editorDialog = undefined; },
+      onAction: action => {
+        if (action === 'cancel') { this.closeEditorDialog(); return; }
+        if (action !== 'copy-recovery' || currentAuthoringDraft(this.state) !== draft) return;
+        const panel = this.editorDialog;
+        const packId = panel?.querySelector<HTMLSelectElement>('[data-recovery-pack]')?.value ?? '';
+        const id = panel?.querySelector<HTMLInputElement>('[data-recovery-story-id]')?.value.trim() ?? '';
+        try {
+          const { record } = storyEditingMod(this.ctrl.game, packId);
+          if (!id.startsWith(`${record.manifest.modName}:story:`)) throw new Error('新 Story ID 必须使用所选包的 Mod ID。');
+          const candidate = createStoryEditorState();
+          const used = new Set([...knownModStoryIds(this.ctrl.game, record.manifest.modName), ...this.state.drafts.map(item => item.document.id),
+            ...(this.state.parkedDrafts ?? []).map(item => item.document.id)]);
+          if (!copyStoryIdentity(candidate, draft, id, used)) throw new Error('请填写尚未使用的完整 Story ID。');
+          const copy = currentDraft(candidate)!;
+          const projected = storyDefinitionFromDraft(copy);
+          if (!projected.ok) throw new Error(projected.message);
+          const checked = this.ctrl.commands.validateStoryAuthoring({ ...emptyStoryAuthoring(), stories: [projected.story] }, packId);
+          if (!checked.ok) throw new Error(checked.message);
+          if (!this.save(false, false)) throw new Error(this.state.error ?? '无法保留原草稿。');
+          this.selectSource(`pack:${packId}`);
+          copy.targetPackId = packId; copy.packSource = this.packSource(packId);
+          this.state.drafts.push(copy);
+          this.browseTarget({ kind: 'story', id });
+          this.requestRefresh();
+        } catch (error) {
+          const message = panel?.querySelector('[data-recovery-error]');
+          if (message) message.textContent = error instanceof Error ? error.message : String(error);
+        }
+      },
+    }, trigger);
+  }
+
   private closeEditorDialog(): void {
     if (this.editorDialog?.isConnected) this.ctrl.modal.close();
     this.editorDialog = undefined;
+  }
+
+  private editStoryDirectory(trigger: HTMLElement): void {
+    const mode = trigger.dataset.editorDirectory;
+    const draft = mode === 'entry' ? currentAuthoringDraft(this.state) : mode === 'story' ? currentDraft(this.state) : undefined;
+    const registry = this.registry;
+    const entries = storyEntries(this.state, registry.storyEntries);
+    const entryId = mode === 'entry' && this.state.target?.kind === 'entry' ? this.state.target.id : undefined;
+    const entry = entryId ? [...(draft?.authoring?.activeStories ?? []), ...(draft?.authoring?.passiveStories ?? [])].find(row => row.id === entryId) : undefined;
+    const story = mode === 'story' ? draft?.document : undefined;
+    const id = (entry ?? story)?.id;
+    const stories = new Map<string, import('../../arona-clicker/content/story/story-directory').StoryDirectoryDocument>(registry.stories);
+    for (const item of this.state.drafts) {
+      if (item.sourceId && item.sourceId !== item.document.id) stories.delete(item.sourceId);
+      if (!item.entryOnly || !stories.has(item.document.id)) stories.set(item.document.id, item.document);
+    }
+    const modName = id ? registry.storyDirectoryContentOwner(id, entry ? 'entry' : 'story') : undefined;
+    const selection = this.state.sourceSelection;
+    const selectedId = selection?.startsWith('pack:') ? selection.slice(5) : undefined;
+    const editPack = this.state.sourceOptions ? (draft && this.writeBlocked ? null : draft?.targetPackId ?? selectedId ?? null) : undefined;
+    let expected = editPack ? this.packSource(editPack)?.digest : undefined;
+    this.closeEditorDialog();
+    this.editorDialog = openStoryDirectoryDialog(this.ctrl.modal, createUIContext(this.editorGame), trigger, {
+      stories, entries, target: id ? { story, entry, packId: draft?.targetPackId, modName } : undefined,
+      packId: editPack,
+      save: this.ctrl.commands.saveStoryDirectoryToPack && ((packId, directory, remove) => {
+        if (this.state.sourceOptions && (editPack !== packId || this.packSource(packId)?.digest !== expected || this.writeBlocked)) {
+          return { ok: false, message: '编辑态 Mod 已变化，请重新打开目录。' };
+        }
+        const result = this.ctrl.commands.saveStoryDirectoryToPack!(packId, directory, remove);
+        if (result.ok && this.state.sourceOptions) {
+          this.refreshPackSource(packId, expected);
+          expected = this.packSource(packId)?.digest;
+          this.requestRefresh();
+        }
+        return result;
+      }),
+      beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
+      onClose: () => { this.editorDialog = undefined; },
+      open: (kind, targetId) => {
+        this.closeEditorDialog();
+        this.browseTarget({ kind, id: targetId });
+        this.requestRefresh();
+      },
+      place: (initId, directoryId, order, packId) => {
+        if (!draft || !id || this.writeBlocked || !this.state.drafts.includes(draft)) return '当前编辑目标已失效。';
+        if (draft.targetPackId && draft.targetPackId !== packId) return '请使用草稿已绑定的编辑态 Mod。';
+        if (order !== undefined && !Number.isFinite(order)) return '请填写有效的顺序。';
+        try {
+          const { record } = storyEditingMod(this.ctrl.game, packId);
+          const owner = record.manifest.modName;
+          const rows = entry ? [...record.datapack.activeStories, ...record.datapack.passiveStories] : record.datapack.stories;
+          if (modName ? owner !== modName : !rows.some(row => row.id === id) && !id.startsWith(`${owner}:`)) return '该编辑态 Mod 不拥有当前内容。';
+          if (entry) {
+            if (entry.availableInits.length && !entry.availableInits.includes(initId)) return '此入口不适用于该世界线。';
+            const placements = (entry.directoryPlacements ?? []).filter(row => row.initId !== initId);
+            if (directoryId) placements.push({ initId, directoryId, order });
+            if (placements.length) entry.directoryPlacements = placements;
+            else delete entry.directoryPlacements;
+          } else if (story) {
+            const { directoryId: previousDirectory, ...document } = draft.document;
+            draft.document = directoryId ? { ...document, initId, directoryId } : document;
+          }
+          draft.targetPackId = packId;
+          draft.dirty = true;
+          this.state.error = null;
+          this.state.notice = '目录位置已更新到当前草稿。';
+          this.requestRefresh();
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+      },
+    });
   }
 
   private editEntryCatalog(trigger: HTMLElement, draft: StoryDraft): void {
@@ -1629,11 +2027,11 @@ export class StoryEditorController {
     const path = [table, index, 'catalog'];
     const pendingOrderKey = structuredKey(draft, scope, [...path, 'order']);
     const signature = JSON.stringify(entry.catalog);
-    const entries = storyEntries(this.state, this.ctrl.game.registry.storyEntries);
+    const entries = storyEntries(this.state, this.registry.storyEntries);
     const editTargets = this.catalogEditTargets(entries);
     const originalCatalogs = new Map([...entries].map(([id, row]) => [id, JSON.stringify(row.catalog)]));
     const draftNames = new Map(this.state.drafts.map(item => [item.document.id, item.document.name]));
-    const ctx = createUIContext(this.ctrl.game);
+    const ctx = createUIContext(this.editorGame);
     this.closeEditorDialog();
     this.editorDialog = openStoryCatalogDialog(this.ctrl.modal, ctx, trigger, {
       entry,
@@ -1645,10 +2043,10 @@ export class StoryEditorController {
       beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
       onClose: () => { this.editorDialog = undefined; },
       commit: (value, orders) => {
-        if (!this.isOpen() || this.state.storageBlocked || this.state.target?.kind !== 'entry' || this.state.target.id !== entry.id
+        if (!this.isOpen() || this.writeBlocked || this.state.target?.kind !== 'entry' || this.state.target.id !== entry.id
           || currentAuthoringDraft(this.state) !== draft || draft.authoring?.[table][index] !== entry
           || JSON.stringify(entry.catalog) !== signature) return '目录位置已变化，请关闭后重新打开。';
-        const live = storyEntries(this.state, this.ctrl.game.registry.storyEntries);
+        const live = storyEntries(this.state, this.registry.storyEntries);
         const changes = new Map<string, StoryEntryDef['catalog']>();
         if (JSON.stringify(value) !== signature || editTargets.has(entry.id) && draft.structuredInputs?.[pendingOrderKey]) changes.set(entry.id, value);
         for (const [id, order] of orders) {
@@ -1674,7 +2072,7 @@ export class StoryEditorController {
             if (owners.length > 1) return '条目在多个草稿中存在，请先处理冲突。';
             let owner: StoryDraft | undefined = owners[0];
             if (!owner) {
-              const source = this.ctrl.game.registry.stories.get(peer.storyId) ?? pack.datapack.stories.find(story => story.id === peer.storyId);
+              const source = this.registry.stories.get(peer.storyId) ?? pack.datapack.stories.find(story => story.id === peer.storyId);
               if (!source || !selectStory(candidate, `source:${peer.storyId}`, new Map([[source.id, source]]))) return '找不到条目所属 Story。';
               owner = currentDraft(candidate);
               if (!owner) return '找不到条目所属草稿。';
@@ -1683,11 +2081,15 @@ export class StoryEditorController {
                 owner = { ...owner };
                 candidate.drafts[position] = owner;
               }
-              hydrateStoryAuthoring(owner, this.ctrl.game.registry);
+              hydrateStoryAuthoring(owner, this.registry);
             }
             const rowIndex = owner.authoring?.[ownerTable].findIndex(row => row.id === id) ?? -1;
             const row = owner.authoring?.[ownerTable][rowIndex];
             if (!row) return '找不到条目所属草稿。';
+            if (this.state.sourceOptions && !owner.packSource) {
+              owner.packSource = this.packSource(pack.packRecordId);
+              owner.targetPackId = pack.packRecordId;
+            }
             const checked = { ...row };
             if (catalog) checked.catalog = catalog;
             else delete checked.catalog;
@@ -1729,11 +2131,12 @@ export class StoryEditorController {
     for (const [id, row] of entries) {
       const owner = owners.get(id);
       const matches = packs.filter(pack => {
+        if (this.state.sourceOptions && pack.record.packRecordId !== currentAuthoringDraft(this.state)?.targetPackId) return false;
         if (owner?.targetPackId && owner.targetPackId !== pack.record.packRecordId) return false;
         const mod = pack.record.manifest.modName;
         const ownsStory = pack.stories.has(row.storyId)
           || owner?.targetPackId === pack.record.packRecordId && row.storyId.startsWith(`${mod}:`);
-        return ownsStory && (pack.entries.has(id) || owner?.document.id === row.storyId && id.startsWith(`${mod}:`));
+        return (this.state.sourceOptions && pack.entries.has(id)) || ownsStory && (pack.entries.has(id) || owner?.document.id === row.storyId && id.startsWith(`${mod}:`));
       });
       if (matches.length === 1) targets.set(id, matches[0].record);
     }
@@ -1743,7 +2146,7 @@ export class StoryEditorController {
   private editEntryCondition(trigger: HTMLButtonElement): void {
     const target = this.state.target;
     const draft = currentAuthoringDraft(this.state);
-    if (target?.kind !== 'entry' || !draft?.authoring || this.state.storageBlocked) return;
+    if (target?.kind !== 'entry' || !draft?.authoring || this.writeBlocked) return;
     const table = draft.authoring.activeStories.some(row => row.id === target.id) ? 'activeStories' : 'passiveStories';
     const index = draft.authoring[table].findIndex(row => row.id === target.id);
     const entry = draft.authoring[table][index];
@@ -1759,7 +2162,7 @@ export class StoryEditorController {
     const key = structuredKey(draft, scope, path);
     const original = valueAt(entry, relative);
     const originalSignature = JSON.stringify(original);
-    const ctx = createUIContext(this.ctrl.game);
+    const ctx = createUIContext(this.editorGame);
     this.editorDialog = openConditionTreeDialog(this.ctrl.modal, ctx, trigger, {
       original,
       label: field.label,
@@ -1773,7 +2176,7 @@ export class StoryEditorController {
       beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
       onClose: () => { this.editorDialog = undefined; },
       commit: condition => {
-        if (!this.isOpen() || this.state.storageBlocked || this.state.target?.kind !== 'entry'
+        if (!this.isOpen() || this.writeBlocked || this.state.target?.kind !== 'entry'
           || this.state.target.id !== target.id || currentAuthoringDraft(this.state) !== draft) {
           return '条件所属 Entry 已变化，请关闭后重新打开。';
         }
@@ -1809,8 +2212,8 @@ export class StoryEditorController {
 
   private changeStoryId(trigger?: HTMLElement): void {
     const draft=currentDraft(this.state);
-    if (!draft || this.state.storageBlocked) return;
-    const fromId=draft.document.id, mod=fromId.split(':')[0], e=createUIContext(this.ctrl.game).escapeHtml;
+    if (!draft || this.writeBlocked) return;
+    const fromId=draft.document.id, mod=fromId.split(':')[0], e=createUIContext(this.editorGame).escapeHtml;
     const packs=storyEditingMods(this.ctrl.game).filter(pack=>pack.modName===mod && (!draft.targetPackId || (pack.packRecordId ?? pack.id)===draft.targetPackId));
     const preferred=draft.targetPackId ?? this.state.targetPackId ?? (packs.length===1 ? packs[0].packRecordId ?? packs[0].id : '');
     let selected: ReturnType<typeof storyEditingMod> | undefined;
@@ -1826,7 +2229,7 @@ export class StoryEditorController {
       try {
         selected=storyEditingMod(this.ctrl.game,id);
         const to = toStoryId();
-        const plan=planEditorStoryRename(this.state,id,selected.record.datapack,draft.draftId,to,new Set([...this.ctrl.game.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
+        const plan=planEditorStoryRename(this.state,id,selected.record.datapack,draft.draftId,to,new Set([...this.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
         preview.textContent=`${fromId} → ${to}\n${plan.published?'确认后将保存到此 Mod，重新载入后生效。':'仅修改草稿，正式保存沿用目标 Mod。'}\n${plan.references.length} 处引用${plan.references.length?'：\n'+plan.references.map(ref=>`${ref.id} ${ref.path}`).join('\n'):''}`;
         message.hidden = true;
       } catch(error) {showError(error);}
@@ -1849,23 +2252,25 @@ export class StoryEditorController {
       footer:'<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="rename-story-id">确认更改</button>',
       onClose: () => { this.editorDialog = undefined; },
       onAction:action=>{
-        if(action!=='rename-story-id' || !this.isOpen() || this.state.storageBlocked || currentDraft(this.state)!==draft || draft.document.id!==fromId)return;
+        if(action!=='rename-story-id' || !this.isOpen() || currentDraft(this.state)!==draft || draft.document.id!==fromId)return;
         try {
+          if (this.writeBlocked) throw new Error('目标 Mod 已变化，暂时无法保存。');
           if(!selected)throw new Error('请选择编辑态 Mod。');
           const packId=selected.record.packRecordId, live=storyEditingMod(this.ctrl.game,packId);
           if(live.entry.contentDigest!==selected.entry.contentDigest)throw new Error('目标 Mod 已变化，请重新选择 Mod 并核对引用。');
           const toId = toStoryId();
-          const plan=planEditorStoryRename(this.state,packId,live.record.datapack,draft.draftId,toId,new Set([...this.ctrl.game.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
+          const plan=planEditorStoryRename(this.state,packId,live.record.datapack,draft.draftId,toId,new Set([...this.registry.stories.keys(),...knownModStoryIds(this.ctrl.game,mod)]));
           if(plan.published){
             const result=this.ctrl.commands.renameStoryInPack?.(packId,{fromId,toId,expectedDigest:selected.entry.contentDigest ?? '',patch:plan.patch});
             if(!result?.ok)throw new Error(result?.message ?? '当前运行环境不支持包内更改 ID。');
           } else {
             const candidate={...this.state,drafts:plan.drafts,target:this.state.target ? {...this.state.target}:null,visits:this.state.visits.map(visit=>({...visit,target:{...visit.target}}))};
             acceptEditorStoryRename(candidate,plan.drafts,fromId,toId);
-            if(!this.persistence.save(candidate))throw new Error(candidate.error ?? '草稿保存失败，原 ID 已保留。');
+            if(!this.persist(candidate))throw new Error(candidate.error ?? '草稿保存失败，原 ID 已保留。');
           }
           this.closeAuthoringPreview();this.closeThemeContentEdit();this.closeSelectionNavi();this.requiredFlagDropdown.close();
           acceptEditorStoryRename(this.state,plan.drafts,fromId,toId);this.state.targetPackId=packId;
+          if (plan.published && this.state.sourceOptions) this.refreshPackSource(packId, live.entry.contentDigest);
           const tab=this.inspectorTabs.get(fromId);if(tab){this.inspectorTabs.set(toId,tab);this.inspectorTabs.delete(fromId);}
           for(const [key,value] of this.inspectorScroll){const parts=JSON.parse(key);if(parts[0]?.kind==='story' && parts[0].id===fromId){parts[0].id=toId;this.inspectorScroll.set(JSON.stringify(parts),value);this.inspectorScroll.delete(key);}}
           const saved=this.save(false,false);
@@ -1887,7 +2292,7 @@ export class StoryEditorController {
 
   private action(action: string, trigger?: HTMLElement): void {
     if (action === 'history-back' || action === 'history-forward') { this.browseHistory(action === 'history-back' ? -1 : 1); return; }
-    if (this.state.storageBlocked && action !== 'info') return;
+    if (this.writeBlocked && !['info', 'new', 'save'].includes(action)) return;
     if (action === 'save-to-runtime') { this.saveToRuntime(); return; }
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
     if (['new', 'delete-node', 'up', 'down', 'send', 'click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].includes(action)) this.state.notice = null;
@@ -1900,7 +2305,7 @@ export class StoryEditorController {
     else if (action === 'delete-node') deleteNode(this.state);
     else if (action === 'up' || action === 'down') moveNode(this.state, action === 'up' ? -1 : 1);
     else if (action === 'send' || action === 'click' || action === 'operation' || action === 'transfer' || action === 'moveToArea' || action === 'moveToCharaspace') {
-      const added = appendNode(this.state, action === 'send' ? 'text' : action, storySenders(createUIContext(this.ctrl.game)));
+      const added = appendNode(this.state, action === 'send' ? 'text' : action, storySenders(createUIContext(this.editorGame)));
       if (added) { this.state.inspectorView = 'node'; this.revealNodeId = added.id; }
     } else if (action === 'delete-draft') this.confirmDelete();
   }
@@ -1910,15 +2315,15 @@ export class StoryEditorController {
     this.ctrl.modal.open({ title: '删除草稿', body: '<p>删除这份本地草稿？已注册的来源 Story 会保留。</p>',
       footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="delete-story-draft">删除草稿</button>',
       onAction: action => {
-        if (action !== 'delete-story-draft' || currentDraft(this.state) !== draft) return;
+        if (action !== 'delete-story-draft' || this.writeBlocked || currentDraft(this.state) !== draft) return;
         const drafts = this.state.drafts;
         this.state.drafts = drafts.filter(item => item !== draft);
-        if (!this.persistence.save(this.state, true)) { this.state.drafts = drafts; this.ctrl.modal.close(); this.requestRefresh(); return; }
+        if (!this.persist(this.state, true)) { this.state.drafts = drafts; this.ctrl.modal.close(); this.requestRefresh(); return; }
         delete this.state.composers[draft.draftId];
         this.state.target = null;
         this.state.selectedNodeId = null;
         this.state.insertionBeforeNodeId = null;
-        if (draft.sourceId) selectStory(this.state, `source:${draft.sourceId}`, this.ctrl.game.registry.stories);
+        if (draft.sourceId) this.selectDocument(`source:${draft.sourceId}`);
         this.ctrl.modal.close();
         this.requestRefresh();
       } });
@@ -1926,13 +2331,13 @@ export class StoryEditorController {
 
   private confirmRestoreSource(): void {
     const draft = currentDraft(this.state);
-    if (!draft || this.state.storageBlocked) return;
+    if (!draft || this.writeBlocked) return;
     const storyId = draft.document.id;
     const escapedName = storyId.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     this.ctrl.modal.open({ title: '还原来源版本', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
       footer: '<button type="button" class="modal-close">取消</button><button type="button" class="mini-action mini-action--danger" data-modal-action="restore-story-source">还原来源版本</button>',
       onAction: action => {
-        if (action !== 'restore-story-source' || currentDraft(this.state) !== draft) return;
+        if (action !== 'restore-story-source' || this.writeBlocked || currentDraft(this.state) !== draft) return;
         const previousDrafts = this.state.drafts;
         const previousTarget = this.state.target;
         const previousSelectedNodeId = this.state.selectedNodeId;
@@ -1943,7 +2348,7 @@ export class StoryEditorController {
         this.state.selectedNodeId = null;
         this.state.insertionBeforeNodeId = null;
         delete this.state.composers[draft.draftId];
-        if (!this.persistence.save(this.state, true)) {
+        if (!this.persist(this.state, true)) {
           this.state.drafts = previousDrafts;
           this.state.target = previousTarget;
           this.state.selectedNodeId = previousSelectedNodeId;
@@ -1953,20 +2358,22 @@ export class StoryEditorController {
           this.requestRefresh();
           return;
         }
-        const result = this.ctrl.commands.restoreStoryDefinition(storyId);
+        const result = draft.targetPackId
+          ? this.ctrl.commands.restoreStoryDefinition(storyId, draft.targetPackId)
+          : this.ctrl.commands.restoreStoryDefinition(storyId);
         if (!result.ok) {
           this.state.drafts = previousDrafts;
           this.state.target = previousTarget;
           this.state.selectedNodeId = previousSelectedNodeId;
           this.state.insertionBeforeNodeId = previousInsertionBeforeNodeId;
           if (previousComposer) this.state.composers[draft.draftId] = previousComposer;
-          this.persistence.save(this.state, true);
+          this.persist(this.state, true);
           this.state.error = result.message;
           this.ctrl.modal.close();
           this.requestRefresh();
           return;
         }
-        if (result.operation === 'restore') selectStory(this.state, `source:${storyId}`, this.ctrl.game.registry.stories);
+        if (result.operation === 'restore') this.selectDocument(`source:${storyId}`);
         this.state.error = null;
         this.state.notice = result.operation === 'restore'
           ? '已读取当前加载的数据包版本；本地草稿已丢弃。'

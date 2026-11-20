@@ -98,7 +98,7 @@ import { ImageStore } from '../../data-services/assets/image-store';
 import { hasExistenceGate } from '../../engine/visibility/reveal';
 import { Registry } from '../../data-services/registry/registry';
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackContent } from '../contracts/runtime/runtime';
 import { createRuntimeContentBrowser } from '../../data-services/registry/runtime-content-browser';
 import type { RuntimeContentBrowserQueryPort } from '../../data-services/contracts/runtime-content-browser';
 import type { WorldCatalogQueryPort } from '../contracts/world/world-catalog';
@@ -1718,8 +1718,20 @@ export class GameInstance {
     catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
   }
   createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult {
-    const checked = this.validateStoryAuthoring(patch);
-    if (!checked.ok) return checked;
+    return this.previewStoryWithContent(patch, target);
+  }
+
+  protected previewStoryWithContent(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackContent): StoryAuthoringPreviewResult {
+    // The sandbox uses the runtime's enabled packs, while a draft may target an unapplied directory.
+    patch = { ...patch,
+      stories: patch.stories.map(({ directoryId, ...story }) => story),
+      activeStories: patch.activeStories.map(({ directoryPlacements, ...entry }) => entry),
+      passiveStories: patch.passiveStories.map(({ directoryPlacements, ...entry }) => entry),
+    };
+    if (!source) {
+      const checked = this.validateStoryAuthoring(patch);
+      if (!checked.ok) return checked;
+    }
     const sandbox = new GameInstance();
     const unsubscribe: (() => void)[] = [];
     const dispose = (): void => {
@@ -1728,14 +1740,23 @@ export class GameInstance {
       sandbox.stop();
     };
     try {
-      sandbox.init(structuredClone([...this.storyAuthoringSources]), { enterDefaultInit: false });
-      const snapshot = emptyStoryAuthoring();
-      snapshot.stories = [...this.registry.stories.values()];
-      snapshot.activeStories = [...this.registry.activeStories.values()];
-      snapshot.passiveStories = [...this.registry.passiveStories.values()];
-      snapshot.passivePools = [...this.registry.passivePools.values()];
-      const copied = sandbox.applyStoryAuthoring(snapshot); if (!copied.ok) throw new Error(copied.message);
-      sandbox.load(this.save());
+      sandbox.init(structuredClone([...(source?.datapacks ?? this.storyAuthoringSources)]), { enterDefaultInit: false });
+      for (const pack of source?.images ?? []) sandbox.pics.register(pack.manifest.modName, pack.images);
+      if (!source) {
+        const snapshot = emptyStoryAuthoring();
+        snapshot.stories = [...this.registry.stories.values()];
+        snapshot.activeStories = [...this.registry.activeStories.values()];
+        snapshot.passiveStories = [...this.registry.passiveStories.values()];
+        snapshot.passivePools = [...this.registry.passivePools.values()];
+        const copied = sandbox.applyStoryAuthoring(snapshot); if (!copied.ok) throw new Error(copied.message);
+      }
+      const saved = this.save();
+      // Live cursors may refer to another copy of the same Story.
+      saved.storyPlayback = sandbox.save().storyPlayback;
+      if (source && saved.playerState.activeInit && !sandbox.registry.inits.has(saved.playerState.activeInit)) {
+        const firstInit = sandbox.registry.inits.keys().next().value;
+        if (firstInit) sandbox.inits.startNewGame(firstInit);
+      } else sandbox.load(saved);
       sandbox.storyService.resetPlayback();
       const applied = sandbox.applyStoryAuthoring(patch); if (!applied.ok) throw new Error(applied.message);
       const sourceEntry = typeof target === 'string' ? sandbox.registry.storyEntries.get(target) : undefined;

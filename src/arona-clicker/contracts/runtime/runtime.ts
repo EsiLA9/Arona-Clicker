@@ -139,9 +139,22 @@ export interface PackCatalogRecord {
     readonly runtimePackRecordId?: string;
   }
 
-  export interface PackCatalogReadModel {
+export interface StoryPackSource {
+  readonly packRecordId: string;
+  readonly modName: string;
+  readonly dependencies: readonly string[];
+}
+export interface StoryPackContent {
+  readonly datapacks: readonly Datapack[];
+  readonly issues: readonly string[];
+  readonly images: readonly Pick<StoredPack, 'manifest' | 'images'>[];
+}
+
+export interface PackCatalogReadModel {
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[]; panes?: readonly PackCatalogPane[] };
   getPackRecord?(packRecordId: string): PackCatalogRecord | null;
+  getStoryPackSources?(source: StoryPackSource): StoryPackContent;
+  getRunningStoryPackId?(modName: string): string | undefined;
   getEditingPackDraft?(packRecordId: string): RuntimeModDraft | null;
   getPackConfiguration?(): PackConfigurationDraft;
   getRuntimeMod?(): RuntimeModDraft | null;
@@ -694,15 +707,15 @@ export type StoryDefinitionSaveResult = { ok: true; storyId: string; operation: 
 export type StoryDefinitionRestoreResult = { ok: true; storyId: string; operation: 'restore' | 'remove' } | { ok: false; message: string };
 
 export interface GameCommands {
-  /** Prototype authoring: affects the current Registry, without a Pack editing gate. */
-  validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult;
+  validateStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
+  applyStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackSource): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
+  saveStoryDirectoryToPack?(packRecordId: string, directory: import('../../../data-services/contracts/story-directory').StoryDirectoryDef, remove?: boolean): StoryAuthoringResult;
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
-  saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
+  saveStoryDefinition(story: StoryDef, packRecordId?: string): StoryDefinitionSaveResult;
   /** Restore the loaded source definition, or remove a Story created only in the current Registry. */
-  restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
+  restoreStoryDefinition(storyId: string, packRecordId?: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
   /** Validate the Spot and enter/resume the fixed three-battle translated scenario. */
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;

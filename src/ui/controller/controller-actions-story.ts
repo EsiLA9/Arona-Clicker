@@ -149,28 +149,33 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       ctrl.refreshChatPanel();
     });
   });
-  // 故事层级导航：向内逐层下钻（分类 → 篇 → 章）
+  function browseDirectory(path: string[]): void {
+    if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
+    const workspace = ctrl.panelState.workspace;
+    if (workspace?.type !== 'story') return;
+    workspace.navPath = path;
+    workspace.subroute = 'overview';
+    if (workspace.mode === 'overview' && workspace.selectedEntryId !== null) {
+      workspace.selectedEntryId = null;
+      workspace.conversationOwner = null;
+      ctrl.panelState.conversationVariantId = null;
+      ctrl.panelState.storyGate = null;
+    }
+    ctrl.refreshPanels(['left', 'center']);
+  }
+  // 故事层级导航：逐层下钻，目录 ID 可以包含冒号。
   scope.querySelectorAll<HTMLButtonElement>('[data-story-nav]').forEach(button => {
     button.addEventListener('click', () => {
-      const path = (button.dataset.storyNav ?? '').split(':').filter(Boolean);
-      if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
-      const workspace = ctrl.panelState.workspace;
-      if (workspace?.type !== 'story') return;
-      workspace.navPath = path;
-      workspace.subroute = 'overview';
-      ctrl.refreshPanels(['left', 'center']);
+      const path = (button.dataset.storyNav ?? '').split(':').filter(Boolean).map(decodeURIComponent);
+      browseDirectory(path);
     });
   });
   // 故事层级导航：面包屑返回指定深度
   scope.querySelectorAll<HTMLButtonElement>('[data-story-back]').forEach(button => {
     button.addEventListener('click', () => {
       const depth = Number(button.dataset.storyBack ?? 0);
-      if (ctrl.panelState.workspace?.type !== 'story') ctrl.openStoryWorkspace();
       const workspace = ctrl.panelState.workspace;
-      if (workspace?.type !== 'story') return;
-      workspace.navPath = workspace.navPath.slice(0, depth);
-      workspace.subroute = 'overview';
-      ctrl.refreshPanels(['left', 'center']);
+      browseDirectory(workspace?.type === 'story' ? workspace.navPath.slice(0, depth) : []);
     });
   });
   // 故事"档案"入口：进入 StoryWorkspace 的显式子路由

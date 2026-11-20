@@ -5,7 +5,8 @@ import type { StoryAction } from '../contracts/story-node-actions';
 import { findStoryChoiceMarkOwnerConflict } from './story-node-structure';
 
 /** Validate bounded author relationships across all reachable documents, not just the first page. */
-export function validateStoryContinuations(entries: readonly StoryEntryDef[], documents: readonly StoryNodeDocument[], areaIds: ReadonlySet<string>): void {
+export function validateStoryContinuations(entries: readonly StoryEntryDef[], documents: readonly StoryNodeDocument[], areaIds: ReadonlySet<string>,
+  knownEntries = new Map(entries.map(entry => [entry.id, entry] as const))): void {
   const stories = new Map(documents.map(x => [x.id, x]));
   const targets = new Set<string>();
   const fail = (id: string, reason: string): never => { throw new Error(`StoryContinuation:${id}:${reason}`); };
@@ -54,7 +55,7 @@ export function validateStoryContinuations(entries: readonly StoryEntryDef[], do
     if (!entry.kizuna && !continuation) continue;
     const binding = entry.kizuna ?? continuation;
     if (!binding) continue;
-    const target = entries.find(x => x.id === binding.entryId);
+    const target = knownEntries.get(binding.entryId);
     if (!target || storyEntryType(target) !== 'active' || target.id === entry.id || target.kizuna || targets.has(target.id)) fail(entry.id, 'InvalidChildTarget');
     targets.add(target!.id);
     if (binding.areaId !== undefined && !areaIds.has(binding.areaId)) fail(entry.id, 'AreaNotFound');

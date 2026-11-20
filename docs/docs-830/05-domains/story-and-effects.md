@@ -114,7 +114,9 @@ Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 
 
 ## 剧情目录与运行会话
 
-剧情导航目录 `StoryContentTable` 以分类、篇章、章节和条目组织导航，并保存当前活动的 `activeStoryEntryId`；它提供 UI 排序与分层浏览所需的内容结构。实际可启动的 StoryEntry、StoryDef、触发条件与会话游标由 Registry 和 `StoryService` 管理。目录如何展示某剧情，与剧情本身是否可触发、能否推进是两件事。StoryDef 的 `startContext` 与 Story Editor 文档属性共同维护 Area/Chara 起始位置；移动节点分别编辑目标 Area 或角色 ID。
+故事目录按 Init 解析。Datapack 的 `storyDirectories` 声明可多层嵌套的目录和角色自动目录的资料。正文的 `directoryId` 随 `Story.initId` 供作者整理；Entry 的 `directoryPlacements` 允许在每个适用 Init 指定一个位置。现有分类、篇章和章节仍作为兼容路径。角色目录按 Init 和角色身份生成；未编排内容归入「未归档」。角色所在 Mod 管理角色目录资料。跨 Mod 收录同时需要目录允许和 Entry 明确指定位置。
+
+故事工作区展示当前 Init 的公开目录与玩家已持有的 Entry。目录可提供公开简介和封面，已读和已完成统计按实际 Entry 计算。玩家持有的内容卸载时，目录沿已知路径保留历史节点，并提示「内容未载入」。只有精确的 Entry 进度参与统计；旧主动入口基于同 Story 日志的展示仍沿用。目录只用于编排和浏览，正式启动、触发条件、分支及重读资格仍由 Registry 和 `StoryService` 决定。StoryDef 的 `startContext` 与 Story Editor 文档属性共同维护 Area/Chara 起始位置；移动节点分别编辑目标 Area 或角色 ID。
 
 ```text
 剧情动作 → EffectEngine → 状态写入或 Runtime 事件 → 领域响应 → 新视图

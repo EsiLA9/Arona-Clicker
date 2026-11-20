@@ -105,7 +105,9 @@ describe('UIController 剧情入口确认浮层', () => {
     const welcome = 'base:activestory:schale_welcome';
     const entry = game.registry.storyEntries.get(welcome)!;
     delete entry.replayable;
-    const render = () => renderStoryNavigation(createUIContext(game), ['main', 'part_1', 'ch_1']);
+    const path = game.state.storyDirectoryPaths?.[welcome]?.folders.map(folder => folder.id) ?? [];
+    expect(path.length).toBeGreaterThan(0);
+    const render = () => renderStoryNavigation(createUIContext(game), path);
     expect(game.story.getStoryReplayStatus(welcome)?.progress).toBe('completed');
     entry.replayable = false;
     expect(render()).not.toContain(`data-replay-story="${welcome}"`);
@@ -193,7 +195,7 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(card.textContent).toContain('重新开始');
     // 死锁解除回归：确认时游标被其他剧情占用（台阶剧情），卡片重开照常清游标启动。
     // render 会重建 DOM：重新注入卡片再点
-    expect(game.story.startStory('base:passivestory:affinity_hoshino_1', 'passive', HOSHINO).success).toBe(true);
+    expect(game.story.startStory('base:passivestory:affinity_hoshino_1', 'passive', HOSHINO, { skipConditions: true }).success).toBe(true);
     controller.render();
     root.innerHTML = '<div class="chat-pane"><div class="kizuna-card" data-kizuna="base:activestory:bond_hoshino_1"></div></div>';
     bindStoryActions(controller);

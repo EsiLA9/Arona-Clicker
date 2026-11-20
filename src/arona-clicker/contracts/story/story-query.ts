@@ -1,6 +1,7 @@
 import type { AreaStoryDeliveryView, SendState, StoryView } from '../runtime/results';
 import type { StoryPresentationView } from '../runtime/story-presentation';
 import type { StoryEntryReadProgress } from '../../types/story-state';
+import type { StoryDirectoryNode } from '../../content/story/story-directory';
 
 export interface StoryReplayStatus {
   readonly allowed: boolean;
@@ -16,6 +17,7 @@ export interface StoryQueryPort {
   getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[];
   hasCompletedStory(storyId: string): boolean;
   getStoryReplayStatus(entryId: string): StoryReplayStatus | undefined;
+  getStoryDirectory(): readonly StoryDirectoryNode[];
   readyStepCount(owner: string): number;
   getSendState(owner?: string | null): SendState;
   getCurrentStoryView(owner?: string | null): StoryView | null;

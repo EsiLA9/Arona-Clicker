@@ -4,11 +4,11 @@ import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseBondStoryEntries: ActiveStoryEntry[] = [
   activeStory('base:activestory:bond_hoshino_1', 'base:story:bond_hoshino_1').owner('Hoshino').inits('base:init:abydos').replayable().openingTitle('星野 · 午后的堤防').build(),
-  activeStory('base:activestory:bond_hoshino_evening', 'base:story:bond_hoshino_evening').owner('Hoshino').replayable().openingTitle('星野 · 傍晚的河堤').build(),
+  activeStory('base:activestory:bond_hoshino_evening', 'base:story:bond_hoshino_evening').owner('Hoshino').inits('base:init:abydos').replayable().openingTitle('星野 · 傍晚的河堤').build(),
 ];
 
 export const baseBondStories: StoryDef[] = [
-  story('base:story:bond_hoshino_1', '羁绊剧情 · 星野：午后的堤防').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
+  story('base:story:bond_hoshino_1', '羁绊剧情 · 星野：午后的堤防').init('base:init:abydos').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p3-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 午后的堤防' } } },
   { id: 'departure', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '队长，那就说好了哦。我先去旧校舍旁的堤防，待会儿见。', speaker: '星野' } },
   { id: 'go-embankment', type: 'moveToArea', areaId: 'base:area:abydos_embankment' },
@@ -26,7 +26,7 @@ export const baseBondStories: StoryDef[] = [
   { id: 'back-to-contact', type: 'moveToCharaspace', characterId: 'Hoshino' },
   { id: 'contact-return', type: 'talklet', stageId: 'p3', content: { kind: 'talk', text: '队长，到家了吗？今天的海风很舒服呢。以后也常一起出来坐坐吧。', speaker: '星野' } },
 ]).build(),
-  story('base:story:bond_hoshino_evening', '羁绊剧情 · 星野：傍晚的河堤').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p4': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:bond_hoshino_evening', '羁绊剧情 · 星野：傍晚的河堤').init('base:init:abydos').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'input' }, 'p4': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-opening-0', type: 'operation', action: { kind: 'presentation', command: { command: 'openingTitle', title: '星野 · 傍晚的河堤' } } },
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——阿比多斯 · 河堤 · 黄昏——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '……老师，其实我一直想找机会单独跟您聊聊。', speaker: '星野' } },

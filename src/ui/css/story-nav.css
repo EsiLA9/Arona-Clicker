@@ -348,3 +348,19 @@
    font: 9px 'DM Mono', monospace;
 }
 
+.story-directory-overview {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 20px;
+  overflow-wrap: anywhere;
+}
+
+.story-directory-overview p { white-space: pre-wrap; }
+
+.story-directory-cover {
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}

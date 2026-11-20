@@ -36,7 +36,7 @@ describe('选择页动态主题投影', () => {
   it('keeps topbar canvas text matched to the projected background, including missing content', () => {
     const game = freshGame();
     const init = game.world.inits.get(MILLENNIUM)!;
-    for (const [color, semantic, expected] of [['#101828', '#ffffff', INK_ON_DARK], ['#ffffff', '#101828', INK_ON_LIGHT], [undefined, '#ffffff', INK_ON_DARK]] as const) {
+    for (const [color, semantic, expected] of [['#101828', '#ffffff', INK_ON_DARK], ['#ffffff', '#101828', INK_ON_LIGHT], [undefined, '#ffffff', INK_ON_LIGHT]] as const) {
       init.theme = { tokens: { bg: semantic, bgAlt: semantic }, systemColorLayerIgnored: true,
         background: color ? [{ kind: 'solid', value: color }] : [] };
       const projection = projectSelectorTheme(createUIContext(game), 'init', MILLENNIUM);

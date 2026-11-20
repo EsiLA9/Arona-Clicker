@@ -14,6 +14,7 @@ import type { ShopDef } from '../../../data-services/contracts/shop';
 import type { CharacterVariantDef } from '../../../data-services/contracts/character-variant';
 import type { PicDef } from '../../../data-services/contracts/pic';
 import type { OperationEventContentDef, StudentOperationProfileDef } from '../../../data-services/contracts/operation';
+import type { StoryDirectoryCatalog } from '../../content/story/story-directory';
 
 export interface CharacterCatalogEntry {
   readonly id: string;
@@ -21,7 +22,7 @@ export interface CharacterCatalogEntry {
   readonly tags?: TagPath[];
 }
 
-export interface ContentCatalogQueryPort {
+export interface ContentCatalogQueryPort extends StoryDirectoryCatalog {
   readonly inits: ReadonlyMap<string, InitDef>;
   readonly areas: ReadonlyMap<string, AreaDef>;
   readonly areaMaps: ReadonlyMap<string, AreaMapDef>;

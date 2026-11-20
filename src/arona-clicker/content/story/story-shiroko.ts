@@ -22,7 +22,7 @@ export const baseShirokoActiveStories: ActiveStoryEntry[] = [
 
 export const baseShirokoStories: StoryDef[] = [
   story('base:story:shiroko_drink_invite', '白子 · 出发前的饮料（好感对话）')
-    .startInCharaspace('Shiroko').stages({ main: { advance: 'input' } }).nodes([
+    .init('base:init:schale_office').startInCharaspace('Shiroko').stages({ main: { advance: 'input' } }).nodes([
       { id: 'invitation', type: 'talklet', stageId: 'main', content: { kind: 'talk', speaker: '白子', text: '老师，骑行路线已经画好了。出发前，来夏莱主厅一起选饮料吧。' } },
       { id: 'kizuna', type: 'click', stageId: 'main', interaction: { kind: 'entryCard', card: { request: { entryId: 'base:activestory:shiroko_drink', entryType: 'active', owner: null, intent: 'card' }, continuation: { returnFlags: ['shiroko-drink-coffee', 'shiroko-drink-juice'] } } } },
       { id: 'return-coffee', type: 'talklet', stageId: 'main', requiresFlag: 'shiroko-drink-coffee', content: { kind: 'talk', speaker: '白子', text: '老师，刚才选的咖啡，我记住了。下次见面也给你准备热的。' } },
@@ -30,7 +30,7 @@ export const baseShirokoStories: StoryDef[] = [
       { id: 'end', type: 'talklet', stageId: 'main', content: { kind: 'talk', speaker: '白子', text: '嗯。下一次见面的地方，我也想好了。等会儿再告诉老师。' } },
     ]).build(),
   story('base:story:shiroko_drink', '白子 · 出发前的饮料')
-    .startInArea('base:area:schale_main').stages({ main: { advance: 'input' } }).nodes([
+    .init('base:init:schale_office').startInArea('base:area:schale_main').stages({ main: { advance: 'input' } }).nodes([
       { id: 'arrival', type: 'talklet', stageId: 'main', content: { kind: 'narration', text: '夏莱主厅。白子把两瓶饮料并排放在地图旁边。' } },
       { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', options: [
         { id: 'coffee', text: '来杯热咖啡。', marks: ['shiroko-drink-coffee'] },
@@ -41,7 +41,7 @@ export const baseShirokoStories: StoryDef[] = [
       { id: 'goodbye', type: 'talklet', stageId: 'main', content: { kind: 'talk', speaker: '白子', text: '今天先准备到这里。回通讯录找我吧，我还有话想跟老师说。' } },
     ]).build(),
   story('base:story:shiroko_rooftop_invite', '白子 · 天台的约定（好感对话）')
-    .startInCharaspace('Shiroko').stages({ main: { advance: 'input' } }).nodes([
+    .init('base:init:schale_office').startInCharaspace('Shiroko').stages({ main: { advance: 'input' } }).nodes([
       { id: 'invitation', type: 'talklet', stageId: 'main', content: { kind: 'talk', speaker: '白子', text: '老师，今天想换个地方。请到夏莱天台来，到了以后，在当地的故事入口找「白子 · 天台上的约定」。我会在那里等你。' } },
       { id: 'kizuna', type: 'click', stageId: 'main', interaction: { kind: 'entryCard', card: { request: { entryId: 'base:activestory:shiroko_rooftop', entryType: 'active', owner: null, intent: 'card' }, continuation: { areaId: 'base:area:schale_rooftop', returnFlags: ['shiroko-rooftop-photo', 'shiroko-rooftop-route'] } } } },
       { id: 'return-photo', type: 'talklet', stageId: 'main', requiresFlag: 'shiroko-rooftop-photo', content: { kind: 'talk', speaker: '白子', text: '老师，天台的合照已经存好了。下次想拍一张骑行结束后的。' } },
@@ -49,7 +49,7 @@ export const baseShirokoStories: StoryDef[] = [
       { id: 'end', type: 'talklet', stageId: 'main', content: { kind: 'talk', speaker: '白子', text: '今天的约定完成了。谢谢老师，愿意专程来见我。' } },
     ]).build(),
   story('base:story:shiroko_rooftop', '白子 · 天台上的约定')
-    .startInArea('base:area:schale_rooftop').stages({ main: { advance: 'input' } }).nodes([
+    .init('base:init:schale_office').startInArea('base:area:schale_rooftop').stages({ main: { advance: 'input' } }).nodes([
       { id: 'arrival', type: 'talklet', stageId: 'main', content: { kind: 'narration', text: '夏莱天台。白子倚着栏杆，手里拿着相机和一张空白路线图。' } },
       { id: 'choice', type: 'click', stageId: 'main', interaction: { kind: 'choice', options: [
         { id: 'photo', text: '先一起拍张合照。', marks: ['shiroko-rooftop-photo'] },

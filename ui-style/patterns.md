@@ -24,6 +24,8 @@ Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡
 
 从外部星图打开 Story 编辑器时，“打开时主题”沿用当前聚焦节点的完整投影（包含背景状态变体），重新进入时更新该默认来源；编辑器内已手动选择的色组、场景或自定义主题继续保留。未指定的背景和正文 token 沿用 `theme-tree.ts` 的浅色基础角色，不从色相额外派生深蓝底。主题通过既有变量、背景和表现宿主更新，不增加界面结构。入口为 `SelectorPage.currentTheme()` 与 `StoryEditorTheme.setInitial()`；验证见 `tests/ui/story/story-editor-theme.test.ts`，未做浏览器视觉验收。
 
+从星图顶栏进入设置、背包等功能页时，沿用 `SelectorPage.currentTheme()` 的完整聚焦投影，包括当前 Init / Area、背景与顶栏表现；同一功能区内切换页面继续沿用。返回游戏或在功能页明确激活其他主题时清除该 UI 临时来源。缺少可判定画布底色时回退到本地 `variables.css` 已有的浅色基础与深色正文，不再假定深色画布。入口为 `SelectorPage.currentTheme()`、`UIController.navigateToService()`、`controller-theme.ts`；未做浏览器视觉验收。
+
 星图节点名称统一对比当前星图场景背景：`.selector-graph-canvas` 在节点局部主题之外解析 `--ink-on-canvas` 为自身 color，标签通过 currentColor 继承已解析前景色，避免节点各自的 ThemeTree 把名称误配成白字。普通 / 选中 / 迷雾名称均使用此关系，不再染主题强调色、使用半透明文字或描边；状态仍由节点图形表达。主题切换沿用既有局部变量更新，不替换标签 / 画布。入口为 `src/ui/css/selectors.css` 与 `selector-theme.ts`；明暗底、相反节点主题、各状态及原位切换由 `tests/ui/theme/selector-label-contrast.test.ts` 验证，未做浏览器人工验收。
 
 「需要局部标记」使用原输入操作行内的 anchored listbox：聚焦展开、外部交互关闭，Navi 按钮继续提供完整来源浏览。下拉复用 panel-light / ink-on-panel-light / line 主题角色，正常匹配使用实色，未匹配仅以 0.72 opacity 稍浅显示并保留选择能力；空值或首次打开已有值均全匹配。筛选不新增刷新调度，只原位切换行状态；`workspace.story-editor` 协调后恢复同一输入会话的展开 / 筛选状态，保留行与滚动容器。入口为 `story-editor/required-flag-dropdown.ts`，测试见 `tests/ui/story/story-editor-required-flag-dropdown.test.ts`；未做浏览器视觉验收。
@@ -55,6 +57,8 @@ Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 
 Story 编辑器左栏顶部以 Switch 切换 Story、Entry 列表和发出方目录；三种视图保持挂载，切换只显隐对应面板，保留各自搜索、滚动和编辑中的 Composer。Entry 沿用 Story 列表项样式，显示名称、ID 与 Active / Passive 类型。点击 Story 或 Entry 统一切换中右两栏，复用相同 Frame、列身份、顶部栏与滚动容器；Entry 中栏复用原有结构化字段表单和 `.story-editor-authoring`，并在独立的被动池区块编辑所属 Story 共用的 PassivePool，右栏显示调用关系；Story 右栏以入口链接替代 Entry 详情表单，PassivePool 表单与新增操作也移至 Entry 中栏，浏览历史共用中栏前进 / 后退控件。StoryNode 的 Entry 入口卡沿用爱心卡片外观，主体只选择节点；右侧目标小卡片打开 Entry，缺失目标时禁用。发出方来自当前 Registry 的旁白、老师与角色；目录项只显示圆形头像和名字，优先使用默认角色差分的色组或图片，无头像时显示名字首字。当前发出方在目录中标记。后续入口可复用该左栏视图切换，不替换三栏 Workspace。
 
 Story 编辑器固定输入区沿用 Talklet 的头像、姓名与气泡层级；圆形发出方头像入口切换左栏到发出方目录，正文编辑留在聊天气泡内，发送使用共享 `send-button` / `send-bubble` 样式。输入更新保留 textarea 节点与焦点。“保存草稿”和“保存到运行内容”仍在操作组中；运行内容保存是显式动作，不随输入或导航自动提交。成功与错误提示使用原位状态区，保留输入、选中节点与滚动；“仅当前运行有效”说明保存范围。写入机制见 [[runtime-editor-and-project-checks]]。
+
+Story 编辑器左栏在现有搜索和页签上方使用「内容来源」选择器，分组展示本地包库与保留草稿。当前 Mod、版本、槽位及只读原因放在正文或入口的底栏状态区。还原入口复用带边框的 `.mini-action`，试播入口保持在原位置。来源变动沿既有区域更新机制协调三栏，关闭试播时还原发起按钮焦点。源码为 `story-editor/view.ts` 与 `controller.ts`，行为见 `tests/ui/story/story-editor-pack-source.test.ts`。
 
 节点的可选局部标记条件沿用右栏 label/input；Operation 的局部标记作为“行为类型”下的分支，操作方式、名称和值与其他行为字段处于同一属性组。写入/移除使用浅层 select，仅写入分支显示值控件，移除分支收起值。控件按语义 key 局部协调，不隐藏编辑态节点，不重建三栏或流滚动容器。
 
@@ -115,6 +119,8 @@ StoryEntry 触发条件使用同一弹窗外壳。左侧树按层级展开，行
 组合节点始终提供添加条件和添加子组。True 模式也支持编辑、拖动和删除子项，确认时校验并保留子树。右侧属性栏的层级高于左侧树，保持独立滚动。
 
 StoryEntry 目录浏览复用 Story 编辑弹窗。搜索和 Init 筛选常驻顶部，左侧目录树或搜索结果、右侧落点与同级条目分别滚动。筛选不移除目录落点；选择搜索结果后恢复树并定位该路径。全部目录视图可拖动编辑态条目，同级行的高亮边线表示插入点，只读条目仍可作为参照。顺序输入可留空使用自动值。弹窗内新建项和排序变更随确认写入草稿。入口为 `story-editor/catalog-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
+
+Init 目录弹窗沿用 Story 编辑弹窗，工具行常驻，目录树、同级内容和目录资料分别滚动。搜索仅更新目录树，切换目录时以稳定目录 ID 保留原有区域和滚动宿主。玩家「故事」工作区沿用导航栏及面包屑，用中栏滚动区显示选中目录的资料和进度；进入重读时继续使用原对话栏。入口是 `story-editor/directory-dialog.ts` 和 `columns/story-navigation.ts`。
 
 单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
 

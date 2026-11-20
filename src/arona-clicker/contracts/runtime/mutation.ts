@@ -2,6 +2,7 @@ import type { StateMutationPort } from '../../../engine/contracts/mutation';
 import type { AreaStoryDelivery, CompletedStory } from '../../types/story-state';
 import type { CharaCustomOverride } from '../../types/chara-profile';
 import type { PlayerState } from '../../types/state';
+import type { StoryDirectoryPath } from '../../types/story-state';
 
 export interface StateMutationHostPort extends StateMutationPort {
   setState(state: PlayerState): void;
@@ -62,9 +63,9 @@ export interface CharacterProfileMutationPort extends StateMutationHostPort {
 }
 
 export interface StoryMutationPort extends StateMutationHostPort {
-  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void): void;
+  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void, directoryPath?: StoryDirectoryPath): void;
   createAreaStoryDelivery(delivery: Omit<AreaStoryDelivery, 'status'>): boolean;
-  recordStoryRead(storyId: string, talkletIndex: number, choiceIndex?: number, sourceEntryId?: string): void;
+  recordStoryRead(storyId: string, talkletIndex: number, choiceIndex?: number, sourceEntryId?: string, directoryPath?: StoryDirectoryPath): void;
   setPassiveCooldowns(cooldowns: Record<string, number>): void;
   setStudentBlock(variantId: string, entryId: string): void;
 }

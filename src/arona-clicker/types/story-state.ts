@@ -19,3 +19,14 @@ export interface StoryReadLog {
 }
 
 export type StoryEntryReadProgress = 'read' | 'completed';
+
+export interface StoryDirectoryPath {
+  readonly folders: readonly { id: string; title: string }[];
+  readonly title?: string;
+}
+
+/** Player records retained when applying a different set of content packs. */
+export interface RetainedStoryDirectoryProgress {
+  reads: Record<string, StoryEntryReadProgress>;
+  paths: Record<string, StoryDirectoryPath>;
+}

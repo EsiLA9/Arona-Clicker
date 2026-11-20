@@ -2,7 +2,7 @@ import { story } from '../def-factory/index';
 import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseHoshinoStories: StoryDef[] = [
-  story('base:story:hoshino_tea_time', '星野的茶点时间').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
+  story('base:story:hoshino_tea_time', '星野的茶点时间').init('base:init:abydos').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师，茶要趁热喝哦。食堂今天的点心也特别好吃。', speaker: '小鸟游星野' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '那我不客气了。' } },
   { id: "p1-button-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
@@ -12,7 +12,7 @@ export const baseHoshinoStories: StoryDef[] = [
   { id: "p2-button-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '我也是。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:hoshino_rooftop_hint', '星野的天台邀约').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p3-response': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p4-response': { advance: 'auto' }, 'p5': { advance: 'input' }, 'p5-response': { advance: 'auto' } }).nodes([
+  story('base:story:hoshino_rooftop_hint', '星野的天台邀约').init('base:init:schale_office').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' }, 'p3': { advance: 'input' }, 'p3-response': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p4-response': { advance: 'auto' }, 'p5': { advance: 'input' }, 'p5-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师……天台的风景，现在一定很好看吧。', speaker: '小鸟游星野' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '想去看看。' } },
   { id: "p1-button-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
@@ -36,7 +36,7 @@ export const baseHoshinoStories: StoryDef[] = [
   { id: "rooftop-goodbye-response-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 10 }] } },
   { id: 'rooftop-goodbye-teacher', type: 'talklet', stageId: 'p5-response', content: { kind: 'talk', text: '好，边走边讲。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:hoshino_selfie', '星野的自拍').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
+  story('base:story:hoshino_selfie', '星野的自拍').init('base:init:schale_office').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '老师老师！给你看我刚拍的自拍！', speaker: '小鸟游星野', image: 'base:sticker(pic):hoshino_selfie' }, presentation: { avatar: 'base:avatar(pic):hoshino' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '哦？我看看。' } },
   { id: "p1-button-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
@@ -46,7 +46,7 @@ export const baseHoshinoStories: StoryDef[] = [
   { id: "p2-button-effect-1", type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 5 }] } },
   { id: 'p2-button-response', type: 'talklet', stageId: 'p2-response', content: { kind: 'talk', text: '好呀，那就说定了。', speaker: '老师' }, presentation: { side: 'right' } },
 ]).build(),
-  story('base:story:hoshino_bond_invite', '羁绊邀请').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, p3: { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:hoshino_bond_invite', '羁绊邀请').init('base:init:abydos').startInCharaspace('Hoshino').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, p3: { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '——星野似乎有话想说……——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师，有件事想跟你说……', speaker: '星野' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '嗯？什么事？' } },

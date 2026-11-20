@@ -11,7 +11,7 @@ import type { BackgroundLayerDef, ThemeDef, ThemeNodeName } from '../../engine/t
 import { composeThemeBackground, type ResolvedTheme } from '../../engine/core/theme-runtime';
 import { SYSTEM_DEFAULT_PRIMARY } from '../../engine/core/theme-defaults';
 import { deriveThemeTokens, entityKeyOf } from '../../arona-clicker/services/progression/color-system';
-import { INK_ON_DARK, rgbTriplet } from '../../engine/core/color';
+import { INK_ON_LIGHT, rgbTriplet } from '../../engine/core/color';
 import { getEnhancementReveal } from '../components/tooltip/tooltip-reveal';
 import { createUIContext, type UIContext } from '../runtime/context';
 import { buildBackgroundView, renderBackground, type BackgroundView } from './background-service';
@@ -330,7 +330,7 @@ export function projectSelectorTheme(ctx: UIContext, kind: SelectorNodeKind, foc
     layers: composeThemeBackground(mergeSelectorBackgrounds(baseBackground, focusBackground, areaBackground).layers),
     systemColorLayerIgnored,
   }, tree);
-  const canvasInk = background.ink?.text ?? INK_ON_DARK;
+  const canvasInk = background.ink?.text ?? INK_ON_LIGHT;
   tree['--ink-on-canvas'] = canvasInk;
   tree['--muted-on-canvas'] = `color-mix(in srgb, ${canvasInk} 58%, transparent)`;
   return {

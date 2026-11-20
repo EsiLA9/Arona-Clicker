@@ -6,6 +6,7 @@ import { currentAuthoringDraft, storyEntries, storyPreviewEntries, type StoryDra
 import { valueAt, renderStructuredValue } from './structured-value';
 import { structuredKey } from './authoring-model';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { parseCharacterStoryDirectoryId } from '../../data-services/contracts/story-directory';
 import { storyCatalogLabel } from './catalog-dialog';
 import { isTrueConditionRoot } from './condition-tree-model';
 import { entryConditionField } from './condition-fields';
@@ -24,8 +25,23 @@ export const ENTRY_FIELD_SEEDS: Record<string, { label: string; value: unknown }
   leaveArea: { label: '允许离开区域', value: true }, blocksInteraction: { label: '阻塞玩家交互', value: false },
   tags: { label: '标签', value: [] }, extra: { label: '扩展数据', value: { t: 'dict', v: {} } },
 };
+
+function entryDirectorySummary(ctx: UIContext, row: StoryEntryDef, packId?: string): string {
+  const registry = ctx.game.registry;
+  const pack = packId ? (ctx.game as Partial<PackCatalogReadModel>).getPackRecord?.(packId) : undefined;
+  const names = row.directoryPlacements?.map(placement => {
+    const init = registry.inits.get(placement.initId)?.name ?? placement.initId;
+    const title = pack?.datapack.storyDirectories?.find(folder => folder.id === placement.directoryId)?.title
+      ?? registry.storyDirectories.get(placement.directoryId)?.definition.title;
+    const automatic = !title && parseCharacterStoryDirectoryId(placement.directoryId);
+    const character = automatic ? registry.characters.get(automatic.characterId)?.displayName : undefined;
+    return `${init} · ${title ?? character ?? placement.directoryId}`;
+  });
+  return names?.length ? names.join(' / ') : row.catalog ? storyCatalogLabel(row.catalog) : '使用自动归档';
+}
+
 function renderEntryConfiguration(ctx: UIContext, state: StoryEditorState, draft: StoryDraft, table: string, index: number, row: StoryEntryDef): string {
-  const e=ctx.escapeHtml, locked=state.storageBlocked?' disabled':'', base=[table,index], activation=row.activation;
+  const e=ctx.escapeHtml, locked=(state.storageBlocked || Boolean(state.readOnlyReason))?' disabled':'', base=[table,index], activation=row.activation;
   const pathAttrs=(path: (string|number)[])=>`data-value-scope="$authoring" data-value-path="${e(JSON.stringify([...base,...path]))}"`;
   const select=(part:string,label:string,value:string,options:[string,string][])=>`<label class="story-editor-property">${label}<select data-entry-activation-part="${part}" data-entry-table="${table}" data-entry-index="${index}"${locked}>${options.map(([id,title])=>`<option value="${id}"${value===id?' selected':''}>${title}</option>`).join('')}</select></label>`;
   let content=select('kind','激活方式',activation.kind,[['active','主动接取'],['random','随机抽取'],['affection','好感／角色阶段']]);
@@ -38,13 +54,12 @@ function renderEntryConfiguration(ctx: UIContext, state: StoryEditorState, draft
       content += `<label class="story-editor-property">兜底接取地区<input data-editor-key="value:${e(key)}" data-value-input="string" ${pathAttrs(path)} value="${e(input?.text ?? activation.fallback.areaId)}" data-story-reference="area"${locked}>${input?.error ? `<span class="story-editor-error">${e(input.error)}</span>` : ''}</label>`;
     }
   }
-  const catalog = row.catalog;
   return `<section class="story-editor-entry-section" data-editor-key="entry-activation:${e(row.id)}">
     <h3>接取与目录</h3>
     <div class="story-editor-entry-grid">${content}</div>
     <section class="story-editor-trigger-condition" data-editor-key="entry-catalog">
-      <div><h4>故事目录位置</h4><p>${catalog ? e(storyCatalogLabel(catalog)) : '未自定义目录位置'}</p></div>
-      <div class="story-editor-actions story-editor-actions--tools"><button type="button" class="mini-action" data-authoring-catalog="${table}" data-authoring-index="${index}"${locked}>${catalog ? '编辑目录位置' : '设置目录位置'}</button></div>
+      <div><h4>故事目录位置</h4><p>${e(entryDirectorySummary(ctx, row, draft.targetPackId))}</p></div>
+      <div class="story-editor-actions story-editor-actions--tools"><button type="button" class="mini-action" data-editor-directory="entry">${state.readOnlyReason ? '查看目录' : '选择目录'}</button><button type="button" class="mini-action" data-authoring-catalog="${table}" data-authoring-index="${index}"${locked}>旧编排</button></div>
     </section>
   </section>`;
 }
@@ -54,7 +69,7 @@ function authoringValueRenderer(ctx: UIContext, state: StoryEditorState, draft: 
   const localFlags = [...new Set(flags.uses.filter(use=>use.kind==='local').map(use=>use.name))].map(name=>({value:name,label:name}));
   const entryRefs = [...storyEntries(state,ctx.game.registry.storyEntries).values()].filter(x=>typeof x.id==='string'&&Boolean(x.id)).map(x=>({value:x.id,label:String(x.openingTitle ?? x.id)}));
   const storyRefs = storyReferenceOptions(ctx, 'story', state);
-  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,state.storageBlocked,0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs,flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags},
+  return (scope: string, path: readonly (string | number)[], content: unknown, label: string) => renderStructuredValue(ctx,scope,path,content,label,draft.structuredInputs,(state.storageBlocked || Boolean(state.readOnlyReason)),0,(s,p)=>structuredKey(draft,s,p),{entryId:entryRefs,storyEntryId:entryRefs,storyId:storyRefs,flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags},
     scope === '$authoring' && (path[0] === 'activeStories' || path[0] === 'passiveStories')
       ? (fieldPath, value) => renderEntryConditionField(ctx, state, draft, fieldPath, value) : undefined);
 }
@@ -63,7 +78,7 @@ function renderEntryConditionField(ctx: UIContext, state: StoryEditorState, draf
   const field = entryConditionField(path.slice(2));
   if (!field) return;
   const e = ctx.escapeHtml;
-  const locked = state.storageBlocked ? ' disabled' : '';
+  const locked = (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : '';
   const group = value as Partial<ConditionGroup> | undefined;
   const leaf = value as Partial<Condition> | undefined;
   const summary = isTrueConditionRoot(value) ? '恒为 True'
@@ -87,7 +102,7 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
   if (!draft || id === undefined) return '<p class="story-editor-empty">找不到该 Entry 的作者草稿。</p>';
   const table = draft.authoring!.activeStories.some(entry => entry.id === id) ? 'activeStories' : 'passiveStories';
   const index = draft.authoring![table].findIndex(entry => entry.id === id);
-  const locked = state.storageBlocked ? ' disabled' : '';
+  const locked = (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : '';
   if(state.entryPoolContext?.entryId!==id) state.entryPoolContext={entryId:id,poolKeys:[]};
   draft.authoring!.passivePools.forEach((pool,poolIndex)=>{
     const key=structuredKey(draft,'$authoring',['passivePools',poolIndex]);
@@ -207,7 +222,7 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
     <section class="story-editor-entry-section">
       <header class="story-editor-list-heading">
         <h3>所在抽取池</h3>
-        <div class="story-editor-actions story-editor-actions--tools"><button type="button" class="mini-action" data-authoring-add="passivePools"${state.storageBlocked || row.activation.kind !== 'random' ? ' disabled' : ''}>新增关联抽取池</button></div>
+        <div class="story-editor-actions story-editor-actions--tools"><button type="button" class="mini-action" data-authoring-add="passivePools"${(state.storageBlocked || Boolean(state.readOnlyReason)) || row.activation.kind !== 'random' ? ' disabled' : ''}>新增关联抽取池</button></div>
       </header>
       ${pools || `<p class="story-editor-hint">${row.activation.kind === 'random' ? '尚未关联抽取池。' : '随机抽取入口可加入抽取池。'}</p>`}
     </section>`;
@@ -219,11 +234,11 @@ export function renderStoryAuthoringEntryRelations(ctx: UIContext, state: StoryE
   const e = ctx.escapeHtml;
   const related = draft.authoring;
   const tables = [['activeStories','主动 Entry','active','activeStories'],['passiveStories','随机 Entry','random','passiveStories'],['passiveStories','好感／角色阶段 Entry','affection','affection']] as const;
-  const rows = tables.map(([table,label,kind,action]) => `<div class="story-editor-list-heading"><h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${action}" data-editor-key="authoring-add:${kind}"${state.storageBlocked ? ' disabled' : ''}>新增${label}</button></div>${(related?.[table] ?? []).filter(row=>row.activation.kind===kind).map(row => `<button type="button" class="story-editor-list-item story-editor-relation-item" data-editor-key="entry:${table}:${e(row.id)}" data-editor-entry-target="${e(row.id)}"><strong>${e(String(row.openingTitle || label))}</strong><code>${e(row.id)}</code></button>`).join('')}`).join('');
+  const rows = tables.map(([table,label,kind,action]) => `<div class="story-editor-list-heading"><h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${action}" data-editor-key="authoring-add:${kind}"${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>新增${label}</button></div>${(related?.[table] ?? []).filter(row=>row.activation.kind===kind).map(row => `<button type="button" class="story-editor-list-item story-editor-relation-item" data-editor-key="entry:${table}:${e(row.id)}" data-editor-entry-target="${e(row.id)}"><strong>${e(String(row.openingTitle || label))}</strong><code>${e(row.id)}</code><small>${e(entryDirectorySummary(ctx, row, draft.targetPackId))}</small></button>`).join('')}`).join('');
   return `<section class="story-editor-authoring" data-editor-key="story-authoring-relations:${e(draft.draftId)}"><h3>关联 Entry</h3><p class="story-editor-hint">创建 Entry，或选择现有 Entry 继续编辑。</p>${rows}</section>`;
 }
 export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
-  const e = ctx.escapeHtml; const locked = state.storageBlocked ? ' disabled' : '';
+  const e = ctx.escapeHtml; const locked = (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : '';
   const value = authoringValueRenderer(ctx,state,draft);
   const catalog = (ctx.game as typeof ctx.game & Partial<PackCatalogReadModel>).getPackCatalog?.();
   const targets = (catalog?.entries ?? []).filter(x => x.editingMode === 'editing');
@@ -242,14 +257,14 @@ export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorStat
       <h3>检查与应用</h3>
       <div class="story-editor-actions story-editor-actions--tools">
         <button type="button" class="mini-action" data-authoring-action="check"${locked}>检查内容</button>
-        <button type="button" class="mini-action" data-authoring-action="apply"${locked}>应用正文与关联内容</button>
+        <button type="button" class="mini-action" data-authoring-action="apply"${locked || (state.canApplySource === false ? ' disabled' : '')}>应用正文与关联内容</button>
       </div>
     </section>
     <section class="story-editor-tool-section">
       <h3>数据包</h3>
       <div class="story-editor-actions story-editor-actions--tools">
-        <label class="story-editor-property">目标数据包<select data-authoring-target${locked}><option value="">${targets.length ? '选择编辑态数据包' : '请先在包管理创建编辑副本'}</option>${targets.map(target=>`<option value="${e(target.packRecordId ?? target.id)}"${(target.packRecordId ?? target.id)===targetPackId?' selected':''}>${e(target.name)} · ${e(target.modName)}</option>`).join('')}</select></label>
-        <button type="button" class="mini-action" data-authoring-action="pack"${locked}>保存到目标包</button>
+        ${state.sourceOptions ? `<p class="story-editor-hint">${e(draft.packSource?.label ?? '请打开内容所属的编辑态包。')}</p>` : `<label class="story-editor-property">目标数据包<select data-authoring-target${locked}><option value="">${targets.length ? '选择编辑态数据包' : '请先在包管理创建编辑副本'}</option>${targets.map(target=>`<option value="${e(target.packRecordId ?? target.id)}"${(target.packRecordId ?? target.id)===targetPackId?' selected':''}>${e(target.name)} · ${e(target.modName)}</option>`).join('')}</select></label>`}
+        <button type="button" class="mini-action" data-authoring-action="pack"${locked}>保存到编辑态包</button>
       </div>
       <p class="story-editor-hint">修改在重新载入目标包后生效。新内容 ID 使用目标包命名空间。</p>
     </section>

@@ -42,6 +42,7 @@ import {
 } from './story-entry-selection';
 import { applyCompletionReward, maybeBlockConversation, recordPassiveCooldown } from './story-rewards';
 import { previewEntryCheck, type StoryPreviewConditions } from './story-preview-conditions';
+import { buildPlayerStoryDirectory, storyDirectoryPath } from '../../read-model/story-directory-view';
 
 export type StoryCursor = StoryCursorSnapshot;
 
@@ -124,7 +125,9 @@ export class StoryService {
         const session = this.sessionForSource(source);
         if (!session || session.source.runId !== source.runId) return;
         const delivered = markTalkletDelivered(session, session.player.getView());
-        if (delivered && !session.replay) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal, undefined, source.entryId));
+        if (delivered && !session.replay) this.withSource(source, () => opts.mutations.recordStoryRead(
+          delivered.storyId, delivered.ordinal, undefined, source.entryId, this.captureDirectoryPath(source.entryId),
+        ));
       },
       release: (source, token) => {
         const session = this.sessionForSource(source);
@@ -687,10 +690,24 @@ export class StoryService {
     const entry = this.opts.registry.storyEntries.get(entryId);
     if (!entry) return undefined;
     const recorded = this.state.storyEntryReads?.[entryId];
-    const completed = recorded === 'completed'
+    const retained = this.state.retainedStoryDirectoryProgress?.[this.state.activeInit]?.reads?.[entryId];
+    const completed = recorded === 'completed' || retained === 'completed'
       || this.state.areaStoryDeliveries?.some(delivery => delivery.entryId === entryId && delivery.status === 'completed');
-    const progress = completed ? 'completed' : recorded === 'read' ? 'read' : undefined;
+    const progress = completed ? 'completed' : recorded === 'read' || retained === 'read' ? 'read' : undefined;
     return { allowed: entry.replayable ?? (progress !== undefined), progress };
+  }
+
+  getStoryDirectory() {
+    return buildPlayerStoryDirectory(this.opts.registry, this.state, entryId => this.getStoryReplayStatus(entryId));
+  }
+
+  private captureDirectoryPath(entryId: string, completed = false) {
+    const registry = this.opts.registry;
+    const entry = registry.storyEntries.get(entryId);
+    if (!entry || this.authoringPreview || (!completed && this.state.storyDirectoryPaths?.[entryId])) return;
+    const folders = storyDirectoryPath(registry, this.state.activeInit, entryId);
+    const title = completed || !entry.revealTriggers?.length ? entry.openingTitle ?? registry.stories.get(entry.storyId)?.name : undefined;
+    return folders.length ? { folders, title } : undefined;
   }
 
   getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[] {
@@ -1339,7 +1356,8 @@ export class StoryService {
         const reward = applyCompletionReward(rewardContext, session.entry, terminalStoryId);
         receipts = reward?.receipts ?? [];
         session.finishing.receipts = receipts;
-        this.opts.mutations.completeStory(completed, session.entry.id, () => { session.finishing!.completionRecorded = true; });
+        this.opts.mutations.completeStory(completed, session.entry.id, () => { session.finishing!.completionRecorded = true; },
+          this.captureDirectoryPath(session.entry.id, true));
         session.finishing.completionRecorded = true;
         if (session.entry.activation.kind !== 'active') {
           recordPassiveCooldown(rewardContext, session.entry);

@@ -365,6 +365,8 @@ export class UIController {
   themeFloatOpen = false;
   /** @internal 主题浮窗位置（同上）。 */
   themeFloatPos: { x: number; y: number } | null = null;
+  /** 星图切入功能页时沿用当时的完整主题投影；离开功能页后清除。 */
+  serviceThemeOverride: ReturnType<SelectorPage['currentTheme']> = undefined;
   /** @internal Runtime Editor body-level floating workspace visibility. */
   runtimeEditorPanelOpen = false;
   /** @internal Runtime Editor mini launcher visibility. */
@@ -2139,6 +2141,7 @@ export class UIController {
 
   private setWorkspaceRouteMirror(route: WorkspaceRoute): void {
     this.panelState.service = route.kind === 'service' ? route.page : 'game';
+    if (route.kind !== 'service') this.serviceThemeOverride = undefined;
   }
 
   /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
@@ -2150,6 +2153,8 @@ export class UIController {
     this.panelState.workspace = undefined;
     if (this.panelState.storyReplay?.completed && this.panelState.storyReplay.replayId) this.commands.cancelReplayStory(this.panelState.storyReplay.replayId);
     if (this.panelState.storyReplay?.completed) this.panelState.storyReplay = undefined;
+    if (service === 'game') this.serviceThemeOverride = undefined;
+    else if (this.root.querySelector('.selector-shell')) this.serviceThemeOverride = this.selectorPage.currentTheme();
     this.panelState.service = service;
     this.panelState.workspaceNavigation = createWorkspaceNavigation(route);
     if (service === 'game' && activateStorySpace) this.commands.activateStorySpace(this.panelState.conversationVariantId);

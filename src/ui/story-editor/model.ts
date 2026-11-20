@@ -35,6 +35,10 @@ export interface StoryDraft {
   sourceId: string | null;
   /** The chosen editing record owns new content independently of the current UI selection. */
   targetPackId?: string;
+  packSource?: import('../../arona-clicker/contracts/runtime/runtime').StoryPackSource & { label: string; digest?: string };
+  /** The exact dependency view that produced an unmodified, read-only document. */
+  viewSource?: string;
+  entryOnly?: string;
   renamedFromId?: string;
   document: StoryDraftDocument;
   savedAt: number | null;
@@ -62,6 +66,15 @@ export interface StoryEditorVisit {
   rightScroll: number;
 }
 export interface StoryEditorState {
+  sourceSelection?: string;
+  sourceRegistry?: import('../../arona-clicker/contracts/runtime/content-catalog').ContentCatalogQueryPort;
+  sourcePics?: import('../../arona-clicker/contracts/runtime/runtime').GameReadModel['pics'];
+  sourceOptions?: { value: string; label: string; group: 'packs' | 'drafts' }[];
+  sourceWarning?: string;
+  sourceMod?: string;
+  readOnlyReason?: string;
+  canApplySource?: boolean;
+  parkedDrafts?: StoryDraft[];
   uiTheme?: import('./theme').StoryEditorTheme;
   visits: StoryEditorVisit[];
   visitIndex: number;
@@ -115,16 +128,18 @@ export function createStoryEditorState(): StoryEditorState {
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
-  return target?.kind === 'story' ? state.drafts.find(draft => draft.document.id === target.id) : undefined;
+  return target?.kind === 'story' ? state.drafts.find(draft => !draft.entryOnly && draft.document.id === target.id) : undefined;
 }
 /** Entry forms edit the existing owner draft while the viewing target stays an Entry. */
 export function currentAuthoringDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
   if (target?.kind !== 'entry') return currentDraft(state);
-  return [...state.drafts].reverse().find(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
+  return state.drafts.find(draft => draft.entryOnly === target.id)
+    ?? [...state.drafts].reverse().find(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
 }
 export function storyEditorTargetKey(state: StoryEditorState): string {
-  return state.target ? `${state.target.kind}:${state.target.id}` : '';
+  const key = state.target ? `${state.target.kind}:${state.target.id}` : '';
+  return state.sourceSelection ? `${state.sourceSelection}:${key}` : key;
 }
 
 export function storyPreviewEntries(state: StoryEditorState, draft: StoryDraft, sources: ReadonlyMap<string, StoryEntryDef>) {
@@ -136,7 +151,7 @@ export function storyPreviewEntries(state: StoryEditorState, draft: StoryDraft, 
 }
 export function storyEntries(state: StoryEditorState, sources: ReadonlyMap<string, StoryEntryDef>): ReadonlyMap<string, StoryEntryDef> {
   const entries = new Map(sources);
-  for (const draft of state.drafts) {
+  for (const draft of [...state.drafts.filter(item => !item.entryOnly), ...state.drafts.filter(item => item.entryOnly)]) {
     for (const id of [...(draft.authoring?.removed?.activeStories ?? []), ...(draft.authoring?.removed?.passiveStories ?? [])]) entries.delete(id);
     for (const entry of [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])]) entries.set(entry.id, entry);
   }
@@ -300,27 +315,28 @@ export function composer(state: StoryEditorState): StoryComposer {
   return draft ? state.composers[draft.draftId] ??= { sender: 'narrator', text: '' } : { sender: 'narrator', text: '' };
 }
 export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>): StoryListItem[] {
+  const drafts = state.drafts.filter(draft => !draft.entryOnly);
   const entries = [...sources.values()].map(source => {
-    const draft = state.drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
+    const draft = drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
     const story = draft?.document ?? source;
     return { key: draft?.draftId ?? `source:${source.id}`, name: story.name, storyId: story.id, initId: story.initId, draft };
   });
-  for (const draft of state.drafts) {
+  for (const draft of drafts) {
     if (!entries.some(item=>item.draft===draft)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, initId: draft.document.initId, draft });
   }
   const search = state.search.trim().toLocaleLowerCase();
   return entries.filter(item => !search || `${item.name}\n${item.storyId}`.toLocaleLowerCase().includes(search));
 }
 export function selectStory(state: StoryEditorState, key: string, sources: ReadonlyMap<string, StoryDef>): boolean {
-  let draft = state.drafts.find(item => item.draftId === key);
+  let draft = state.drafts.find(item => !item.entryOnly && item.draftId === key);
   if (!draft && key.startsWith('source:')) {
     const source = sources.get(key.slice(7));
     if (!source) return false;
-    draft = state.drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
+    draft = state.drafts.find(item => !item.entryOnly && (item.sourceId === source.id || item.document.id === source.id));
     if (!draft) {
       const document = cloneStory({ ...source, nodes: [...source.nodes] }) as StoryDraftDocument;
       stripLegacyStoryReplies(document);
-      draft = { draftId: `source:${source.id}`, sourceId: source.id, document, savedAt: null, dirty: false, persisted: false,
+      draft = { draftId: state.sourceOptions ? identity('draft') : `source:${source.id}`, sourceId: source.id, document, savedAt: null, dirty: false, persisted: false,
         editorState: { version: 1, branches: Object.create(null), optionals: Object.create(null), optionalPaths: Object.create(null), optionalBranches: Object.create(null), rows: Object.create(null), rawInputs: Object.create(null), sourceStageIds: Object.keys(source.stages ?? {}),
           sourceUnreferencedStageIds: Object.keys(source.stages ?? {}).filter(id => !source.nodes.some(node => (node.type === 'talklet' || node.type === 'click') && node.stageId === id)), inactiveStageIds: [] } };
       restoreStoryDraftDesign(draft);

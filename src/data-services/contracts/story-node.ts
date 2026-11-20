@@ -34,6 +34,8 @@ export interface StoryNodeDocument {
   readonly name: string;
   /** 作者目录归属。省略时归入「其他」，不限制入口、播放或重读。 */
   readonly initId?: InitId;
+  /** Authoring location within initId. Affects directory placement only. */
+  readonly directoryId?: string;
   /** 起始对话空间由故事本体声明，不从 Active/Passive Entry 推断。 */
   readonly startContext: StoryStartContext;
   /** 按执行顺序排列的顶层节点。 */

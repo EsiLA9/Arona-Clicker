@@ -1,7 +1,7 @@
 import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryAuthoringPreviewTarget, StoryIdentityChange } from '../contracts/runtime/story-authoring';
 import type { GameCommands } from '../contracts/index';
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackSource } from '../contracts/runtime/runtime';
 import type { VariantTrainingPort } from '../contracts/character/variant-training';
 import type { MapRunCardRef } from '../contracts/map/map-cards';
 import type { StoryService } from '../services/story/story-service';
@@ -33,13 +33,14 @@ import type {
 } from '../contracts/map/map-run';
 
 export interface GameCommandSource {
-  validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult;
+  validateStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
+  applyStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackSource): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
+  saveStoryDirectoryToPack?(packRecordId: string, directory: import('../../data-services/contracts/story-directory').StoryDirectoryDef, remove?: boolean): StoryAuthoringResult;
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
-  saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
-  restoreStoryDefinition(storyId: string): StoryDefinitionRestoreResult;
+  saveStoryDefinition(story: StoryDef, packRecordId?: string): StoryDefinitionSaveResult;
+  restoreStoryDefinition(storyId: string, packRecordId?: string): StoryDefinitionRestoreResult;
   readonly variantTraining: VariantTrainingPort;
   enterVariantTraining(spotId: string, functionalityId: string): MapRun;
   readonly state: Readonly<PlayerState>;
@@ -106,13 +107,14 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
   const highestLogId = (entries: readonly DevLogEntry[]) => entries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0);
 
   return {
-    validateStoryAuthoring: patch => game.validateStoryAuthoring(patch),
-    applyStoryAuthoring: patch => game.applyStoryAuthoring(patch),
-    createStoryAuthoringPreview: (patch, target) => game.createStoryAuthoringPreview(patch, target),
+    validateStoryAuthoring: (patch, packRecordId) => game.validateStoryAuthoring(patch, packRecordId),
+    applyStoryAuthoring: (patch, packId) => game.applyStoryAuthoring(patch, packId),
+    createStoryAuthoringPreview: (patch, target, source) => game.createStoryAuthoringPreview(patch, target, source),
     ...(game.saveStoryAuthoringToPack ? { saveStoryAuthoringToPack: (id: string, patch: StoryAuthoringPatch) => game.saveStoryAuthoringToPack!(id, patch) } : {}),
+    ...(game.saveStoryDirectoryToPack ? { saveStoryDirectoryToPack: (id, directory, remove) => game.saveStoryDirectoryToPack!(id, directory, remove) } : {}),
     ...(game.renameStoryInPack ? { renameStoryInPack: (id: string, change: StoryIdentityChange) => game.renameStoryInPack!(id, change) } : {}),
-    saveStoryDefinition: story => game.saveStoryDefinition(story),
-    restoreStoryDefinition: storyId => game.restoreStoryDefinition(storyId),
+    saveStoryDefinition: (story, packId) => game.saveStoryDefinition(story, packId),
+    restoreStoryDefinition: (storyId, packId) => game.restoreStoryDefinition(storyId, packId),
     variantTraining: game.variantTraining,
     enterVariantTraining: (spotId, functionalityId) => game.enterVariantTraining(spotId, functionalityId),
     travelToArea: (areaId, allowDuringStory, checkAdjacency) => game.travelToArea(areaId, allowDuringStory, checkAdjacency),

@@ -14,7 +14,7 @@ export const hoshinoConversationPool: PassivePoolDef = passivePool('base:passive
 export const hoshinoConversationStories: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:hoshino_conv_1', 'base:story:hoshino_tea_time')
     .owner('Hoshino')
-    .inits()
+    .inits('base:init:abydos')
     .weight(1)
     .cooldownFrames(600)
     .build(),
@@ -30,7 +30,7 @@ export const hoshinoConversationStories: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:hoshino_bond_invite', 'base:story:hoshino_bond_invite')
     .owner('Hoshino')
     .replayable()
-    .inits()
+    .inits('base:init:abydos')
     .repeatable(false)
     .weight(1)
     .build(),
@@ -44,7 +44,7 @@ export const cooldownDemoPool: PassivePoolDef = passivePool('base:passivepool:co
 
 export const cooldownDemoStories: PassiveStoryEntry[] = [
   passiveStory('base:passivestory:cooldown_demo_1', 'base:story:schale_briefing')
-    .inits()
+    .inits('base:init:schale_office')
     .weight(1)
     .build(),
 ];

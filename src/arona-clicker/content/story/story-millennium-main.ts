@@ -2,7 +2,7 @@ import { story } from '../def-factory/index';
 import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseMillenniumMainStories: StoryDef[] = [
-  story('base:story:millennium_welcome', '数据与新生').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_welcome', '数据与新生').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 千禧年学院 · 研究楼 ——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师，欢迎来到千禧年学院。我是财务担当早濑优香，这边是研究楼的数据分析站。', speaker: '优香' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '效率很高，不愧是千禧年。' } },
@@ -15,7 +15,7 @@ export const baseMillenniumMainStories: StoryDef[] = [
   { id: 'p5-body', type: 'talklet', stageId: 'p5', content: { kind: 'talk', text: '老师老师！我们的游戏马上就要完成了！啊，不过在这之前得先把信用点赚够……', speaker: '桃依' } },
   { id: 'p5-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 12 }, { op: 'addItem', itemId: 'base:item:data_chip', amount: 2 }] } },
 ]).build(),
-  story('base:story:millennium_game_crisis_intro', '游戏开发部的危机 · 开场').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_game_crisis_intro', '游戏开发部的危机 · 开场').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 千禧年学院 · 游戏开发部 ——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师！游戏引擎又出 bug 了！发行日期就在明天！', speaker: '桃依' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '冷静一下，桃依。' } },
@@ -29,25 +29,25 @@ export const baseMillenniumMainStories: StoryDef[] = [
   { id: 'p4-option1-transfer', type: 'transfer', requiresFlag: 'millennium-game-crisis-p4-option1', transfer: { mode: 'goto', storyId: 'base:story:millennium_game_crisis_debug' } },
   { id: 'p4-option2-transfer', type: 'transfer', requiresFlag: 'millennium-game-crisis-p4-option2', transfer: { mode: 'goto', storyId: 'base:story:millennium_game_crisis_bribe' } },
 ]).build(),
-  story('base:story:millennium_game_crisis_whisper', '美依的悄悄话').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_game_crisis_whisper', '美依的悄悄话').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '（小声）其实姐姐昨天偷偷哭了一场……她压力很大的。', speaker: '美依' }, presentation: { avatarMode: 'hide' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '（小声）别说出去啊老师！这是我们开发部的秘密！', speaker: '桃依' }, presentation: { avatarMode: 'hide' } },
 ]).build(),
-  story('base:story:millennium_game_crisis_debug', '游戏开发部的危机 · 调试').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_game_crisis_debug', '游戏开发部的危机 · 调试').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '我看看这个报错……原来是内存泄漏。', speaker: '老师' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '我来修。' } },
   { id: 'p1-button-response', type: 'talklet', stageId: 'p1-response', content: { kind: 'talk', text: '我来修。', speaker: '老师' }, presentation: { side: 'right' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '老师太厉害了！修好了！', speaker: '美依' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'base:story:millennium_game_crisis_end' } },
 ]).build(),
-  story('base:story:millennium_game_crisis_bribe', '游戏开发部的危机 · 补给').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_game_crisis_bribe', '游戏开发部的危机 · 补给').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'input' }, 'p2': { advance: 'auto' }, 'p1-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '先吃点东西休息一下吧。', speaker: '老师' } },
   { id: 'p1-button', type: 'click', stageId: 'p1', interaction: { kind: 'button', text: '我请客。' } },
   { id: 'p1-button-response', type: 'talklet', stageId: 'p1-response', content: { kind: 'talk', text: '我请客。', speaker: '老师' }, presentation: { side: 'right' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '哇，是冰淇淋！吃完就有干劲了！', speaker: '桃依' } },
   { id: 'p2-transfer', type: 'transfer', transfer: { mode: 'goto', storyId: 'base:story:millennium_game_crisis_end' } },
 ]).build(),
-  story('base:story:millennium_game_crisis_end', '游戏开发部的危机 · 收尾').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:millennium_game_crisis_end', '游戏开发部的危机 · 收尾').init('base:init:millennium').startInArea('base:area:millennium_lab').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'talk', text: '游戏完成！明天一定能顺利发行！', speaker: '桃依' } },
   { id: 'p1-op1', type: 'operation', action: { kind: 'state', effects: [{ op: 'addResource', resourceId: Resource.Credit, amount: 20 }] } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '感谢老师！没有你的话我们都不知道该怎么办了。', speaker: '美依' } },

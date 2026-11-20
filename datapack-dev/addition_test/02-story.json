@@ -3,6 +3,7 @@
     {
       "id": "addition-test:story:welcome",
       "name": "观测站启动",
+      "initId": "addition-test:init:observatory",
       "startContext": { "type": "area", "areaId": "addition-test:area:observatory" },
       "stages": { "input": { "advance": "input" }, "ending": { "advance": "auto" } },
       "nodes": [
@@ -45,6 +46,7 @@
     {
       "id": "addition-test:story:passive-signal",
       "name": "信号灯闪烁",
+      "initId": "addition-test:init:observatory",
       "startContext": { "type": "area", "areaId": "addition-test:area:observatory" },
       "stages": { "line": { "advance": "auto" } },
       "nodes": [{

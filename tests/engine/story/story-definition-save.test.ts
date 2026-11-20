@@ -92,15 +92,15 @@ describe('StoryDef current Registry save command', () => {
     expect(game.story.getCurrentStoryView()?.page.text).toBe('新第一行');
   });
 
-  it('needs no editing Mod and does not change a pack; reloading uses packaged content', () => {
+  it('rejects writing to running content without its editing record', () => {
     const runtime = new AronaClickerRuntime();
     try {
       runtime.init([baseDatapack]);
       const packs = runtime.getPackCatalog();
       const original = [...runtime.registry.stories.values()][0];
       const replacement = { ...original, name: '临时覆盖' };
-      expect(createGameCommands(runtime).saveStoryDefinition(replacement).ok).toBe(true);
-      expect(runtime.registry.stories.get(original.id)?.name).toBe('临时覆盖');
+      expect(createGameCommands(runtime).saveStoryDefinition(replacement).ok).toBe(false);
+      expect(runtime.registry.stories.get(original.id)?.name).toBe(original.name);
       expect(runtime.getPackCatalog()).toEqual(packs);
       runtime.init([baseDatapack]);
       expect(runtime.registry.stories.get(original.id)?.name).toBe(original.name);

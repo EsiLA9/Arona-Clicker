@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T15:56:50.483Z",
+  "generatedAt": "2026-11-20T06:41:14.714Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -68,6 +68,10 @@
     },
     "stories": {
       "type": "StoryDef",
+      "shape": "array"
+    },
+    "storyDirectories": {
+      "type": "StoryDirectoryDef",
       "shape": "array"
     },
     "items": {
@@ -17689,6 +17693,80 @@
           ]
         },
         {
+          "key": "directoryPlacements",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryDirectoryPlacement[]",
+          "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "initId",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                },
+                {
+                  "key": "directoryId",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "order",
+                  "required": false,
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryDirectoryPlacement"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "initId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "InitId",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "InitId"
+                },
+                "table": "inits"
+              },
+              {
+                "key": "directoryId",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "kind": "float",
+                "tsType": "number",
+                "authoringSchema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -18561,6 +18639,80 @@
           ]
         },
         {
+          "key": "directoryPlacements",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryDirectoryPlacement[]",
+          "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "initId",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                },
+                {
+                  "key": "directoryId",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "order",
+                  "required": false,
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryDirectoryPlacement"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "initId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "InitId",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "InitId"
+                },
+                "table": "inits"
+              },
+              {
+                "key": "directoryId",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "kind": "float",
+                "tsType": "number",
+                "authoringSchema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -19370,6 +19522,42 @@
                 }
               },
               {
+                "key": "directoryPlacements",
+                "required": false,
+                "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "initId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "InitId"
+                        }
+                      },
+                      {
+                        "key": "directoryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "order",
+                        "required": false,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryEntryDirectoryPlacement"
+                  }
+                }
+              },
+              {
                 "key": "owner",
                 "required": false,
                 "schema": {
@@ -19826,6 +20014,42 @@
                     }
                   ],
                   "sourceType": "StoryEntryCatalog"
+                }
+              },
+              {
+                "key": "directoryPlacements",
+                "required": false,
+                "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+                "schema": {
+                  "type": "array",
+                  "item": {
+                    "type": "object",
+                    "fields": [
+                      {
+                        "key": "initId",
+                        "required": true,
+                        "schema": {
+                          "type": "reference",
+                          "name": "InitId"
+                        }
+                      },
+                      {
+                        "key": "directoryId",
+                        "required": true,
+                        "schema": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "key": "order",
+                        "required": false,
+                        "schema": {
+                          "type": "number"
+                        }
+                      }
+                    ],
+                    "sourceType": "StoryEntryDirectoryPlacement"
+                  }
                 }
               },
               {
@@ -20341,6 +20565,13 @@
           "table": "inits"
         },
         {
+          "key": "directoryId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Authoring location within initId. Affects directory placement only."
+        },
+        {
           "key": "startContext",
           "required": true,
           "kind": "hand",
@@ -20367,6 +20598,81 @@
           "kind": "extra",
           "tsType": "ExtraCompound",
           "description": "剧情附加数据。"
+        }
+      ]
+    },
+    "StoryDirectoryDef": {
+      "fields": [
+        {
+          "key": "id",
+          "required": true,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Stable directory ID. Character directories use characterStoryDirectoryId()."
+        },
+        {
+          "key": "initId",
+          "required": true,
+          "kind": "ref",
+          "tsType": "InitId",
+          "description": "The Init under which this directory appears.",
+          "table": "inits"
+        },
+        {
+          "key": "characterId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Set only to customize the directory generated for this character."
+        },
+        {
+          "key": "parentId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Parent directory ID. Omit for a top-level manual directory."
+        },
+        {
+          "key": "title",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Player-facing title. Required for manual directories."
+        },
+        {
+          "key": "description",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Plain-text description displayed in the directory."
+        },
+        {
+          "key": "coverPicId",
+          "required": false,
+          "kind": "string",
+          "tsType": "PicId",
+          "description": "Existing picture resource used as the directory cover."
+        },
+        {
+          "key": "public",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "Show the directory before the player discovers an entry in it."
+        },
+        {
+          "key": "acceptExternalEntries",
+          "required": false,
+          "kind": "bool",
+          "tsType": "boolean",
+          "description": "Accept explicit placements from other Mods."
+        },
+        {
+          "key": "order",
+          "required": false,
+          "kind": "float",
+          "tsType": "number",
+          "description": "Sibling order, lowest first."
         }
       ]
     },
@@ -26810,6 +27116,80 @@
           ]
         },
         {
+          "key": "directoryPlacements",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryDirectoryPlacement[]",
+          "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "initId",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                },
+                {
+                  "key": "directoryId",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "order",
+                  "required": false,
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryDirectoryPlacement"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "initId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "InitId",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "InitId"
+                },
+                "table": "inits"
+              },
+              {
+                "key": "directoryId",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "kind": "float",
+                "tsType": "number",
+                "authoringSchema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -27676,6 +28056,80 @@
               }
             }
           ]
+        },
+        {
+          "key": "directoryPlacements",
+          "required": false,
+          "kind": "array",
+          "tsType": "StoryEntryDirectoryPlacement[]",
+          "description": "Explicit placement in each applicable Init. Missing placements are inferred.",
+          "authoringSchema": {
+            "type": "array",
+            "item": {
+              "type": "object",
+              "fields": [
+                {
+                  "key": "initId",
+                  "required": true,
+                  "schema": {
+                    "type": "reference",
+                    "name": "InitId"
+                  }
+                },
+                {
+                  "key": "directoryId",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "key": "order",
+                  "required": false,
+                  "schema": {
+                    "type": "number"
+                  }
+                }
+              ],
+              "sourceType": "StoryEntryDirectoryPlacement"
+            }
+          },
+          "item": {
+            "key": "$",
+            "kind": "object",
+            "fields": [
+              {
+                "key": "initId",
+                "required": true,
+                "kind": "ref",
+                "tsType": "InitId",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "InitId"
+                },
+                "table": "inits"
+              },
+              {
+                "key": "directoryId",
+                "required": true,
+                "kind": "string",
+                "tsType": "string",
+                "authoringSchema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "order",
+                "required": false,
+                "kind": "float",
+                "tsType": "number",
+                "authoringSchema": {
+                  "type": "number"
+                }
+              }
+            ],
+            "tsType": "StoryEntryDirectoryPlacement"
+          }
         },
         {
           "key": "owner",
@@ -28990,6 +29444,7 @@
     "StoryCursorSnapshot",
     "StoryDef",
     "StoryDeferredStart",
+    "StoryDirectoryDef",
     "StoryDisplayTarget",
     "StoryEffectPort",
     "StoryEntityPresentationSnapshot",
@@ -28998,6 +29453,7 @@
     "StoryEntryCardInteraction",
     "StoryEntryCatalog",
     "StoryEntryDef",
+    "StoryEntryDirectoryPlacement",
     "StoryEntryId",
     "StoryEntryReaction",
     "StoryEntryRequest",

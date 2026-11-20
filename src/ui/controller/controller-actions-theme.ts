@@ -22,6 +22,7 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
         ctrl.toast.show('该色彩组尚未解锁', 'error');
         return;
       }
+      ctrl.serviceThemeOverride = undefined;
       ctrl.toast.show(groupId ? '主题已切换' : '已恢复默认主题', 'success');
       ctrl.scheduleRender();
     });
@@ -37,6 +38,7 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
         ctrl.toast.show('用户自定义主题不可用', 'error');
         return;
       }
+      ctrl.serviceThemeOverride = undefined;
       ctrl.toast.show('已应用用户自定义主题', 'success');
       ctrl.scheduleRender();
     });

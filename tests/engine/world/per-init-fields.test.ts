@@ -15,7 +15,7 @@ import { Character, CharacterRarity, CharacterSchool } from '../../../src/arona-
 /** 快照键全集（与 types/state.ts InitSnapshot 对齐；漂移时本测试与编译期守卫同时报警）。 */
 const EXPECTED_SNAPSHOT_KEYS = [
   'resources', 'spotLevels', 'spotManagers', 'visitedAreas', 'collectedAreaMapIds', 'totalFrames',
-  'inventory', 'unlockedEnhancements', 'storyLog', 'areaStoryDeliveries', 'storyReadLogs', 'storyEntryReads', 'flags',
+  'inventory', 'unlockedEnhancements', 'storyLog', 'areaStoryDeliveries', 'storyReadLogs', 'storyEntryReads', 'storyDirectoryPaths', 'flags',
   'triggersCompleted', 'currentAreaId', 'extras', 'roster', 'fragments', 'gachaState', 'chatRead',
   'equipmentsOwned', 'shopPurchaseRecords', 'storyCursors',
 ];
@@ -61,6 +61,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     state.totalFrames = 42;
     state.storyReadLogs = { 's1': { readTalkletIndexes: [0], chosenChoiceIndexes: {} } };
     state.storyEntryReads = { 'test:activestory:s1': 'read' };
+    state.storyDirectoryPaths = { 'test:activestory:s1': { folders: [{ id: 'test:story-directory:one', title: '第一篇' }] } };
 
     savepoint.save('i1');
     const snapshot = state.initSnapshots!['i1'];
@@ -69,6 +70,7 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     expect(snapshot.collectedAreaMapIds).toEqual(['demo:area-map:a']);
     expect(snapshot.storyReadLogs).toBeDefined();
     expect(snapshot.storyEntryReads).toEqual({ 'test:activestory:s1': 'read' });
+    expect(snapshot.storyDirectoryPaths).toEqual(state.storyDirectoryPaths);
 
     state.resources.credit = 999;
     state.flags.a = '2';
@@ -114,17 +116,21 @@ describe('InitSavepoint 三操作（spec 驱动）', () => {
     state.resources = { credit: 100 };
     state.flags = { a: '1' };
     state.storyEntryReads = { 'test:activestory:s1': 'completed' };
+    const directoryPaths = { 'test:activestory:s1': { folders: [{ id: 'test:story-directory:one', title: '第一篇' }] } };
+    state.storyDirectoryPaths = directoryPaths;
     savepoint.save('i1');
     const snapshot = state.initSnapshots!['i1'];
 
     savepoint.clear();
     expect(state.storyEntryReads).toEqual({});
+    expect(state.storyDirectoryPaths).toEqual({});
     state.resources = { credit: 5 };
     state.flags = {};
     savepoint.restore(snapshot);
     expect(state.resources).toEqual({ credit: 100 });
     expect(state.flags).toEqual({ a: '1' });
     expect(state.storyEntryReads).toEqual({ 'test:activestory:s1': 'completed' });
+    expect(state.storyDirectoryPaths).toEqual(directoryPaths);
   });
 
   it('归属声明为 init 时：roster/fragments/gachaState 进快照且 clear 重置', () => {

@@ -27,6 +27,7 @@ export type TableKey =
   /** 虚拟合并表：activeStories ∪ passiveStories 的只读引用视图（不落盘） */
   | 'storyEntries'
   | 'stories'
+  | 'storyDirectories'
   | 'items'
   | 'dropTables'
   | 'affectorPacks'

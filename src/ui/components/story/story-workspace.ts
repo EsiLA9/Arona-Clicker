@@ -2,6 +2,7 @@ import { createChatColumn } from '../../columns';
 import type { UIContext } from '../../runtime/context';
 import type { PanelState, StoryWorkspaceState } from '../shared/app-shell';
 import { renderStoryNavigation } from '../../columns';
+import { renderStoryDirectoryOverview, storyDirectoryTrail } from '../../columns/story-navigation';
 import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 
@@ -19,14 +20,15 @@ export function createStoryWorkspaceFrame(
   const owner = workspace.conversationOwner;
   const hasConversation = workspace.subroute === 'overview'
     && (workspace.selectedEntryId !== null || workspace.mode === 'playing');
+  const directory = ctx.game.story.getStoryDirectory();
   const left = '<div class="story-workspace__navigation" data-scroll-owner="content-region">'
-    + renderStoryNavigation(ctx, workspace.navPath)
+    + renderStoryNavigation(ctx, workspace.navPath, directory)
     + '</div>';
   const centerContent = workspace.subroute === 'archive'
     ? '<div class="story-workspace__archive">'
       + '<div class="workspace-placeholder"><h2>故事档案</h2><p>档案内容将在 Records Service 或 Story 子路由中继续设计。</p>'
       + '<button type="button" class="toolbar-button" data-story-archive-back>返回故事</button></div></div>'
-    : placeholder('选择左侧分类或故事条目后，这里将显示故事内容。');
+    : renderStoryDirectoryOverview(ctx, storyDirectoryTrail(directory, workspace.navPath).at(-1));
   const right = placeholder(
         workspace.selectedEntryId
           ? '当前故事的详情与辅助信息将在此 Workspace 内继续设计。'
@@ -57,7 +59,7 @@ export function createStoryWorkspaceFrame(
         className: 'story-workspace__center',
         header: renderWorkspaceTitlebar(ctx, 'center', '故事内容'),
         content: centerContent,
-        scroll: 'none',
+        scroll: 'content',
       },
       { key: 'inspector', width: 'var(--workspace-right-width)',
         slot: 'right',

@@ -30,7 +30,7 @@ export const DATAPACK_LIST_FIELDS = [
   'inits', 'areas', 'spots', 'maps', 'areaMaps',
   'operationEvents', 'operationLocations', 'operationActions',
   'studentOperationProfiles', 'operationStrategyProfiles', 'operationCardPools',
-  'enhancements', 'activeStories', 'passiveStories', 'stories',
+  'enhancements', 'activeStories', 'passiveStories', 'stories', 'storyDirectories',
   'items', 'dropTables', 'affectorPacks', 'triggerDefs', 'milestones', 'milestoneListeners', 'achievements', 'funcletDefs', 'characters',
   'resourceDisplays', 'pics', 'charaProfiles', 'passivePools',
   'characterVariants', 'cultivateCurves', 'colorGroups', 'colorEquipments', 'themeDesigns',
@@ -155,6 +155,7 @@ export function mergeFragments(fragments: readonly DatapackFragment[]): Datapack
   if (lists.pics) datapack.pics = lists.pics as PicDef[];
   if (lists.charaProfiles) datapack.charaProfiles = lists.charaProfiles as CharaProfileDef[];
   if (lists.passivePools) datapack.passivePools = lists.passivePools as PassivePoolDef[];
+  if (lists.storyDirectories) datapack.storyDirectories = lists.storyDirectories as Datapack['storyDirectories'];
   if (lists.characterVariants) datapack.characterVariants = lists.characterVariants as CharacterVariantDef[];
   if (lists.cultivateCurves) datapack.cultivateCurves = lists.cultivateCurves as CultivateCurveDef[];
   if (lists.favoriteItems) datapack.favoriteItems = lists.favoriteItems as FavoriteItemDef[];

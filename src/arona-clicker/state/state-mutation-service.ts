@@ -1097,10 +1097,15 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     return true;
   }
 
-  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void): void {
+  retainStoryDirectoryProgress(progress: AronaClickerState['retainedStoryDirectoryProgress']): void {
+    this.current.retainedStoryDirectoryProgress = progress;
+  }
+
+  completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void, directoryPath?: import('../types/story-state').StoryDirectoryPath): void {
     this.current.storyLog.push(story);
     if (sourceEntryId) {
       (this.current.storyEntryReads ??= {})[sourceEntryId] = 'completed';
+      if (directoryPath) (this.current.storyDirectoryPaths ??= {})[sourceEntryId] = directoryPath;
       const delivery = this.current.areaStoryDeliveries?.find(candidate => candidate.entryId === sourceEntryId);
       if (delivery?.status === 'pending') delivery.status = 'completed';
     }
@@ -1176,9 +1181,10 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   }
 
   /** Record delivered Story prose and, when provided, the Entry that delivered it. */
-  recordStoryRead(storyId: StoryId, talkletIndex: number, choiceIndex?: number, sourceEntryId?: string): void {
+  recordStoryRead(storyId: StoryId, talkletIndex: number, choiceIndex?: number, sourceEntryId?: string, directoryPath?: import('../types/story-state').StoryDirectoryPath): void {
     const state = this.current;
     if (sourceEntryId) (state.storyEntryReads ??= {})[sourceEntryId] ??= 'read';
+    if (sourceEntryId && directoryPath) (state.storyDirectoryPaths ??= {})[sourceEntryId] = directoryPath;
     const logs = (state.storyReadLogs ??= {});
     const log = logs[storyId] ?? { readTalkletIndexes: [], chosenChoiceIndexes: {} };
     if (!log.readTalkletIndexes.includes(talkletIndex)) {

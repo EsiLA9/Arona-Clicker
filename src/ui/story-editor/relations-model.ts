@@ -19,7 +19,7 @@ const key = (target: StoryEditorTarget): string => `${target.kind}:${target.id}`
 /** Derive both directions from live author content; never persist a second set of references. */
 export function buildStoryRelations(state: StoryEditorState, sourceStories: ReadonlyMap<string, StoryDef>, sourceEntries: ReadonlyMap<string, StoryEntryDef>): StoryRelations {
   const stories = new Map<string, StoryDef | StoryDraftDocument>(sourceStories);
-  for (const draft of state.drafts) stories.set(draft.document.id, draft.document);
+  for (const draft of state.drafts) if (!draft.entryOnly || !stories.has(draft.document.id)) stories.set(draft.document.id, draft.document);
   const entries = storyEntries(state, sourceEntries);
   const calls: StoryCall[] = [];
   for (const story of stories.values()) {

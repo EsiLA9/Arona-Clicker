@@ -324,10 +324,12 @@ export class PackManager {
   }
 
   /** 启动时把已知包库记录映射到实际载入的数据包；不写入 Selection 或 Storage。 */
-  adoptRuntimeDatapacks(datapacks: readonly Datapack[]): void {
+  adoptRuntimeDatapacks(datapacks: readonly Datapack[], retained?: ReadonlyMap<Datapack, string | undefined>): void {
     const next = new Map<string, string>();
     for (const datapack of datapacks) {
-      const match = [...this.packs.values()].find(pack => pack.manifest.modName === datapack.modName
+      const retainedId = retained?.get(datapack);
+      const match = retained?.has(datapack) ? (retainedId ? this.getPack(retainedId) : undefined)
+        : [...this.packs.values()].find(pack => pack.manifest.modName === datapack.modName
         && pack.manifest.version === datapack.version
         && packSlotKind(pack) === 'fixed');
       if (match) next.set(packLogicalId(match), match.packRecordId ?? match.id);

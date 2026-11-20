@@ -46,7 +46,7 @@ Story 属性右栏提供直接「调用表」与「被调用表」；Entry 右�
 
 中栏顶部提供故事浏览的后退 / 前进，左栏选故事、新建及 Transfer 目标跳转共用一份最多 50 步的会话内历史。返回恢复节点选择、插入空位和中 / 右栏滚动；未发送正文仍按草稿保留。后退后打开另一故事会截断前进记录，删除后已不存在的目标在回溯时跳过。切换前保存失败则留在当前故事。历史不进入草稿持久化、StoryDef 或玩家存档。独立 Transfer 及右栏转移属性显示 goto / insert、目标名称和 ID；节点流中的转移主体只选择 StoryNode 并查看属性，只有右侧独立目标小卡片打开作者文档，优先使用本地草稿。缺失目标保留 ID 并禁用跳转，目标小卡片与 Entry 导航共用稳定深色样式。Click 的 StoryEntry 卡片导航见下文。入口为 `transfer-view.ts`、`controller.ts`，行为见 `tests/ui/story/story-editor-workspace.test.ts`。
 
-游戏顶栏右侧的“Story 编辑器”打开独立 `story-editor` Workspace，大厅未进入 Init 时也可用。左栏查询当前 Registry 的 Story 定义与本地草稿，按名称/ID 搜索；中栏按 `nodes` 顺序呈现作者节点并在固定底部输入；右栏编辑当前节点，未选中时编辑 Story 名称。三个栏使用共享顶部、单一表面和独立滚动，入口不复用播放用途的 `story` 路由。
+游戏顶栏右侧的“Story 编辑器”打开独立 `story-editor` Workspace，大厅未进入 Init 时也可用。左栏可按名称或 ID 查询 Story、Entry，并在当前游戏、本地包库和保留草稿之间选择来源。中栏按 `nodes` 顺序呈现作者节点并在固定底部输入。右栏显示当前节点或 Story 的属性。三栏沿用共享顶部和独立滚动。
 
 作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行剧情；entryCard 右侧独立目标小卡片显示 Entry 名称与 ID，点击只打开目标 Entry 编辑页，主体预览只选择节点。兼容 kizunaCard 在关联目标唯一时同样支持右侧目标跳转。目标缺失或未配置时保留提示并禁用小卡片，外围节点仍可选择；areaContinue 不跳转到其他 Entry。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
@@ -95,17 +95,21 @@ StoryEntry 的「详细门控」从摘要打开触发条件树。新建 Entry �
 
 编辑器不提供 Entry 的 kizuna 关联字段或 Click 的 kizunaCard 创建入口；已有 Entry.kizuna / kizunaCard 内容仍由底层兼容机制投影、校验与播放。新编写的跨 Entry 内容使用剧情入口卡选择目标 StoryEntry。`areaContinue` 仍编辑同一游标的续播地点。
 
-StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、`part`、可选 `chapter` 与可选数字 `order`；分类和篇章为自由文本，不要求预注册，目录投影按现有 ID 或名称匹配，未匹配时创建作者目录项。Story Editor 汇总内置层级、已载入 Entry 与当前草稿，为分类 / 篇章 / 章节提供建议，同时允许输入新名称。旧 `extra.v.storyCatalog` 只作为导入迁移格式，会转为 `catalog`；当前 Entry 校验不接受旧字段。`withAuthoredStoryCatalog()` 从内置层级和 Entry 元数据投影导航目录，不修改内置表。
+Story Editor 的 Story 与 Entry 列表都可打开「目录」。弹窗按当前来源和 Init 浏览、搜索和定位正文及入口。选择编辑态 Mod 后可以创建目录、调整父级和顺序、编辑公开资料，角色自动目录由角色所属 Mod 编辑。目录资料直接保存到所选编辑态包。通过正文或入口属性设置的目录位置随作者内容一同提交。玩家看到已应用的目录版本。
 
-`createStoryAuthoringPreview()` 用已载入的数据包、当前作者定义、玩家快照与候选内容创建隔离 GameInstance。Story 正文栏提供「试播」，工具包可按 Story 选择并记住入口。没有关联 Entry 或选择「直接试播正文」时，隔离实例使用临时入口。StoryEntry 页直接以当前入口开播。试播沿用内容校验，本地存储不可写时同样可读当前有效草稿。独立三栏显示实际路线、聊天与演出、条件记录。「从头试播」重新从原目标启动并清除本轮决定。Controller 消费隔离场景、主题、覆盖层及条件的只读投影，跟随子通道并保留已播的随流内容。起始场景用隔离场景投影呈现，因此从大厅也可以试播带起始 Area 的 Entry。关闭后恢复原编辑目标、页签、滚动与入口焦点，释放浮层、订阅、定时器与隔离运行。
+既有 `StoryEntry.catalog` 继续保留分类、篇章、章节、顺序及旧编排工具，供旧 Mod 编辑和兼容展示；新的按 Init 位置优先。旧 `extra.v.storyCatalog` 导入时仍转为 `catalog`。运行时将各来源合入同一目录投影，见 [[story-and-effects]]。
+
+`createStoryAuthoringPreview()` 使用选定来源、候选内容和玩家快照创建隔离 GameInstance。当前游戏来源采用正在运行的内容，本地包使用选定包及其依赖，保留草稿使用缓存中的作者版本。依赖优先取实际载入的记录，或取包库中唯一匹配的记录。缺失或有歧义时可继续查阅，并显示所需 Mod。Story 正文栏提供「试播」，工具包可记住试播入口。没有关联 Entry 或选择「直接试播正文」时使用临时入口，StoryEntry 页以当前入口开播。独立三栏显示路线、聊天与演出、条件记录。「从头试播」从原目标启动并清除本轮决定。关闭后恢复原编辑目标、页签、滚动及入口焦点，释放浮层、订阅、定时器与隔离运行。
 
 试播在根／子 Entry 资格、Choice 候选筛选与重读转移守卫处等待作者确认。单个局部标记存在性由播放器直接判断。同一个 Choice 的复杂条件按候选合并显示，全部真实不可用时也能在跳过前暂停。Hover 显示暂停时的真实条件树，条件记录同时保留采用结果。作者的决定绑定本次等待点，继续从原游标执行，并在 Choice 显示与输入校验间共享已确定的候选。配置的 Choice marks 仍由实际选项输入写入。试播沿现有重读规则处理持久效果与奖励，待决状态和覆盖值只存在于隔离实例。实现入口为 `story-preview-conditions.ts`、`story-node-player.ts`、`story-service.ts` 与 `preview-view.ts`。
 
-`AronaClickerRuntime.saveStoryAuthoringToPack()` 只接受明确的编辑态包；新 ID 必须属于目标命名空间，删除必须针对该包已有记录。校验候选包后按身份合并四张作者表，保留图片与其它内容，经 PackManager 保存并沿用包管理导出 / 重载。包库同步保存失败恢复旧记录。此操作保存包，不隐式应用或旅行；“应用 Story 与关联内容”仍是独立操作。单文档草稿、当前运行生效与包保存是三个明确的动作。
+`AronaClickerRuntime.saveStoryAuthoringToPack()` 要求准确的编辑态包记录，允许提交到未应用但明确打开的编辑包。新 ID 须符合目标命名空间，删除针对该包已有记录。校验在该包及其依赖组成的内容中执行，提交只写当前包自己的 Story、Entry、抽取池和删除记录。普通态、错误记录及其它 Mod 的内容写入会被拒绝。包保存更新包库，重新应用后对玩家生效。「应用正文与关联内容」还要求对应的编辑态记录实际正在运行。
+
+编辑器以包记录 ID 绑定草稿，用包内容摘要识别来源变化。同版本的普通态与编辑态单独查看。切换、移除或外部更新来源后，失去写入资格的改动仍保留在 `acprogram_story_editor_drafts` 的恢复草稿中。恢复快照与上次成功保存的内容及时间并存，自动保存其它草稿时保留原快照。用户可查阅、试播并打开原编辑态包恢复；有内容冲突时可校验后另存正文。实际运行来源由 PackManager 应用结果与 Runtime 临时载入的来源共同确定。
 
 入口：`src/data-services/authoring/story-authoring.ts`、`src/arona-clicker/contracts/runtime/story-authoring.ts`、`src/ui/story-editor/authoring-model.ts`、`authoring-view.ts`、`structured-value.ts`。行为证明：`tests/engine/story/story-authoring.test.ts` 与 `tests/ui/story/story-editor-authoring.test.ts`。
 
-### StoryDef 保存到运行内容（原型接线）
+### StoryDef 保存到运行内容
 
 右栏为所有节点提供单个可选“需要局部标记”名称；留空关闭，编辑态始终显示节点。Operation 的行为类型为“局部标记”时，写入/移除、名称和值都显示在同一行为属性组内；写入开放文字、数字、布尔、null 与可编辑的 JSON 对象 / 数组；Button result 的局部标记仍提供操作、名称和值字段；Choice 仅编辑选择标记名称，不提供局部动作或任意值。命名提示推荐 StoryName-flagid，不强制。原始数字输入与值类型仍保存在同一份草稿侧状态，不另存第二份作者状态。
 
@@ -115,7 +119,7 @@ StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、
 
 中栏的“保存到运行内容”是显式命令，与“保存草稿”分开。它经 `GameCommands.saveStoryDefinition()` → `GameInstance.saveStoryDefinition()` → `Registry.saveStoryDefinition()`，按相同 Story ID 新建或覆盖当前定义。普通文本编辑、草稿保存、切换和退出仍只保存本地草稿，不自动改 Registry；删除草稿也不删除实际定义。
 
-这条接线按用户要求暂不检查编辑态 Mod，也不写回包文件、包记录或玩家存档。Registry 是当前运行的有效表，重新装载内容后以数据包为准；界面成功提示明确标明“仅当前运行有效”。保存不会创建 StoryEntry 或启动剧情。已有播放 Session 和 Player 均持有文档副本，继续播放旧内容；下一次启动读取新的定义。
+生产 Runtime 执行前核对实际运行的编辑态记录与内容归属。写入仅当前运行有效，重新装载内容后以数据包为准。已有播放 Session 和 Player 继续使用各自的文档副本，下一次启动读取新的定义。
 
 数据来源与编辑缓存分层：`GameInstance.init(datapacks)` 将本次合并后的 Story 定义保留为运行期来源快照；首次打开编辑器时，来源项从当前 Registry 深拷贝到编辑草稿。草稿及编辑器元数据独立写入 `acprogram_story_editor_drafts`，显式“保存到运行内容”才将投影写入当前 Registry。中栏「还原来源版本」确认后删除当前 Story 的本地草稿，并将 Registry 中该 Story 恢复为本次 init 加载的版本；若本次加载中没有该 Story，则移除它的运行期新增定义。它不改玩家存档和其他草稿，也不重新读磁盘；加载快照之后已经启动的 Story Session 继续使用自己的文档副本，新启动的 Entry 才读取还原后的 Registry。
 
@@ -123,7 +127,7 @@ StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、
 
 `Registry.saveStoryDefinition()` 在写入前用同一投影对深拷贝做递归合同与引用校验：未知结构键、混合分支、编辑器元数据、畸形值与缺失引用均被拒绝，失败不修改原定义，也不做部分替换。投影是纯函数，重复执行结果一致且不改输入。
 
-拒绝策略不等于自动删字段：来源中的未知/非法字段留在草稿，界面按节点列出诊断路径并提供逐项“清理该字段”入口，由作者显式处理。包提交、编辑态 Mod 门控与发布流程仍未接入。
+来源中的未知或非法字段留在草稿，界面按节点列出诊断路径，并提供逐项「清理该字段」入口。
 
 成功后关联来源 ID，避免新 Story 在左栏出现“注册来源”和“草稿”两项，并尝试保存本地草稿。若此时本地存储失败，已完成的 Registry 写入保留，界面分别提示运行内容成功和草稿失败，不声称整个操作回滚。验证见 `tests/engine/story/story-definition-save.test.ts` 和 `tests/ui/story/story-editor-workspace.test.ts`。
 

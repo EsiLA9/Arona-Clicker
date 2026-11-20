@@ -68,6 +68,10 @@ export interface PlayerState {
   storyReadLogs?: Record<StoryId, StoryReadLog>;
   /** Current-Init evidence of formal reading, keyed by the source Entry. */
   storyEntryReads?: Record<string, StoryEntryReadProgress>;
+  /** Last known directory path for player-held records in the active Init. */
+  storyDirectoryPaths?: Record<string, import('./story-state').StoryDirectoryPath>;
+  /** A player-owned record indexed by its original Init, including unloaded Inits. */
+  retainedStoryDirectoryProgress?: Record<string, import('./story-state').RetainedStoryDirectoryProgress>;
   inventory: Record<ItemId, number>;
   flags: Record<string, string>;
   unlockedInits: InitId[];
@@ -124,6 +128,7 @@ export interface InitSnapshot {
   areaStoryDeliveries?: AreaStoryDelivery[];
   storyReadLogs?: Record<StoryId, StoryReadLog>;
   storyEntryReads?: PlayerState['storyEntryReads'];
+  storyDirectoryPaths?: PlayerState['storyDirectoryPaths'];
   flags: Record<string, string>;
   triggersCompleted: string[];
   currentAreaId?: AreaId;

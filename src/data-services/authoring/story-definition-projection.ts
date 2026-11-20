@@ -589,7 +589,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     fail(`${path}.command`, '未知 Presentation 命令'); return {};
   };
-  const root = object(value, '$', ['id', 'name', 'initId', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
+  const root = object(value, '$', ['id', 'name', 'initId', 'directoryId', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
   const id = string(root.id, 'id', true);
   if (parseEntityId(id)?.type !== 'story') fail('id', '需要有效的 Story ID');
   const name = string(root.name, 'name', true);
@@ -746,6 +746,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
   }
   const out: Obj = { id, name, startContext, nodes, stages };
   if (initId !== undefined) out.initId = initId;
+  if (hasOwn(root, 'directoryId')) out.directoryId = string(root.directoryId, 'directoryId', true);
   if (hasOwn(root, 'extra')) {
     const e = extraValue(root.extra, 'extra');
     if (plain(e) && e.t !== 'dict') fail('extra', 'Story extra 必须是 dict');

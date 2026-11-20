@@ -2,7 +2,7 @@ import { story } from '../def-factory/index';
 import type { StoryDef } from '../../../data-services/contracts/story';
 
 export const baseAbydosMainStories: StoryDef[] = [
-  story('base:story:abydos_welcome', '沙漠中的学园').startInArea('base:area:abydos_campus').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p6': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
+  story('base:story:abydos_welcome', '沙漠中的学园').init('base:init:abydos').startInArea('base:area:abydos_campus').stages({ 'p1': { advance: 'auto' }, 'p2': { advance: 'input' }, 'p3': { advance: 'auto' }, 'p4': { advance: 'input' }, 'p5': { advance: 'input' }, 'p6': { advance: 'auto' }, 'p4-response': { advance: 'auto' }, 'p2-response': { advance: 'auto' } }).nodes([
   { id: 'p1-body', type: 'talklet', stageId: 'p1', content: { kind: 'narration', text: '—— 阿比多斯学院 · 对策委员会室 ——' }, presentation: { align: 'center' } },
   { id: 'p2-body', type: 'talklet', stageId: 'p2', content: { kind: 'talk', text: '……你来了。阿比多斯对策委员会，欢迎你的加入。', speaker: '白子' } },
   { id: 'p2-button', type: 'click', stageId: 'p2', interaction: { kind: 'button', text: '请多关照，白子。' } },
