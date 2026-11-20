@@ -10,6 +10,7 @@ export interface SubDialogOptions {
   title: string;
   body: string;
   footer?: string;
+  panelClass?: string;
   /** replace 替换当前层；push 保留当前层，关闭后回到父级。 */
   mode?: 'replace' | 'push';
   /** 关闭回调（× / 遮罩 / Esc）。 */
@@ -46,6 +47,7 @@ export function openSubDialog(options: SubDialogOptions): HTMLElement {
       </section>
     </div>`;
   frames.push({ host, closeHandler: options.onClose });
+  if (options.panelClass) host.querySelector('.runtime-subdialog-panel')?.classList.add(options.panelClass);
   document.body.appendChild(host);
   host.addEventListener('click', event => {
     const target = event.target as HTMLElement;

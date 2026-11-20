@@ -9,6 +9,8 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { legacyStoryDatapack as baseDatapack } from '../../engine/story/legacy-story-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
 import { bindStoryActions } from '../../../src/ui/controller/controller-actions-story';
+import { renderStoryNavigation } from '../../../src/ui/columns/story-navigation';
+import { createUIContext } from '../../../src/ui/runtime/context';
 import { finishStory, finishWelcome } from '../../engine/story/story-test-fixtures';
 
 const OFFICE = 'base:init:schale_office';
@@ -99,11 +101,18 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(game.getView().currentStory).toBeNull();
   });
 
-  it('故事栏重读点击 → 浮层确认文案为「重新观看」；确认后 replayStory', () => {
+  it('故事栏按已读 Entry 显示重读入口，确认后启动正式重读', () => {
     const welcome = 'base:activestory:schale_welcome';
-    root.innerHTML = `<button data-replay-story="${welcome}"></button>`;
+    const entry = game.registry.storyEntries.get(welcome)!;
+    delete entry.replayable;
+    const render = () => renderStoryNavigation(createUIContext(game), ['main', 'part_1', 'ch_1']);
+    expect(game.story.getStoryReplayStatus(welcome)?.progress).toBe('completed');
+    entry.replayable = false;
+    expect(render()).not.toContain(`data-replay-story="${welcome}"`);
+    delete entry.replayable;
+    root.innerHTML = render();
     bindStoryActions(controller);
-    root.querySelector<HTMLButtonElement>('[data-replay-story]')!.click();
+    root.querySelector<HTMLButtonElement>(`[data-replay-story="${welcome}"]`)!.click();
     expect(panel.storyGate).toEqual({ storyId: welcome, owner: null, mode: 'replay' });
     const card = root.querySelector('[data-story-gate]')!;
     expect(card.textContent).toContain('重新观看');

@@ -8,6 +8,14 @@
 
 重读使用独立的一次性 `replayId` 通道，可与同 owner 的普通故事并行；owner 仍表示故事归属，但重读会话、输出、表现阶段和输入 token 都按 replayId 隔离。UI 将它投影到临时聊天空间，结束后返回故事页；重读输出不进入普通聊天历史、故事游标或存档，取消/重置时清理。重读仅计算本次 localFlags 和临时演出，跳过持久状态、真实旅行、入口请求及完成奖励；area/student 主题和非 story 生命周期的实体覆盖也不执行。
 
+Entry 省略 `replayable` 时，当前 Init 持有该 Entry 的阅读凭据即可启动正式重读。首段 Talklet 确认送达时为实际来源 Entry 记录已阅读，正式结算时升级为已完成，无正文的 Entry 也可凭完成记录开放。显式 `true` 保留直接开启许可，显式 `false` 拒绝启动。旧的已完成区域投递也能证明 Entry 身份；只有 Story ID 的普通完成或逐段阅读记录不能归到某个 Entry。阅读凭据随当前 Init 保存和恢复。
+
+编辑器新建 Entry 采用「按已读记录开放」。故事栏按 Init 和目录位置展示拥有阅读凭据或已有正文完成记录的条目，按钮和启动命令共用 `StoryService.getStoryReplayStatus()` 的许可。目录可单独隐藏按钮。随机抽取中的重复触发由 `activation.repeatable` 决定，作者试播仍通过隔离副本开启重读许可。
+
+在已开启的重读中，`branchGuards` 可为某个 Transfer 的目标 Story 增加已读前置。匹配规则要求每项前置都满足。前置可指定一条 Talklet，索引 `-1` 表示该 Story 的所有 Talklet 都有已读记录。正式播放累积这类记录。重读走到受限的 Transfer 时，前置不足会终止当前重读并显示配置的拒绝文案。源码见 `StoryService.preflightTransfer()` 和 `guardPrereqsMet()`，回归见 `tests/engine/story/story-replay.test.ts`。
+
+StoryDef 的可选 `initId` 表示作者对正文的目录归属。缺省时在作者目录与选择器中归入「其他」；Entry 的 `availableInits` 独立控制启动范围，跨世界线正文引用正常解析。
+
 启动时，Service 根据 StoryEntry 找到目标 StoryDef，验证结构、入口类型、Init 范围、触发条件和完成状态，再创建带 owner/runId 的会话与独立文档副本。普通播放默认沿用触发时传入的对话 owner 与所在空间；Entry 的 `travelToStartContext` 开启时才按 StoryDef 起始上下文真实前往。Active/Passive Entry 类型不决定起始对话空间。重播始终按 `startContext` 虚拟切到 Area 或 Chara 演出空间；只有 Entry 开启 `travelToStartContext` 才真实前往起始 Area / Chara 空间。后续显式移动节点在重播中只呈现空间变化，不再执行实际移动。继续和输入命令携带当前表现阶段的 token；服务复核 owner、阶段和候选，拒绝过期输入，选择提交时再检查条件。正文写入 Runtime 输出记录时才标记已送达和已读，随后按当前等待点决定进入自由继续或 Click 输入。
 
 ```text

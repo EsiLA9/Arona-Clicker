@@ -17,7 +17,7 @@
 ## 工作边界
 
 - 普通小需求直接实施，按影响验证；重要结构设计和已报告 bug 按 [[ai/guide/conventions/testing]] 优先行为 / 回归测试与严格审查。
-- 浏览器验证按需选择。已有检查足以覆盖改动时可直接收尾，具体取舍见 [[ai/guide/conventions/testing]]。
+- 局部 CSS 调整直接看相关选择器和使用处，修改后核对差异即可。跨区域布局或交互受影响时按 [[ai/guide/conventions/testing]] 选检查，用户明确要求的验证照做。
 - 改状态写入、跨层依赖或世界线归属时读 [[ai/guide/conventions/architecture-discipline]] 与命中的状态页；改字段 / 枚举时读 [[ai/guide/conventions/schema-sync]]。设计或重塑 UI 时使用 `frontend-design` skill，并按 UI 领域包读项目视觉约定。
 - 游戏内 UI 默认只考虑宽屏鼠标操作，不考虑竖屏布局与键盘行为；具体任务明确要求时再扩展。
 - 测试统一通过 `npm test` 运行；完整输出写入 `.test-artifacts/latest.log`，临时测试报告和日志归入 `.test-artifacts/`，不要写到仓库根目录。

@@ -1,6 +1,7 @@
 import { GameInstance } from '../../arona-clicker/runtime/runtime-game-instance';
 import { SaveSystem } from '../../data-services/persistence/storage';
 import { UIController } from '../controller/controller';
+import { loadEditorStyles } from '../utilities/editor-styles';
 import { bindEvents } from '../controller/controller-events';
 import { loadAreaMapDemoPack } from './area-map-demo-pack';
 
@@ -15,7 +16,7 @@ export async function mountAreaMapDemo(root: HTMLElement): Promise<void> {
   SaveSystem.import = json => { try { memory = JSON.parse(json); return true; } catch { return false; } };
   const parsed = await loadAreaMapDemoPack();
   const game = new GameInstance(); game.init([parsed.datapack]);
-  const controller = new UIController(game, root);
+  const controller = new UIController(game, root, loadEditorStyles);
   controller.started = true;
   bindEvents(controller); controller.render();
   game.start();

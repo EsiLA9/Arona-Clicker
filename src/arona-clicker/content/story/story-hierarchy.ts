@@ -26,6 +26,7 @@ export interface StoryContentItem {
   name?: string;
   entryId: string;
   replayable?: boolean;
+  catalogAutoOrder?: number;
 }
 
 /** AronaClicker 故事栏的内容编排；它是产品内容，不属于基础引擎或测试包。 */

@@ -1,5 +1,6 @@
 import type { StoryAction, StoryTransfer } from '../../../data-services/contracts/story-node-actions';
-import type { StoryChoiceInteraction, StoryChoiceOption, StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode } from '../../../data-services/contracts/story-node';
+import type { StoryChoiceInteraction, StoryChoiceOption, StoryClickNode, StoryNodeDocument, StoryOperationNode, StoryTalkletNode, StoryTransferNode } from '../../../data-services/contracts/story-node';
+import type { StoryPreviewCheckItem } from '../../contracts/runtime/story-authoring';
 import { findStoryChoiceMarkOwnerConflict, validateStoryNodeStructure } from '../../../data-services/validation/story-node-structure';
 import { isStoryFlagValue, isStoryLocalFlagAction, isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { StoryFlagValue, StoryRunFlags } from '../../../engine/contracts/story-run-flags';
@@ -8,12 +9,15 @@ import type {
   StoryNodeCommandResult, StoryNodeDocuments, StoryNodePlaybackEvent, StoryNodePlaybackHost,
   StoryNodePlaybackView, StoryNodeSource,
 } from '../../contracts/runtime/story-node-playback';
+import { hasPreviewCondition } from './story-preview-conditions';
 
 type Pending = { token: string } & (
   | { kind: 'delivery'; node: StoryTalkletNode }
   | { kind: 'operation'; node: StoryOperationNode; data: StoryNodePresentationData }
   | { kind: 'result'; node: StoryClickNode; data: StoryNodePresentationData }
-  | { kind: 'input'; node: StoryClickNode; press?: { total: number; done: number } }
+  | { kind: 'input'; node: StoryClickNode; press?: { total: number; done: number }; choiceIds?: readonly string[] }
+  | { kind: 'authoring-choice'; node: StoryClickNode; automatic: readonly string[] }
+  | { kind: 'authoring-transfer'; node: StoryTransferNode }
 );
 interface Run {
   readonly source: StoryNodeSource;
@@ -129,8 +133,9 @@ export class StoryNodePlayer {
     if (this.busy) throw new Error('Busy');
     const run = this.run;
     if (!run) return { format: 'story-nodes-v2', run: null };
-    if (!run.pending) throw new Error('NotAtCheckpoint');
+    if (!run.pending || run.pending.kind === 'authoring-choice' || run.pending.kind === 'authoring-transfer') throw new Error('NotAtCheckpoint');
     const { token: _token, node: _node, ...pending } = run.pending;
+    if (pending.kind === 'input') delete pending.choiceIds;
     return structuredClone({ format: 'story-nodes-v2', run: {
       source: run.source, storyId: run.storyId, nodeId: run.pending.node.id,
       localFlags: Object.fromEntries(run.localFlags),
@@ -210,10 +215,36 @@ export class StoryNodePlayer {
       const run = this.run;
       if (!run || run.pending?.token !== token) return 'StaleToken';
       const pending = run.pending;
-      if (pending.kind === 'input') return 'DeliveryNotPending';
+      if (pending.kind !== 'delivery' && pending.kind !== 'operation' && pending.kind !== 'result') return 'DeliveryNotPending';
       if (causalChainId) Object.assign(run.source, { causalChainId, handoffCount: 0 });
       run.pending = undefined;
       run.index += 1;
+      this.drain(run, events);
+      if (this.terminal.status === 'idle') return 'Cancelled';
+    });
+  }
+
+  resolveAuthoring(token: string, adopted: Readonly<Record<string, boolean>>): StoryNodeCommandResult {
+    return this.command(events => {
+      const run = this.run;
+      const pending = run?.pending;
+      if (!run || pending?.token !== token || pending.kind !== 'authoring-choice' && pending.kind !== 'authoring-transfer') return 'StaleToken';
+      run.pending = undefined;
+      if (pending.kind === 'authoring-transfer') {
+        if (!adopted[pending.node.transfer.storyId]) throw new Error('BranchGuardDenied');
+        this.transfer(run, pending.node.transfer);
+      } else {
+        const { interaction } = pending.node;
+        if (interaction.kind !== 'choice') throw new Error('InvalidChoice');
+        const choiceIds = interaction.options.filter(option => pending.automatic.includes(option.id) || adopted[option.id] === true).map(option => option.id);
+        if (choiceIds.length) {
+          run.pending = { kind: 'input', token: this.token(), node: pending.node, choiceIds };
+          events.push({ type: 'view', view: this.view() });
+          return;
+        }
+        this.replaceChoiceMarks(run, interaction);
+        run.index += 1;
+      }
       this.drain(run, events);
       if (this.terminal.status === 'idle') return 'Cancelled';
     });
@@ -313,11 +344,14 @@ export class StoryNodePlayer {
     if (pending.kind === 'delivery') return { status: 'delivery', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node };
     if (pending.kind === 'operation') return { status: 'operation', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node, data: pending.data };
     if (pending.kind === 'result') return { status: 'result', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node, data: pending.data };
+    if (pending.kind === 'authoring-choice' || pending.kind === 'authoring-transfer') return {
+      status: 'authoring', token: pending.token, storyId: run.storyId, nodeId: pending.node.id, sequence: run.waitSequence,
+    };
     const interaction = pending.node.interaction;
     return {
       status: 'input', token: pending.token, storyId: run.storyId, sequence: run.waitSequence, node: pending.node,
       availableOptionIds: interaction.kind === 'choice'
-        ? this.availableOptions(run, interaction).map(option => option.id)
+        ? pending.choiceIds ?? this.availableOptions(run, interaction).map(option => option.id)
         : [],
       ...(pending.press ? { press: pending.press } : {}),
     };
@@ -335,14 +369,14 @@ export class StoryNodePlayer {
     return document;
   }
 
-  private prepareTransfer(run: Run, transfer: StoryTransfer): void {
+  private validateTransfer(run: Run, transfer: StoryTransfer): void {
     if (run.transfers >= 32) throw new Error('TransferLimitExceeded');
     this.document(transfer.storyId);
-    const error = this.host.preflightTransfer?.(transfer, run.source);
-    if (error) throw new Error(error);
   }
 
   private availableOptions(run: Run, interaction: StoryChoiceInteraction): StoryChoiceOption[] {
+    const adopted = run.pending?.kind === 'input' ? run.pending.choiceIds : undefined;
+    if (adopted) return interaction.options.filter(option => adopted.includes(option.id));
     return interaction.options.filter(option => (!option.showWhen || this.host.evaluate(option.showWhen, [...run.visited]))
       && (option.requiresFlag === undefined || run.localFlags.has(option.requiresFlag)));
   }
@@ -353,13 +387,40 @@ export class StoryNodePlayer {
   }
 
   private transfer(run: Run, transfer: StoryTransfer): void {
-    this.prepareTransfer(run, transfer);
     if (transfer.mode === 'insert') run.stack.push({ storyId: run.storyId, index: run.index + 1 });
     run.storyId = transfer.storyId;
     run.index = 0;
     run.transfers += 1;
     run.visited.add(transfer.storyId);
     run.terminalStoryId = transfer.storyId;
+    this.host.authoring?.visit(transfer.mode, transfer.storyId);
+  }
+
+  private pauseChoice(run: Run, node: StoryClickNode, interaction: StoryChoiceInteraction): boolean {
+    const authoring = this.host.authoring;
+    if (!authoring || !interaction.options.some(option => option.showWhen && hasPreviewCondition(option.showWhen))) return false;
+    const items: StoryPreviewCheckItem[] = [];
+    const automatic: string[] = [];
+    for (const option of interaction.options) {
+      const flagMet = option.requiresFlag === undefined || run.localFlags.has(option.requiresFlag);
+      const condition = option.showWhen;
+      if (!condition || !hasPreviewCondition(condition)) {
+        if (flagMet) automatic.push(option.id);
+        continue;
+      }
+      const actual = authoring.inspect(condition, [...run.visited]);
+      const requirement: StoryPreviewCheckItem['requirement'] = option.requiresFlag === undefined ? actual : {
+        kind: 'group', operator: 'AND', met: actual.met && flagMet, children: [
+          actual, { kind: 'requirement', text: `本次 Entry 局部标记「${option.requiresFlag}」存在`, met: flagMet },
+        ],
+      };
+      items.push({ id: option.id, label: option.text, requirement });
+    }
+    const token = this.token();
+    run.waitSequence += 1;
+    run.pending = { kind: 'authoring-choice', token, node, automatic };
+    authoring.pause({ kind: 'choice', storyId: run.storyId, nodeId: node.id, items }, token);
+    return true;
   }
 
   private apply(run: Run, actions: readonly StoryAction[]): { status: 'applied' | 'replaced' | 'cancelled'; data: StoryNodePresentationData } {
@@ -405,7 +466,7 @@ export class StoryNodePlayer {
       const document = this.document(run.storyId);
       if (run.index >= document.nodes.length) {
         const frame = run.stack.pop();
-        if (frame) { run.storyId = frame.storyId; run.index = frame.index; continue; }
+        if (frame) { run.storyId = frame.storyId; run.index = frame.index; this.host.authoring?.visit('return', run.storyId); continue; }
         const completion = { ...run.source, terminalStoryId: run.terminalStoryId, localFlags: Object.fromEntries(run.localFlags) };
         this.run = undefined;
         this.terminal = { status: 'completed', completion };
@@ -416,10 +477,13 @@ export class StoryNodePlayer {
       const node = document.nodes[run.index];
       run.terminalStoryId = run.storyId;
       if (node.requiresFlag !== undefined && !run.localFlags.has(node.requiresFlag)) { run.index += 1; continue; }
-      if (node.type === 'click' && node.interaction.kind === 'choice' && this.availableOptions(run, node.interaction).length === 0) {
-        this.replaceChoiceMarks(run, node.interaction);
-        run.index += 1;
-        continue;
+      if (node.type === 'click' && node.interaction.kind === 'choice') {
+        if (this.pauseChoice(run, node, node.interaction)) return;
+        if (!this.availableOptions(run, node.interaction).length) {
+          this.replaceChoiceMarks(run, node.interaction);
+          run.index += 1;
+          continue;
+        }
       }
       if (node.type === 'talklet' || node.type === 'click') {
         run.waitSequence += 1;
@@ -437,7 +501,21 @@ export class StoryNodePlayer {
         events.push({ type: 'view', view: this.view() });
         return;
       }
-      if (node.type === 'transfer') this.transfer(run, node.transfer);
+      if (node.type === 'transfer') {
+        this.validateTransfer(run, node.transfer);
+        const authoring = this.host.authoring;
+        const item = authoring?.transfer(node.transfer);
+        if (authoring && item) {
+          const token = this.token();
+          run.waitSequence += 1;
+          run.pending = { kind: 'authoring-transfer', token, node };
+          authoring.pause({ kind: 'transfer', storyId: run.storyId, nodeId: node.id, items: [item] }, token);
+          return;
+        }
+        const error = this.host.preflightTransfer?.(node.transfer, run.source);
+        if (error) throw new Error(error);
+        this.transfer(run, node.transfer);
+      }
       else if (node.type === 'moveToArea' || node.type === 'moveToCharaspace') {
         const result = this.host.move?.(node, run.source) ?? { status: 'rejected' as const, error: 'StorySpaceMovementUnavailable' };
         if (result.status === 'rejected') throw new Error(result.error);

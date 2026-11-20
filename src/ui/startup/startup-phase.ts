@@ -15,6 +15,31 @@ export interface StartupTiming {
   waitingFor?: string;
 }
 
+export interface StartupServerWork {
+  path: string;
+  kind: 'request' | 'css' | 'esbuild' | 'imports';
+  durationMs: number;
+}
+
+export interface StartupServerTiming {
+  pendingCount: number;
+  pending: StartupServerWork[];
+  recentSlow: StartupServerWork[];
+}
+
+interface StartupResourceTiming {
+  path: string;
+  startMs: number;
+  endMs: number;
+  totalMs: number;
+  preRequestMs: number;
+  dnsMs: number;
+  connectMs: number;
+  responseWaitMs: number;
+  downloadMs: number;
+  protocol: string;
+}
+
 export interface StartupLogReport {
   state: string;
   totalMs: number;
@@ -24,16 +49,9 @@ export interface StartupLogReport {
   /** Parallel imports overlap; these percentages must not be added to phase percentages. */
   tasks: StartupTiming[];
   storageError?: string;
-  resources?: {
-    path: string;
-    totalMs: number;
-    preRequestMs: number;
-    dnsMs: number;
-    connectMs: number;
-    responseWaitMs: number;
-    downloadMs: number;
-    protocol: string;
-  }[];
+  resources?: StartupResourceTiming[];
+  moduleResources?: { count: number; slowest: StartupResourceTiming[] };
+  moduleServerTiming?: StartupServerTiming & { sampledAtMs: number };
 }
 
 export interface StartupLog {
@@ -41,6 +59,8 @@ export interface StartupLog {
   print(previous?: number): StartupLogReport | undefined;
   taskBegin(label: string): void;
   taskEnd(label: string, error?: unknown): void;
+  requestServerTiming?: () => void;
+  captureServerTiming(sample: StartupServerTiming): void;
 }
 
 export async function runStartupPhase<T>(

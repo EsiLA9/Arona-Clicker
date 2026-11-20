@@ -1,0 +1,64 @@
+button[aria-busy="true"] { cursor: wait; }
+
+#runtime-editor-launch:focus-visible {
+   outline: 2px solid var(--re-accent);
+   outline-offset: 2px;
+}
+
+/* The Story and Runtime editors share the condition reference picker. */
+.story-editor-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-light);
+  color: var(--ink-on-panel-light);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.story-editor-empty {
+  font-size: 12px;
+  color: var(--muted-on-panel);
+  padding: 20px 8px;
+  text-align: center;
+}
+.story-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.condition-reference-picker {
+   display: grid;
+   grid-template-columns: minmax(132px, .7fr) minmax(0, 2fr) minmax(174px, 1fr);
+   gap: 16px;
+   height: 100%;
+}
+.condition-reference-picker > section {
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   gap: 8px;
+   min-width: 0;
+   overflow: auto;
+   overscroll-behavior: contain;
+}
+.condition-reference-picker > :is(.condition-reference-filters, .condition-reference-detail) {
+   padding: 12px;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+}
+.condition-reference-picker h3:first-child { margin: 0; }
+.condition-reference-results > label { display: flex; flex-direction: column; gap: 6px; }
+.condition-reference-cards { display: flex; flex-wrap: wrap; align-content: start; gap: 8px; overflow: auto; }
+.condition-reference-cards > .condition-reference-card { flex: 1 1 145px; width: auto; overflow-wrap: anywhere; }
+.condition-reference-picker :is(.condition-reference-card, .condition-reference-detail) > code {
+   font: 400 11px/1.45 'DM Mono', Consolas, ui-monospace, 'Lucida Console', 'Courier New', monospace;
+   overflow-wrap: anywhere;
+}
+.condition-reference-picker :is(.condition-reference-card, .mini-action)[aria-pressed="true"] {
+   border-color: var(--cyan);
+   background: color-mix(in srgb, var(--panel-light) 88%, var(--cyan));
+}
+.condition-reference-detail > .story-editor-actions { margin-top: auto; }

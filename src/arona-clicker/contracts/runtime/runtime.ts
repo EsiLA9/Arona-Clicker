@@ -1,4 +1,4 @@
-import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryIdentityChange } from './story-authoring';
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryAuthoringPreviewTarget, StoryIdentityChange } from './story-authoring';
 import type { AreaId, EntityThemeSlot, SpotId, ThemeOrderScope, VariantId } from '../../../engine/types/index';
 import type { MapActionRelation, MapDeclaredEffectSummary } from '../map/map-relations';
 import type { MapRunCardInstance, MapRunCardRef } from '../map/map-cards';
@@ -697,7 +697,7 @@ export interface GameCommands {
   /** Prototype authoring: affects the current Registry, without a Pack editing gate. */
   validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
   applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;

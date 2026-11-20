@@ -1,5 +1,5 @@
 import type { ExtraCompound } from '../../../engine/types/extra';
-import type { StoryId } from '../../../engine/types/ids';
+import type { InitId, StoryId } from '../../../engine/types/ids';
 import type { AreaId } from '../../../engine/types/ids';
 import type { VariantId } from '../../../engine/types/character';
 import type { StoryDef } from '../../../data-services/contracts/story';
@@ -12,6 +12,7 @@ export class StoryBuilder {
   private _nodes: readonly StoryNode[] = [];
   private _stages: Readonly<Record<StoryStageId, StoryStageDeclaration>> = {};
   private _startContext?: StoryStartContext;
+  private _initId?: InitId;
   private _extra?: ExtraCompound;
 
   constructor(id: StoryId, name: string) { this._id = id; this._name = name; }
@@ -25,6 +26,9 @@ export class StoryBuilder {
   startInArea(areaId: AreaId): this { this._startContext = { type: 'area', areaId }; return this; }
   startInCharaspace(characterId: VariantId): this { this._startContext = { type: 'chara', characterId }; return this; }
 
+  /** Group the Story in the authoring catalog. */
+  init(value: InitId): this { this._initId = value; return this; }
+
   extra(value: ExtraCompound): this { this._extra = value; return this; }
 
   build(): StoryDef {
@@ -32,6 +36,7 @@ export class StoryBuilder {
     return {
       id: this._id,
       name: this._name,
+      ...(this._initId === undefined ? {} : { initId: this._initId }),
       startContext: this._startContext,
       nodes: [...this._nodes],
       stages: { ...this._stages },

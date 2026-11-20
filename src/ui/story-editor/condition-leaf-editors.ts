@@ -3,7 +3,8 @@ import { describeConditionLeaf } from '../presentation/condition-presentation';
 import {
   conditionFieldLabels, STORY_CONDITION_COMPARATORS, STORY_CONDITION_HINTS, STORY_CONDITION_REFERENCES, STORY_CONDITION_TARGETS,
 } from './condition-fields';
-import { renderConditionReferenceField, type ConditionReferenceRow } from './condition-reference-navi';
+import { renderConditionReferenceField } from './condition-reference-navi';
+import type { ConditionReferenceRow } from '../components/shared/condition-reference-picker';
 import { conditionFromLeaf, type ConditionTreeLeaf } from './condition-tree-model';
 import type { StoryReferenceKind } from './property-options';
 

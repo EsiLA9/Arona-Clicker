@@ -12,6 +12,7 @@ import type {
 } from '../../contracts/runtime/story-node-playback';
 import type { Talklet } from '../../../data-services/contracts/story';
 import { StoryNodePlayer } from './story-node-player';
+import { inspectPreviewCondition } from './story-preview-conditions';
 
 export type StoryNodeRunEndReason = 'completed' | 'replaced' | 'cancelled' | 'failed';
 
@@ -46,6 +47,7 @@ export interface CreateStoryNodeSessionOptions {
   readonly actionHost: Pick<StoryNodePlaybackHost, 'preflight' | 'execute' | 'move'>;
   readonly random?: () => number;
   readonly preflightTransfer?: StoryNodePlaybackHost['preflightTransfer'];
+  readonly authoring?: Omit<NonNullable<StoryNodePlaybackHost['authoring']>, 'inspect'>;
 }
 
 /** Creates a player with conditions evaluated against current state and this run's visited set. */
@@ -71,6 +73,13 @@ export function createStoryNodeSession(options: CreateStoryNodeSessionOptions): 
       return scoped.evaluateGroup(condition, options.getState());
     },
     ...(options.preflightTransfer ? { preflightTransfer: options.preflightTransfer } : {}),
+    ...(options.authoring ? { authoring: {
+      ...options.authoring,
+      inspect: (condition, visited) => {
+        scoped.setStoryChainChecker(id => visited.includes(id));
+        return inspectPreviewCondition(condition, scoped, options.getState());
+      },
+    } } : {}),
   });
 
   return {
@@ -90,7 +99,7 @@ export function createStoryNodeSession(options: CreateStoryNodeSessionOptions): 
 
 /** Projects a wait point to a display-only legacy-shaped DTO. */
 export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodePlaybackView): StoryView | null {
-  if (view.status !== 'delivery' && view.status !== 'operation' && view.status !== 'result' && view.status !== 'input') return null;
+  if (view.status !== 'delivery' && view.status !== 'operation' && view.status !== 'result' && view.status !== 'input' && view.status !== 'authoring') return null;
   const document = session.documents.get(view.storyId);
   const runId = session.source.runId;
   if (!runId) throw new Error('StoryRunIdRequired');
@@ -98,19 +107,20 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
   if (!historyId) throw new Error('StoryHistoryIdRequired');
   if (!document) return null;
   const displayNodes = document.nodes.filter(candidate => candidate.type === 'talklet' || candidate.type === 'click');
-  const nodeIndex = document.nodes.findIndex(candidate => candidate.id === view.node.id);
+  const nodeId = view.status === 'authoring' ? view.nodeId : view.node.id;
+  const nodeIndex = document.nodes.findIndex(candidate => candidate.id === nodeId);
   if (nodeIndex < 0) return null;
-  const displayIndex = displayNodes.findIndex(candidate => candidate.id === view.node.id);
+  const displayIndex = displayNodes.findIndex(candidate => candidate.id === nodeId);
   const pageIndex = displayIndex >= 0 ? displayIndex
     : displayNodes.filter(candidate => document.nodes.findIndex(item => item.id === candidate.id) < nodeIndex).length;
-  const page = view.status === 'delivery' ? talkletPage(view.node)
+  const page = view.status === 'authoring' ? { kind: 'narration' as const, text: '' } : view.status === 'delivery' ? talkletPage(view.node)
     : view.status === 'operation' || view.status === 'result' ? operationCheckpointPage() : clickPage(view.node);
   const next = document.nodes[nodeIndex + 1];
   const nextIsInput = view.status === 'delivery'
     && nodeIndex >= 0
     && next?.type === 'click'
     && (next.requiresFlag === undefined || session.player.hasLocalFlag(next.requiresFlag));
-  const performance = view.node.type === 'talklet' || view.node.type === 'click' ? storyNodeDisplay(view.node) : undefined;
+  const performance = view.status !== 'authoring' && (view.node.type === 'talklet' || view.node.type === 'click') ? storyNodeDisplay(view.node) : undefined;
   return {
     storyId: session.source.entryId,
     type: storyEntryType(session.entry),
@@ -121,9 +131,9 @@ export function projectStoryNodeView(session: StoryNodeSession, view: StoryNodeP
     availableChoiceIndexes: view.status === 'input' && view.node.interaction.kind === 'choice'
       ? view.node.interaction.options.flatMap((option, index) => view.availableOptionIds.includes(option.id) ? [index] : [])
       : [],
-    nodeId: view.node.id,
+    nodeId,
     token: view.token,
-    phase: view.status === 'operation' || view.status === 'result' ? 'delivery' : view.status,
+    phase: view.status === 'operation' || view.status === 'result' || view.status === 'authoring' ? 'delivery' : view.status,
     runId,
     historyId,
     waitSequence: view.sequence,

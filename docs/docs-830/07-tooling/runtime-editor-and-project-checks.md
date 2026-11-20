@@ -81,7 +81,7 @@ Choice 属性只围绕选项文案、出现条件、选择标记与后续节点�
 
 ### Story 作者事务、结构值与投放
 
-Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry 链接与新增、校验、隔离试播与目标包保存；Entry 与 PassivePool 详情在 Entry 中栏编辑。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。另存为新身份复制正文，保留原 Story / 外部引用，新副本重新配置入口。
+Story 信息右栏提供文档身份、Extra、关联 Active / Passive Entry 链接与新增、校验、隔离试播与目标包保存；Entry 与 PassivePool 详情在 Entry 中栏编辑。`hydrateStoryAuthoring()` 从只读目录复制当前文档关联数据；`compileStoryAuthoring()` 只收集当前 Story 及草稿中的引用依赖，不让无关的未完成草稿阻塞提交。重复来源的冲突修改显式拒绝。「另存为副本」复制正文，保留原 Story / 外部引用，新副本重新配置入口。
 
 StoryEntry 的「详细门控」从摘要打开触发条件树。新建 Entry 的触发条件是空 OR，恒不成立。既有空 AND 显示为「恒为 True」，非空 AND 放在 OR 下作为完整子组，未改动时确认保留原值。添加条件或子组只在弹窗中插入待填写节点，选中后再配置；两种模式均可编辑整棵树，确认时定位首个未完成或非法的节点。True 无子项时仍保存为空 AND，有子项时用 OR 的首个恒真条件短路求值并保留子树。重新打开时首项由编辑器识别为 True 模式，切回 OR 后移除该首项。树的节点身份、展开与选中状态属于弹窗会话。入口为 `src/ui/story-editor/condition-tree-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
 
@@ -97,7 +97,9 @@ StoryEntry 的「详细门控」从摘要打开触发条件树。新建 Entry �
 
 StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、`part`、可选 `chapter` 与可选数字 `order`；分类和篇章为自由文本，不要求预注册，目录投影按现有 ID 或名称匹配，未匹配时创建作者目录项。Story Editor 汇总内置层级、已载入 Entry 与当前草稿，为分类 / 篇章 / 章节提供建议，同时允许输入新名称。旧 `extra.v.storyCatalog` 只作为导入迁移格式，会转为 `catalog`；当前 Entry 校验不接受旧字段。`withAuthoredStoryCatalog()` 从内置层级和 Entry 元数据投影导航目录，不修改内置表。
 
-`createStoryAuthoringPreview()` 使用已载入数据包、当前 Story 作者表、玩家快照与候选内容创建独立 GameInstance；使用原重读播放器验证输入、分支和父子串联，跳过持久效果 / 奖励，移动与演出仅影响隔离实例。除播放条目外，`getProjection()` 返回只读虚拟场景、解析后的主题 token / 背景与当前 Run 覆盖层快照；不向 UI 暴露 GameInstance、PlayerState 或可变 Map。Story 编辑器用正式聊天覆盖层 renderer 呈现这些数据，位置画布写回当前 Story 动作的 x / y 草稿字段。Controller 跟随子通道，并仅在播放投影变化时刷新；换 Story、离开或销毁编辑器时释放定时器与实例。它不等价于正式奖励 / 旅行验收。
+`createStoryAuthoringPreview()` 用已载入的数据包、当前作者定义、玩家快照与候选内容创建隔离 GameInstance。Story 正文栏提供「试播」，工具包可按 Story 选择并记住入口。没有关联 Entry 或选择「直接试播正文」时，隔离实例使用临时入口。StoryEntry 页直接以当前入口开播。试播沿用内容校验，本地存储不可写时同样可读当前有效草稿。独立三栏显示实际路线、聊天与演出、条件记录。「从头试播」重新从原目标启动并清除本轮决定。Controller 消费隔离场景、主题、覆盖层及条件的只读投影，跟随子通道并保留已播的随流内容。起始场景用隔离场景投影呈现，因此从大厅也可以试播带起始 Area 的 Entry。关闭后恢复原编辑目标、页签、滚动与入口焦点，释放浮层、订阅、定时器与隔离运行。
+
+试播在根／子 Entry 资格、Choice 候选筛选与重读转移守卫处等待作者确认。单个局部标记存在性由播放器直接判断。同一个 Choice 的复杂条件按候选合并显示，全部真实不可用时也能在跳过前暂停。Hover 显示暂停时的真实条件树，条件记录同时保留采用结果。作者的决定绑定本次等待点，继续从原游标执行，并在 Choice 显示与输入校验间共享已确定的候选。配置的 Choice marks 仍由实际选项输入写入。试播沿现有重读规则处理持久效果与奖励，待决状态和覆盖值只存在于隔离实例。实现入口为 `story-preview-conditions.ts`、`story-node-player.ts`、`story-service.ts` 与 `preview-view.ts`。
 
 `AronaClickerRuntime.saveStoryAuthoringToPack()` 只接受明确的编辑态包；新 ID 必须属于目标命名空间，删除必须针对该包已有记录。校验候选包后按身份合并四张作者表，保留图片与其它内容，经 PackManager 保存并沿用包管理导出 / 重载。包库同步保存失败恢复旧记录。此操作保存包，不隐式应用或旅行；“应用 Story 与关联内容”仍是独立操作。单文档草稿、当前运行生效与包保存是三个明确的动作。
 
@@ -115,7 +117,7 @@ StoryEntry 的目录位置当前保存在顶层 `catalog`，包含 `category`、
 
 这条接线按用户要求暂不检查编辑态 Mod，也不写回包文件、包记录或玩家存档。Registry 是当前运行的有效表，重新装载内容后以数据包为准；界面成功提示明确标明“仅当前运行有效”。保存不会创建 StoryEntry 或启动剧情。已有播放 Session 和 Player 均持有文档副本，继续播放旧内容；下一次启动读取新的定义。
 
-数据来源与编辑缓存分层：`GameInstance.init(datapacks)` 将本次合并后的 Story 定义保留为运行期来源快照；首次打开编辑器时，来源项从当前 Registry 深拷贝到编辑草稿。草稿及编辑器元数据独立写入 `acprogram_story_editor_drafts`，显式“保存到运行内容”才将投影写入当前 Registry。中栏“读取本地/系统数据”确认后删除当前 Story 的本地草稿，并将 Registry 中该 Story 恢复为本次 init 加载的版本；若本次加载中没有该 Story，则移除它的运行期新增定义。它不改玩家存档和其他草稿，也不重新读磁盘；加载快照之后已经启动的 Story Session 继续使用自己的文档副本，新启动的 Entry 才读取还原后的 Registry。
+数据来源与编辑缓存分层：`GameInstance.init(datapacks)` 将本次合并后的 Story 定义保留为运行期来源快照；首次打开编辑器时，来源项从当前 Registry 深拷贝到编辑草稿。草稿及编辑器元数据独立写入 `acprogram_story_editor_drafts`，显式“保存到运行内容”才将投影写入当前 Registry。中栏「还原来源版本」确认后删除当前 Story 的本地草稿，并将 Registry 中该 Story 恢复为本次 init 加载的版本；若本次加载中没有该 Story，则移除它的运行期新增定义。它不改玩家存档和其他草稿，也不重新读磁盘；加载快照之后已经启动的 Story Session 继续使用自己的文档副本，新启动的 Entry 才读取还原后的 Registry。
 
 `storyDefinitionFromDraft()` 先做草稿侧检查（已启用但缺必填配置的可选项、局部标记未完成输入），再把草稿复制成候选并交给 `src/data-services/authoring/story-definition-projection.ts` 的 `projectStoryDefinition()`。该投影逐层重建 talklet/click/operation/transfer、content、interaction、action、command、result、value 与兼容 stage，只输出当前分支和已启用的可选字段；缓存、UI 标志与未解析输入不进入候选，合法的 extra/tokens 等字典按合同保留。状态效果与 Click 结果动作里的完全空白占位行会被省略；无动作的空 Operation / Transfer、空状态 Operation、空结果与空按击配置也不会写入运行时 Story。仅当节点有合法 id/type 且除空载荷外不含其他字段时才会丢弃；requiresFlag、未知字段或其他部分作者输入存在时仍按合同报错。空白 Click 不省略，因为它本身是输入节点。数值文本按字段类型转换（pacing、坐标、按击、amount、条件比较值，以及作者显式选择的字面量类型），无效文本原样进入校验并报错，不转成 0。
 
@@ -152,4 +154,4 @@ Vite 配置把 `/game` 与 `/editor` 分别路由到游戏 UI 和独立 Editor H
 
 Entry 中栏分别编辑激活方式、故事目录位置与普通公共字段。激活方式明确选择主动接取、随机抽取或好感／角色阶段；地区兜底、权重／重复／冷却、等级／前置 Story 只在适用分支出现。好感入口新建时要求选择有效角色。切换配置先展示当前与目标含义，取消或候选草稿保存失败保留原分支；池仍关联该 Entry、错误输入尚未修正或配置在确认期间变化时拒绝切换。身份和 ModId 不随分类变更。
 
-故事目录位置使用 `catalog` 普通字段，不再编辑 `Extra.storyCatalog`。目录建议聚合内置层级、已载入 Entry 与当前草稿；字段保持自由文本，未注册的新分类／篇章／章节也可直接输入。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。
+故事目录位置在「基本信息」显示路径摘要，通过目录弹窗编辑。来源聚合内置层级、已载入 Entry 与当前草稿；左侧树和全目录搜索支持定位，右侧显示同级条目、可用 Init 和顺序。Init 筛选包含所选 Init 与全 Init 条目，只影响浏览。弹窗可新建分类、篇章或章节。仅编辑态 Mod 所属条目可改位置或顺序，其他条目为只读参照。顺序留空时按原始同级次序每隔 100 生成自动值，可用有限数字覆写。无 Init 筛选时可拖动插入，按相邻顺序值给被移动条目计算新值，其他条目保留原值。确认后将改动写入各自的 Story 草稿，按所属 Mod 分别发布；更改位置或排序均不改 `availableInits`。重开优先显示当前路径，未设置位置时可恢复本次编辑器会话最近一次确认的路径；取消不保存临时目录。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。

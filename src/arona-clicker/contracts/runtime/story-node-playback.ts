@@ -5,6 +5,7 @@ import type { StoryTransfer } from '../../../data-services/contracts/story-node-
 import type { EffectReceipt } from '../../../engine/contracts/effect-receipt';
 import type { Effect } from '../../../engine/types/expression';
 import type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
+import type { StoryPreviewCheck, StoryPreviewCheckItem } from './story-authoring';
 
 export type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
 
@@ -44,6 +45,12 @@ export interface StoryNodePlaybackHost {
   move?(node: StoryMoveToAreaNode | StoryMoveToCharaspaceNode, source: StoryNodeSource): StoryNodeActionOutcome;
   /** 如重读分支守卫；在分支动作执行之前核验控制流。 */
   preflightTransfer?(transfer: StoryTransfer, source: StoryNodeSource): string | undefined;
+  readonly authoring?: {
+    inspect(condition: ConditionGroup, visited: readonly string[]): StoryPreviewCheckItem['requirement'];
+    transfer(transfer: StoryTransfer): StoryPreviewCheckItem | undefined;
+    pause(check: Omit<StoryPreviewCheck, 'id' | 'entryId'>, token: string): void;
+    visit(kind: 'goto' | 'insert' | 'return', storyId: string): void;
+  };
 }
 
 /** 完整链结束的本地回执，不写旧StoryLog、不触发奖励/FollowUp。 */
@@ -56,6 +63,7 @@ export type StoryNodePlaybackView =
   | { readonly status: 'idle' | 'running' | 'replaced' }
   | { readonly status: 'completed'; readonly completion: StoryNodeCompletion }
   | { readonly status: 'failed'; readonly error: string; readonly data: StoryNodePresentationData }
+  | { readonly status: 'authoring'; readonly token: string; readonly storyId: string; readonly nodeId: string; readonly sequence: number }
   | { readonly status: 'delivery'; readonly token: string; readonly storyId: string; readonly sequence: number; readonly node: StoryTalkletNode }
   /** Operation action has been applied; acknowledge it before draining the next StoryNode. */
   | { readonly status: 'operation'; readonly token: string; readonly storyId: string; readonly sequence: number; readonly node: StoryOperationNode; readonly data: StoryNodePresentationData }

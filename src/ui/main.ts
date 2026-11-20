@@ -1,6 +1,6 @@
 import type { AronaClickerRuntime } from '../arona-clicker/runtime/runtime';
 import { runStartupPhase } from './startup/startup-phase';
-import type { StartupLog } from './startup/startup-phase';
+import type { StartupLog, StartupServerTiming } from './startup/startup-phase';
 import { describeStartupContent } from './startup/startup-content';
 
 interface StartupShell {
@@ -78,19 +78,16 @@ async function boot(): Promise<void> {
     ] = await runPhase('modules', '正在装载游戏模块…', async () => {
       let completed = 0;
       let total = 0;
-      const pending = new Set<string>();
+      const log = window.__startupLog;
       const track = <T>(label: string, loading: Promise<T>): Promise<T> => {
-        pending.add(label);
-        window.__startupLog?.taskBegin(label);
+        log?.taskBegin(label);
         return loading.then(module => {
-          window.__startupLog?.taskEnd(label);
-          pending.delete(label);
+          log?.taskEnd(label);
           completed += 1;
-          window.__startupShell?.update(`正在装载游戏模块（${completed}/${total} 项就绪）…`,
-            `已就绪：${label}\n${pending.size ? `仍在等待：${[...pending].join('、')}` : '游戏模块与样式均已就绪。'}`);
+          window.__startupShell?.update(`正在装载游戏模块（${completed}/${total} 项就绪）…`);
           return module;
         }, error => {
-          window.__startupLog?.taskEnd(label, error);
+          log?.taskEnd(label, error);
           window.__startupShell?.update('游戏模块装载失败', `无法装载：${label}`);
           throw error;
         });
@@ -103,8 +100,21 @@ async function boot(): Promise<void> {
         track('游戏界面样式', import('./css/game.css')),
       ] as const;
       total = loads.length;
-      const [bootstrap, services, loader] = await Promise.all(loads);
-      return [bootstrap, services, loader] as const;
+      const hot = import.meta.hot;
+      const receiveServerTiming = (sample: StartupServerTiming): void => log?.captureServerTiming(sample);
+      if (hot && log) {
+        hot.on('ac:startup-timing', receiveServerTiming);
+        log.requestServerTiming = () => hot.send('ac:startup-timing');
+      }
+      try {
+        const [bootstrap, services, loader] = await Promise.all(loads);
+        return [bootstrap, services, loader] as const;
+      } finally {
+        if (hot && log) {
+          hot.off('ac:startup-timing', receiveServerTiming);
+          delete log.requestServerTiming;
+        }
+      }
     }, '读取游戏运行环境、内置内容、数据服务与各界面样式。');
 
     const game = await runPhase('runtime', '正在创建游戏运行环境…', () => runtimeBootstrap.createAppRuntime(),
@@ -162,10 +172,11 @@ async function boot(): Promise<void> {
     await runPhase('content-apply', '正在校验并装载游戏内容…', () => runtimeBootstrap.loadDefaultDatapack(game),
       `${contentDetails()}\n正在校验定义与跨包引用，并构建游戏系统。`);
 
-    const { UIController } = await runPhase('ui-module', '正在装载界面模块…', () => import('./controller/controller'),
+    const [{ UIController }, { loadEditorStyles }] = await runPhase('ui-module', '正在装载界面模块…', () =>
+      Promise.all([import('./controller/controller'), import('./utilities/editor-styles')]),
       '读取大厅、工作区、内容编辑与交互控制模块。');
     const controller = await runPhase('ui-mount', '正在准备游戏界面…', async () => {
-      const instance = new UIController(game, root);
+      const instance = new UIController(game, root, loadEditorStyles);
       instance.mount();
       await nextPaint();
       return instance;

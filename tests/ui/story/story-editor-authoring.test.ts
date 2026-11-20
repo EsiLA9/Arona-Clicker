@@ -6,7 +6,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
 import { createUIContext } from '../../../src/ui/runtime/context';
-import { renderStoryAuthoringTools } from '../../../src/ui/story-editor/authoring-view';
 import { currentAuthoringDraft, currentNode, renameStoryNodeId } from '../../../src/ui/story-editor/model';
 import { compileStoryAuthoring, constructStructuredValue, editStructuredValue, hydrateStoryAuthoring } from '../../../src/ui/story-editor/authoring-model';
 import { editProperty, moveRowBy, rowIdAt, selectDiscriminant, selectNodeType } from '../../../src/ui/story-editor/property-model';
@@ -21,6 +20,11 @@ describe('Story authoring UI and draft API', () => {
   const change = (element: HTMLInputElement | HTMLSelectElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
   const conditionControl = <T extends HTMLElement = HTMLButtonElement>(selector: string): T => {
     const item = document.querySelector<T>(`.story-condition-dialog ${selector}`);
+    expect(item, selector).not.toBeNull();
+    return item!;
+  };
+  const catalogControl = <T extends HTMLElement = HTMLButtonElement>(selector: string): T => {
+    const item = document.querySelector<T>(`.story-catalog-dialog ${selector}`);
     expect(item, selector).not.toBeNull();
     return item!;
   };
@@ -52,6 +56,13 @@ describe('Story authoring UI and draft API', () => {
     click(`[data-editor-entry-target="${entry.id}"]`);
     expect(q('[data-authoring-field="activeStories"]').closest('.story-editor-center')).not.toBeNull();
     expect(root.querySelector('.story-editor-right [data-value-input]')).toBeNull();
+    const title = valueControl(scope, ['activeStories', 0, 'openingTitle'], 'data-value-input');
+    expect(title.value).toBe('');
+    change(title, '开幕测试');
+    expect(entry.openingTitle).toBe('开幕测试');
+    title.closest('.story-editor-entry-title')!.querySelector<HTMLButtonElement>('[data-value-action="remove"]')!.click();
+    ctrl.flushUIUpdates();
+    expect(entry.openingTitle).toBeUndefined();
     const identity=valueControl(scope,['activeStories',0,'id'],'data-value-input'); identity.focus();
     change(identity,'local:activestory:manual');expect(document.activeElement).toBe(identity);
     expect(entry.id).toBe('local:activestory:manual');
@@ -64,12 +75,38 @@ describe('Story authoring UI and draft API', () => {
     ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
     expect(draft().document.id).toBe(id); expect(draft().authoring!.activeStories[0].id).toBe(entry.id);
   });
+  it('supports the default and explicit Entry replay policies without converting the default to a boolean', () => {
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    expect(entry).not.toHaveProperty('replayable');
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    const replay = () => valueControl('$authoring', ['activeStories', 0, 'replayable'], 'data-value-input') as HTMLSelectElement;
+    expect(replay().selectedOptions[0].textContent).toBe('按已读记录开放（默认）');
+    const advanced = q<HTMLDetailsElement>('.story-editor-entry-page details');
+    expect(advanced.open).toBe(false);
+    advanced.open = true;
+    change(replay(), 'false');
+    expect(entry.replayable).toBe(false);
+    expect(replay().selectedOptions[0].textContent).toBe('不开放重读');
+    expect(advanced.open).toBe(true);
+
+    change(replay(), 'true');
+    expect(entry.replayable).toBe(true);
+    change(replay(), '');
+    expect(replay().value).toBe('');
+    expect(entry).not.toHaveProperty('replayable');
+    click('[data-editor-action="save"]');
+    ctrl.destroy(); ctrl = new UIController(game, root); ctrl.storyEditor.open();
+    expect(draft().authoring!.activeStories[0]).not.toHaveProperty('replayable');
+  });
   it('switches Entry pages without changing target/history and retains unfinished values',()=>{
     click('[data-authoring-add="passiveStories"]');
     const entry=draft().authoring!.passiveStories[0]; click(`[data-editor-entry-target="${entry.id}"]`);
     const visits=ctrl.storyEditor.state.visits.length;
     expect(q('[data-column-action="story-editor-entry-tab:basic"]').getAttribute('aria-selected')).toBe('true');
     const body=q<HTMLElement>('.story-editor-center .workspace-column__body');
+    const tabs = q('.story-editor-center .workspace-column__header [role="tablist"]');
+    const preview = q('.story-editor-center .workspace-column__footer [data-authoring-action="preview"]');
     click('[data-column-action="story-editor-entry-tab:gates"]');
     body.scrollTop=123;
     const weight=valueControl('$authoring',['passiveStories',0,'activation','weight'],'data-value-input');
@@ -84,7 +121,9 @@ describe('Story authoring UI and draft API', () => {
     click('[data-column-action="story-editor-entry-tab:rewards"]');expect(body.scrollTop).toBe(246);
     expect(ctrl.storyEditor.state.visits).toHaveLength(visits);
     expect(ctrl.storyEditor.state.target).toEqual({kind:'entry',id:entry.id});
-    expect(root.querySelector('.story-editor-center .story-editor-actions')).not.toBeNull();
+    expect(q('.story-editor-center .workspace-column__body')).toBe(body);
+    expect(q('.story-editor-center .workspace-column__header [role="tablist"]')).toBe(tabs);
+    expect(q('.story-editor-center .workspace-column__footer [data-authoring-action="preview"]')).toBe(preview);
   });
   it('keeps defaults editable with conditional rewards and adds grouped outcome rows',()=>{
     click('[data-authoring-add="activeStories"]');
@@ -463,37 +502,137 @@ describe('Story authoring UI and draft API', () => {
       { type: 'AND', conditions: [leaf] }, { type: 'AND', conditions: [{ type: 'OR', conditions: [] }] },
     ]);
   });
-  it('suggests existing catalog levels from loaded content and drafts but accepts new names',()=>{
-    const [registered,other]=[...game.registry.activeStories.values()];
-    registered.catalog={category:'已载入分类',part:'已载入篇章',chapter:'已载入章节',order:2};
-    other.catalog={category:'另一已载入分类',part:'不应出现的篇章',order:3};
+  it('searches loaded and draft placements and filters siblings by Init without changing the Entry scope', () => {
+    const [registered, other] = [...game.registry.activeStories.values()];
+    const placement = { category: '已载入分类', part: '已载入篇章' };
+    registered.catalog = { ...placement, order: 2 };
+    registered.openingTitle = '全局邻居';
+    registered.availableInits = [];
+    other.catalog = { ...placement, order: 3 };
+    other.openingTitle = '其他 Init 邻居';
+    other.availableInits = ['other:init:catalog'];
     click('[data-authoring-add="activeStories"]');
-    const first=draft().authoring!.activeStories[0];
-    first.catalog={category:'自定义分类',part:'自定义篇章',chapter:'自定义章节',order:1};
+    const first = draft().authoring!.activeStories[0];
+    first.catalog = { ...placement, chapter: '未分章' };
+    first.openingTitle = '草稿章节条目';
     click('[data-authoring-add="activeStories"]');
-    const second=draft().authoring!.activeStories[1]; click(`[data-editor-entry-target="${second.id}"]`);
-    click('[data-authoring-catalog="activeStories"]');
-    const suggestions=(key:'category'|'part'|'chapter')=>{
-      const input=valueControl('$authoring',['activeStories',1,'catalog',key],'data-value-input') as HTMLInputElement;
-      return [...document.getElementById(input.getAttribute('list')!)!.querySelectorAll('option')].map(option=>option.value);
+    const second = draft().authoring!.activeStories[1];
+    const allowed = ['other:init:catalog'];
+    second.availableInits = allowed;
+    click(`[data-editor-entry-target="${second.id}"]`);
+    const opener = '[data-authoring-catalog="activeStories"]';
+    click(opener);
+    expect(second.catalog).toBeUndefined();
+    const search = catalogControl<HTMLInputElement>('[data-catalog-search]');
+    change(search, first.id);
+    const draftResult = catalogControl('[data-catalog-select]');
+    expect(draftResult.textContent).toContain('草稿章节条目');
+    expect(JSON.parse(draftResult.dataset.catalogSelect!)).toEqual(['已载入分类', '已载入篇章', '未分章']);
+    change(search, registered.id);
+    expect(catalogControl('[data-catalog-select]').textContent).toContain('全局邻居');
+    catalogControl('[data-catalog-select]').click();
+    const destination = catalogControl<HTMLElement>('[data-catalog-destination]');
+    expect(destination.textContent).toContain('其他 Init 邻居');
+    expect(destination.textContent).not.toContain('草稿章节条目');
+    change(catalogControl<HTMLSelectElement>('[data-catalog-init]'), 'current');
+    expect(destination.textContent).toContain('全局邻居');
+    expect(destination.textContent).not.toContain('其他 Init 邻居');
+    change(catalogControl<HTMLSelectElement>('[data-catalog-init]'), 'init:other:init:catalog');
+    expect(destination.textContent).toContain('其他 Init 邻居');
+    expect(destination.textContent).toContain('全局邻居');
+    expect(second.catalog).toBeUndefined();
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    ctrl.flushUIUpdates();
+    expect(second.catalog).toEqual(placement);
+    expect(second.availableInits).toBe(allowed);
+    expect(document.activeElement).toBe(q(opener));
+  });
+  it('stages new folders, validates order and remembers the last saved placement', () => {
+    click('[data-authoring-add="activeStories"]');
+    const first = draft().authoring!.activeStories[0];
+    click('[data-authoring-add="activeStories"]');
+    const second = draft().authoring!.activeStories[1];
+    click(`[data-editor-entry-target="${first.id}"]`);
+    const opener = '[data-authoring-catalog="activeStories"]';
+    const addFolder = (name: string) => {
+      change(catalogControl<HTMLInputElement>('[data-catalog-new-name]'), name);
+      catalogControl('[data-catalog-add]').click();
     };
-    expect(suggestions('category')).toContain('主线故事');
-    expect(suggestions('category')).toContain('已载入分类');
-    expect(suggestions('category')).toContain('自定义分类');
-    change(valueControl('$authoring',['activeStories',1,'catalog','category'],'data-value-input'),'已载入分类');
-    expect(suggestions('part')).toContain('已载入篇章');
-    expect(suggestions('part')).not.toContain('不应出现的篇章');
-    change(valueControl('$authoring',['activeStories',1,'catalog','part'],'data-value-input'),'已载入篇章');
-    expect(suggestions('chapter')).toContain('已载入章节');
-    change(valueControl('$authoring',['activeStories',1,'catalog','category'],'data-value-input'),'自定义分类');
-    expect(suggestions('part')).toContain('自定义篇章');
-    expect(suggestions('part')).not.toContain('不应出现的篇章');
-    change(valueControl('$authoring',['activeStories',1,'catalog','part'],'data-value-input'),'自定义篇章');
-    expect(suggestions('chapter')).toContain('自定义章节');
-    change(valueControl('$authoring',['activeStories',1,'catalog','category'],'data-value-input'),'新分类');
-    change(valueControl('$authoring',['activeStories',1,'catalog','part'],'data-value-input'),'新篇章');
-    change(valueControl('$authoring',['activeStories',1,'catalog','chapter'],'data-value-input'),'新章节');
-    expect(second.catalog).toMatchObject({category:'新分类',part:'新篇章',chapter:'新章节'});
+    click(opener);
+    addFolder('取消后消失的分类');
+    catalogControl('.modal-foot .modal-close').click();
+    expect(first.catalog).toBeUndefined();
+    click(opener);
+    expect(catalogControl('[data-catalog-browse]').textContent).not.toContain('取消后消失的分类');
+    addFolder('新分类');
+    addFolder('新篇章');
+    addFolder('新章节');
+    const order = catalogControl<HTMLInputElement>('[data-catalog-order]');
+    change(order, '-');
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    expect(catalogControl('[data-catalog-error]').hidden).toBe(false);
+    expect(first.catalog).toBeUndefined();
+    change(order, '12.5');
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    ctrl.flushUIUpdates();
+    expect(first.catalog).toEqual({ category: '新分类', part: '新篇章', chapter: '新章节', order: 12.5 });
+    click('[data-column-action="story-editor-sidebar:entries"]');
+    click(`[data-editor-entry="${second.id}"]`);
+    click(opener);
+    expect(catalogControl('[data-catalog-destination] h3').textContent).toBe('新分类 / 新篇章 / 新章节');
+    catalogControl('.modal-foot .modal-close').click();
+    click(`[data-editor-entry="${first.id}"]`);
+    click(opener);
+    catalogControl('[data-modal-action="remove-catalog"]').click();
+    expect(first.catalog).toBeUndefined();
+    expect(second.catalog).toBeUndefined();
+  });
+  it('reorders an editable peer with an automatic value and preserves locked and manual anchors', () => {
+    const location = { category: '目录分类', part: '目录篇章' };
+    const locked = [...game.registry.activeStories.values()][0];
+    locked.catalog = { ...location, order: 20 };
+    click('[data-authoring-add="activeStories"]');
+    const peer = draft().authoring!.activeStories[0];
+    peer.catalog = { ...location };
+    click('[data-editor-action="new"]');
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    entry.catalog = { ...location, order: 30 };
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    const opener = '[data-authoring-catalog="activeStories"]';
+    const row = (id: string) => `[data-catalog-row="${id}"]`;
+    const dragBefore = () => {
+      const data = new Map<string, string>();
+      const transfer = { setData: (type: string, value: string) => data.set(type, value), getData: (type: string) => data.get(type) };
+      for (const [type, selector] of [['dragstart', `${row(peer.id)} [data-catalog-drag]`], ['dragover', row(entry.id)], ['drop', row(entry.id)]]) {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'dataTransfer', { value: transfer });
+        catalogControl(selector).dispatchEvent(event);
+      }
+    };
+    click(opener);
+    expect(catalogControl(row(locked.id)).textContent).toContain('只读');
+    expect(catalogControl(row(locked.id)).querySelector('[draggable], input')).toBeNull();
+    expect(catalogControl(row(peer.id)).textContent).toContain('自动');
+    change(catalogControl<HTMLSelectElement>('[data-catalog-init]'), 'current');
+    expect(catalogControl(row(peer.id)).querySelector('[draggable]')).toBeNull();
+    change(catalogControl<HTMLSelectElement>('[data-catalog-init]'), '');
+    dragBefore();
+    expect(catalogControl(row(peer.id)).textContent).toContain('顺序 25');
+    catalogControl('.modal-foot .modal-close').click();
+    expect(peer.catalog.order).toBeUndefined();
+    click(opener);
+    dragBefore();
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    ctrl.flushUIUpdates();
+    expect(peer.catalog.order).toBe(25);
+    expect(entry.catalog.order).toBe(30);
+    expect(locked.catalog.order).toBe(20);
+    click(opener);
+    change(catalogControl<HTMLInputElement>(`[data-catalog-peer-order="${peer.id}"]`), '-1.5');
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    expect(peer.catalog.order).toBe(-1.5);
+    expect(entry.catalog.order).toBe(30);
   });
   it('edits a registered Passive Entry in the center and retains invalid input through navigation and reload', () => {
     const entry = [...game.registry.passiveStories.values()][0];
@@ -517,7 +656,13 @@ describe('Story authoring UI and draft API', () => {
     change(valueControl('$authoring',['passiveStories',index,'activation','weight'],'data-value-input'),'2');
     click('[data-column-action="story-editor-entry-tab:basic"]');
     click('[data-authoring-catalog="passiveStories"]');
-    expect(draft().authoring!.passiveStories[index].catalog).toBeTruthy();
+    change(catalogControl<HTMLInputElement>('[data-catalog-search]'), '夏莱篇');
+    catalogControl('[data-catalog-select]').click();
+    expect(catalogControl('[data-catalog-destination]').textContent).toContain('当前 Entry 所属 Mod 未处于编辑态');
+    expect(catalogControl('[data-catalog-destination]').querySelector('[data-catalog-order]')).toBeNull();
+    catalogControl('[data-modal-action="save-catalog"]').click();
+    ctrl.flushUIUpdates();
+    expect(draft().authoring!.passiveStories[index].catalog).toEqual(original.catalog);
     click('[data-authoring-action="check"]'); expect(ctrl.storyEditor.state.error).toBeNull();
   });
 
@@ -671,13 +816,126 @@ describe('Story authoring UI and draft API', () => {
     expect([...q<HTMLSelectElement>('[data-authoring-field="activeStories"]').options].some(option=>option.value==='kizuna')).toBe(false);
     expect(root.querySelector('[data-authoring-kizuna-mode]')).toBeNull();
   });
-  it('shows only Runtime-available candidates in the isolated authoring preview', () => {
-    const state=ctrl.storyEditor.state;
-    state.preview={playback:null,projection:null,story:{
-      availableChoiceIndexes:[1],page:{choices:[{id:'hidden',text:'隐藏项'},{id:'visible',text:'可见项'}]},
-    } as unknown as NonNullable<NonNullable<typeof state.preview>['story']>};
-    const host=document.createElement('div');host.innerHTML=renderStoryAuthoringTools(createUIContext(game),state,draft());
-    expect([...host.querySelectorAll<HTMLElement>('[data-authoring-preview-option]')].map(item=>item.dataset.authoringPreviewOption)).toEqual(['visible']);
+  it('quickly previews valid Story body without an Entry even while draft writes are blocked', () => {
+    change(q('[data-editor-composer-text]'), '无需新建 Entry 的正文');
+    click('[data-editor-action="send"]');
+    const storyId = draft().document.id;
+    ctrl.storyEditor.state.storageBlocked = true;
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    expect(q<HTMLButtonElement>('[data-editor-key="quick-preview"]').disabled).toBe(false);
+    click('[data-editor-key="quick-preview"]');
+    expect(ctrl.storyEditor.state.preview?.story?.page.text).toBe('无需新建 Entry 的正文');
+    const entryId = ctrl.storyEditor.state.preview!.decisions.entryId;
+    expect(game.registry.storyEntries.has(entryId)).toBe(false);
+    click('[data-authoring-action="close-preview"]');
+    expect(ctrl.storyEditor.state.target).toEqual({ kind: 'story', id: storyId });
+    expect(document.activeElement).toBe(q('[data-editor-key="quick-preview"]'));
+    expect(ctrl.storyEditor.state.storageBlocked).toBe(true);
+  });
+
+  it('defaults to the current Story Entry and remembers choices per draft across navigation', () => {
+    click('[data-authoring-add="activeStories"]'); click('[data-authoring-add="activeStories"]');
+    const first = draft();
+    const [defaultEntry, otherEntry] = first.authoring!.activeStories;
+    click('[data-column-action="story-editor-inspector-tab:tools"]');
+    const previewEntry = q<HTMLSelectElement>('[data-authoring-preview-entry]');
+    expect(previewEntry.value).toBe(defaultEntry.id);
+    expect(q('[data-editor-key="tools-preview"]').parentElement?.contains(previewEntry)).toBe(true);
+    expect(q('[data-editor-key="tools-preview"]').textContent).toBe(q('[data-editor-key="quick-preview"]').textContent);
+    change(previewEntry, otherEntry.id);
+    expect(ctrl.storyEditor.state.previewEntryByDraft?.get(first.draftId)).toBe(otherEntry.id);
+    click('[data-editor-action="new"]');
+    change(q('[data-editor-field="story-context-area"]'), baseDatapack.areas[0].id);
+    click('[data-column-action="story-editor-inspector-tab:relations"]');
+    click('[data-authoring-add="activeStories"]');
+    const second = draft().authoring!.activeStories[0];
+    click('[data-editor-key="quick-preview"]');
+    expect(ctrl.storyEditor.state.preview?.decisions.entryId).toBe(second.id);
+    click('[data-authoring-action="close-preview"]');
+    click(`[data-editor-story="${first.draftId}"]`);
+    click('[data-column-action="story-editor-inspector-tab:tools"]');
+    expect(ctrl.storyEditor.state.target).toEqual({ kind: 'story', id: first.document.id });
+    expect(q<HTMLSelectElement>('[data-authoring-preview-entry]').value).toBe(otherEntry.id);
+    click('[data-editor-key="tools-preview"]');
+    expect(ctrl.storyEditor.state.preview?.decisions.entryId).toBe(otherEntry.id);
+    click('[data-authoring-action="close-preview"]');
+    expect(document.activeElement).toBe(q('[data-editor-key="tools-preview"]'));
+  });
+
+  it('keeps an invalid Story in the editor with a reason and can preview immediately after repair', () => {
+    const story = draft().document;
+    delete story.startContext;
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    click('[data-editor-key="quick-preview"]');
+    expect(ctrl.storyEditor.state.preview).toBeUndefined();
+    expect(q('.story-editor-center .story-editor-error').textContent).toMatch(/startContext|起始/);
+    change(q('[data-editor-field="story-context-area"]'), baseDatapack.areas[0].id);
+    click('[data-editor-key="quick-preview"]');
+    expect(ctrl.storyEditor.state.preview?.decisions.directStory).toBe(true);
+    expect(ctrl.storyEditor.state.error).toBeNull();
+  });
+
+  it('can retry a rejected Entry immediately and end a pending run without leaving the editor', () => {
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    entry.triggerCondition = { type: 'OR', conditions: [] };
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    expect(q('[data-authoring-action="preview"]').textContent).toBe('试播');
+    click('[data-authoring-action="preview"]');
+    expect(q('.story-preview-left .workspace-column__footer').contains(q('[data-authoring-action="restart-preview"]'))).toBe(true);
+    expect(q('.story-preview-left .workspace-column__footer').contains(q('[data-authoring-action="close-preview"]'))).toBe(true);
+    const first = q('[data-preview-check]').dataset.previewCheck;
+    click('[data-preview-confirm]');
+    expect(q('.story-preview-footer').textContent).toContain('入口资格未通过');
+    expect(q('.story-preview-record').textContent).toContain('采用结果 未满足');
+    click('[data-authoring-action="restart-preview"]');
+    expect(q('[data-preview-check]').dataset.previewCheck).not.toBe(first);
+    expect(root.querySelector('.story-preview-record')).toBeNull();
+    click('.story-preview-left [data-column-back]');
+    expect(root.querySelector('.story-preview-column')).toBeNull();
+    expect(ctrl.storyEditor.state.target).toEqual({ kind: 'entry', id: entry.id });
+  });
+
+  it('opens all three trial columns from Entry and keeps actual diagnostics after releasing a Choice', () => {
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    entry.triggerCondition = { type: 'AND', conditions: [] };
+    click('[data-editor-action="click"]');
+    const node = currentNode(ctrl.storyEditor.state)!;
+    selectDiscriminant(draft(), node.id, ['interaction'], 'kind', 'choice');
+    editProperty(draft(), node.id, ['interaction', 'options'], [
+      { id: 'hidden', text: '隐藏项', showWhen: { type: 'OR', conditions: [] } },
+      { id: 'visible', text: '打开此分支', showWhen: { type: 'OR', conditions: [] } },
+    ]);
+    click('[data-column-action="story-editor-sidebar:entries"]');
+    click(`[data-editor-entry="${entry.id}"]`);
+    click('[data-column-action="story-editor-entry-tab:gates"]');
+    q('.story-editor-center .workspace-column__body').scrollTop = 72;
+    const previousTarget = ctrl.storyEditor.state.target;
+    click('[data-authoring-action="preview"]');
+    expect(root.querySelectorAll('.story-preview-column')).toHaveLength(3);
+    const popup = q('[data-preview-check]');
+    expect(q('.story-preview-requirement__hover').textContent).toContain('恒不成立');
+    expect(root.querySelector('[data-authoring-preview-option]')).toBeNull();
+    change(q('[data-preview-decision="visible"]'), 'pass');
+    click('[data-preview-toggle="collapse"]');
+    expect(popup.hidden).toBe(true);
+    click('.story-preview-right [data-preview-toggle]');
+    expect(q('[data-preview-check]')).toBe(popup);
+    expect(q<HTMLSelectElement>('[data-preview-decision="visible"]').value).toBe('pass');
+    click('[data-preview-confirm]');
+    expect([...root.querySelectorAll<HTMLElement>('[data-authoring-preview-option]')].map(item => item.dataset.authoringPreviewOption)).toEqual(['visible']);
+    const record = q('.story-preview-record');
+    expect(record.textContent).toContain('真实未满足');
+    expect(record.textContent).toContain('采用结果 · 满足');
+    click('[data-authoring-preview-option="visible"]');
+    expect(q('[data-preview-stream]').textContent).toContain('打开此分支');
+    click('[data-authoring-action="close-preview"]');
+    expect(root.querySelector('.story-preview-column')).toBeNull();
+    expect(ctrl.storyEditor.state.target).toEqual(previousTarget);
+    expect(ctrl.storyEditor.state.entryEditorTab).toBe('gates');
+    expect(q('.story-editor-center .workspace-column__body').scrollTop).toBe(72);
+    expect(game.registry.storyEntries.has(entry.id)).toBe(false);
   });
   it('keeps each Choice mark attached to its stable option row after reorder and reload', () => {
     click('[data-editor-action="click"]');const node=currentNode(ctrl.storyEditor.state)!;

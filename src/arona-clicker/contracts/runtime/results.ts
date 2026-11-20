@@ -111,7 +111,7 @@ export type StoryError =
   | 'BranchGuardDenied'
   /** 跳转深度超过上限（32），强制终止演出。 */
   | 'JumpLimitExceeded'
-  /** 重阅读入口不可用（entry.replayable = false）。 */
+  /** 入口明确关闭重读，或者按已读记录开放时尚无该 Entry 的阅读凭据。 */
   | 'NotReplayable'
   /** New-node playback stopped on an unsupported or failed action/document. */
   | 'PlaybackFailed';

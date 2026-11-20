@@ -123,7 +123,10 @@ export function renderRuntimeEditorFields(
     const locked = view.locked ? '<span class="runtime-editor-locked">已应用，ID 不可修改</span>' : '';
     const hint = view.hint ? `<em class="runtime-editor-hint">${esc(view.hint)}</em>` : '';
     const error = problem ? `<em class="runtime-editor-field-error">${esc(problem.message)}</em>` : '';
-    return `<label class="user-theme-field runtime-editor-field" data-runtime-editor-row="${view.key}"><span>${esc(view.label)}${view.required ? '' : '（可选）'}</span>${control}${locked}${hint}${error}</label>`;
+    const field = `<label class="user-theme-field runtime-editor-field" data-runtime-editor-row="${view.key}"><span>${esc(view.label)}${view.required ? '' : '（可选）'}</span>${control}${locked}${hint}${error}</label>`;
+    return policy && getWritableField(policy, view.key)?.refType === 'story'
+      ? `<div class="runtime-story-reference-field">${field}<button type="button" class="mini-action" data-runtime-story-reference="${esc(view.key)}" aria-label="选择${esc(view.label)}"${view.locked ? ' disabled' : ''}>选择…</button></div>`
+      : field;
   }).join('');
 }
 
@@ -276,7 +279,7 @@ function refOptions(ctx: UIContext, field: WritableFieldDef): RuntimeEditorField
     if (activeStories.length > 0) {
       return activeStories.map(entry => ({
         value: entry.id,
-        label: ctx.game.registry.stories.get(entry.storyId)?.name || entry.id,
+        label: `主动入口 · ${entry.openingTitle || ctx.game.registry.stories.get(entry.storyId)?.name || entry.id}`,
       }));
     }
   }

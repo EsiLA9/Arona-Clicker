@@ -126,6 +126,62 @@ describe('静态载入界面', () => {
     ]));
   });
 
+  it('首步等待绘制时说明模块尚未启动，恢复后逐项显示导入耗时', () => {
+    const log = window.__startupLog!;
+    const output = document.querySelector('#startup-module-timings')!;
+    const sample = vi.fn();
+    log.requestServerTiming = sample;
+    shell.begin('modules', '装载模块');
+    vi.advanceTimersByTime(3500);
+    expect(output.textContent).toContain('等待浏览器给出绘制机会 · 3.5 秒');
+    expect(sample).not.toHaveBeenCalled();
+    expect(document.querySelector('#startup-diagnostics-panel')?.hasAttribute('hidden')).toBe(false);
+
+    shell.work('modules');
+    log.taskBegin('运行环境');
+    log.taskBegin('游戏界面样式');
+    vi.advanceTimersByTime(250);
+    log.taskEnd('运行环境');
+    vi.advanceTimersByTime(1250);
+    expect(output.textContent).toContain('绘制等待 3.5 秒 · 模块加载 1.5 秒');
+    expect(output.textContent).toContain('已就绪 · 0.25 秒 · 运行环境');
+    expect(output.textContent).toContain('等待中 · 1.5 秒 · 游戏界面样式');
+    expect(sample).toHaveBeenCalledTimes(3);
+  });
+
+  it('卡住时展示 Vite 正在处理的文件，复制报告带有首步独立的请求耗时', async () => {
+    const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    const log = window.__startupLog!;
+    vi.advanceTimersByTime(1000);
+    shell.begin('modules', '装载模块');
+    shell.work('modules');
+    log.taskBegin('样式');
+    const times = { startTime: 1100, requestStart: 1200, responseStart: 3500, responseEnd: 3510, duration: 2410 };
+    resourceEntries = [
+      { ...times, name: `${window.location.origin}/src/ui/css/game.css` },
+      { ...times, name: `${window.location.origin}/src/ui/main.ts`, startTime: 200 },
+      { ...times, name: `${window.location.origin}/src/too-late.ts`, responseEnd: 8000 },
+    ];
+    vi.advanceTimersByTime(3000);
+    log.captureServerTiming({ pendingCount: 1, pending: [{ path: '/src/zip-loader.ts', kind: 'imports', durationMs: 2200 }], recentSlow: [] });
+    vi.advanceTimersByTime(250);
+    const output = document.querySelector('#startup-module-timings')!;
+    expect(output.textContent).toContain('模块依赖解析 · /src/zip-loader.ts');
+    expect(output.textContent).toContain('已完成 1 个本机请求');
+    expect(output.textContent).toContain('发出前 0.10 秒 / 等首字节 2.3 秒 / 接收 0.01 秒');
+
+    document.querySelector<HTMLButtonElement>('#startup-copy')!.click();
+    await Promise.resolve();
+    expect(JSON.parse(copy.mock.calls[0][0].trim())).toMatchObject({
+      moduleResources: { count: 1, slowest: [{ path: '/src/ui/css/game.css', responseWaitMs: 2300 }] },
+      moduleServerTiming: { pendingCount: 1, pending: [{ path: '/src/zip-loader.ts', kind: 'imports' }] },
+    });
+    shell.complete('modules');
+    shell.begin('runtime', '创建运行环境');
+    expect(output.hasAttribute('hidden')).toBe(true);
+    expect(log.report()?.moduleServerTiming?.sampledAtMs).toBe(4000);
+  });
+
   it('诊断持久化失败不会中断启动，复制结果包含耗时报告', async () => {
     vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('quota'); });
     const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();

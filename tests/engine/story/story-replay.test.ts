@@ -2,7 +2,7 @@
 // engine/story-replay.test.ts — 重阅读与分歧点准入守卫
 //
 // 覆盖机制：
-//   1. replayStory：仅 replayable Entry 可用，非 replayable 返回 NotReplayable
+//   1. replayStory：默认按 Entry 阅读凭据开放，显式许可优先
 //   2. 分歧点守卫：未真读分支时拒绝进入，已读分支放行
 //   3. 分歧点守卫：先真读分支后，重阅读可正常进入
 //   4. 重阅读可完整走完链，但不重复发放奖励（防刷）
@@ -22,6 +22,9 @@ import {
   desertEntry,
   desertPack,
   supplyPack,
+  supplyEntry,
+  supplyMain,
+  supplyDetail,
   desertIntro,
   desertAssault,
   desertNegotiate,
@@ -83,7 +86,7 @@ describe('重阅读与分歧点准入守卫', () => {
     game.stop();
   });
 
-  test('replayStory：仅 replayable Entry 可用，非 replayable 返回 NotReplayable', () => {
+  test('replayStory：缺省且未读时拒绝，显式开启仍可启动', () => {
     game.init([baseDatapack, desertPack, supplyPack]);
     finishWelcome(game);
 
@@ -95,6 +98,44 @@ describe('重阅读与分歧点准入守卫', () => {
     if (!replay.success || !replay.replayId) return;
     expect(game.story.getReplayStoryView(replay.replayId)?.storyDefId).toBe('test:story:desert_intro');
     expect(game.getView().currentStory).toBeNull();
+  });
+
+  test('缺省重读按实际投递的 Entry 开放，重读不写凭据，共用正文的入口不共享许可', () => {
+    const otherEntry = { ...supplyEntry, id: 'test:story:supply_other' };
+    game.init([baseDatapack, makePack([supplyEntry, otherEntry], [supplyMain, supplyDetail])]);
+    finishWelcome(game);
+
+    expect(game.story.startStory(supplyEntry.id, 'passive').success).toBe(true);
+    settleStoryPresentation(game);
+    expect(game.story.getStoryReplayStatus(supplyEntry.id)).toEqual({ allowed: true, progress: 'read' });
+    expect(game.story.replayStory(otherEntry.id)).toMatchObject({ success: false, error: 'NotReplayable' });
+
+    const replay = game.story.replayStory(supplyEntry.id);
+    expect(replay.success).toBe(true);
+    if (!replay.success || !replay.replayId) throw new Error('缺省入口重读未启动');
+    finishReplay(game, replay.replayId);
+    expect(game.story.getStoryReplayStatus(supplyEntry.id)?.progress).toBe('read');
+
+    finishStory(game);
+    expect(game.story.getStoryReplayStatus(supplyEntry.id)?.progress).toBe('completed');
+    expect(game.story.replayStory(otherEntry.id)).toMatchObject({ success: false, error: 'NotReplayable' });
+    game.load(game.save());
+    expect(game.story.getStoryReplayStatus(supplyEntry.id)).toEqual({ allowed: true, progress: 'completed' });
+    const entry = game.registry.storyEntries.get(supplyEntry.id)!;
+    entry.replayable = false;
+    expect(game.story.replayStory(entry.id)).toMatchObject({ success: false, error: 'NotReplayable' });
+  });
+
+  test('旧存档只使用能确认 Entry 身份的完成投递凭据', () => {
+    game.init([baseDatapack, desertPack]);
+    finishWelcome(game);
+    delete game.registry.storyEntries.get(desertEntry.id)!.replayable;
+    game.state.storyLog.push({ type: 'active', storyId: desertEntry.storyId, choiceIndex: -1 });
+    expect(game.story.replayStory(desertEntry.id)).toMatchObject({ success: false, error: 'NotReplayable' });
+    game.state.areaStoryDeliveries!.push({
+      entryId: desertEntry.id, areaId: 'base:area:schale_main', sourceId: 'legacy', status: 'completed',
+    });
+    expect(game.story.getStoryReplayStatus(desertEntry.id)).toEqual({ allowed: true, progress: 'completed' });
   });
 
   test('分歧点守卫：独立 Transfer 拒绝未读分支，失败后新重播可选择已读路线', () => {

@@ -9,6 +9,18 @@ const baseStory = (overrides: Record<string, unknown> = {}) => ({ startContext: 
 });
 
 describe('Story definition projection', () => {
+  it('preserves optional authorship grouping and validates it as an Init reference', () => {
+    const initId = 'base:init:schale';
+    const grouped = baseStory({ initId });
+    expect(projectStoryDefinition(grouped, { inits: new Map([[initId, {}]]) })).toEqual({ ok: true, story: grouped });
+    expect(projectStoryDefinition(baseStory())).toEqual({ ok: true, story: baseStory() });
+    for (const result of [
+      projectStoryDefinition(grouped, { inits: new Map() }),
+      projectStoryDefinition(baseStory({ initId: 'base:area:schale' })),
+    ]) {
+      expect(result).toMatchObject({ ok: false, issues: [{ path: 'initId' }] });
+    }
+  });
   it('rebuilds the document without losing legal values, flags, dynamic dictionaries, or deep trees', () => {
     const expression: unknown = { type: 'const', value: 1 };
     const nested: unknown = Array.from({ length: 40 }, () => 0).reduce<unknown>(child => ({ type: 'floor', expr: child }), expression);

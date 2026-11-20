@@ -99,7 +99,8 @@ export function renderConditionTargetFields(ctx: UIContext, condition: Condition
       </div>`;
   }
   const reference = referenceOptions(ctx, condition.target);
-  const keyLabel = condition.target === 'resource' ? '资源' : condition.target === 'spotLevel' ? 'Spot' : condition.target === 'area' ? '区域' : '键';
+  const storyTarget = condition.target === 'hasReadStory' || condition.target === 'hasReadStoryInRun' || condition.target === 'visitedStoryInChain';
+  const keyLabel = storyTarget ? 'Story' : condition.target === 'resource' ? '资源' : condition.target === 'spotLevel' ? 'Spot' : condition.target === 'area' ? '区域' : '键';
   const keyInput = reference
     ? `<input data-runtime-condition-editor-field="key" list="runtime-condition-options-${condition.target}" value="${esc(condition.key)}"><datalist id="runtime-condition-options-${condition.target}">${renderRuntimeEditorReferenceOptions(esc, reference)}</datalist>`
     : `<input data-runtime-condition-editor-field="key" value="${esc(condition.key)}">`;
@@ -111,7 +112,8 @@ export function renderConditionTargetFields(ctx: UIContext, condition: Condition
   const warning = unknownComparator
     ? `<p class="runtime-editor-warning" data-runtime-condition-unknown-comparator>未知比较符「${esc(String(condition.comparator))}」；当前仅保留原值，选择已知比较符后才能编辑。</p>`
     : '';
-  return `${warning}<label class="user-theme-field"><span>${keyLabel}</span>${keyInput}</label>
+  const keyField = `<label class="user-theme-field"><span>${keyLabel}</span>${keyInput}</label>`;
+  return `${warning}${storyTarget ? `<div class="runtime-story-reference-field">${keyField}<button type="button" class="mini-action" data-runtime-story-reference aria-label="选择 Story">选择…</button></div>` : keyField}
     <label class="user-theme-field"><span>比较</span><select data-runtime-condition-editor-field="comparator"${unknownComparator ? ' disabled' : ''}>${comparatorOptions}</select></label>
     <label class="user-theme-field"><span>值</span><input data-runtime-condition-editor-field="value" type="number" step="any"${valueStep} value="${esc(String(condition.value))}"></label>`;
 }

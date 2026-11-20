@@ -37,6 +37,7 @@ const FIELD_RULES: Readonly<Record<string, readonly Rule[]>> = {
     [/^\$\.affectorPackIds\[\d+\]$/, 'Affector Pack', ['affectorPacks']],
   ],
   stories: [
+    [/^\$\.initId$/, '所属世界线', ['inits']],
     [/^\$\.startContext\.areaId$/, '起始 Area', ['areas']],
     [/^\$\.startContext\.characterId$/, '起始角色', ['characterVariants']],
     [/^\$\.nodes\[\d+\]\.areaId$/, '移动目标 Area', ['areas']],

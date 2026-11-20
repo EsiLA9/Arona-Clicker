@@ -31,9 +31,24 @@ flowchart TD
 
 首次应用数据包后，界面进入 Lobby。玩家选择新 Init 或恢复进度后，Controller 经 Runtime 命令进入 Init；开始会话后，`SessionService` 才启动定时 Tick。包应用与开始游戏是两个不同阶段。
 
+## 开发启动与本地试玩
+
+`npm run dev` 通过根目录的 `vite.config.ts` 服务门户、游戏、独立 Datapack Editor 和 Infinite Board。Vite 预打包清单显式包含 `jszip`，跳过启动时对四个入口的自动依赖扫描。新增或替换浏览器侧需要预打包的依赖（例如 CommonJS 包）时，同步调整 `optimizeDeps.include`，并验证使用它的开发入口。
+
+进入游戏时由 `game.css` 一次交付大厅和公用样式，包括两个编辑器共用的条件引用选择器。Story 编辑器与 Runtime Editor 的专用样式由 `editor-styles.ts` 在用户点击对应入口后加载。样式就绪才打开编辑器，同页后续打开复用已装载的样式。加载失败时保留当前页面，并提示刷新后重试。
+
+本地试玩可先构建，再用 Vite 预览构建产物。启动预览后访问 [AronaClicker](http://localhost:4173/game)。
+
+```powershell
+npm run build
+npm exec -- vite preview
+```
+
 ## 启动失败时如何判断位置
 
 静态启动壳在主入口执行前建立 `window.__startupLog`。启动记录包括导航至启动壳、入口模块前序加载、八个正式阶段、阶段间隙、当前等待对象、页面可见状态，以及并行模块的完成或失败耗时。阶段占比以导航至当前采样或启动结束的总时长为分母；`beforeWorkMs` 是阶段开始到获得绘制机会的等待，`workMs` 包括该阶段的同步工作和异步等待，不等同 CPU 时间。并行模块耗时互相重叠，不能与阶段占比相加。
+
+「装载游戏模块与样式」直接显示入口依赖等待、前后台状态、绘制等待和五项导入各自的状态及耗时。等待超过 3 秒时可以复制诊断；导入开始后，面板会显示阶段内最慢的已完成同源请求，列出发出前等待、等待首字节和接收耗时。`npm run dev` 下额外通过 Vite 的热更新连接向 `scripts/vite-startup-diagnostics.ts` 取样，展示服务端正在处理或近期结束的慢请求、样式转换、源码转换和模块依赖解析。服务端样本覆盖同一开发进程上的所有标签页，处理项可以重叠。复制报告中的 `moduleResources` 和 `moduleServerTiming` 分别记录浏览器已完成的请求和最近一次收到的服务端样本。
 
 浏览器开发者工具控制台可在启动中或完成后执行：
 

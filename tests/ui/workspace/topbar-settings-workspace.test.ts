@@ -60,6 +60,43 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
+  it('等到编辑器样式就绪才打开，并在加载失败后保留当前页面', async () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.body.appendChild(document.createElement('div'));
+    let resolveStoryStyles!: () => void;
+    const storyStyles = new Promise<void>(resolve => { resolveStoryStyles = resolve; });
+    const runtimeStyles = Promise.reject(new Error('missing stylesheet'));
+    const loadStyles = vi.fn((editor: 'story' | 'runtime') =>
+      editor === 'story' ? storyStyles : runtimeStyles);
+    const controller = new UIController(game, root, loadStyles);
+    const toast = vi.spyOn(controller.toast, 'show').mockImplementation(() => {});
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      controller.render();
+      const runtimeButton = root.querySelector<HTMLButtonElement>('#runtime-editor-launch')!;
+      runtimeButton.click();
+      await runtimeStyles.catch(() => {});
+      expect(runtimeButton.hasAttribute('aria-busy')).toBe(false);
+      expect(document.querySelector('.runtime-editor-launcher')).toBeNull();
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining('样式加载失败'), 'error');
+
+      const storyButton = root.querySelector<HTMLButtonElement>('#story-editor-launch')!;
+      storyButton.click();
+      storyButton.click();
+      expect(loadStyles.mock.calls).toEqual([['runtime'], ['story']]);
+      expect(storyButton.getAttribute('aria-busy')).toBe('true');
+      expect(controller.storyEditor.isOpen()).toBe(false);
+      resolveStoryStyles();
+      await storyStyles;
+      expect(controller.storyEditor.isOpen()).toBe(true);
+    } finally {
+      log.mockRestore();
+      controller.destroy();
+      game.stop();
+    }
+  });
+
   it('新建 Init 会在同一份 Draft 中协同创建可自定义 ID 的 defaultArea', () => {
     const game = new AronaClickerRuntime();
     game.init([baseDatapack]);

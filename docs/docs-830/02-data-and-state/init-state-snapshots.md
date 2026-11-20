@@ -18,6 +18,8 @@
 
 以当前 Init 的 `resources` 为例：捕获时把当前资源表复制到该 Init 的快照；清理时替换为空表；恢复时从目标快照复制资源表。随后在该 Init 产生的资源变化不会直接修改已捕获的另一份表。具体切换入口、触发顺序和异常处理应以 InitService 为准。
 
+`storyEntryReads` 与逐 Story 的 `storyReadLogs` 一同按 Init 保存。前者按实际入口记录已阅读或已完成，供缺省重读许可使用，见 [[story-and-effects]]。
+
 ## 有些字段不能整表归类
 
 - `spotLevels` 和 `spotManagers` 可能同时包含全局及局部 Spot：捕获取局部条目，清理保留全局条目，恢复时合并保留的全局条目与目标快照的局部条目。

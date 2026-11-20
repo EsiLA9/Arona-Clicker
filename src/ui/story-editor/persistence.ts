@@ -22,6 +22,7 @@ function validPresentation(value: unknown): boolean {
 }
 function validDocument(value: unknown): boolean {
   if (!record(value) || typeof value.id !== 'string' || !value.id || typeof value.name !== 'string'
+    || !optionalString(value.initId)
     || value.startContext !== undefined && (!record(value.startContext)
       || value.startContext.type === 'area' && typeof value.startContext.areaId !== 'string'
       || value.startContext.type === 'chara' && typeof value.startContext.characterId !== 'string'

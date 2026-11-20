@@ -126,10 +126,11 @@ function availableItemsInPart(ctx: UIContext, part: StoryContentPartDef): StoryC
 
 /** 该 StoryEntry 是否归属于当前 init（availableInits 为空 = 所有 init 可用）。 */
 function isEntryAvailable(ctx: UIContext, entryId: string): boolean {
-  const entry = ctx.game.registry.activeStories.get(entryId);
+  const entry = ctx.game.registry.storyEntries.get(entryId);
   if (!entry) return false;
   if (entry.availableInits.length > 0 && !entry.availableInits.includes(ctx.view.activeInit)) return false;
-  return ctx.view.storyLog.some(record => record.storyId === entry.storyId);
+  return Boolean(ctx.game.story.getStoryReplayStatus(entryId)?.progress)
+    || (entry.activation.kind === 'active' && ctx.view.storyLog.some(record => record.storyId === entry.storyId));
 }
 
 /** 解析当前路径下应展示的故事条目 HTML。 */
@@ -148,17 +149,17 @@ function resolveItemsAt(ctx: UIContext, h: StoryContentTable, path: string[]): s
   const activeStoryId = view.currentStory?.storyId ?? null;
 
   const rows = items.map(item => {
-    const entry = game.registry.activeStories.get(item.entryId);
+    const entry = game.registry.storyEntries.get(item.entryId);
     if (!entry) return '';
     const story = game.registry.stories.get(entry.storyId);
     if (!story) return '';
     const isRunning = activeStoryId === item.entryId;
-    // 重读策略：内容项显式声明优先，否则回退 entry.replayable
-    const replayable = item.replayable ?? entry.replayable === true;
+    const replay = game.story.getStoryReplayStatus(item.entryId);
+    const replayable = item.replayable !== false && replay?.allowed;
 
     const status = isRunning
-      ? '<small class="story-active">● 重读中</small>'
-      : '<small class="story-done">✓ 已完成</small>';
+      ? '<small class="story-active">● 播放中</small>'
+      : `<small class="story-done">${replay?.progress === 'read' ? '已阅读' : replay?.progress === 'completed' ? '✓ 已完成' : '正文已完成'}</small>`;
     const button = replayable && !isRunning
       ? `<button data-replay-story="${item.entryId}" class="story-trigger">重读</button>`
       : '';

@@ -15,10 +15,12 @@ import type { Registry } from '../../../data-services/registry/registry';
 import { ConditionSystem } from '../../../engine/expression/condition-system';
 import type { EffectEngine } from '../../../engine/effect/effect-engine';
 import type { StoryMutationPort } from '../../contracts/runtime/mutation';
+import type { StoryReplayStatus } from '../../contracts/story/story-query';
 import type { StoryNodeCommandResult, StoryNodePlaybackHost, StoryNodePlaybackView, StoryNodeSource } from '../../contracts/runtime/story-node-playback';
 import type { StoryNodePresentationData } from '../../../engine/contracts/story-node-snapshot';
 import type { StoryPlaybackStep, StoryDeferredStart } from '../../../engine/contracts/story-playback-state';
 import type { StoryPresentationView } from '../../contracts/runtime/story-presentation';
+import type { StoryAuthoringResult, StoryPreviewCheckItem } from '../../contracts/runtime/story-authoring';
 import type { StoryRunFlags } from '../../../engine/contracts/story-run-flags';
 import { isStoryRunFlags } from '../../../data-services/validation/story-run-flags';
 import type { CompletedStory } from '../../types/story-state';
@@ -35,10 +37,11 @@ import {
   trackStoryFlags, type StoryNodeRunEndReason, type StoryNodeSession,
 } from './story-node-session';
 import {
-  guardPrereqsMet, isStoryCursorSnapshot, readyStepIds, triggerAffectionPush,
+  guardPrerequisiteMet, guardPrereqsMet, isStoryCursorSnapshot, readyStepIds, triggerAffectionPush,
   triggerPassiveStory, triggerTailPush, type StoryEntrySelectionContext,
 } from './story-entry-selection';
 import { applyCompletionReward, maybeBlockConversation, recordPassiveCooldown } from './story-rewards';
+import { previewEntryCheck, type StoryPreviewConditions } from './story-preview-conditions';
 
 export type StoryCursor = StoryCursorSnapshot;
 
@@ -88,6 +91,10 @@ export class StoryService {
   private activeSource?: StoryNodeSource;
   private readonly requestResults = new Map<string, StoryStartResult>();
   private readonly completions = new Map<string, CompletedAdvance>();
+  private authoringPreview?: StoryPreviewConditions;
+
+  /** Set only on the disposable GameInstance assembled for authoring. */
+  useAuthoringPreview(preview: StoryPreviewConditions): void { this.authoringPreview = preview; }
 
   constructor(private readonly opts: StoryServiceOptions) {
     this.actionOptions = {
@@ -117,7 +124,7 @@ export class StoryService {
         const session = this.sessionForSource(source);
         if (!session || session.source.runId !== source.runId) return;
         const delivered = markTalkletDelivered(session, session.player.getView());
-        if (delivered && !session.replay) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal));
+        if (delivered && !session.replay) this.withSource(source, () => opts.mutations.recordStoryRead(delivered.storyId, delivered.ordinal, undefined, source.entryId));
       },
       release: (source, token) => {
         const session = this.sessionForSource(source);
@@ -238,7 +245,7 @@ export class StoryService {
     this.opts.eventBus.emit({ type: 'storyTriggered', storyId: session.source.entryId, owner: session.source.owner,
       runId: session.source.runId, replayId: session.source.replayId, isolated: true, isReplay: session.replay, context: session.scene });
   }
-  private acceptContinuation(session: StoryNodeSession, atArea = false): StoryAdvanceResult {
+  private acceptContinuation(session: StoryNodeSession, atArea = false, authoringApproved = false): StoryAdvanceResult {
     const view = session.player.getView();
     if (view.status !== 'input') return { success: false, error: 'NoActiveStory' };
     const interaction = view.node.interaction;
@@ -259,8 +266,23 @@ export class StoryService {
     if (!binding || session.source.parentHistoryId || session.called) return { success: false, error: 'AlreadyActive' };
     if (binding.areaId && !session.replay && (!atArea || this.state.currentAreaId !== binding.areaId)) return { success: false, error: 'ConditionNotMet' };
     if (this.allSessions().some(x => x.source.parentHistoryId && !x.replay && !session.replay)) return { success: false, error: 'AlreadyActive' };
+    const preview = session.replay ? this.authoringPreview : undefined;
+    if (preview && !authoringApproved) {
+      const checked = this.resolveStartDocument(binding.entryId, 'active', undefined);
+      if ('error' in checked) return { success: false, error: checked.error.success ? 'PlaybackFailed' : checked.error.error };
+      const item = previewEntryCheck(checked.entry, this.opts.conditionSystem, this.state, checked.entry.openingTitle || checked.root.name || checked.entry.id);
+      if (item) {
+        preview.pause({ kind: 'entry', entryId: checked.entry.id, storyId: checked.root.id, nodeId: view.node.id, items: [item] }, adopted => {
+          const current = session.player.getView();
+          if (!this.isCurrent(session) || current.status !== 'input' || current.token !== view.token) return { ok: false, message: '子 Entry 入口已失效。' };
+          if (!adopted[item.id]) return { ok: true, message: `「${item.label}」入口被阻止，可以再次尝试。` };
+          return this.authoringAdvanceResult(this.transact(() => this.acceptContinuation(session, atArea, true)));
+        });
+        return { success: true, finished: false, story: this.projectView(session, view)! };
+      }
+    }
     const channel = newRunId();
-    const prepared = this.prepareEntry(binding.entryId, 'active', session.source.owner, undefined, true, channel);
+    const prepared = this.prepareEntry(binding.entryId, 'active', session.source.owner, authoringApproved ? { skipConditions: true } : undefined, true, channel);
     if ('error' in prepared) return prepared.error;
     const child = prepared.session;
     Object.assign(child, { replay: session.replay });
@@ -308,6 +330,7 @@ export class StoryService {
   }
 
   private travelToStartArea(session: StoryNodeSession): string | undefined {
+    if (session.replay && this.authoringPreview) return undefined;
     const context = session.documents.get(session.source.rootStoryId)?.startContext;
     if (!session.entry.travelToStartContext || context?.type !== 'area' || this.state.currentAreaId === context.areaId) return undefined;
     const result = this.opts.travelToArea(context.areaId, true, false);
@@ -402,7 +425,7 @@ export class StoryService {
       ? this.coordinator.view(owner, 'continue', `${session.source.historyId}:recover`, session.source.runId, session.finishing.error, replayId)
       : session.finishing ? this.coordinator.view(owner, session.finishing.error ? 'failed' : 'finishing', undefined, session.source.runId, session.finishing.error, replayId)
       : this.coordinator.view(owner, view.status === 'input' ? 'input' : view.status === 'failed' ? 'failed' : 'continue',
-        'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined, replayId);
+        view.status !== 'authoring' && 'token' in view ? view.token : undefined, session.source.runId, view.status === 'failed' ? view.error : undefined, replayId);
     return session.replay ? presentation : { ...presentation, ...this.coordinator.saveOutputs(this.outputOwner(session, owner)) };
   }
 
@@ -660,6 +683,16 @@ export class StoryService {
 
   hasCompletedStory(storyId: string): boolean { return this.state.storyLog.some(story => story.storyId === storyId); }
 
+  getStoryReplayStatus(entryId: string): StoryReplayStatus | undefined {
+    const entry = this.opts.registry.storyEntries.get(entryId);
+    if (!entry) return undefined;
+    const recorded = this.state.storyEntryReads?.[entryId];
+    const completed = recorded === 'completed'
+      || this.state.areaStoryDeliveries?.some(delivery => delivery.entryId === entryId && delivery.status === 'completed');
+    const progress = completed ? 'completed' : recorded === 'read' ? 'read' : undefined;
+    return { allowed: entry.replayable ?? (progress !== undefined), progress };
+  }
+
   getAreaStoryDeliveries(areaId: string): readonly AreaStoryDeliveryView[] {
     const state = this.state;
     if (state.currentAreaId !== areaId) return [];
@@ -741,7 +774,7 @@ export class StoryService {
     if (this.transactionDepth) return { success: false, error: 'Busy' };
     const entry = this.opts.registry.storyEntries.get(storyId);
     if (!entry) return { success: false, storyId, error: 'NotFound' };
-    if (!entry.replayable) return { success: false, storyId, error: 'NotReplayable' };
+    if (!this.getStoryReplayStatus(storyId)?.allowed) return { success: false, storyId, error: 'NotReplayable' };
     const replayId = newRunId();
     const target = normalizeOwner(owner);
     const prepared = this.prepareEntry(storyId, storyEntryType(entry), target, { skipConditions: true }, true, replayId);
@@ -1011,8 +1044,8 @@ export class StoryService {
   private syncPresentation(session: StoryNodeSession, view: StoryNodePlaybackView): void {
     if (!this.isCurrent(session) || session.finishing) return;
     const owner = session.source.owner;
-    if (view.status === 'input') {
-      if(view.node.performance?.layout?.mode==='positioned') this.coordinator.clearNode(session.source.historyId!,{storyId:view.storyId,nodeId:view.node.id});
+    if (view.status === 'input' || view.status === 'authoring') {
+      if(view.status === 'input' && view.node.performance?.layout?.mode==='positioned') this.coordinator.clearNode(session.source.historyId!,{storyId:view.storyId,nodeId:view.node.id});
       this.coordinator.end(owner, session.source.replayId);
       this.opts.eventBus.emit({ type: 'storyPlaybackChanged', owner, ...(session.source.replayId ? { replayId: session.source.replayId } : {}) });
       return;
@@ -1090,12 +1123,24 @@ export class StoryService {
     const runId = newRunId();
     const source: StoryNodeSource = { entryId: entry.id, rootStoryId: root.id, owner: contextOwner, runId, historyId: runId, ...(replayId ? { replayId } : {}),
       causalChainId: cause?.causalChainId ?? runId, handoffCount, ...(replay ? { isReplay: true } : {}) };
+    const preview = replay ? this.authoringPreview : undefined;
     let session!: StoryNodeSession;
     session = createStoryNodeSession({
       source, entry: structuredClone(entry), replay, documents: this.documents,
       conditionSystem: this.opts.conditionSystem, getState: this.opts.getState,
       actionHost: this.actionHost, random: this.opts.random,
       preflightTransfer: transfer => this.preflightTransfer(session, transfer),
+      ...(preview ? { authoring: {
+        transfer: transfer => this.inspectAuthoringTransfer(session, transfer),
+        visit: (kind, storyId) => preview.visit(kind, entry.id, storyId),
+        pause: (check, token) => preview.pause({ ...check, entryId: entry.id }, adopted => this.transact(() => {
+          if (!this.isCurrent(session)) return { ok: false, message: '试播位置已失效。' };
+          if (check.kind === 'transfer' && adopted[check.items[0]!.id]) session.denialMessage = undefined;
+          const command = this.withSource(session.source, () => session.player.resolveAuthoring(token, adopted));
+          this.syncPresentation(session, command.view);
+          return this.authoringAdvanceResult(this.advanceResultFromCommand(session, session.source.owner, command), session.denialMessage);
+        })),
+      } } : {}),
     });
     return { session, initialFlags: structuredClone(options?.initialFlags ?? {}) };
   }
@@ -1161,6 +1206,7 @@ export class StoryService {
         return;
       }
       if (!this.isCurrent(session)) return;
+      if (session.replay) this.authoringPreview?.visit(session.source.parentHistoryId ? 'child' : 'start', session.source.entryId, session.source.rootStoryId);
       const command = session.player.start(session.source.rootStoryId, session.source, initialFlags);
       this.captureVisited(session, command);
       this.handleTerminal(session, command.view);
@@ -1350,6 +1396,8 @@ export class StoryService {
     if (!session.source.parentHistoryId && !session.replay) this.sessions.delete(ownerKey(session.source.owner));
     const parent = session.source.parentHistoryId && this.allSessions().find(x => x.source.historyId === session.source.parentHistoryId);
     if (parent && parent.replay && parent.continuation?.state === 'returned') {
+      const view = parent.player.getView();
+      if (view.status === 'input') this.authoringPreview?.visit('return', parent.source.entryId, view.storyId);
       this.announceChannel(parent);
       this.resumeContinuation(parent);
     }
@@ -1578,6 +1626,26 @@ export class StoryService {
     if (!guard || guardPrereqsMet(this.opts.registry, this.state, guard)) return undefined;
     session.denialMessage = guard.denialMessage;
     return 'BranchGuardDenied';
+  }
+
+  private inspectAuthoringTransfer(session: StoryNodeSession, transfer: StoryTransfer): StoryPreviewCheckItem | undefined {
+    session.denialMessage = undefined;
+    const guard = session.entry.branchGuards?.find(candidate => candidate.storyId === transfer.storyId);
+    if (!guard?.prerequisites.length) return undefined;
+    session.denialMessage = guard.denialMessage;
+    const children = guard.prerequisites.map(prerequisite => {
+      const title = this.documents.get(prerequisite.storyId)?.name ?? prerequisite.storyId;
+      const read = prerequisite.talkletIndex === -1 ? '全篇已读' : `第 ${prerequisite.talkletIndex + 1} 条 Talklet 已读`;
+      return { kind: 'requirement' as const, text: `「${title}」${read}`, met: guardPrerequisiteMet(this.opts.registry, this.state, prerequisite) };
+    });
+    return {
+      id: transfer.storyId, label: this.documents.get(transfer.storyId)?.name ?? transfer.storyId,
+      requirement: { kind: 'group', operator: 'AND', met: children.every(child => child.met), children },
+    };
+  }
+
+  private authoringAdvanceResult(result: StoryAdvanceResult, denial?: string): StoryAuthoringResult {
+    return result.success ? { ok: true, message: '' } : { ok: false, message: result.denialMessage || denial || result.detail || result.error };
   }
 
   private mapError(error?: string): { error: import('../../contracts/runtime/results').StoryError; detail?: string } {

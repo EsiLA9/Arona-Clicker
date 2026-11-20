@@ -1370,6 +1370,11 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
 
   // 检查引用完整性
   const initIds = new Set([...context.initIds ?? [], ...dp.inits.map(i => i.id)]);
+  for (const story of dp.stories) {
+    if (story.initId !== undefined && !initIds.has(story.initId)) {
+      throw new RegistryError(`Story "${story.id}" references unknown Init: "${story.initId}"`);
+    }
+  }
   const areaIds = new Set([...context.areaIds ?? [], ...dp.areas.map(a => a.id)]);
   const storyEntryIds = new Set([
     ...context.storyEntryIds ?? [],

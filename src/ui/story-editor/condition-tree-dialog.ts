@@ -2,7 +2,8 @@ import type { ConditionGroup, ConditionTarget } from '../../engine/types/express
 import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
 import { conditionFieldLabels, STORY_CONDITION_REFERENCES, STORY_CONDITION_TARGETS } from './condition-fields';
-import { conditionReferenceChoices, createConditionReferencePicker } from './condition-reference-navi';
+import { createConditionReferencePicker } from '../components/shared/condition-reference-picker';
+import { conditionReferenceChoices } from './condition-reference-navi';
 import {
   conditionLeafEditor, describeConditionTreeLeaf, renderConditionLeafFields,
   type ConditionLeafView,
@@ -184,7 +185,8 @@ export function openConditionTreeDialog(modal: ModalManager, ctx: UIContext, tri
       const node = selected;
       const kind = STORY_CONDITION_REFERENCES[node.target as ConditionTarget];
       if (!kind) return;
-      subEditor = createConditionReferencePicker(ctx, conditionFieldLabels(node.target).key, choices(kind), node.key ?? '', key => { node.key = key; });
+      subEditor = createConditionReferencePicker(ctx, conditionFieldLabels(node.target).key, choices(kind), node.key ?? '', key => { node.key = key; },
+        kind === 'story' ? { otherLabel: '其他' } : undefined);
       showError();
       layout.hidden = footer.hidden = true;
       picker.hidden = false;

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T08:53:51.780Z",
+  "generatedAt": "2026-11-19T15:56:50.483Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -20331,6 +20331,14 @@
           "kind": "string",
           "tsType": "string",
           "description": "作者可读名称。"
+        },
+        {
+          "key": "initId",
+          "required": false,
+          "kind": "ref",
+          "tsType": "InitId",
+          "description": "作者目录归属。省略时归入「其他」，不限制入口、播放或重读。",
+          "table": "inits"
         },
         {
           "key": "startContext",

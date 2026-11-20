@@ -691,6 +691,10 @@ export class Registry {
       if (areas.length > 0) {
         throw new RegistryError(`Init "${initId}" 仍被 Area 引用：${areas.map(area => area.id).join('、')}`);
       }
+      const stories = [...this._stories.values()].filter(story => story.initId === initId);
+      if (stories.length > 0) {
+        throw new RegistryError(`Init "${initId}" 仍被 Story 归属引用：${stories.map(story => story.id).join('、')}`);
+      }
       this._inits.delete(initId);
       this._initSourceModNames.delete(initId);
     }

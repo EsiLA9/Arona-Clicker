@@ -1,4 +1,4 @@
-import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryIdentityChange } from '../contracts/runtime/story-authoring';
+import type { StoryAuthoringPatch, StoryAuthoringResult, StoryAuthoringPreviewResult, StoryAuthoringPreviewTarget, StoryIdentityChange } from '../contracts/runtime/story-authoring';
 import type { GameCommands } from '../contracts/index';
 import type { StoryDef } from '../../data-services/contracts/story';
 import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult } from '../contracts/runtime/runtime';
@@ -35,7 +35,7 @@ import type {
 export interface GameCommandSource {
   validateStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
   applyStoryAuthoring(patch: StoryAuthoringPatch): StoryAuthoringResult;
-  createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult;
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult;
@@ -108,7 +108,7 @@ export function createGameCommands(game: GameCommandSource): GameCommands {
   return {
     validateStoryAuthoring: patch => game.validateStoryAuthoring(patch),
     applyStoryAuthoring: patch => game.applyStoryAuthoring(patch),
-    createStoryAuthoringPreview: (patch, entryId) => game.createStoryAuthoringPreview(patch, entryId),
+    createStoryAuthoringPreview: (patch, target) => game.createStoryAuthoringPreview(patch, target),
     ...(game.saveStoryAuthoringToPack ? { saveStoryAuthoringToPack: (id: string, patch: StoryAuthoringPatch) => game.saveStoryAuthoringToPack!(id, patch) } : {}),
     ...(game.renameStoryInPack ? { renameStoryInPack: (id: string, change: StoryIdentityChange) => game.renameStoryInPack!(id, change) } : {}),
     saveStoryDefinition: story => game.saveStoryDefinition(story),

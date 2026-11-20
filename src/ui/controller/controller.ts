@@ -108,6 +108,7 @@ import {
   synchronizeDatapackWorkspaceState,
 } from '../workspace/datapack-workspace-state';
 import { flushRuntimeEditorDraft } from '../runtime-editor/actions';
+import type { EditorStyleLoader } from '../utilities/editor-styles';
 import { restoreRuntimeEditorDraft, seedDebugEditing } from '../runtime-editor/debug';
 import { RuntimeEditorDraftPersistence } from '../runtime-editor/persistence';
 import { StoryEditorController, STORY_EDITOR_REGION } from '../story-editor/controller';
@@ -433,6 +434,7 @@ export class UIController {
     readonly game: GameInstance,
     /** @internal 供 controller-core / controller-modals / controller-panels 使用。 */
     readonly root: HTMLElement,
+    readonly loadEditorStyles?: EditorStyleLoader,
   ) {
     this.commands = createGameCommands(game);
     this.mapRelations = new MapRelationInteraction({

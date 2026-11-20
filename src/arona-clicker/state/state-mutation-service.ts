@@ -1100,6 +1100,7 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
   completeStory(story: CompletedStory, sourceEntryId?: string, onCommitted?: () => void): void {
     this.current.storyLog.push(story);
     if (sourceEntryId) {
+      (this.current.storyEntryReads ??= {})[sourceEntryId] = 'completed';
       const delivery = this.current.areaStoryDeliveries?.find(candidate => candidate.entryId === sourceEntryId);
       if (delivery?.status === 'pending') delivery.status = 'completed';
     }
@@ -1174,12 +1175,10 @@ export class StateMutationService implements StateMutationPort, EffectMutationPo
     this.emit({ type: 'charaCustomChanged', character });
   }
 
-  /**
-   * 记录 Story 阅读日志（按 Story.id；talkletIndex 为已读 Talklet 索引，choiceIndex 可选已选选项）。
-   * 为重阅读预留的简单记录，不驱动任何行为；重阅读服务本期不实现。
-   */
-  recordStoryRead(storyId: StoryId, talkletIndex: number, choiceIndex?: number): void {
+  /** Record delivered Story prose and, when provided, the Entry that delivered it. */
+  recordStoryRead(storyId: StoryId, talkletIndex: number, choiceIndex?: number, sourceEntryId?: string): void {
     const state = this.current;
+    if (sourceEntryId) (state.storyEntryReads ??= {})[sourceEntryId] ??= 'read';
     const logs = (state.storyReadLogs ??= {});
     const log = logs[storyId] ?? { readTalkletIndexes: [], chosenChoiceIndexes: {} };
     if (!log.readTalkletIndexes.includes(talkletIndex)) {

@@ -77,6 +77,7 @@ export interface StoryEditorState {
   insertionBeforeNodeId: string | null;
   sidebarMode: 'stories' | 'entries' | 'senders';
   search: string;
+  storyInitFilter?: string;
   entrySearch: string;
   senderSearch: string;
   composers: Record<string, StoryComposer>;
@@ -85,14 +86,23 @@ export interface StoryEditorState {
   storageBlocked: boolean;
   targetPackId?: string;
   copyStoryId?: string;
-  previewEntryId?: string;
+  previewEntryByDraft?: Map<string, string>;
   entryPoolContext?: { entryId: string; poolKeys: string[] };
   entryEditorTab?: 'basic' | 'rewards' | 'gates';
-  preview?: { playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null; story: import('../../arona-clicker/contracts/runtime/results').StoryView | null; projection: import('../../arona-clicker/contracts/runtime/story-authoring').StoryAuthoringPreviewProjection | null };
+  preview?: {
+    playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null;
+    story: import('../../arona-clicker/contracts/runtime/results').StoryView | null;
+    projection: import('../../arona-clicker/contracts/runtime/story-authoring').StoryAuthoringPreviewProjection | null;
+    decisions: import('../../arona-clicker/contracts/runtime/story-authoring').StoryPreviewDecisions;
+    send: import('../../arona-clicker/contracts/runtime/results').SendState;
+    selections?: Record<string, import('../../arona-clicker/contracts/runtime/story-authoring').StoryPreviewDecision>;
+    collapsedCheck?: string;
+    error?: string;
+  };
   themeContentEdit?: { session: import('../../arona-clicker/services/presentation/theme-content-editor-service').ThemeContentEditSession; draft: import('../../arona-clicker/services/presentation/theme-content-editor-service').EditableThemeContent; previewing: boolean; rows: Record<string,string[]>; error?: string };
 }
 export interface StorySender { id: string; label: string; speaker?: string }
-export interface StoryListItem { key: string; name: string; storyId: string; draft?: StoryDraft }
+export interface StoryListItem { key: string; name: string; storyId: string; initId?: string; draft?: StoryDraft }
 export interface StoryChoiceFlagBinding { flagName: string; nodeIds: string[] }
 export type StoryChoiceFlagBindResult = { ok: true; flagName: string; created: boolean } | { ok: false; reason: string };
 export type StoryFlagReaderBindResult = { ok: true; flagName: string; changed: boolean } | { ok: false; reason: string };
@@ -115,6 +125,14 @@ export function currentAuthoringDraft(state: StoryEditorState): StoryDraft | und
 }
 export function storyEditorTargetKey(state: StoryEditorState): string {
   return state.target ? `${state.target.kind}:${state.target.id}` : '';
+}
+
+export function storyPreviewEntries(state: StoryEditorState, draft: StoryDraft, sources: ReadonlyMap<string, StoryEntryDef>) {
+  const entries = [...storyEntries(state, sources).values()].filter(entry => entry.storyId === draft.document.id);
+  const remembered = state.previewEntryByDraft?.get(draft.draftId);
+  const entryId = remembered !== undefined && (remembered === '' || entries.some(entry => entry.id === remembered))
+    ? remembered : entries[0]?.id ?? '';
+  return { entries, entryId };
 }
 export function storyEntries(state: StoryEditorState, sources: ReadonlyMap<string, StoryEntryDef>): ReadonlyMap<string, StoryEntryDef> {
   const entries = new Map(sources);
@@ -284,10 +302,11 @@ export function composer(state: StoryEditorState): StoryComposer {
 export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>): StoryListItem[] {
   const entries = [...sources.values()].map(source => {
     const draft = state.drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
-    return { key: draft?.draftId ?? `source:${source.id}`, name: draft?.document.name ?? source.name, storyId: draft?.document.id ?? source.id, draft };
+    const story = draft?.document ?? source;
+    return { key: draft?.draftId ?? `source:${source.id}`, name: story.name, storyId: story.id, initId: story.initId, draft };
   });
   for (const draft of state.drafts) {
-    if (!entries.some(item=>item.draft===draft)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, draft });
+    if (!entries.some(item=>item.draft===draft)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, initId: draft.document.initId, draft });
   }
   const search = state.search.trim().toLocaleLowerCase();
   return entries.filter(item => !search || `${item.name}\n${item.storyId}`.toLocaleLowerCase().includes(search));

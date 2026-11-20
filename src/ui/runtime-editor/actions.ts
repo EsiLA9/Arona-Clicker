@@ -87,7 +87,9 @@ import {
 import type { UIController } from '../controller/controller';
 import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
 import { downloadBytes } from '../utilities/file-download';
+import { withEditorStyles } from '../utilities/editor-styles';
 import { createUIContext } from '../runtime/context';
+import { bindConditionReferencePicker, createConditionReferencePicker, storyReferenceRow } from '../components/shared/condition-reference-picker';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
 import type { RuntimeSpotMutationResult, RuntimeWorldDraft } from '../../arona-clicker/contracts/runtime/runtime-content';
 import { hasDatapackWorkspaceChanges } from '../workspace/datapack-workspace-state';
@@ -1464,10 +1466,11 @@ function renderRuntimeInitDeletionImpact(ctrl: UIController, idName: string): st
     ? areas.map(area => `${area.name || area.id} (${area.id})`).join('、')
     : '无已注册 Area';
   const spotText = spotIds.length > 0 ? `${spotIds.length} 个 Spot` : '无已注册 Spot';
+  const storyNames = [...ctrl.game.registry.stories.values()].filter(story => story.initId === initId).map(story => story.name || story.id);
   const activeText = active
     ? `当前 activeInit：${initId}；currentAreaId：${view.currentAreaId ?? '未设置'}。Apply 后会回到 Init 选择界面。`
     : '当前不是 activeInit；不会改变当前玩家位置。';
-  return `<section class="runtime-editor-delete-impact" aria-label="删除影响"><h5>删除影响预览</h5><ul><li><span>所属 Area</span><strong>${escapeHtml(areaText)}</strong></li><li><span>关联 Spot</span><strong>${escapeHtml(spotText)}（不会级联删除）</strong></li><li><span>当前定位</span><strong>${escapeHtml(activeText)}</strong></li><li><span>per-Init 快照</span><strong>保留，不自动清理</strong></li></ul><p class="runtime-editor-warning">若仍有 Area 引用该 Init，Apply 会被阻断；请先在同一批次处理引用，系统不会留下半删除状态。</p></section>`;
+  return `<section class="runtime-editor-delete-impact" aria-label="删除影响"><h5>删除影响预览</h5><ul><li><span>所属 Area</span><strong>${escapeHtml(areaText)}</strong></li><li><span>关联 Spot</span><strong>${escapeHtml(spotText)}（不会级联删除）</strong></li>${storyNames.length ? `<li><span>所属 Story</span><strong>${escapeHtml(storyNames.join('、'))}</strong></li>` : ''}<li><span>当前定位</span><strong>${escapeHtml(activeText)}</strong></li><li><span>per-Init 快照</span><strong>保留，不自动清理</strong></li></ul><p class="runtime-editor-warning">若仍有 Area 或 Story 归属于该 Init，需先解除对应引用才能删除。</p></section>`;
 }
 
 export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: ParentNode): void {
@@ -1485,6 +1488,12 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     };
     scope.addEventListener('input', captureDraft);
     scope.addEventListener('change', captureDraft);
+  }
+  for (const button of scope.querySelectorAll<HTMLButtonElement>('[data-runtime-story-reference]')) {
+    button.onclick = () => {
+      const field = button.closest('.runtime-story-reference-field')?.querySelector<HTMLSelectElement>('select');
+      if (field) openRuntimeStoryReference(ctrl, field.getAttribute('aria-label') || 'Story', field);
+    };
   }
   const defaultAreaInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
   const initIdInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-field="idName"]');
@@ -1525,11 +1534,11 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
       syncRuntimeEditorPanel(ctrl);
     });
   });
-  scope.querySelector('#runtime-editor-launch')?.addEventListener('click', () => {
+  scope.querySelector('#runtime-editor-launch')?.addEventListener('click', event => {
     if (ctrl.runtimeEditorLauncherOpen) {
       ctrl.runtimeEditorLauncherOpen = false;
       syncRuntimeEditorLauncher(ctrl);
-    } else openRuntimeEditorLauncher(ctrl);
+    } else withEditorStyles(ctrl, 'runtime', event.currentTarget as Element, () => openRuntimeEditorLauncher(ctrl));
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-kind-tab]').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1748,10 +1757,14 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     });
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-edit]').forEach(button => {
-    button.addEventListener('click', () => openLoadedRuntimeSpotEditor(ctrl, button.dataset.runtimeSpotEdit));
+    button.addEventListener('click', () => {
+      withEditorStyles(ctrl, 'runtime', button, () => openLoadedRuntimeSpotEditor(ctrl, button.dataset.runtimeSpotEdit));
+    });
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-delete]').forEach(button => {
-    button.addEventListener('click', () => openRuntimeSpotDeleteConfirm(ctrl, button.dataset.runtimeSpotDelete));
+    button.addEventListener('click', () => {
+      withEditorStyles(ctrl, 'runtime', button, () => openRuntimeSpotDeleteConfirm(ctrl, button.dataset.runtimeSpotDelete));
+    });
   });
   scope.querySelector('[data-runtime-delete-preserve]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, true));
   scope.querySelector('[data-runtime-delete-clean]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, false));
@@ -2097,6 +2110,31 @@ function openCollectionItemDialog(
   });
 }
 
+function openRuntimeStoryReference(ctrl: UIController, label: string, field: HTMLInputElement | HTMLSelectElement): void {
+  if (field.disabled || field instanceof HTMLInputElement && field.readOnly) return;
+  const ctx = createUIContext(ctrl.game);
+  const { stories, activeStories } = ctx.game.registry;
+  const rows = field instanceof HTMLSelectElement
+    ? [...field.options].flatMap(option => {
+      if (!option.value || option.disabled) return [];
+      const entry = activeStories?.get(option.value);
+      const story = stories.get(entry?.storyId ?? option.value);
+      return entry || story ? [storyReferenceRow(ctx, { value: option.value, label: option.label || option.textContent || option.value }, story?.initId)] : [];
+    })
+    : [...stories.values()].map(story => storyReferenceRow(ctx, { value: story.id, label: story.name || story.id }, story.initId));
+  const picker = createConditionReferencePicker(ctx, label, rows, field.value, value => {
+    closeSubDialog();
+    if (!field.isConnected || field.disabled) return;
+    field.value = value;
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { otherLabel: '其他', cancelLabel: '取消' });
+  const host = openSubDialog({
+    title: `选择${label}`, body: picker.render(), mode: 'push', panelClass: 'runtime-story-reference-dialog',
+    onClose: () => { if (field.isConnected) field.focus({ preventScroll: true }); },
+  });
+  bindConditionReferencePicker(host, picker, closeSubDialog);
+}
+
 function openConditionItemDialog(
   ctrl: UIController,
   row: HTMLElement,
@@ -2116,11 +2154,17 @@ function openConditionItemDialog(
       if (!committed) openCollectionItemDialog(ctrl, row, prototype, item, parentMode);
     },
   });
-  host.querySelector<HTMLSelectElement>('[data-runtime-condition-editor-field="target"]')?.addEventListener('change', () => {
+  host.addEventListener('change', event => {
+    if (!(event.target instanceof HTMLSelectElement) || !event.target.matches('[data-runtime-condition-editor-field="target"]')) return;
     const next = readAtomicConditionEditor(host);
     const body = host.querySelector<HTMLElement>('.runtime-subdialog-body');
     if (body) body.innerHTML = renderAtomicConditionEditor(ctx, next);
     host.querySelector<HTMLSelectElement>('[data-runtime-condition-editor-field="target"]')?.focus();
+  });
+  host.addEventListener('click', event => {
+    if (!(event.target instanceof Element) || !event.target.closest('[data-runtime-story-reference]')) return;
+    const field = host.querySelector<HTMLInputElement>('[data-runtime-condition-editor-field="key"]');
+    if (field) openRuntimeStoryReference(ctrl, 'Story', field);
   });
   host.querySelector('[data-subdialog-save]')?.addEventListener('click', () => {
     const next = readAtomicConditionEditor(host);

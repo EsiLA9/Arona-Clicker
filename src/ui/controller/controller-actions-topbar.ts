@@ -23,6 +23,7 @@ import {
 import { bindRuntimeDatapackEditorActions, openRuntimeEditingPack, syncRuntimeEditorCreateActions } from '../runtime-editor/actions';
 import { runtimeEditorHasUnsavedChanges } from '../runtime-editor/state';
 import type { UIController } from './controller';
+import { withEditorStyles } from '../utilities/editor-styles';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogEntry, PackCatalogReadModel } from '../../arona-clicker/contracts/index';
 
@@ -76,7 +77,9 @@ function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab
 
 /** 绑定顶栏 / 全局工具条（render 后调用）；Workspace 栏动作由实例装配绑定。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
-  scope.querySelector('#story-editor-launch')?.addEventListener('click', () => ctrl.storyEditor.open());
+  scope.querySelector('#story-editor-launch')?.addEventListener('click', event => {
+    withEditorStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.storyEditor.open());
+  });
   bindDatapackActions(ctrl, scope);
   bindRuntimeDatapackEditorActions(ctrl, scope);
   scope.querySelectorAll<HTMLButtonElement>('[data-service]').forEach(button => {
@@ -359,8 +362,10 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           render();
           return;
         }
-        setDatapackSelection(root, selectedRecordId);
-        if (!openRuntimeEditingPack(ctrl, selectedRecordId)) render();
+        withEditorStyles(ctrl, 'runtime', button, () => {
+          setDatapackSelection(root, selectedRecordId);
+          if (!openRuntimeEditingPack(ctrl, selectedRecordId)) render();
+        });
         return;
       }
       try {
@@ -447,7 +452,9 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         render();
         return;
       }
-      if (!openRuntimeEditingPack(ctrl, packRecordId)) render();
+      withEditorStyles(ctrl, 'runtime', button, () => {
+        if (!openRuntimeEditingPack(ctrl, packRecordId)) render();
+      });
     });
   });
   scope.querySelectorAll<HTMLButtonElement>('[data-pack-draft-toggle]').forEach(button => {

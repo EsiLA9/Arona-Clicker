@@ -36,6 +36,7 @@ related_modules:
 | 实体字段 / 枚举 / Datapack Schema | [[ai/guide/context-packs/datapack-schema]] 中命中的子题 | Schema 生成与相关定向测试、类型检查 |
 | 生产 / GameNum / Affector / Trigger | [[ai/guide/context-packs/production]] 中命中的子题 | 生产 / Effect 定向测试、类型检查 |
 | 角色 / 抽卡 / 培养 / 通讯录 | [[ai/guide/context-packs/character]] 中命中的子题 | 角色域定向测试、类型检查 |
+| 已有控件的局部 CSS 或文案 | 直接定位目标规则和使用处 | 核对差异 |
 | 游戏内 UI / 主题 / 表现 | [[ai/guide/context-packs/ui-presentation]] 中命中的子题 | UI 定向测试；按 [[ai/guide/conventions/testing]] 选择浏览器验证 |
 | 世界线 / Init / Spot / Lobby / 存档 | [[ai/guide/context-packs/world-lifecycle]] 中命中的子题 | 生命周期 / 存档定向测试、类型检查 |
 | 文档维护 / 上下文治理 | [[ai/guide/conventions/doc-maintenance]] | `npm run check:docs`、`git --no-pager diff --check` |
@@ -47,7 +48,7 @@ related_modules:
 
 | 任务规模 | 可控任务上下文目标 | 处理规则 |
 | --- | ---: | --- |
-| 小型文档 / UI 修正 | 5k–15k token | 按影响直接执行和验证 |
+| 小型文档 / UI 修正 | 按直接影响取用 | 定位目标并核对差异，有具体疑点时再补读 |
 | 单机制修改 | 10k–30k token | 保持单一领域 Read Set |
 | 跨模块修改 | 25k–60k token | 明确增加的领域边界 |
 | 超过 60k token | 不设默认 | 按问题缩小范围，必要时按独立结果拆分 Task |

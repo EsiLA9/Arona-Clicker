@@ -57,6 +57,140 @@ describe('Story authoring transactions', () => {
     expect(game.state).toEqual(before);
     preview.close(); expect(preview.getView()).toBeNull();
   });
+  it('plays an unpublished Story directly without creating a lasting Entry', () => {
+    const game = start(); const before = structuredClone(game.state); const patch = makePatch();
+    patch.activeStories = [];
+    const result = game.createStoryAuthoringPreview(patch, { storyId: patch.stories[0].id });
+    expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+    preview = result.preview;
+    expect(preview.getStory()?.storyDefId).toBe(patch.stories[0].id);
+    expect(preview.advance('one')).toMatchObject({ ok: true });
+    expect(preview.getView()?.entries.some(entry => entry.text === '正确后续')).toBe(true);
+    expect(game.registry.storyEntries.has(preview.getDecisions().entryId)).toBe(false);
+    expect(game.registry.stories.has(patch.stories[0].id)).toBe(false);
+    expect(game.state).toEqual(before);
+  });
+
+  it('can still preview from the lobby when the Entry normally travels to its starting Area', () => {
+    game = new GameInstance(); game.init([baseDatapack], { enterDefaultInit: false });
+    const before = structuredClone(game.state); const patch = makePatch();
+    Object.assign(patch.activeStories[0], { availableInits: [baseDatapack.inits[0].id], travelToStartContext: true });
+    expect(game.state.activeInit).toBeFalsy();
+    const result = game.createStoryAuthoringPreview(patch, patch.activeStories[0].id);
+    expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+    preview = result.preview;
+    const pending = preview.getDecisions().pending!;
+    expect(pending.items[0].requirement.met).toBe(false);
+    expect(preview.decide(pending.id, { [patch.activeStories[0].id]: 'pass' })).toMatchObject({ ok: true });
+    expect(preview.getProjection()?.scene).toEqual({ type: 'area', id: baseDatapack.areas[0].id });
+    expect(preview.getStory()?.nodeId).toBe('choice');
+    expect(game.state).toEqual(before);
+  });
+  it('pauses before skipping an all-hidden Choice and adopts exactly one preview result', () => {
+    const game = start(); const before = structuredClone(game.state);
+    const patch = makePatch();
+    const choice = patch.stories[0].nodes[0];
+    if (choice.type !== 'click' || choice.interaction.kind !== 'choice') throw new Error('Expected Choice fixture');
+    Object.assign(choice.interaction, { options: [
+      { id: 'one', text: '可试播分支', marks: ['answer'], requiresFlag: 'absent', showWhen: { type: 'AND', conditions: [
+        { type: 'OR', conditions: [] },
+        { target: 'visitedStoryInChain', key: patch.stories[0].id, comparator: '==', value: 1 },
+      ] } },
+      { id: 'two', text: '真实不可用', showWhen: { type: 'OR', conditions: [] } },
+    ] });
+    const result = game.createStoryAuthoringPreview(patch, patch.activeStories[0].id);
+    expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+    preview = result.preview;
+    const pending = preview.getDecisions().pending!;
+    expect(pending).toMatchObject({ kind: 'choice', nodeId: 'choice', items: [
+      { id: 'one', requirement: { met: false, children: [
+        { met: false, children: [{ operator: 'OR', met: false }, { met: true }] }, { met: false },
+      ] } },
+      { id: 'two', requirement: { met: false } },
+    ] });
+    expect(preview.advance()).toMatchObject({ ok: false });
+    expect(preview.decide(pending.id, { unknown: 'pass' })).toMatchObject({ ok: false });
+    expect(preview.decide(pending.id, { one: 'pass' })).toMatchObject({ ok: true });
+    expect(preview.getStory()?.availableChoiceIndexes).toEqual([0]);
+    expect(preview.getDecisions().history[0]).toMatchObject({ items: pending.items, adopted: { one: true, two: false } });
+    expect(preview.decide(pending.id, { two: 'pass' })).toMatchObject({ ok: false });
+    expect(preview.advance('two')).toMatchObject({ ok: false });
+    expect(preview.advance('one')).toMatchObject({ ok: true });
+    expect(preview.getView()?.entries.some(entry => entry.text === '正确后续')).toBe(true);
+    expect(game.state).toEqual(before);
+  });
+
+  it('checks the root eligibility before start and retains the actual result after forcing it', () => {
+    const game = start(); const patch = makePatch();
+    Object.assign(patch.activeStories[0], { triggerCondition: { type: 'OR', conditions: [] } });
+    for (const decision of ['actual', 'pass'] as const) {
+      const result = game.createStoryAuthoringPreview(patch, patch.activeStories[0].id);
+      expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+      preview = result.preview;
+      expect(preview.getView()).toBeNull();
+      const pending = preview.getDecisions().pending!;
+      expect(preview.decide(pending.id, { [patch.activeStories[0].id]: decision })).toMatchObject({ ok: true });
+      expect(preview.getDecisions().history[0]?.items[0]?.requirement.met).toBe(false);
+      expect(preview.getStory()?.nodeId).toBe(decision === 'pass' ? 'choice' : undefined);
+      preview.close();
+    }
+  });
+
+  it('can suppress a true condition without overriding a single falsy local flag', () => {
+    const game = start(); const patch = makePatch();
+    const root = patch.stories[0];
+    root.nodes = [
+      { id: 'flag', type: 'operation', action: { kind: 'localFlag', op: 'set', name: 'local', value: false } },
+      { id: 'choice', type: 'click', stageId: 's', interaction: { kind: 'choice', options: [
+        { id: 'controlled', text: '链条件', showWhen: { type: 'AND', conditions: [
+          { target: 'visitedStoryInChain', key: root.id, comparator: '==', value: 1 },
+        ] } },
+        { id: 'natural', text: '局部标记', requiresFlag: 'local' },
+      ] } },
+    ];
+    const result = game.createStoryAuthoringPreview(patch, patch.activeStories[0].id);
+    expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+    preview = result.preview;
+    const pending = preview.getDecisions().pending!;
+    expect(pending.items.map(item => [item.id, item.requirement.met])).toEqual([['controlled', true]]);
+    expect(preview.decide(pending.id, { controlled: 'fail' })).toMatchObject({ ok: true });
+    expect(preview.getStory()?.availableChoiceIndexes).toEqual([1]);
+    expect(preview.advance('natural')).toMatchObject({ ok: true });
+  });
+
+  it('pauses before a guarded insert and resumes from the exact return point', () => {
+    vi.useFakeTimers();
+    const game = start(); const patch = makePatch();
+    const root = patch.stories[0];
+    const branchId = 'test:story:guarded';
+    patch.stories.push({ ...root, id: branchId, name: '守卫分支', nodes: [
+      { id: 'branch', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '守卫分支' } },
+    ] });
+    root.nodes = [
+      { id: 'insert', type: 'transfer', transfer: { mode: 'insert', storyId: branchId } },
+      { id: 'return', type: 'talklet', stageId: 's', content: { kind: 'narration', text: '回到父游标' } },
+    ];
+    Object.assign(patch.activeStories[0], { branchGuards: [
+      { storyId: branchId, prerequisites: [{ storyId: branchId, talkletIndex: -1 }, { storyId: branchId, talkletIndex: 0 }], denialMessage: '请先阅读分支' },
+    ] });
+    for (const decision of ['actual', 'pass'] as const) {
+      const result = game.createStoryAuthoringPreview(patch, patch.activeStories[0].id);
+      expect(result.ok, JSON.stringify(result)).toBe(true); if (!result.ok) return;
+      preview = result.preview;
+      const pending = preview.getDecisions().pending!;
+      expect(pending).toMatchObject({ kind: 'transfer', nodeId: 'insert', items: [{ id: branchId, requirement: { met: false } }] });
+      expect(preview.getDecisions().route.map(row => row.kind)).toEqual(['start']);
+      const resolved = preview.decide(pending.id, { [branchId]: decision });
+      if (decision === 'actual') expect(resolved).toMatchObject({ ok: false, message: '请先阅读分支' });
+      else {
+        expect(resolved).toMatchObject({ ok: true });
+        for (let i = 0; i < 4 && preview.getView()?.phase !== 'idle'; i++) { vi.advanceTimersByTime(60000); preview.advance(); }
+        expect(preview.getView()?.entries.map(entry => entry.text)).toEqual(['守卫分支', '回到父游标']);
+        expect(preview.getDecisions().route.map(row => row.kind)).toEqual(['start', 'insert', 'return']);
+      }
+      preview.close();
+    }
+  });
   it('projects isolated theme and overlay output as detached visual data', () => {
     vi.useFakeTimers(); const game=start(); const patch=makePatch();
     patch.stories[0].nodes.splice(1, 0,
@@ -82,6 +216,7 @@ describe('Story authoring transactions', () => {
   });
   it('follows the child channel and returns only the allowed flags during whole-story preview', () => {
     vi.useFakeTimers(); const game = start(); const patch = makePatch();
+    Object.assign(patch.activeStories[0], { triggerCondition: { type: 'OR', conditions: [] } });
     patch.stories.push({ id:'test:story:parent',name:'parent',startContext:{type:'area',areaId:baseDatapack.areas[0].id},stages:{s:{advance:'input'}},nodes:[
       {id:'call',type:'click',stageId:'s',interaction:{kind:'kizunaCard'}},
       {id:'back',type:'talklet',stageId:'s',requiresFlag:'answer',content:{kind:'narration',text:'父后文'}},
@@ -89,10 +224,20 @@ describe('Story authoring transactions', () => {
     patch.activeStories.push({id:'test:activestory:parent',storyId:'test:story:parent',availableInits:[],triggerCondition:{type:'AND',conditions:[]},replayable:true,kizuna:{entryId:'test:activestory:authoring',returnFlags:['answer']}, activation: { kind: 'active' as const } } as never);
     const result=game.createStoryAuthoringPreview(patch,'test:activestory:parent');expect(result.ok,JSON.stringify(result)).toBe(true);if(!result.ok)return;
     preview=result.preview;expect(preview.advance()).toMatchObject({ok:true});
+    const first = preview.getDecisions().pending!;
+    expect(first).toMatchObject({ kind: 'entry', entryId: patch.activeStories[0].id, nodeId: 'call' });
+    expect(preview.decide(first.id, {})).toMatchObject({ ok: true });
+    expect(preview.getStory()?.storyId).toBe('test:activestory:parent');
+    expect(preview.getStory()?.nodeId).toBe('call');
+    expect(preview.advance()).toMatchObject({ ok: true });
+    const retry = preview.getDecisions().pending!;
+    expect(retry.id).not.toBe(first.id);
+    expect(preview.decide(retry.id, { [retry.entryId]: 'pass' })).toMatchObject({ ok: true });
     expect(preview.getStory()?.storyId).toBe('test:activestory:authoring');
     expect(preview.advance('one')).toMatchObject({ok:true});
     for(let i=0;i<10 && preview.getView()?.phase!=='idle';i++){vi.advanceTimersByTime(60000);preview.advance();}
     expect(preview.getView()?.entries.some(x=>x.text==='父后文')).toBe(true);
+    expect(preview.getDecisions().route.map(row => row.kind)).toEqual(['start', 'child', 'return']);
     expect(game.state.flags).not.toHaveProperty('answer');
   });
   it('saves only to an editing pack, preserves unrelated content, and reloads the exported result', () => {
@@ -100,6 +245,8 @@ describe('Story authoring transactions', () => {
     const source=runtime.packManager.listPacks().find(x=>x.manifest.modName==='base')!;
     const editing=runtime.packManager.cloneAsEditing(source.id).pack;
     const patch=makePatch();patch.stories[0].id='base:story:authoring';patch.activeStories[0].id='base:activestory:authoring';patch.activeStories[0].storyId='base:story:authoring';
+    const initId = baseDatapack.inits[0].id;
+    Object.assign(patch.stories[0], { initId });
     const conditionalRewards=[
       {condition:{type:'AND',conditions:[{target:'visitedStoryInChain',key:'base:story:authoring',comparator:'==',value:1}]},effects:[{op:'addResource',target:Resource.Pyroxene,value:5}]},
       {condition:{type:'AND',conditions:[]},effects:[{op:'addResource',target:Resource.Pyroxene,value:3}]},
@@ -113,7 +260,7 @@ describe('Story authoring transactions', () => {
     const checked=runtime.saveStoryAuthoringToPack(editing.id,patch);expect(checked,checked.message).toMatchObject({ok:true});
     const saved=runtime.packManager.getPack(editing.id)!;
     expect(saved.datapack.items).toEqual(editing.datapack.items);
-    expect(saved.datapack.stories.some(x=>x.id==='base:story:authoring')).toBe(true);
+    expect(saved.datapack.stories.find(x=>x.id==='base:story:authoring')?.initId).toBe(initId);
     const savedEntry=saved.datapack.activeStories?.find(entry=>entry.id==='base:activestory:authoring');
     expect(savedEntry).toMatchObject({
       completionStrategy:'conditional',
@@ -124,6 +271,7 @@ describe('Story authoring transactions', () => {
     const exported=runtime.exportPackRecord(editing.id);expect(exported.ok).toBe(true);
     const reloaded=new GameInstance();try{
       reloaded.init([exported.pack!.datapack]);
+      expect(reloaded.registry.stories.get('base:story:authoring')?.initId).toBe(initId);
       const reloadedEntry=reloaded.registry.activeStories.get('base:activestory:authoring');
       expect(reloadedEntry).toMatchObject({completionStrategy:'conditional',completionReward:savedEntry?.completionReward,conditionalRewards:savedEntry?.conditionalRewards});
     }finally{reloaded.storyService.dispose();reloaded.stop();}

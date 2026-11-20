@@ -4,11 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
-import { currentDraft, type StoryDraft } from '../../../src/ui/story-editor/model';
+import { createStoryEditorState, currentDraft, type StoryDraft } from '../../../src/ui/story-editor/model';
+import { StoryDraftPersistence } from '../../../src/ui/story-editor/persistence';
 import { emptyStoryAuthoring } from '../../../src/data-services/authoring/story-authoring';
 import { storyReferenceOptions } from '../../../src/ui/story-editor/property-options';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { prepareReferenceNavi, referenceChoices } from '../../../src/ui/story-editor/reference-navi';
+import { getContentPolicy } from '../../../src/data-services/authoring/content-policy';
+import { bindRuntimeDatapackEditorActions } from '../../../src/ui/runtime-editor/actions';
+import { renderRuntimeEditorFields, runtimeEditorFieldViews } from '../../../src/ui/runtime-editor/form';
+import { clearSubDialogs } from '../../../src/ui/runtime-editor/subdialog';
 import '../../../src/ui/runtime/service-definitions';
 
 describe('Story content reference Navi', () => {
@@ -21,6 +26,13 @@ describe('Story content reference Navi', () => {
   const property = (path: (string | number)[]) => [...root.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-story-property-path]')].find(input => input.dataset.storyPropertyPath === JSON.stringify(path))!;
   const open = (field: HTMLElement) => { field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-navi]')!.click(); };
   const choose = (id: string) => {
+    const picker = document.querySelector('.condition-reference-picker');
+    if (picker) {
+      find<HTMLButtonElement>(`[data-condition-picker-choice="${id}"]`).click();
+      find<HTMLButtonElement>('[data-condition-subeditor="confirm"]').click();
+      ctrl.flushUIUpdates();
+      return;
+    }
     const row = [...document.querySelectorAll<HTMLElement>('[data-reference-search]')].find(row => row.querySelector('small')?.textContent === id);
     expect(row, id).toBeDefined(); row!.querySelector<HTMLButtonElement>('[data-modal-action^="reference-select:"]')!.click(); ctrl.flushUIUpdates();
   };
@@ -41,18 +53,21 @@ describe('Story content reference Navi', () => {
       document: { ...structuredClone(draft.document), id: 'local:story:navi', name: '未应用的目标故事' }, authoring });
     refresh();
   });
-  afterEach(() => { ctrl.modal.close(); ctrl.destroy(); game.stop(); vi.restoreAllMocks(); localStorage.clear(); });
+  afterEach(() => { clearSubDialogs(); ctrl.modal.close(); ctrl.destroy(); game.stop(); vi.restoreAllMocks(); localStorage.clear(); });
 
   it('searches by name or ID, selects a draft Story and preserves field, scroll, history and playback', () => {
     selectNode('transfer'); const field = property(['transfer','storyId']);
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 73;
     const history = ctrl.storyEditor.state.visitIndex, running = game.storyService.getCurrentStoryId();
     const full = vi.spyOn(ctrl, 'render'); open(field);
-    const search = find<HTMLInputElement>('[data-reference-query]'), row = find('[data-reference-search]');
+    const search = find<HTMLInputElement>('[data-condition-subfield="search"]');
+    find<HTMLButtonElement>('[data-condition-picker-filter="unknown"]').click();
     search.value = 'NOT-FOUND'; search.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(find('[data-reference-empty]').hidden).toBe(false);
+    expect(find('.condition-reference-cards').textContent).toContain('没有匹配');
     search.value = '未应用的目标'; search.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(find('[data-reference-search]') === row).toBe(true);
+    expect(find('[data-condition-subfield="search"]') === search).toBe(true);
+    find<HTMLButtonElement>('[data-condition-picker-choice="local:story:navi"]').click();
+    expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'missing:story:old' } });
     choose('local:story:navi');
     expect(property(['transfer','storyId']) === field).toBe(true); expect(document.activeElement === field).toBe(true);
     expect(body.scrollTop).toBe(73); expect(ctrl.storyEditor.state.visitIndex).toBe(history);
@@ -65,12 +80,63 @@ describe('Story content reference Navi', () => {
 
   it('keeps source navigation separate from selection and closes on leaving', () => {
     selectNode('transfer'); open(property(['transfer','storyId']));
-    const row = [...document.querySelectorAll<HTMLElement>('[data-reference-search]')].find(row => row.textContent?.includes('local:story:navi'))!;
-    row.querySelector<HTMLButtonElement>('[data-modal-action^="reference-source:"]')!.click(); ctrl.flushUIUpdates();
+    find<HTMLButtonElement>('[data-condition-picker-choice="local:story:navi"]').click();
+    find<HTMLButtonElement>('[data-condition-subeditor="source"]').click(); ctrl.flushUIUpdates();
     expect(ctrl.storyEditor.state.target).toEqual({ kind: 'story', id: 'local:story:navi' });
     expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'missing:story:old' } });
     selectNode('move'); open(property(['areaId']));
     expect(ctrl.storyEditor.beforeLeave()).toBe(true); expect(ctrl.modal.isOpen()).toBe(false);
+  });
+
+  it('updates draft grouping, filters the Story directory, and preserves the optional value through saves', () => {
+    const init = [...game.registry.inits.values()][0];
+    const grouping = find<HTMLSelectElement>('[data-editor-field="story-init"]');
+    const filter = find<HTMLSelectElement>('[data-editor-story-init-filter]');
+    const change = (field: HTMLSelectElement, value: string) => {
+      field.value = value; field.dispatchEvent(new Event('change', { bubbles: true })); ctrl.flushUIUpdates();
+    };
+    const row = () => root.querySelector(`[data-editor-story="${draft.draftId}"]`);
+    expect(grouping.selectedOptions[0].textContent).toBe('其他');
+    change(filter, 'other');
+    expect(row()).not.toBeNull();
+    change(grouping, init.id);
+    expect(row()).toBeNull();
+    change(filter, init.id);
+    expect(row()?.textContent).toContain(init.name);
+    draft.document = { ...draft.document, nodes: [{ id: 'line', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '正文' } }],
+      stages: { body: { advance: 'auto' } } };
+    const saved = ctrl.storyEditor.saveToRuntime();
+    expect(saved, ctrl.storyEditor.state.error ?? undefined).toBe(true);
+    expect(game.registry.stories.get(draft.document.id)?.initId).toBe(init.id);
+    const restored = createStoryEditorState();
+    new StoryDraftPersistence().load(restored);
+    expect(restored.drafts.find(row => row.draftId === draft.draftId)?.document.initId).toBe(init.id);
+    ctrl.flushUIUpdates();
+    change(grouping, '');
+    expect(draft.document).not.toHaveProperty('initId');
+    expect(game.registry.stories.get(draft.document.id)?.initId).toBe(init.id);
+    change(filter, 'other');
+    expect(row()).not.toBeNull();
+  });
+
+  it('groups Init starting Entry choices by their linked Story while retaining the Entry ID', () => {
+    const entry = [...game.registry.activeStories.values()][0];
+    const story = game.registry.stories.get(entry.storyId)!;
+    const initId = [...game.registry.inits.keys()][0];
+    expect(game.saveStoryDefinition({ ...story, initId }).ok).toBe(true);
+    const ctx = createUIContext(game), policy = getContentPolicy('inits')!;
+    const scope = document.createElement('div');
+    scope.innerHTML = renderRuntimeEditorFields(ctx, runtimeEditorFieldViews(ctx, policy, { startStoryId: '' })
+      .filter(view => view.key === 'startStoryId'), [], policy);
+    document.body.append(scope);
+    bindRuntimeDatapackEditorActions(ctrl, scope);
+    find<HTMLButtonElement>('[data-runtime-story-reference="startStoryId"]').click();
+    find<HTMLButtonElement>(`[data-condition-picker-filter="${initId}"]`).click();
+    expect(find(`[data-condition-picker-choice="${entry.id}"] strong`).textContent).toContain('主动入口');
+    choose(entry.id);
+    const field = find<HTMLSelectElement>('[data-runtime-editor-field="startStoryId"]');
+    expect(field.value).toBe(entry.id);
+    expect(document.activeElement).toBe(field);
   });
 
   it('fills image, area and nested resource fields through their existing edit routes', () => {
@@ -86,11 +152,13 @@ describe('Story content reference Navi', () => {
   });
 
   it('supports Entry structured references and Init list elements without losing input identity', () => {
-    const state = ctrl.storyEditor.state; state.target = { kind: 'entry', id: 'local:activestory:navi' }; state.selectedNodeId = null; refresh();
+    const state = ctrl.storyEditor.state; state.target = { kind: 'entry', id: 'local:activestory:navi' }; state.selectedNodeId = null;
+    state.entryEditorTab = 'gates'; refresh();
     const field = [...root.querySelectorAll<HTMLInputElement>('[data-value-input]')].find(input => input.dataset.valuePath === JSON.stringify(['activeStories',0,'availableInits',0]))!;
     expect(field).toBeDefined(); const init = [...game.registry.inits.keys()][0]; open(field); choose(init);
     expect(state.drafts.find(row => row.draftId === 'navi-child')!.authoring!.activeStories[0].availableInits).toEqual([init]);
     expect(field.isConnected).toBe(true); expect(document.activeElement === field).toBe(true);
+    state.entryEditorTab = 'basic'; refresh();
     const story = [...root.querySelectorAll<HTMLInputElement>('[data-value-input]')].find(input => input.dataset.valuePath === JSON.stringify(['activeStories',0,'storyId']))!;
     open(story); choose(draft.document.id);
     expect(state.drafts.find(row => row.draftId === 'navi-child')!.authoring!.activeStories[0].storyId).toBe(draft.document.id);

@@ -7,7 +7,9 @@ import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
 import { openStoryEditorDialog } from './editor-dialog';
+import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
 import { openConditionTreeDialog } from './condition-tree-dialog';
+import { conditionReferenceChoices } from './condition-reference-navi';
 import { entryConditionField, STORY_CONDITION_TARGETS } from './condition-fields';
 import { openReferenceNavi, prepareReferenceNavi, referenceChoices, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
@@ -17,9 +19,9 @@ import { buildStoryFlagCatalog, flagImportKey, storyFlagNames } from './flag-cat
 import { openLocalFlagNavi } from './local-flag-navi';
 import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
 import { StoryInlineTextEditor } from './inline-text';
-import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
+import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, storyPreviewEntries, type StoryDraft, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { setValueAt, valueAt, type ValuePath } from './structured-value';
-import type { StoryAuthoringPreview } from '../../arona-clicker/contracts/runtime/story-authoring';
+import type { StoryAuthoringPatch, StoryAuthoringPreview, StoryAuthoringPreviewTarget, StoryPreviewDecision } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
 import type { PanelState } from '../components/shared/app-shell';
 import type { UIContext } from '../runtime/context';
@@ -122,6 +124,7 @@ export class StoryEditorController {
   private readonly inspectorTabs = new Map<string,StoryEditorState['storyInspectorTab']>();
   private readonly entryTabScroll = new Map<string,Partial<Record<'basic'|'rewards'|'gates',number>>>();
   private readonly entryTabs = new Map<string,'basic'|'rewards'|'gates'>();
+  private readonly catalogMemory: CatalogDialogMemory = { expanded: new Set(), treeScroll: 0 };
   private pendingInspectorScroll?: number;
   private pendingEntryScroll?: number;
   private nodeClipboard?: StoryNodeClipboard;
@@ -133,8 +136,10 @@ export class StoryEditorController {
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
   private preview?: StoryAuthoringPreview;
+  private previewLaunch?: { patch: StoryAuthoringPatch; target: StoryAuthoringPreviewTarget };
   private previewTimer?: ReturnType<typeof setInterval>;
   private previewSignature = '';
+  private previewReturnScroll?: Record<'left' | 'center' | 'right', number> & { launchKey?: string };
   private pendingVisit?: StoryEditorVisit;
   private selectionNaviOpen = false;
   private editorDialog?: HTMLElement;
@@ -212,7 +217,7 @@ export class StoryEditorController {
     const visit = historyIndex === undefined
       ? [...this.state.visits].reverse().find(visit => visit.target.kind === target.kind && visit.target.id === target.id)
       : this.state.visits[historyIndex];
-    this.closeAuthoringPreview(); this.closeThemeContentEdit();
+    this.closeAuthoringPreview(); this.previewReturnScroll = undefined; this.closeThemeContentEdit();
     if (target.kind === 'story') {
       if (!selectStory(this.state, this.storyKey(target.id)!, this.ctrl.game.registry.stories)) return;
       this.state.targetPackId = currentDraft(this.state)?.targetPackId ?? this.state.targetPackId;
@@ -284,7 +289,10 @@ export class StoryEditorController {
     this.ctrl.render();
   }
   configureFrame(frame: WorkspaceFrameSpec): WorkspaceFrameSpec {
-    return { ...frame, onBack: () => this.close(), columns: workspaceColumns(frame).map(column => ({ ...column,
+    return { ...frame, onBack: () => {
+      if (this.preview) { this.closeAuthoringPreview(); this.requestRefresh(); }
+      else this.close();
+    }, columns: workspaceColumns(frame).map(column => ({ ...column,
       onBack: column.key === 'story-editor-inspector' ? () => { this.action('info'); this.requestRefresh(); } : column.onBack,
       bind: root => this.bind(root) })) };
   }
@@ -325,7 +333,7 @@ export class StoryEditorController {
     this.closeAuthoringPreview();
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
-    if (saved) { this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
+    if (saved) { this.previewReturnScroll = undefined; this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
     if (!saved) this.requestRefresh();
     return saved;
   }
@@ -385,6 +393,8 @@ export class StoryEditorController {
     template.innerHTML = renderWorkspaceFrame(ctx, frame);
     const current = this.ctrl.root.querySelector<HTMLElement>('[data-workspace-frame="story-editor"]');
     const next = template.content.firstElementChild as HTMLElement;
+    const stream = current?.querySelector<HTMLElement>('[data-preview-stream]');
+    const followPreview = !stream || stream.scrollHeight - stream.clientHeight - stream.scrollTop <= 8;
     this.inlineText.prepare(next);
     prepareReferenceNavi(next);
     if (!current) {
@@ -404,6 +414,24 @@ export class StoryEditorController {
         }
       }
       if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
+    }
+    for (const select of this.ctrl.root.querySelectorAll<HTMLSelectElement>('[data-authoring-preview-entry], [data-entry-replay-policy]')) {
+      const selected = select.querySelector<HTMLOptionElement>('option[selected]');
+      if (selected && select.value !== selected.value) select.value = selected.value;
+    }
+    if (this.state.preview && followPreview) {
+      const body = this.ctrl.root.querySelector<HTMLElement>('[data-preview-stream]');
+      if (body) body.scrollTop = body.scrollHeight;
+    }
+    if (!this.state.preview && this.previewReturnScroll) {
+      for (const panel of ['left', 'center', 'right'] as const) {
+        const body = this.editorScrollHost(panel);
+        if (body) body.scrollTop = this.previewReturnScroll[panel];
+      }
+      const launchKey = this.previewReturnScroll.launchKey;
+      this.previewReturnScroll = undefined;
+      const controls = [...this.ctrl.root.querySelectorAll<HTMLElement>('[data-authoring-action="preview"]:not([disabled])')];
+      (controls.find(control => control.dataset.editorKey === launchKey) ?? controls[0])?.focus({ preventScroll: true });
     }
     if (this.pendingVisit) {
       for (const panel of ['center', 'right'] as const) {
@@ -490,6 +518,20 @@ export class StoryEditorController {
       }
     };
     const click = (event: Event): void => {
+      const previewControl = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-preview-confirm], [data-preview-toggle]') : null;
+      if (previewControl && root.contains(previewControl)) {
+        const view = this.state.preview;
+        const pending = view?.decisions.pending;
+        if (!view || !pending || !this.preview) return;
+        if (previewControl.hasAttribute('data-preview-confirm')) {
+          const id = previewControl.closest<HTMLElement>('[data-preview-check]')?.dataset.previewCheck;
+          if (id === pending.id) this.updateAuthoringPreview(this.preview.decide(id, view.selections ?? {}).message);
+        } else {
+          view.collapsedCheck = previewControl.dataset.previewToggle === 'collapse' ? pending.id : undefined;
+          this.requestRefresh();
+        }
+        return;
+      }
       const referenceNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-reference-navi]') : null;
       if (referenceNavi && root.contains(referenceNavi)) {
         event.preventDefault();
@@ -666,6 +708,20 @@ export class StoryEditorController {
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+      if (target.dataset.previewDecision !== undefined) {
+        const view = this.state.preview;
+        const id = target.closest<HTMLElement>('[data-preview-check]')?.dataset.previewCheck;
+        if (view && id && view.decisions.pending?.id === id && ['actual', 'pass', 'fail'].includes(target.value)) {
+          (view.selections ??= Object.create(null))[target.dataset.previewDecision] = target.value as StoryPreviewDecision;
+        }
+        return;
+      }
+      if (target instanceof HTMLSelectElement && target.hasAttribute('data-authoring-preview-entry')) {
+        const draft = currentAuthoringDraft(this.state);
+        if (draft) (this.state.previewEntryByDraft ??= new Map()).set(draft.draftId, target.value);
+        this.requestRefresh();
+        return;
+      }
       if(target.hasAttribute('data-theme-content-path')){
         const edit=this.state.themeContentEdit;const path=this.parsePropertyPath(target.dataset.themeContentPath);if(!edit||!path)return;
         let value:unknown=target.value;
@@ -673,7 +729,7 @@ export class StoryEditorController {
         else if(target.dataset.themeContentKind==='number'&&target.value.trim()&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(target.value)&&Number.isFinite(Number(target.value)))value=Number(target.value);
         writeThemeContentValue(edit.draft,path,value);edit.error=undefined;this.requestRefresh();return;
       }
-      if (this.state.storageBlocked && !target.hasAttribute('data-editor-search') && !target.hasAttribute('data-editor-entry-search') && !target.hasAttribute('data-editor-sender-search')) return;
+      if (this.state.storageBlocked && !target.matches('[data-editor-search], [data-editor-story-init-filter], [data-editor-entry-search], [data-editor-sender-search]')) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
       if (this.authoringInput(target, event.type)) { this.requestRefresh(); return; }
       if (draft && target.hasAttribute('data-story-body-node')) {
@@ -683,6 +739,7 @@ export class StoryEditorController {
       }
       const senders = storySenders(createUIContext(this.ctrl.game));
       if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
+      else if (target.hasAttribute('data-editor-story-init-filter') && event.type === 'change') this.state.storyInitFilter = target.value;
       else if (target.hasAttribute('data-editor-entry-search')) this.state.entrySearch = target.value;
       else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
       else if (target.hasAttribute('data-editor-composer-text')) composer(this.state).text = target.value;
@@ -692,6 +749,12 @@ export class StoryEditorController {
         draft.document = { ...draft.document, startContext: target.value === 'chara'
           ? { type: 'chara', characterId: previous?.type === 'chara' ? previous.characterId : '' }
           : { type: 'area', areaId: previous?.type === 'area' ? previous.areaId : '' } };
+        draft.dirty = true;
+      } else if (draft && target.dataset.editorField === 'story-init' && event.type === 'change') {
+        if (target.value && !this.ctrl.game.registry.inits.has(target.value)) return;
+        if ((draft.document.initId ?? '') === target.value) return;
+        const { initId, ...document } = draft.document;
+        draft.document = target.value ? { ...document, initId: target.value } : document;
         draft.dirty = true;
       } else if (draft && target.dataset.editorField === 'story-context-area' && event.type === 'change') {
         draft.document = { ...draft.document, startContext: { type: 'area', areaId: target.value } };
@@ -1130,17 +1193,55 @@ export class StoryEditorController {
       edit.rows[key]=ids;edit.error=undefined;
     }
   }
+  private editorScrollHost(panel: 'left' | 'center' | 'right'): HTMLElement | null {
+    const selector = panel === 'left'
+      ? '.story-editor-left .story-editor-sidebar-pane:not([hidden]) :is(.story-editor-list, .story-editor-sender-list)'
+      : `.story-editor-${panel} .workspace-column__body`;
+    return this.ctrl.root.querySelector<HTMLElement>(selector);
+  }
+
   private closeAuthoringPreview(): void {
     if (this.previewTimer) clearInterval(this.previewTimer);
-    this.previewTimer = undefined; this.preview?.close(); this.preview = undefined; this.state.preview = undefined; this.previewSignature = '';
+    this.previewTimer = undefined; this.preview?.close(); this.preview = undefined; this.previewLaunch = undefined;
+    this.state.preview = undefined; this.previewSignature = '';
   }
-  private updateAuthoringPreview(): void {
+  private startAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, trigger?: HTMLElement): void {
+    const result = this.ctrl.commands.createStoryAuthoringPreview(patch, target);
+    if (!result.ok) {
+      if (this.preview) this.updateAuthoringPreview(result.message);
+      else this.state.error = result.message;
+      return;
+    }
+    this.closeAuthoringPreview();
+    if (trigger) {
+      this.closeEditorDialog(); this.closeSelectionNavi(); this.requiredFlagDropdown.close(); this.nodeMenu.close();
+      this.previewReturnScroll = {
+        left: this.editorScrollHost('left')?.scrollTop ?? 0,
+        center: this.editorScrollHost('center')?.scrollTop ?? 0,
+        right: this.editorScrollHost('right')?.scrollTop ?? 0,
+        launchKey: trigger.dataset.editorKey,
+      };
+    }
+    this.previewLaunch = { patch, target };
+    this.preview = result.preview;
+    this.updateAuthoringPreview();
+    this.previewTimer = setInterval(() => this.updateAuthoringPreview(), 200);
+  }
+  private updateAuthoringPreview(error = this.state.preview?.error): void {
     if (!this.preview) return;
     if (!this.isOpen()) { this.closeAuthoringPreview(); return; }
     const playback = this.preview.getView(); const story = this.preview.getStory(); const projection = this.preview.getProjection();
-    const signature = JSON.stringify([playback?.revision, playback?.phase, playback?.banner?.title, story, projection?.scene]);
+    const decisions = this.preview.getDecisions();
+    const send = this.preview.getSendState();
+    const signature = JSON.stringify([playback?.replayId, playback?.revision, playback?.phase, playback?.banner?.title, story, projection, send,
+      decisions.pending?.id, decisions.history.length, decisions.route.length, decisions.message, error]);
     if (signature === this.previewSignature) return;
-    this.previewSignature = signature; this.state.preview = { playback, story, projection }; this.requestRefresh();
+    const previous = this.state.preview;
+    const sameCheck = previous?.decisions.pending?.id === decisions.pending?.id;
+    this.previewSignature = signature;
+    this.state.preview = { playback, story, projection, decisions, send, error,
+      ...(sameCheck ? { selections: previous?.selections, collapsedCheck: previous?.collapsedCheck } : {}) };
+    this.requestRefresh();
   }
   private authoringInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, eventType: string): boolean {
     const draft = currentAuthoringDraft(this.state);
@@ -1164,7 +1265,6 @@ export class StoryEditorController {
       if (bound && target.value!==bound) {this.state.error='此 Story 已归属指定编辑态 Mod；跨 Mod 请另存为新身份。';return true;}
       if(this.state.targetPackId!==target.value)this.closeThemeContentEdit();this.state.targetPackId = target.value; return true;
     }
-    if (target.hasAttribute('data-authoring-preview-entry')) { this.state.previewEntryId = target.value; return true; }
     if (target.hasAttribute('data-authoring-field')) {
       if (eventType === 'change' && ENTRY_FIELD_SEEDS[target.value]) {
         const path = [target.dataset.authoringField!, Number(target.dataset.authoringIndex), target.value];
@@ -1176,6 +1276,8 @@ export class StoryEditorController {
     if (scope === undefined || !path) return false;
     if (target.hasAttribute('data-value-type')) {
       if (eventType === 'change') constructStructuredValue(draft,scope,path,target.value);
+    } else if (target.hasAttribute('data-entry-replay-policy') && target.value === '') {
+      if (eventType === 'change') writeStructuredValue(draft, scope, path, undefined, true);
     } else if (target.hasAttribute('data-value-input')) {
       editStructuredValue(draft,scope,path,target.dataset.valueInput!,target.value);
       if (this.state.target?.kind === 'entry' && scope === '$authoring' && path.length === 3 && (path[0] === 'activeStories' || path[0] === 'passiveStories') && path[2] === 'id') {
@@ -1214,6 +1316,31 @@ export class StoryEditorController {
       }});
   }
   private authoringClick(target: HTMLElement): void {
+    if (target.hasAttribute('data-authoring-preview-option') || target.dataset.authoringAction === 'advance') {
+      const result = this.preview?.advance(target.dataset.authoringPreviewOption, target.dataset.previewToken);
+      if (result) this.updateAuthoringPreview(result.message);
+      return;
+    }
+    if (target.dataset.authoringAction === 'close-preview') { this.closeAuthoringPreview(); return; }
+    if (target.dataset.authoringAction === 'restart-preview') {
+      const launch = this.previewLaunch;
+      if (launch) this.startAuthoringPreview(launch.patch, launch.target);
+      return;
+    }
+    if (target.dataset.authoringAction === 'preview') {
+      if (this.preview) return;
+      const draft = currentAuthoringDraft(this.state);
+      if (!draft) return;
+      this.inlineText.finish();
+      this.state.error = null;
+      hydrateStoryAuthoring(draft, this.ctrl.game.registry);
+      const compiled = compileStoryAuthoring(this.state);
+      if (!compiled.ok) { this.state.error = compiled.message; return; }
+      const entryId = this.state.target?.kind === 'entry' ? this.state.target.id
+        : storyPreviewEntries(this.state, draft, this.ctrl.game.registry.storyEntries).entryId;
+      this.startAuthoringPreview(compiled.patch, entryId || { storyId: draft.document.id }, target);
+      return;
+    }
     if (this.state.storageBlocked) return;
     const draft = currentAuthoringDraft(this.state); if (!draft) return;
     hydrateStoryAuthoring(draft,this.ctrl.game.registry);
@@ -1251,8 +1378,7 @@ export class StoryEditorController {
         this.closeAuthoringPreview(); return;
       }
       if (target.dataset.authoringCatalog) {
-        const path = [target.dataset.authoringCatalog, Number(target.dataset.authoringIndex), 'catalog'];
-        if(!valueAt(draft.authoring,path))writeStructuredValue(draft,'$authoring',path,{category:'作者故事',part:'自定义篇章'});
+        this.editEntryCatalog(target, draft);
         return;
       }
       const action = target.dataset.valueAction;
@@ -1287,11 +1413,6 @@ export class StoryEditorController {
         }
         return;
       }
-      if (target.hasAttribute('data-authoring-preview-option') || target.dataset.authoringAction === 'advance') {
-        const result = this.preview?.advance(target.dataset.authoringPreviewOption); if (result && !result.ok) this.state.error = result.message;
-        this.updateAuthoringPreview(); return;
-      }
-      if (target.dataset.authoringAction === 'close-preview') { this.closeAuthoringPreview(); return; }
       const compiled = compileStoryAuthoring(this.state); if (!compiled.ok) throw new Error(compiled.message);
       const kind = target.dataset.authoringAction;
       if (kind==='apply' && draft.renamedFromId && draft.renamedFromId!==draft.document.id && this.ctrl.game.registry.stories.has(draft.renamedFromId)) throw new Error('此 Story 已在 Mod 中更改 ID，请先重新载入该 Mod。');
@@ -1301,13 +1422,6 @@ export class StoryEditorController {
         const {record}=storyEditingMod(this.ctrl.game,id);
         if (!draft.sourceId && record.datapack.stories?.some(story=>story.id===draft.document.id)) throw new Error('目标 Mod 已出现同名 Story，请更改 ID，避免覆盖。');
         this.state.targetPackId=id;
-      }
-      if (kind === 'preview') {
-        this.closeAuthoringPreview();
-        const result = this.ctrl.commands.createStoryAuthoringPreview(compiled.patch,this.state.previewEntryId ?? '');
-        if (!result.ok) throw new Error(result.message);
-        this.preview = result.preview; this.updateAuthoringPreview();
-        this.previewTimer = setInterval(()=>this.updateAuthoringPreview(),200); return;
       }
       const result = kind === 'check' ? this.ctrl.commands.validateStoryAuthoring(compiled.patch)
         : kind === 'apply' ? this.ctrl.commands.applyStoryAuthoring(compiled.patch)
@@ -1400,11 +1514,15 @@ export class StoryEditorController {
       && this.state.target?.kind === target?.kind && this.state.target?.id === target?.id && this.state.selectedNodeId === nodeId;
     if (!target || !live()) return;
     this.requiredFlagDropdown.close(); this.selectionNaviOpen = true;
-    openReferenceNavi(this.ctrl.modal, createUIContext(this.ctrl.game), field, {
+    const ctx = createUIContext(this.ctrl.game);
+    const storyRows = field.dataset.storyReference === 'story' ? conditionReferenceChoices(ctx, this.state, 'story', []) : undefined;
+    openReferenceNavi(this.ctrl.modal, ctx, field, {
+      storyRows,
       close: () => { this.selectionNaviOpen = false; if (field.isConnected) field.focus({ preventScroll: true }); },
       select: value => {
         if (!live()) { this.ctrl.modal.close(); return; }
-        if (!referenceChoices(field).some(row => row.value === value && !row.disabled)) return;
+        const fitsField = referenceChoices(field).some(row => row.value === value && !row.disabled);
+        if (!fitsField && !(storyRows && field instanceof HTMLInputElement && this.storyKey(value))) return;
         this.ctrl.modal.close(); field.value = value;
         field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
       },
@@ -1499,6 +1617,127 @@ export class StoryEditorController {
   private closeEditorDialog(): void {
     if (this.editorDialog?.isConnected) this.ctrl.modal.close();
     this.editorDialog = undefined;
+  }
+
+  private editEntryCatalog(trigger: HTMLElement, draft: StoryDraft): void {
+    const table = trigger.dataset.authoringCatalog;
+    if (table !== 'activeStories' && table !== 'passiveStories') return;
+    const index = Number(trigger.dataset.authoringIndex);
+    const entry = draft.authoring?.[table][index];
+    if (!entry || this.state.target?.kind !== 'entry' || this.state.target.id !== entry.id) return;
+    const scope = '$authoring';
+    const path = [table, index, 'catalog'];
+    const pendingOrderKey = structuredKey(draft, scope, [...path, 'order']);
+    const signature = JSON.stringify(entry.catalog);
+    const entries = storyEntries(this.state, this.ctrl.game.registry.storyEntries);
+    const editTargets = this.catalogEditTargets(entries);
+    const originalCatalogs = new Map([...entries].map(([id, row]) => [id, JSON.stringify(row.catalog)]));
+    const draftNames = new Map(this.state.drafts.map(item => [item.document.id, item.document.name]));
+    const ctx = createUIContext(this.ctrl.game);
+    this.closeEditorDialog();
+    this.editorDialog = openStoryCatalogDialog(this.ctrl.modal, ctx, trigger, {
+      entry,
+      entries,
+      storyName: id => draftNames.get(id) ?? ctx.game.registry.stories.get(id)?.name,
+      canEdit: row => editTargets.has(row.id),
+      memory: this.catalogMemory,
+      pendingOrder: draft.structuredInputs?.[pendingOrderKey]?.text,
+      beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
+      onClose: () => { this.editorDialog = undefined; },
+      commit: (value, orders) => {
+        if (!this.isOpen() || this.state.storageBlocked || this.state.target?.kind !== 'entry' || this.state.target.id !== entry.id
+          || currentAuthoringDraft(this.state) !== draft || draft.authoring?.[table][index] !== entry
+          || JSON.stringify(entry.catalog) !== signature) return '目录位置已变化，请关闭后重新打开。';
+        const live = storyEntries(this.state, this.ctrl.game.registry.storyEntries);
+        const changes = new Map<string, StoryEntryDef['catalog']>();
+        if (JSON.stringify(value) !== signature || editTargets.has(entry.id) && draft.structuredInputs?.[pendingOrderKey]) changes.set(entry.id, value);
+        for (const [id, order] of orders) {
+          const peer = live.get(id);
+          if (!peer?.catalog || JSON.stringify(peer.catalog) !== originalCatalogs.get(id)) return '同级条目的目录位置已变化，请重新打开。';
+          if (peer.catalog.order === order) continue;
+          const catalog = { ...peer.catalog };
+          if (order === undefined) delete catalog.order;
+          else catalog.order = order;
+          changes.set(id, catalog);
+        }
+        if (!changes.size) return;
+        const liveTargets = this.catalogEditTargets(new Map([...live].filter(([id]) => changes.has(id))));
+        const candidate = { ...this.state, drafts: [...this.state.drafts] };
+        const writes: { owner: StoryDraft; row: StoryEntryDef; catalog: StoryEntryDef['catalog']; packId: string; path: ValuePath }[] = [];
+        try {
+          for (const [id, catalog] of changes) {
+            const pack = liveTargets.get(id);
+            const peer = live.get(id);
+            if (!pack || pack.packRecordId !== editTargets.get(id)?.packRecordId || !peer) return '条目所属 Mod 已不再可编辑，请重新打开。';
+            const ownerTable = peer.activation.kind === 'active' ? 'activeStories' : 'passiveStories';
+            const owners = candidate.drafts.filter(item => item.authoring?.[ownerTable].some(row => row.id === id));
+            if (owners.length > 1) return '条目在多个草稿中存在，请先处理冲突。';
+            let owner: StoryDraft | undefined = owners[0];
+            if (!owner) {
+              const source = this.ctrl.game.registry.stories.get(peer.storyId) ?? pack.datapack.stories.find(story => story.id === peer.storyId);
+              if (!source || !selectStory(candidate, `source:${peer.storyId}`, new Map([[source.id, source]]))) return '找不到条目所属 Story。';
+              owner = currentDraft(candidate);
+              if (!owner) return '找不到条目所属草稿。';
+              if (this.state.drafts.includes(owner)) {
+                const position = candidate.drafts.indexOf(owner);
+                owner = { ...owner };
+                candidate.drafts[position] = owner;
+              }
+              hydrateStoryAuthoring(owner, this.ctrl.game.registry);
+            }
+            const rowIndex = owner.authoring?.[ownerTable].findIndex(row => row.id === id) ?? -1;
+            const row = owner.authoring?.[ownerTable][rowIndex];
+            if (!row) return '找不到条目所属草稿。';
+            const checked = { ...row };
+            if (catalog) checked.catalog = catalog;
+            else delete checked.catalog;
+            validateStoryAuthoringShape({ ...emptyStoryAuthoring(), [ownerTable]: [checked] }, true);
+            writes.push({ owner, row, catalog, packId: pack.packRecordId, path: [ownerTable, rowIndex, 'catalog'] });
+          }
+        } catch (error) {
+          return error instanceof Error ? error.message : String(error);
+        }
+        for (const write of writes) {
+          if (write.catalog) write.row.catalog = write.catalog;
+          else delete write.row.catalog;
+          write.owner.targetPackId ??= write.packId;
+          write.owner.dirty = true;
+          const key = structuredKey(write.owner, scope, write.path);
+          for (const input of Object.keys(write.owner.structuredInputs ?? {})) {
+            if (input === key || input.startsWith(key.slice(0, -1) + ',')) delete write.owner.structuredInputs![input];
+          }
+        }
+        this.state.drafts = candidate.drafts;
+        this.requestRefresh();
+      },
+    });
+  }
+
+  private catalogEditTargets(entries: ReadonlyMap<string, StoryEntryDef>) {
+    const packs = storyEditingMods(this.ctrl.game).flatMap(pack => {
+      try {
+        const { record } = storyEditingMod(this.ctrl.game, pack.packRecordId ?? pack.id);
+        return [{ record, stories: new Set(record.datapack.stories.map(story => story.id)),
+          entries: new Set([...(record.datapack.activeStories ?? []), ...(record.datapack.passiveStories ?? [])].map(row => row.id)) }];
+      } catch {
+        return [];
+      }
+    });
+    const owners = new Map(this.state.drafts.flatMap(draft =>
+      [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].map(row => [row.id, draft] as const)));
+    const targets = new Map<string, (typeof packs)[number]['record']>();
+    for (const [id, row] of entries) {
+      const owner = owners.get(id);
+      const matches = packs.filter(pack => {
+        if (owner?.targetPackId && owner.targetPackId !== pack.record.packRecordId) return false;
+        const mod = pack.record.manifest.modName;
+        const ownsStory = pack.stories.has(row.storyId)
+          || owner?.targetPackId === pack.record.packRecordId && row.storyId.startsWith(`${mod}:`);
+        return ownsStory && (pack.entries.has(id) || owner?.document.id === row.storyId && id.startsWith(`${mod}:`));
+      });
+      if (matches.length === 1) targets.set(id, matches[0].record);
+    }
+    return targets;
   }
 
   private editEntryCondition(trigger: HTMLButtonElement): void {
@@ -1690,8 +1929,8 @@ export class StoryEditorController {
     if (!draft || this.state.storageBlocked) return;
     const storyId = draft.document.id;
     const escapedName = storyId.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    this.ctrl.modal.open({ title: '读取本地/系统数据', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
-      footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="restore-story-source">读取本地/系统数据</button>',
+    this.ctrl.modal.open({ title: '还原来源版本', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
+      footer: '<button type="button" class="modal-close">取消</button><button type="button" class="mini-action mini-action--danger" data-modal-action="restore-story-source">还原来源版本</button>',
       onAction: action => {
         if (action !== 'restore-story-source' || currentDraft(this.state) !== draft) return;
         const previousDrafts = this.state.drafts;

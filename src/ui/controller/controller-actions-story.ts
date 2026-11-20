@@ -53,14 +53,12 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLElement>('[data-story-workspace-leave]').forEach(button => {
     button.addEventListener('click', () => ctrl.disposeWorkspace());
   });
-  // 重阅读：故事栏已完成 + replayable 的内容项。
-  // 点击后弹出确认；确认时按 Entry 类型选择主界面或通讯录播放重读。
-  // 重读不移动 Area：replayStory 只重置演出游标，不触发 travelToArea。
+  // 目录按钮和正式重读共用 Entry 的运行时许可。
   scope.querySelectorAll<HTMLButtonElement>('[data-replay-story]').forEach(button => {
     button.addEventListener('click', () => {
       const storyId = button.dataset.replayStory!;
       const entry = ctrl.game.registry.storyEntries.get(storyId);
-      if (!entry || !entry.replayable) {
+      if (!entry || !ctrl.game.story.getStoryReplayStatus(storyId)?.allowed) {
         const error = entry ? 'NotReplayable' : 'NotFound';
         const message = storyErrorText[error] ?? error;
         ctrl.toast.show(`重读失败：${message}`, 'error');

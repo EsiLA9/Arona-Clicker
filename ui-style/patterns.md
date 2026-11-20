@@ -71,7 +71,13 @@ Talklet / Click 基础设计器复用 `.story-editor-property-content`，增加�
 节点演出页沿用 `renderTabs()` 与现有属性 label / select / input，两个 page 按稳定 key 挂载，切换仅更新 hidden / 激活态；已配置时显示轻量标记及恢复默认按钮。中栏视口浮层提供纵向基准、横向基准与单位。仅当前选中节点已开启定位演出时显示一组工具，右栏保留 X/Y 输入。流中的定位节点保持正常渲染，附带超迷你“演出 / 结束演出”按钮，逐节点切换会话内编辑态；开启时选中该节点并显示演出属性页（旧 Operation 显示原属性页）。开启的预览通过共享 `bodyOverlay` 位于中栏正文视口，脱离流的滚动，切换属性对象不关闭其他节点；不再使用顶部小画布。拖拽命中区与蓝框随内容使用同一锚点平移，保留抓取偏移并写回所属节点的同一 performance.layout；取消拖拽不写入，九宫格基准同时对齐窗格和内容的同名点，百分比与 CSS 像素共用一组有符号偏移。旧定义继续读取左下原点与横向锚点。内容按自然宽度和锚点实际剩余空间排版，极贴边时保留可读空间。局部样式用于流内与定位内容；普通旁白、标题和 Choice 完成记录均走共用渲染。运行态定位展示在 `.chat-pane` 非滚动层，当前输入使用原 token，历史记录禁用。没有新的配色体系或滚动容器；新增视口包装层保留原 body、作者节点和表单身份，仍走 `workspace.story-editor` region 与 `patchEditorDOM`。入口为 `property-fields.ts` / `controller.ts`、`components/story/story.ts`，证据见 `tests/ui/story/story-editor-properties.test.ts`、`tests/ui/workspace/workspace-frame.test.ts` 与 `tests/ui/story/story-performance.test.ts`；浏览器视觉验收未运行。
 
 
-Story 作者配置沿用右栏原滚动宿主：概述保留基本字段，关系页放置关联 Entry，其他工具包按文档身份、扩展、检查 / 试播 / 保存的大标题平铺；结构值的路径标题标识实际数据关系，不套多层卡片或竖线缩进。类型构造、字段增删、列表换序与引用候选复用普通 label / select / input 与 mini-action；切换构造说明会替换本项。编辑器不提供 Entry 羁绊绑定字段，旧绑定只在兼容数据和运行时保留；跨 Entry 内容通过剧情入口卡选目标 StoryEntry。结构值输入和行沿稳定 key 更新，编辑 Entry ID、换序和错误输入不重建输入或滚动宿主。隔离试播只在投影变化时刷新，离开即释放。入口为 `authoring-view.ts` / `structured-value.ts` 与 `.story-editor-authoring/.story-editor-value/.story-editor-preview`；状态与接口边界见 [[runtime-editor-and-project-checks]]，DOM 证据见 `tests/ui/story/story-editor-authoring.test.ts`。当前未做浏览器视觉验收。
+Story 作者配置沿用右栏原滚动宿主：概述保留基本字段，关系页放置关联 Entry，其他工具包依次放置试播、检查与应用、数据包、文档身份和文档扩展；副本 ID、试播入口和目标数据包分别与对应命令同组，组内空间不足时换行。Story、StoryEntry 固定操作区与试播工具沿用有边框的 `.mini-action`，由 `.story-editor-actions--tools` 统一操作组内的高度、字号和焦点环；原有危险操作保留 `.mini-action--danger`。共享按钮在普通面板回退到 `--line` 和面板文字色，在卡片继承卡片主题变量，见 `src/ui/css/cards.css`。各入口同称「试播」，字段标签说明入口及保存目标。
+
+Story 正文中栏的固定输入区使用紧凑样式，将「正文操作」和「添加节点」两组按钮的最小高度设为 26px，并收紧垂直留白，为正文滚动区腾出空间。两组分别沿用原有的换行与按钮状态，样式见 `src/ui/css/story-editor.css` 的 `.story-editor-composer`。
+
+结构值的路径标题标识实际数据关系，不套多层卡片或竖线缩进。类型构造、字段增删、列表换序与引用候选复用普通 label / select / input 与 mini-action；切换构造说明会替换本项。编辑器不提供 Entry 羁绊绑定字段，旧绑定只在兼容数据和运行时保留；跨 Entry 内容通过剧情入口卡选目标 StoryEntry。结构值输入和行沿稳定 key 更新，编辑 Entry ID、换序和错误输入不重建输入或滚动宿主。入口为 `authoring-view.ts` / `structured-value.ts` 与 `.story-editor-authoring/.story-editor-value`；状态与接口边界见 [[runtime-editor-and-project-checks]]，DOM 证据见 `tests/ui/story/story-editor-authoring.test.ts`。
+
+隔离试播以独立三栏复用 WorkspaceFrame，左栏滚动显示已走路线，底部固定「从头试播」与「关闭试播」；中栏用正式聊天与演出部件承载隔离投影，右栏查看条件历史。Story 正文栏与 StoryEntry 页底部提供常显的「试播」，工具包提供入口选择。等待时中栏用主题面板样式呈现小窗，长条件可滚动。悬停摘要查看真实条件树，已确认记录可展开复查。三栏按稳定 key 协调，保持待决控件、已展开记录以及未贴底的聊天阅读位置；关闭恢复原编辑页、滚动与入口焦点。入口为 `story-editor/preview-view.ts` 与 `story-editor.css`。千年「游戏开发部的危机」已做桌面浏览器走查，覆盖 Story／StoryEntry 启动、无 Entry 正文试播、入口拒绝后重试、真实值悬浮详情、重读守卫改判和返回编辑。
 
 Story 主题 / 覆盖层作者控件沿用同一右栏字段与中栏节点流，不再嵌套滚动容器。`presentation.theme` 的色板、token、语义颜色与背景层按具体合同呈现；空字段显示继承来源，显式覆盖可恢复继承。引用的 ColorGroup / 实体 ThemeDef 通过 `ThemeContentEditorService` 在选定编辑态包打开会话，使用其 preview / save / cancel 路径。旧 `overlay.show` 也通过所属节点的迷你按钮进入同一固定演出编辑层，重用 `renderChatTexts` 的作者预览模式，归一化 x/y 双向映射到同一草稿字段；拖动过程中只更新预览与所属节点当前表单的数值，释放时合并到 `workspace.story-editor` 区域刷新。稳定动作路径识别覆盖层，浮层锚点仍由 `patchEditorDOM` 的 mutation range 生命周期处理。执行影响说明跟随 Overlay / Transfer / Entry 动作字段。自动化行为入口为 `tests/ui/story/story-editor-properties.test.ts`、`tests/engine/story/story-authoring.test.ts` 与 `tests/engine/theme/theme-content-editor-service.test.ts`；本轮未完成桌面浏览器手动验收。
 
@@ -81,7 +87,7 @@ Story 编辑器中栏在每个节点前及列表末尾提供轻量插入空位�
 
 | 模式 | 入口 / 已有例子 | 用途与例外 |
 | --- | --- | --- |
-| 游戏启动壳 | `src/ui/index.html`、`src/ui/main.ts`、`src/ui/startup/` | 应用样式就绪前沿用既有深色静态壳：左侧当前阶段、等待时间与可滚动的载入内容，右侧八步流程及步骤计数。阶段状态、正文与诊断通过 textContent / 属性原位更新，列表和诊断按钮保持挂载；步骤进度不冒充时间百分比。颜色与系统字体沿用启动壳自身兜底，不新增字体依赖或扩成游戏主题规范。DOM 行为与桌面浏览器正常 / 慢载入已核对，规则见 [[startup-and-runtime]] |
+| 游戏启动壳 | `src/ui/index.html`、`src/ui/main.ts`、`src/ui/startup/` | 应用样式就绪前沿用既有深色静态壳：左侧当前阶段、等待时间与可滚动的载入内容，右侧八步流程及步骤计数。首步耗时使用和诊断一致的等宽文本区，原位更新文本，沿用诊断复制按钮。阶段状态、正文与诊断通过文本和属性原位更新；步骤进度表示完成步数。颜色与系统字体沿用启动壳自身兜底。行为规则见 [[startup-and-runtime]] |
 | 工作区骨架 | `src/ui/components/shared/workspace-frame.ts` 的 `renderWorkspaceFrame` / `renderWorkspaceColumn`；`src/ui/workspace/workspace-renderer.ts` | 页面内容区拥有剩余高度和顶栏下间距，Frame 仅提供填父容器的网格；列的 header / body / 可选 footer 各自分离，复用单份 Presentation surface，不另手写相似外框 |
 | Story 作者编辑三栏 | `src/ui/story-editor/view.ts` 的三个语义栏工厂、`src/ui/css/story-editor.css`；保存/路由见 [[runtime-editor-and-project-checks]] | 顶栏直接进入；沿用共享顶部与 panel surface，列表单独滚动、中栏正文及右栏属性使用共享 body 滚动，中栏输入位于固定 footer。正文复用纯聊天条目呈现，选择外层采用不收缩的纵向 Flex，随内容自然增高并保留角色/老师左右对齐；换行只作用于正文，避免模板空白撑高气泡。Click 在中栏按运行态样式预览：单按钮居中，选项卡沿用运行态右侧方向，剧情入口卡沿用卡片左右对齐；普通和多段按钮保持同一高度与箭头，多段只追加标识；预览控件禁用且不触发推进。老师回应由独立 Talklet 编写，分支回应由局部标记和 `requiresFlag` 控制；Operation 用简短系统条说明动作；属性仍在右栏编辑。作者节点只选择不播放；按作者 node.id 更新并保留表单焦点，不套运行态 ChatStream 或其 200 条上限。原型以 DOM/行为自动化验证，按用户要求不做浏览器验收 |
 | 栏的复用与重新装配 | `src/ui/columns/index.ts`、`src/ui/workspace/workspace-columns.ts`；机制见 [[workspace-columns-and-layout]] | 用有序栏数组与单项 width 设计页面；稳定 key 跟随展示组，`definitionId` / `bindingKey` 表达当前正文和业务目标，slot 只作旧外观别名。跨宿主沿用来源主题与 `data-column-origin` 样式；返回由调用方显式绑定，换序/改宽保留原节点。复杂 Map/Operation 仍需各自业务动作适配；DOM / 行为回归已覆盖，浏览器视觉验收待授权 |
@@ -108,7 +114,11 @@ StoryEntry 触发条件使用同一弹窗外壳。左侧树按层级展开，行
 
 组合节点始终提供添加条件和添加子组。True 模式也支持编辑、拖动和删除子项，确认时校验并保留子树。右侧属性栏的层级高于左侧树，保持独立滚动。
 
+StoryEntry 目录浏览复用 Story 编辑弹窗。搜索和 Init 筛选常驻顶部，左侧目录树或搜索结果、右侧落点与同级条目分别滚动。筛选不移除目录落点；选择搜索结果后恢复树并定位该路径。全部目录视图可拖动编辑态条目，同级行的高亮边线表示插入点，只读条目仍可作为参照。顺序输入可留空使用自动值。弹窗内新建项和排序变更随确认写入草稿。入口为 `story-editor/catalog-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
+
 单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
+
+Story 引用复用 `components/shared/condition-reference-picker.ts`。普通 Story 字段使用 ModalManager，触发条件仍在原弹窗内切页，运行内容编辑器使用其子弹窗栈。左侧世界线筛选源于正文 `initId`，缺省归「其他」；卡片和详情的 ID 采用 11px 的本地 DM Mono，并保留系统等宽回退与长 ID 换行。编辑器草稿覆盖同 ID 的正式候选。搜索保留控件焦点，确认按原字段写入，取消保持原值；Story 编辑器的查看来源是独立动作。
 
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 
@@ -145,4 +155,4 @@ Map 的单位关系检查使用 `src/ui/workspace/map-relation-presentation.ts` 
 
 超级图鉴的中文分类与类型标签由 `src/ui/runtime-editor/codex/content-labels.ts` 提供；名称、说明、关系与可靠来源来自只读内容查询。主路径为资料／被引用，完整出向关系、字段树和 JSON 进入技术详情；未知字段仍可展开。`tests/ui/workspace/workspace-frame.test.ts` 验证内容工具 Frame 的直接子项、`pane-switch`、无游戏主题 Host，以及有操作内容时才输出 footer。更新边界与来源限制见 [[ui-refresh-focus-scroll]]、[[read-model-and-ui]]。此为已采用的工具特例，不改变游戏工作区默认主题规则。
 
-StoryEntry 中栏在稳定的中心滚动宿主内提供「基本信息／奖励信息／详细门控」Switch。切页只替换当前页内容；页签与每页滚动归 UI 会话状态，作者输入留在原 Story 草稿，保存／校验／应用固定在列 footer。基本信息包含激活方式与故事目录位置；目录输入动态建议内置层级、已载入 Entry 与当前草稿中的分类／篇章／章节，同时允许新名称。奖励页将默认首／重效果和有序条件 outcome 分组呈现，复杂条件与 Effect 仍复用结构值编辑器；详细门控按激活类型显示字段并提供缺省字段添加。右栏关系／Flag 来源与列滚动宿主保留。类型切换继续用 ModalManager 审核并在候选草稿保存成功后提交。抽取池仅展示直接关联项，用稳定结构行 key 的 details 展开。入口为 `authoring-view.ts`、`controller.ts` 与 `dom.ts`；切页、草稿连续性、奖励行和激活回归见 `tests/ui/story/story-editor-authoring.test.ts` 与 `tests/ui/story/story-editor-entry-activation.test.ts`；未做浏览器视觉走查。
+StoryEntry 中栏复用列头和底栏，「基本信息／奖励信息／详细门控」固定在列头第二行，试播、保存、检查和应用固定在底栏。表单使用原来的单一滚动宿主，切页只更换正文表单并更新页签激活态，每页独立恢复原滚动。基本信息以命名文字框编辑入口身份和开幕标题，关联剧情复用原有选择器，剧情重读显示「允许重读／不开放重读」。标签和扩展数据收在折叠区，删除入口位于页末。重读机制见 [[story-and-effects]]。奖励页的首次、重复和条件效果各有独立区域，条件奖励操作跟随对应列表或条目。详细门控将触发与限制、关联抽取池分区，抽取池沿用稳定结构行 key 的 details。两列字段与奖励区域由 `.story-editor-entry-grid` 按中栏可用宽度排布，较长的按钮组可换行。结构值、字段焦点和弹窗生命周期沿用 Story 编辑器现有更新入口。源码见 `view.ts`、`authoring-view.ts` 与 `story-editor.css`，回归见 `tests/ui/story/story-editor-authoring.test.ts` 与 `tests/ui/story/story-editor-entry-activation.test.ts`。

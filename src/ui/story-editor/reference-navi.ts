@@ -1,6 +1,7 @@
 import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
 import type { StoryEditorTarget } from './model';
+import { openStoryReferencePicker, type ConditionReferenceRow } from '../components/shared/condition-reference-picker';
 
 export type ReferenceField = HTMLInputElement | HTMLSelectElement;
 
@@ -30,10 +31,17 @@ export function openReferenceNavi(modal: ModalManager, ctx: UIContext, field: Re
   select(value: string): void;
   navigate(target: StoryEditorTarget): void;
   close(): void;
+  storyRows?: readonly ConditionReferenceRow[];
 }): void {
   const rows = referenceChoices(field), kind = field.dataset.storyReference;
   const targetKind = kind === 'story' ? 'story' : ['entry','activeEntry','passiveEntry'].includes(kind ?? '') ? 'entry' : undefined;
   const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
+  if (kind === 'story' && options.storyRows) {
+    openStoryReferencePicker(modal, ctx, label, options.storyRows, field.value, options.select, {
+      close: options.close, navigate: id => options.navigate({ kind: 'story', id }),
+    });
+    return;
+  }
   const e = ctx.escapeHtml;
   modal.open({ title: `${label} Navi`, panelClass: 'story-editor-flag-navi story-editor-reference-navi', width: 640,
     body: `<label>搜索${e(label)}<input type="search" data-reference-query placeholder="名称或 ID" autocomplete="off"></label><p class="story-editor-hint">选择后填回原字段。</p><div>${rows.map((row,index) => `<section class="story-editor-flag-navi-row" data-reference-search="${e(`${row.label} ${row.value}`.toLocaleLowerCase())}"><button type="button" class="story-editor-list-item" data-modal-action="reference-select:${index}"${row.disabled ? ' disabled' : ''}${field.value === row.value ? ' aria-current="true"' : ''}><strong>${e(row.label)}</strong><small>${e(row.value)}</small></button>${targetKind && !row.disabled ? `<button type="button" class="mini-action" data-modal-action="reference-source:${index}">查看来源</button>` : ''}</section>`).join('')}</div><p class="story-editor-empty" data-reference-empty${rows.length ? ' hidden' : ''}>没有匹配的内容。</p>`,

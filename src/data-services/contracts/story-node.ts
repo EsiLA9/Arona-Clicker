@@ -1,6 +1,6 @@
 import type { ExtraCompound } from '../../engine/types/extra';
 import type { ConditionGroup } from '../../engine/types/expression';
-import type { StoryId } from '../../engine/types/ids';
+import type { InitId, StoryId } from '../../engine/types/ids';
 import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-actions';
 import type { AreaId } from '../../engine/types/ids';
 import type { VariantId } from '../../engine/types/character';
@@ -32,6 +32,8 @@ export interface StoryNodeDocument {
   readonly id: StoryId;
   /** 作者可读名称。 */
   readonly name: string;
+  /** 作者目录归属。省略时归入「其他」，不限制入口、播放或重读。 */
+  readonly initId?: InitId;
   /** 起始对话空间由故事本体声明，不从 Active/Passive Entry 推断。 */
   readonly startContext: StoryStartContext;
   /** 按执行顺序排列的顶层节点。 */

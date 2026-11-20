@@ -733,7 +733,7 @@ const storyEntriesTable = (): TableSchema => ({
   ],
 });
 
-/** stories 整表（纯演出：name/nodes/stages/extra，无触发与揭示字段） */
+/** stories 整表，含正文归属与演出字段。 */
 const storiesTable = (): TableSchema => ({
   key: 'stories',
   label: '剧情演出',
@@ -742,6 +742,7 @@ const storiesTable = (): TableSchema => ({
   fields: [
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
+    r('initId', 'inits', '所属世界线', { description: '用于作者目录和选择器，省略时归入「其他」。' }),
     a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '有序节点', { required: true,
       description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Talklet content.characterId 引用 characters，content.displayName 仅覆盖显示名称；appearance.presentation.avatar 另行覆盖头像。Choice 选项只声明 id/text、showWhen（持久条件组）、requiresFlag（局部出现条件）与 marks（选择标记名称）；成功选择时替换本组标记，不接受共同动作或通用结果。Button 仅声明文案与 press，不接受 result；动作、转移与移动使用后续独立节点。Talklet / Click performance 支持 layout（flow / positioned，anchor 为横纵基准，X/Y 是偏移，unit 可选 percent 或 px，缺省 anchor 使用旧左下原点）；Talklet 的 performance.pacing 支持非右侧对话的打字和思考。外观由 appearance.style 声明，Talklet 另支持 appearance.template 和 appearance.presentation。Operation 可使用 clearNode（storyId/nodeId，限当前运行展示），或 localFlag set/remove，set 另带 JSON value。建议标记名称 StoryName-flagid，不强制。' }),
     {

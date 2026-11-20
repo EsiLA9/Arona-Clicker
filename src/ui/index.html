@@ -68,7 +68,8 @@
       #startup-progress { width: 100%; height: 3px; margin-top: 0.35rem; accent-color: #48b8ff; }
       #startup-diagnostics-panel { max-width: min(38rem, 78vw); margin-top: 1rem; color: #ffc0b8; }
       #startup-diagnostics-panel summary { cursor: pointer; }
-      #startup-diagnostics { max-height: 12rem; overflow: auto; padding: 0.8rem; color: #d9e6f0; background: #101e2b; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.72rem/1.5 ui-monospace, Consolas, monospace; }
+      #startup-diagnostics, #startup-module-timings { max-height: 12rem; overflow: auto; padding: 0.8rem; color: #d9e6f0; background: #101e2b; white-space: pre-wrap; overflow-wrap: anywhere; font: 0.72rem/1.5 ui-monospace, Consolas, monospace; }
+      #startup-module-timings { margin: 0; max-height: 16rem; }
       .startup-actions { display: flex; gap: 0.65rem; margin-top: 0.75rem; }
       .startup-actions button { border: 1px solid #55718a; border-radius: 0.35rem; padding: 0.45rem 0.75rem; color: #eef6ff; background: #142638; cursor: pointer; }
       .startup-actions button:hover { background: #1d3850; }
@@ -98,6 +99,7 @@
       <p id="startup-elapsed" aria-live="off">已等待 0 秒</p>
       <p class="startup-detail-label" id="startup-detail-label">当前载入内容</p>
       <p id="startup-detail" aria-labelledby="startup-detail-label">等待游戏入口，随后装载游戏内容、数据服务与界面样式。</p>
+      <pre id="startup-module-timings" aria-label="模块载入耗时" hidden></pre>
       <p id="startup-slow" role="status" aria-live="polite" hidden>仍在处理当前步骤，请稍候。</p>
       <p id="startup-warning" role="status" aria-live="polite" hidden></p>
       <section id="startup-diagnostics-panel" aria-label="启动诊断信息" hidden>
@@ -135,7 +137,10 @@
       const status = document.querySelector('#startup-status');
       const elapsed = document.querySelector('#startup-elapsed');
       const detail = document.querySelector('#startup-detail');
+      const moduleTimings = document.querySelector('#startup-module-timings');
+      const moduleTimingText = moduleTimings.appendChild(document.createTextNode(''));
       const slow = document.querySelector('#startup-slow');
+      const diagnosticsPanel = document.querySelector('#startup-diagnostics-panel');
       const steps = [...document.querySelectorAll('[data-startup-phase]')];
       const progress = document.querySelector('#startup-progress');
       const stageCount = document.querySelector('#startup-stage-count');
@@ -153,6 +158,7 @@
       let logEndedAt;
       let logState = 'running';
       let storageError;
+      let moduleServerTiming;
       let previousLogs = [];
       const errorText = error => error instanceof Error ? error.stack || error.message : String(error);
       const round = value => Math.round(value * 10) / 10;
@@ -161,6 +167,25 @@
         const saved = JSON.parse(window.localStorage.getItem(logKey) || '[]');
         if (Array.isArray(saved)) previousLogs = saved.filter(log => log && Array.isArray(log.phases) && typeof log.totalMs === 'number').slice(0, 2);
       } catch (error) { storageError = errorText(error); }
+      function resourceTimings(now) {
+        return (performance.getEntriesByType?.('resource') ?? [])
+          .filter(entry => entry.responseEnd <= now && new URL(entry.name).origin === window.location.origin)
+          .map(entry => ({
+            path: new URL(entry.name).pathname, startMs: round(entry.startTime), endMs: round(entry.responseEnd), totalMs: round(entry.duration),
+            preRequestMs: round(Math.max(0, entry.requestStart - entry.startTime)),
+            dnsMs: round(entry.domainLookupEnd - entry.domainLookupStart),
+            connectMs: round(entry.connectEnd - entry.connectStart),
+            responseWaitMs: round(Math.max(0, entry.responseStart - entry.requestStart)),
+            downloadMs: round(Math.max(0, entry.responseEnd - entry.responseStart)),
+            workerStartMs: round(entry.workerStart), protocol: entry.nextHopProtocol, transferBytes: entry.transferSize,
+          })).sort((left, right) => right.totalMs - left.totalMs);
+      }
+      function moduleResources(resources, phase, now) {
+        const start = round(phase.startMs);
+        const end = round(phase.endMs ?? now);
+        const matches = resources.filter(item => item.startMs >= start && item.startMs < end && item.endMs <= end);
+        return { count: matches.length, slowest: matches.slice(0, 12) };
+      }
       function snapshot(includeResources = true) {
         const now = logEndedAt ?? performance.now();
         const percent = duration => now > 0 ? round(duration / now * 100) : 0;
@@ -170,17 +195,8 @@
         };
         const other = Math.max(0, now - phases.reduce((sum, record) => sum + (record.endMs ?? now) - record.startMs, 0));
         const navigation = performance.getEntriesByType?.('navigation')[0];
-        const resources = includeResources ? (performance.getEntriesByType?.('resource') ?? [])
-          .filter(entry => entry.startTime <= now && new URL(entry.name).origin === window.location.origin)
-          .map(entry => ({
-            path: new URL(entry.name).pathname, startMs: round(entry.startTime), totalMs: round(entry.duration),
-            preRequestMs: round(Math.max(0, entry.requestStart - entry.startTime)),
-            dnsMs: round(entry.domainLookupEnd - entry.domainLookupStart),
-            connectMs: round(entry.connectEnd - entry.connectStart),
-            responseWaitMs: round(Math.max(0, entry.responseStart - entry.requestStart)),
-            downloadMs: round(Math.max(0, entry.responseEnd - entry.responseStart)),
-            workerStartMs: round(entry.workerStart), protocol: entry.nextHopProtocol, transferBytes: entry.transferSize,
-          })).sort((left, right) => right.totalMs - left.totalMs).slice(0, 12) : undefined;
+        const resources = includeResources ? resourceTimings(now) : undefined;
+        const modules = phases.find(phase => phase.id === 'modules');
         return {
           startedAt: logStartedAt, path: window.location.pathname, state: logState,
           totalMs: round(now), otherMs: round(other), otherPercent: percent(other),
@@ -194,7 +210,9 @@
             ...(record.state === 'running' ? { waitingFor: record.id === 'entry' ? '入口模块' : record.workStartedMs === undefined ? '绘制机会' : '阶段工作' } : {}),
           })),
           tasks: tasks.map(timing), warnings: [...warnings],
-          ...(resources ? { resources } : {}),
+          ...(resources ? { resources: resources.slice(0, 12) } : {}),
+          ...(resources && modules ? { moduleResources: moduleResources(resources, modules, modules.endMs ?? now) } : {}),
+          moduleServerTiming,
         };
       }
       function persistLog(includeResources = false) {
@@ -223,6 +241,7 @@
           console.info(`其他间隙：${report.otherMs} ms（${report.otherPercent}%）。并行模块耗时互相重叠，不能与阶段占比相加。`);
           if (report.tasks.length) console.table(report.tasks);
           if (report.resources?.length) console.table(report.resources);
+          if (report.moduleServerTiming) console.info('Vite 开发服务器最后一次采样（同服务器的所有标签页）', report.moduleServerTiming);
           return report;
         },
         taskBegin(label) {
@@ -233,12 +252,17 @@
           const task = tasks.find(record => record.id === label && record.endMs === undefined);
           if (task) Object.assign(task, { endMs: performance.now(), state: error === undefined ? 'complete' : 'error', ...(error === undefined ? {} : { error: errorText(error) }) });
         },
+        captureServerTiming(sample) {
+          if (logEndedAt !== undefined || activeTiming.id !== 'modules' || activeTiming.state !== 'running') return;
+          moduleServerTiming = { ...sample, sampledAtMs: performance.now() };
+        },
       };
       persistLog();
       window.addEventListener('pagehide', () => finishLog('interrupted'));
       let stageStartedAt = startedAt;
       let stageLabel = '正在启动游戏';
       let activeId = 'modules';
+      let lastProbeSecond = -1;
       const diagnosticLines = [];
       const stepFor = id => steps.find(step => step.dataset.startupPhase === id);
       function updateStep(id, state, text) {
@@ -253,14 +277,64 @@
         stageCount.textContent = `已处理 ${done} / ${steps.length} 步`;
       }
       function showDiagnostics() {
-        document.querySelector('#startup-diagnostics-panel').hidden = false;
+        diagnosticsPanel.hidden = false;
+        diagnosticsPanel.querySelector('details').hidden = diagnosticLines.length === 0;
         document.querySelector('#startup-diagnostics').textContent = diagnosticLines.join('\n\n');
       }
+      const seconds = ms => `${(ms / 1000).toFixed(ms < 1000 ? 2 : 1)} 秒`;
+      const workLabels = { request: 'HTTP 请求', css: '样式转换', esbuild: '源码转换', imports: '模块依赖解析' };
+      function updateModuleTimings(now, stageSeconds) {
+        const phase = activeTiming;
+        const firstStep = phase.id === 'entry' || phase.id === 'modules';
+        moduleTimings.hidden = !firstStep || phase.state === 'complete';
+        if (moduleTimings.hidden) return;
+        const end = phase.endMs ?? now;
+        const visible = document.visibilityState === 'hidden' ? '后台' : '前台';
+        const lines = [];
+        if (phase.id === 'entry') {
+          lines.push(`等待游戏入口及其依赖 · ${seconds(end - phase.startMs)} · ${visible}`);
+        } else {
+          const workStart = phase.workStartedMs;
+          lines.push(workStart === undefined
+            ? `等待浏览器给出绘制机会 · ${seconds(end - phase.startMs)} · ${visible}`
+            : `绘制等待 ${seconds(workStart - phase.startMs)} · 模块加载 ${seconds(end - workStart)} · ${visible}`);
+          for (const task of tasks) {
+            const state = task.state === 'running' ? '等待中' : task.state === 'complete' ? '已就绪' : '失败';
+            lines.push(`${state} · ${seconds((task.endMs ?? end) - task.startMs)} · ${task.label}`);
+          }
+          if (stageSeconds >= 3 && workStart !== undefined) {
+            const log = window.__startupLog;
+            if (phase.state === 'running' && stageSeconds !== lastProbeSecond && log.requestServerTiming) {
+              lastProbeSecond = stageSeconds;
+              log.requestServerTiming();
+            }
+            if (moduleServerTiming) {
+              const sample = moduleServerTiming;
+              lines.push('', `Vite 服务端 · ${seconds(end - sample.sampledAtMs)}前采样 · ${sample.pendingCount} 项处理中（全部标签页）`);
+              const describe = work => `${seconds(work.durationMs)} · ${workLabels[work.kind]} · ${work.path}`;
+              lines.push(...sample.pending.map(describe));
+              if (sample.recentSlow.length) lines.push('近期结束的慢项', ...sample.recentSlow.slice(0, 3).map(describe));
+            } else if (log.requestServerTiming) {
+              lines.push('', '等待 Vite 服务端诊断响应…');
+            }
+            const resources = moduleResources(resourceTimings(end), phase, end);
+            lines.push('', `浏览器已完成 ${resources.count} 个本机请求${resources.count ? ' · 最慢的请求' : ''}`);
+            for (const item of resources.slowest.slice(0, 4)) {
+              lines.push(`${seconds(item.totalMs)} · ${item.path}\n  发出前 ${seconds(item.preRequestMs)} / 等首字节 ${seconds(item.responseWaitMs)} / 接收 ${seconds(item.downloadMs)}`);
+            }
+          }
+        }
+        if (stageSeconds >= 3 && diagnosticsPanel.hidden) showDiagnostics();
+        const text = lines.join('\n');
+        if (moduleTimingText.data !== text) moduleTimingText.data = text;
+      }
       function updateElapsed() {
-        elapsed.textContent = `已等待 ${Math.floor((performance.now() - startedAt) / 1000)} 秒`;
-        const stageSeconds = Math.floor((performance.now() - stageStartedAt) / 1000);
+        const now = performance.now();
+        elapsed.textContent = `已等待 ${Math.floor((now - startedAt) / 1000)} 秒`;
+        const stageSeconds = Math.floor((now - stageStartedAt) / 1000);
         slow.hidden = shell.dataset.state !== 'loading' || stageSeconds < 3;
         if (!slow.hidden) slow.textContent = `当前步骤已处理 ${stageSeconds} 秒，仍在处理以上内容。`;
+        updateModuleTimings(now, stageSeconds);
       }
       const timer = window.setInterval(updateElapsed, 250);
       window.__startupShell = {
@@ -279,6 +353,7 @@
           status.setAttribute('aria-busy', 'true');
           detail.textContent = content;
           slow.hidden = true;
+          updateModuleTimings(performance.now(), 0);
           updateStep(id, 'loading', '正在处理');
           performance.mark(`startup:${id}:start`);
         },
@@ -314,10 +389,10 @@
           shell.dataset.state = 'error';
           status.textContent = `${phase.replace(/^正在/, '').replace(/[.…]+$/, '')}失败，请查看诊断信息。`;
           status.setAttribute('aria-busy', 'false');
-          updateElapsed();
           updateStep(activeId, 'error', '失败');
           const errorDetail = error instanceof Error ? error.stack || error.message : String(error);
           if (logEndedAt === undefined) { activeTiming.error = errorDetail; finishLog('error'); }
+          updateElapsed();
           diagnosticLines.push(`阶段：${phase}\n当前内容：${detail.textContent}\n错误：${errorDetail}`);
           showDiagnostics();
         },

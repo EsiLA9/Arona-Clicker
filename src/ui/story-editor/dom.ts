@@ -12,10 +12,11 @@ function key(node: Node): string | null {
 function compatible(current: Node, next: Node): boolean {
   return current.nodeType === next.nodeType && (!(current instanceof Element) || current.tagName === (next as Element).tagName);
 }
+const editorDisclosure = 'details.story-editor-flag-item, details.story-editor-entry-pool, details.story-preview-record, details.story-editor-advanced';
 export function patchEditorDOM(current: HTMLElement, next: HTMLElement, beforeRemove: (root: HTMLElement) => void): void {
   for (const attribute of [...current.attributes]) {
-    // Flag disclosure belongs to the mounted item, not the authored document.
-    if (attribute.name === 'open' && current.matches('details.story-editor-flag-item, details.story-editor-entry-pool') && next.matches('details.story-editor-flag-item, details.story-editor-entry-pool')) continue;
+    // Disclosure state belongs to the mounted item.
+    if (attribute.name === 'open' && current.matches(editorDisclosure) && next.matches(editorDisclosure)) continue;
     if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
   }
   for (const attribute of [...next.attributes]) if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);

@@ -17,3 +17,5 @@ export interface StoryReadLog {
   readTalkletIndexes: number[];
   chosenChoiceIndexes: Record<number, number[]>;
 }
+
+export type StoryEntryReadProgress = 'read' | 'completed';

@@ -16,7 +16,7 @@ import type { SpotTagOverrideState } from '../../engine/contracts/state-query';
 import type { Character } from './ids';
 import type { StoredCustomTheme, ThemeAttachment, UserThemeState } from './user-theme';
 import type { EntityPresentationKey } from '../../data-services/contracts/entity-presentation';
-import type { AreaStoryDelivery, CompletedStory, StoryReadLog } from './story-state';
+import type { AreaStoryDelivery, CompletedStory, StoryEntryReadProgress, StoryReadLog } from './story-state';
 import type { CharacterMemory, GachaPoolState, ProtoStat, VariantProgress } from './character';
 import type { ShopPurchaseRecord } from '../../data-services/contracts/shop';
 import type { StoryCursorCollection } from '../../engine/contracts/story-cursor';
@@ -66,6 +66,8 @@ export interface PlayerState {
   /** AreaHero ActiveStory deliveries and completion receipts, scoped to the current Init. */
   areaStoryDeliveries?: AreaStoryDelivery[];
   storyReadLogs?: Record<StoryId, StoryReadLog>;
+  /** Current-Init evidence of formal reading, keyed by the source Entry. */
+  storyEntryReads?: Record<string, StoryEntryReadProgress>;
   inventory: Record<ItemId, number>;
   flags: Record<string, string>;
   unlockedInits: InitId[];
@@ -121,6 +123,7 @@ export interface InitSnapshot {
   storyLog: CompletedStory[];
   areaStoryDeliveries?: AreaStoryDelivery[];
   storyReadLogs?: Record<StoryId, StoryReadLog>;
+  storyEntryReads?: PlayerState['storyEntryReads'];
   flags: Record<string, string>;
   triggersCompleted: string[];
   currentAreaId?: AreaId;

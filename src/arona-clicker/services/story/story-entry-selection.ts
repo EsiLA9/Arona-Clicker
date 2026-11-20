@@ -96,17 +96,15 @@ function isReadyStep(
 
 /** Replay branch guards use Talklet ordinals; Click and Operation nodes are not counted. */
 export function guardPrereqsMet(registry: Registry, state: PlayerState, guard: BranchGuard): boolean {
-  return guard.prerequisites.every(({ storyId, talkletIndex }) => {
-    const log = state.storyReadLogs?.[storyId];
-    if (!log) return false;
-    if (talkletIndex === -1) {
-      const story = registry.stories.get(storyId);
-      if (!story) return false;
-      const talklets = story.nodes.filter(node => node.type === 'talklet');
-      return talklets.every((_, index) => log.readTalkletIndexes.includes(index));
-    }
-    return log.readTalkletIndexes.includes(talkletIndex);
-  });
+  return guard.prerequisites.every(prerequisite => guardPrerequisiteMet(registry, state, prerequisite));
+}
+
+export function guardPrerequisiteMet(registry: Registry, state: PlayerState, { storyId, talkletIndex }: BranchGuard['prerequisites'][number]): boolean {
+  const log = state.storyReadLogs?.[storyId];
+  if (!log) return false;
+  if (talkletIndex !== -1) return log.readTalkletIndexes.includes(talkletIndex);
+  const story = registry.stories.get(storyId);
+  return Boolean(story?.nodes.filter(node => node.type === 'talklet').every((_, index) => log.readTalkletIndexes.includes(index)));
 }
 
 /** Determines whether a source owner has a valid checkpoint shape before replay restore. */

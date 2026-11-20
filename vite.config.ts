@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { startupDiagnostics } from './scripts/vite-startup-diagnostics';
 
 const resolveEntry = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
 
@@ -47,6 +48,11 @@ function mpaRoutes(): Plugin {
 
 export default defineConfig({
   root: '.',
+  optimizeDeps: {
+    // 显式列出需要预打包的依赖，让冷启动跳过四个 HTML 入口的扫描。
+    noDiscovery: true,
+    include: ['jszip'],
+  },
   css: {
     // 显式配置，避免首次处理样式时向父目录逐层搜索 PostCSS 配置。
     postcss: { plugins: [] },
@@ -71,5 +77,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [mpaRoutes()],
+  plugins: [mpaRoutes(), startupDiagnostics()],
 });

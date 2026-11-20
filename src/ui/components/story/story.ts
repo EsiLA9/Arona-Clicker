@@ -245,6 +245,7 @@ function renderChoiceCard(
   preview = false,
   optionAddon?: (choice: { id: string; text: string }, index: number) => string,
   selectedOptionId?: string,
+  authoring = false,
 ): string {
   const completed = selectedOptionId !== undefined;
   const rows = choices
@@ -252,6 +253,7 @@ function renderChoiceCard(
       const available = availableIndexes.includes(index);
       if (!preview && !completed && !available) return '';
       const bindings = completed ? '' : preview ? ' data-story-editor-click-option'
+        : authoring ? ` data-authoring-preview-option="${ctx.escapeHtml(choice.id ?? String(index))}" data-preview-token="${ctx.escapeHtml(token ?? '')}"`
         : ` data-story-choice="${index}" data-story-choice-id="${ctx.escapeHtml(choice.id ?? String(index))}"${token ? ` data-story-token="${ctx.escapeHtml(token)}"` : ''}`;
       let indicator = '<span class="choice-option-arrow">↗</span>';
       if (completed) indicator = choice.id === selectedOptionId ? '<small class="choice-option-locked">已选择</small>' : '';
@@ -479,8 +481,8 @@ export function renderChatHistory(entries: ChatEntry[], ctx: UIContext): string 
  * 渲染当前剧情页的 Choice 选项卡。
  * 页体（旁白/对话）由聊天流呈现，推进交互统一由底部 send-button 承担。
  */
-export function renderCurrentStory(ctx: UIContext, story: StoryView): string {
-  const body=renderStoryInput(ctx,story);
+export function renderCurrentStory(ctx: UIContext, story: StoryView, options: { readonly authoring?: boolean } = {}): string {
+  const body=renderStoryInput(ctx,story,options.authoring);
   if (!body) return '';
   const styled=renderStoryClickAppearance(body,story.performance);
   return story.performance?.layout?.mode==='positioned' ? renderStoryNodePlacement(ctx,styled,story.performance,story.nodeId) : styled;
@@ -520,16 +522,19 @@ export function renderPositionedStoryHistory(entries:ChatEntry[],ctx:UIContext):
   return entries.filter(entry=>entry.performance?.layout?.mode==='positioned').map(entry=>renderStoryNodePlacement(ctx,renderChatEntry(ctx,chatEntryToFlowContent(entry),{instanceKey:chatInstanceKey(entry.id)}),entry.performance!,entry.storyOutputId??String(entry.id))).join('');
 }
 
-function renderStoryInput(ctx: UIContext, story: StoryView): string {
+function renderStoryInput(ctx: UIContext, story: StoryView, authoring = false): string {
   if (story.phase === 'delivery') return '';
-  if (!story.page.choices?.length && !story.page.kizuna && story.performance?.layout?.mode==='positioned') return `<button class="send-button" data-send data-story-token="${ctx.escapeHtml(story.token)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(story.page.text || '继续')}${story.press?`（${story.press.done}/${story.press.total}）`:''}</span><span class="send-arrow">↗</span></span></button>`;
+  if (!story.page.choices?.length && !story.page.kizuna && story.performance?.layout?.mode==='positioned') {
+    const binding = authoring ? 'data-authoring-action="advance" data-preview-token' : 'data-send data-story-token';
+    return `<button class="send-button" ${binding}="${ctx.escapeHtml(story.token)}"><span class="send-bubble"><span class="send-text">${ctx.escapeHtml(story.page.text || '继续')}${story.press?`（${story.press.done}/${story.press.total}）`:''}</span><span class="send-arrow">↗</span></span></button>`;
+  }
   const choices = story.page.choices ?? [];
   if (choices.length > 0) return story.availableChoiceIndexes.length
-    ? `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token)}</div>`
+    ? `<div class="chat-current">${renderChoiceCard(ctx, choices, story.availableChoiceIndexes, story.page.align ?? 'right', story.token, false, undefined, undefined, authoring)}</div>`
     : '';
   // 羁绊剧情：渲染 yuzu-kizuna 卡片在流内，点击启动目标 ActiveStoryEntry
   if (story.page.kizuna) {
-    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token, false, story.continuationBlocked)}</div>`;
+    return `<div class="chat-current">${renderKizunaCard(ctx, story.page.kizuna, story.token, false, story.continuationBlocked, authoring)}</div>`;
   }
   return '';
 }
@@ -635,13 +640,14 @@ function renderKizunaCard(
   token?: string,
   preview = false,
   disabled = false,
+  authoring = false,
 ): string {
   const title = ctx.escapeHtml(kizuna.title ?? '羁绊事件');
   const buttonText = ctx.escapeHtml(kizuna.buttonText?.trim() || '进入羁绊剧情');
   const alignCls = kizuna.align === 'right' ? ' align-right' : ' align-left';
   const entryId = ctx.escapeHtml(kizuna.storyId);
   return `
-    <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? ` data-story-card-token="${ctx.escapeHtml(token)}"` : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
+    <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? (authoring ? ` data-authoring-action="advance" data-preview-token="${ctx.escapeHtml(token)}"` : ` data-story-card-token="${ctx.escapeHtml(token)}"`) : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
           <div class="yuzu-kizuna-header">

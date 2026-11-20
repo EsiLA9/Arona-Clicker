@@ -1,6 +1,6 @@
-import { storyEntryType } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { emptyStoryAuthoring, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
-import type { StoryAuthoringPreviewResult } from '../contracts/runtime/story-authoring';
+import type { StoryAuthoringPreviewResult, StoryAuthoringPreviewTarget } from '../contracts/runtime/story-authoring';
 import { GAME_SAVE_VERSION } from '../../engine/contracts/save-version';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type {
@@ -33,6 +33,8 @@ import type { RuntimeAreaTopologyConnection } from '../contracts/runtime/runtime
 import type { TickResult } from '../../engine/contracts/tick';
 import type { TravelResult } from '../contracts/runtime/results';
 import { StoryService } from '../services/story/story-service';
+import { previewEntryCheck, StoryPreviewConditions } from '../services/story/story-preview-conditions';
+import type { StoryOutputEntry } from '../../engine/contracts/story-playback-state';
 import { StoryNodePresentationHost } from '../services/story/story-node-presentation-host';
 import { SpotService } from '../services/world/spot-service';
 import { InitService } from '../services/world/init-service';
@@ -1715,10 +1717,16 @@ export class GameInstance {
     try { this.registry.saveStoryAuthoring(patch); this.tagStatService.rebuildDeclared(); return { ok: true, message: 'Story 与关联投放已应用，仅当前运行有效。' }; }
     catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
   }
-  createStoryAuthoringPreview(patch: StoryAuthoringPatch, entryId: string): StoryAuthoringPreviewResult {
+  createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget): StoryAuthoringPreviewResult {
     const checked = this.validateStoryAuthoring(patch);
     if (!checked.ok) return checked;
     const sandbox = new GameInstance();
+    const unsubscribe: (() => void)[] = [];
+    const dispose = (): void => {
+      unsubscribe.forEach(remove => remove());
+      sandbox.storyService?.dispose();
+      sandbox.stop();
+    };
     try {
       sandbox.init(structuredClone([...this.storyAuthoringSources]), { enterDefaultInit: false });
       const snapshot = emptyStoryAuthoring();
@@ -1730,16 +1738,27 @@ export class GameInstance {
       sandbox.load(this.save());
       sandbox.storyService.resetPlayback();
       const applied = sandbox.applyStoryAuthoring(patch); if (!applied.ok) throw new Error(applied.message);
-      const entry = sandbox.registry.storyEntries.get(entryId);
-      if (!entry) throw new Error('先选择一个可试播的 Entry。');
-      const replayable = structuredClone(entry); replayable.replayable = true;
-      sandbox.registry.saveStoryAuthoring({ ...emptyStoryAuthoring(), [storyEntryType(entry) === 'active' ? 'activeStories' : 'passiveStories']: [replayable] });
-      let scene: import('../contracts/runtime/story-authoring').StoryAuthoringPreviewProjection['scene'] = (() => {
-        const startContext = sandbox.registry.stories.get(entry.storyId)?.startContext;
+      const sourceEntry = typeof target === 'string' ? sandbox.registry.storyEntries.get(target) : undefined;
+      if (typeof target === 'string' && !sourceEntry) throw new Error('试播 Entry 已不存在，请重新选择。');
+      const storyId = sourceEntry?.storyId ?? (typeof target === 'string' ? undefined : target.storyId);
+      if (!storyId || !sandbox.registry.stories.has(storyId)) throw new Error('找不到要试播的 Story。');
+      let temporaryId = 'preview:activestory:body';
+      for (let suffix = 1; !sourceEntry && sandbox.registry.storyEntries.has(temporaryId); suffix += 1) {
+        temporaryId = `preview:activestory:body_${suffix}`;
+      }
+      const entry: StoryEntryDef = sourceEntry ? { ...sourceEntry, replayable: true } : {
+        id: temporaryId, storyId, replayable: true, availableInits: [],
+        triggerCondition: { type: 'AND' as const, conditions: [] }, activation: { kind: 'active' as const },
+      };
+      const entryId = entry.id;
+      sandbox.registry.saveStoryAuthoring({ ...emptyStoryAuthoring(), [storyEntryType(entry) === 'active' ? 'activeStories' : 'passiveStories']: [entry] });
+      const startScene = (storyId: string): import('../contracts/runtime/story-authoring').StoryAuthoringPreviewProjection['scene'] => {
+        const startContext = sandbox.registry.stories.get(storyId)?.startContext;
         return startContext?.type === 'chara'
           ? { type: 'chara', id: startContext.characterId }
           : { type: 'area', id: startContext?.type === 'area' ? startContext.areaId : '' };
-      })();
+      };
+      let scene = startScene(entry.storyId);
       const projectScene = (next: typeof scene): void => {
         sandbox.colorSystem.popSceneTheme('area'); sandbox.colorSystem.popSceneTheme('student');
         const scope = next.type === 'area' ? 'area' as const : 'student' as const;
@@ -1750,45 +1769,104 @@ export class GameInstance {
         if(theme) sandbox.colorSystem.pushSceneTheme({id:`story-authoring-scene:${entityKey}`,sourceId:`story-authoring-scene:${entityKey}`,scope,groupId:theme.colorGroupId as never,palette:theme.palette,tokens:theme.tokens,nodeOverrides:theme.nodes,background:theme.background,presentation:theme.presentation});
         scene = { ...next };
       };
+      const storyName = (id: string) => sandbox.registry.stories.get(id)?.name || id;
+      const entryTitle = entry.openingTitle || storyName(entry.storyId);
+      const decisions = new StoryPreviewConditions(entryId, entryTitle, storyName);
+      sandbox.storyService.useAuthoringPreview(decisions);
       projectScene(scene);
-      const start = sandbox.storyService.replayStory(entryId);
-      if (!start.success || !start.replayId) throw new Error(start.success ? '试播未创建通道' : start.detail ?? start.error);
-      const id = start.replayId;
-      let channel = id;
-      sandbox.eventBus.on('storyTriggered', event => { if (event.type === 'storyTriggered' && event.replayId) channel = event.replayId; });
-      sandbox.eventBus.on('storyRunEnded', event => { if (event.type === 'storyRunEnded' && event.replayId === channel && channel !== id) channel = id; });
-      sandbox.eventBus.on('storyContextMoved', event => { if (event.type === 'storyContextMoved' && event.replayId === channel) projectScene(event.context.type === 'area' ? { type: 'area', id: event.context.areaId } : { type: 'chara', id: event.context.characterId }); });
+      let rootChannel: string | undefined;
+      let channel: string | undefined;
+      const scenes = new Map<string, typeof scene>();
+      const priorEntries = new Map<string, StoryOutputEntry>();
+      const selectChannel = (id: string, next: typeof scene): void => {
+        if (channel && channel !== id) {
+          const prior = sandbox.storyService.getReplayPlaybackView(channel);
+          for (const output of prior?.entries ?? []) {
+            if (output.performance?.layout?.mode !== 'positioned') priorEntries.set(output.id, output);
+          }
+        }
+        channel = id;
+        scenes.set(id, next);
+        projectScene(next);
+        sandbox.storyPresentation.activate(id);
+      };
+      const fromContext = (context: import('../../data-services/contracts/story-node').StoryStartContext): typeof scene =>
+        context.type === 'area' ? { type: 'area', id: context.areaId } : { type: 'chara', id: context.characterId };
+      unsubscribe.push(
+        sandbox.eventBus.on('storyTriggered', event => {
+          if (!event.replayId || !event.isReplay) return;
+          const target = sandbox.registry.storyEntries.get(event.storyId);
+          selectChannel(event.replayId, event.context ? fromContext(event.context)
+            : scenes.get(event.replayId) ?? startScene(target?.storyId ?? entry.storyId));
+        }),
+        sandbox.eventBus.on('storyRunEnded', event => {
+          if (event.replayId === channel && rootChannel && channel !== rootChannel) selectChannel(rootChannel, scenes.get(rootChannel) ?? startScene(entry.storyId));
+        }),
+        sandbox.eventBus.on('storyContextMoved', event => {
+          if (channel && event.replayId === channel) selectChannel(channel, fromContext(event.context));
+        }),
+      );
+      const startPlayback = (): StoryAuthoringResult => {
+        const start = sandbox.storyService.replayStory(entryId);
+        if (!start.success || !start.replayId) return { ok: false, message: start.success ? '试播未创建通道' : start.detail ?? start.error };
+        rootChannel = start.replayId;
+        return { ok: true, message: '' };
+      };
+      const entryCheck = previewEntryCheck(entry, sandbox.conditionSystem, sandbox.state, entryTitle);
+      if (entryCheck) decisions.pause({ kind: 'entry', entryId, storyId: entry.storyId, items: [entryCheck] }, adopted =>
+        adopted[entryId] ? startPlayback() : { ok: true, message: '入口资格未通过，试播未开播。' });
+      else {
+        const started = startPlayback();
+        if (!started.ok) throw new Error(started.message);
+      }
       let closed = false;
       return { ok: true, preview: {
-        getView: () => closed ? null : sandbox.storyService.getReplayPlaybackView(channel),
-        getStory: () => closed ? null : sandbox.storyService.getReplayStoryView(channel),
+        getView: () => {
+          const view = !closed && channel ? sandbox.storyService.getReplayPlaybackView(channel) : null;
+          return view && priorEntries.size ? { ...view, entries: [...priorEntries.values(), ...view.entries.filter(output => !priorEntries.has(output.id))] } : view;
+        },
+        getStory: () => !closed && channel ? sandbox.storyService.getReplayStoryView(channel) : null,
         getProjection: () => {
           if (closed) return null;
-          const view = sandbox.storyService.getReplayPlaybackView(channel);
-          if (!view) return null;
-          projectScene(scene);
-          sandbox.storyPresentation.activate(view.replayId ?? view.owner);
+          const view = channel ? sandbox.storyService.getReplayPlaybackView(channel) : null;
           const theme = sandbox.colorSystem.runtime.resolve();
           return {
-            revision: view.revision,
+            revision: view?.revision ?? 0,
             scene: { ...scene },
             theme: { tokens: { ...theme.tokens }, palette: [...theme.palette], background: theme.background.map(layer => ({ ...layer })) },
-            presentation: sandbox.storyPresentation.snapshotForRun(view.runId),
+            presentation: sandbox.storyPresentation.snapshotForRun(view?.runId),
           };
         },
-        getSendState: () => sandbox.storyService.getReplaySendState(channel),
-        advance: optionId => {
+        getSendState: () => !closed && channel && !decisions.pending
+          ? sandbox.storyService.getReplaySendState(channel) : { mode: 'idle', reason: 'noStory' },
+        getDecisions: () => sourceEntry ? decisions.getView() : { ...decisions.getView(), directStory: true },
+        decide: (id, choices) => closed ? { ok: false, message: '试播已关闭。' } : decisions.decide(id, choices),
+        advance: (optionId, expectedToken) => {
           if (closed) return { ok: false, message: '试播已关闭。' };
-          const view = sandbox.storyService.getReplayPlaybackView(channel);
-          if (!view?.token) return { ok: false, message: '播放已结束或正在呈现。' };
-          const result = view.phase === 'input' ? sandbox.storyService.submitReplayStoryInput(channel, view.token, optionId)
-            : view.phase === 'continue' ? sandbox.storyService.continueReplayStory(channel, view.token)
-            : { success: sandbox.storyService.accelerateReplayStoryPresentation(channel, view.token), error: '请等待演出完成。' };
-          return result.success ? { ok: true, message: '' } : { ok: false, message: 'error' in result ? String(result.error) : '输入未接纳' };
+          if (decisions.pending) return { ok: false, message: '请先确认当前条件。' };
+          const view = channel ? sandbox.storyService.getReplayPlaybackView(channel) : null;
+          if (!channel || !view?.token) return { ok: false, message: '播放已结束或正在呈现。' };
+          if (expectedToken !== undefined && view.token !== expectedToken) return { ok: false, message: '该试播输入已失效。' };
+          decisions.message = undefined;
+          try {
+            const result = view.phase === 'input' ? sandbox.storyService.submitReplayStoryInput(channel, view.token, optionId)
+              : view.phase === 'continue' ? sandbox.storyService.continueReplayStory(channel, view.token)
+              : { success: sandbox.storyService.accelerateReplayStoryPresentation(channel, view.token), error: '请等待演出完成。' };
+            if (result.success) return { ok: true, message: '' };
+            const message = ('denialMessage' in result && result.denialMessage) || ('detail' in result && result.detail) || result.error;
+            return { ok: false, message };
+          } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
         },
-        close: () => { if (!closed) { closed = true; sandbox.storyService.dispose(); sandbox.stop(); } },
+        close: () => {
+          if (closed) return;
+          closed = true;
+          decisions.close();
+          scenes.clear();
+          priorEntries.clear();
+          dispose();
+        },
       } };
-    } catch (error) { sandbox.storyService?.dispose(); sandbox.stop(); return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
+    } catch (error) { dispose(); return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
   }
 
   saveStoryDefinition(story: StoryDef): StoryDefinitionSaveResult {
