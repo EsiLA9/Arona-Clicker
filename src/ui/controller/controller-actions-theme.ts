@@ -3,11 +3,12 @@
 // ============================================================
 
 import type { UIController } from './controller';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 
 /** 绑定主题交互事件（render 后调用）。 */
 export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   scope.querySelectorAll<HTMLButtonElement>('[data-open-user-theme]').forEach(button => {
-    button.addEventListener('click', () => ctrl.openUserThemeEditor());
+    button.addEventListener('click', () => withSurfaceStyles(ctrl, 'theme', button, () => ctrl.openUserThemeEditor()));
   });
   // 主题切换：激活某色彩组（统一走 ownership 闸门，null = 恢复默认）。
   scope.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {

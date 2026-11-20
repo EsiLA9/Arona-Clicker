@@ -172,19 +172,20 @@ async function boot(): Promise<void> {
     await runPhase('content-apply', '正在校验并装载游戏内容…', () => runtimeBootstrap.loadDefaultDatapack(game),
       `${contentDetails()}\n正在校验定义与跨包引用，并构建游戏系统。`);
 
-    const [{ UIController }, { loadEditorStyles }] = await runPhase('ui-module', '正在装载界面模块…', () =>
-      Promise.all([import('./controller/controller'), import('./utilities/editor-styles')]),
+    const [{ UIController }, { loadSurfaceStyles }] = await runPhase('ui-module', '正在装载界面模块…', () =>
+      Promise.all([import('./controller/controller'), import('./utilities/surface-styles')]),
       '读取大厅、工作区、内容编辑与交互控制模块。');
     const controller = await runPhase('ui-mount', '正在准备游戏界面…', async () => {
-      const instance = new UIController(game, root, loadEditorStyles);
+      const instance = new UIController(game, root, loadSurfaceStyles);
       instance.mount();
       await nextPaint();
       return instance;
     }, `已完成游戏内容校验，正在挂载大厅与交互组件。\n${contentDetails()}\n等待首个画面显示后进入游戏。`);
 
     if (gameplayBQuickTestConsoleEnabled) {
-      const { applyGameplayBQuickTestMapOperations, mountGameplayBQuickTestConsole } =
-        await import('./development/gameplay-b-quick-test-console');
+      const [{ applyGameplayBQuickTestMapOperations, mountGameplayBQuickTestConsole }] = await Promise.all([
+        import('./development/gameplay-b-quick-test-console'), loadSurfaceStyles('map'),
+      ]);
       mountGameplayBQuickTestConsole(game, () => controller.render(), (mapId, operations) => {
         const run = controller.commands.startMap(mapId);
         controller.replaceWorkspaceRoute({ kind: 'map', runId: run.runId });

@@ -9,16 +9,14 @@
 @import './selectors.css';
 @import './popover.css';
 @import './modal.css';
-@import './codex.css';
+@import './chat-effects.css';
 @import './contacts.css';
 @import './theme-panel.css';
 @import './entity-theme.css';
 @import './conversation.css';
 @import './workspace-controls.css';
 @import './editor-shared.css';
-@import './operation-workspace.css';
 @import './story-overlays.css';
 @import './equipment.css';
 @import './gear.css';
-@import './variant-training.css';
 @import './background.css';

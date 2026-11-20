@@ -11,6 +11,7 @@ import { renderAreaNavigationContent } from '../columns';
 import { bindInventoryActions } from '../controller/controller-actions-inventory';
 import { bindEntityPresentationActions } from '../controller/controller-actions-presentation';
 import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 
 export const AREA_MAP_REGION = 'workspace.area-map';
 let sequence = 0;
@@ -214,9 +215,17 @@ export class AreaMapController {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     const open = target.closest<HTMLElement>('[data-area-map-open]');
-    if (open) { event.preventDefault(); event.stopImmediatePropagation(); this.open(open.dataset.areaMapOpen!); return; }
+    if (open) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      withSurfaceStyles(this.ctrl, 'area-map', open, () => this.open(open.dataset.areaMapOpen!));
+      return;
+    }
     const openCollected = target.closest<HTMLElement>('[data-area-map-open-collected]');
-    if (openCollected) { event.preventDefault(); event.stopImmediatePropagation(); this.openCollected(Number(openCollected.dataset.areaMapOpenCollected)); return; }
+    if (openCollected) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      withSurfaceStyles(this.ctrl, 'area-map', openCollected, () => this.openCollected(Number(openCollected.dataset.areaMapOpenCollected)));
+      return;
+    }
     const mapSwitch = target.closest<HTMLElement>('[data-area-map-switch]');
     if (mapSwitch) { event.preventDefault(); event.stopImmediatePropagation(); this.switchCollected(Number(mapSwitch.dataset.areaMapSwitch)); return; }
     const node = target.closest<SVGElement>('[data-area-map-node]');

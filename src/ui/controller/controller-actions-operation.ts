@@ -11,6 +11,7 @@ import { operationRelationAnchors, operationRelationPath } from '../presentation
 import { bindOperationCardHoverOverlay, disposeOperationCardHoverOverlay, resumeOperationCardHoverOverlay, suspendOperationCardHoverOverlay } from '../presentation/operation-card-hover-overlay';
 import { createUIContext } from '../runtime/context';
 import { getSpotReveal } from '../components/tooltip/tooltip';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 
 const OPERATION_REGION_HOST_ID = 'workspace.operation';
 
@@ -1406,6 +1407,17 @@ function handleMapClick(ctrl: UIController, event: MouseEvent): boolean {
   if (!target) return false;
   if (target instanceof HTMLButtonElement && target.disabled) return true;
 
+  const surface = target.hasAttribute('data-map-entry-open') ? 'map-entry'
+    : target.matches('[data-map-entry-start], [data-map-entry-continue-run], [data-map-restart]') ? 'map'
+    : undefined;
+  if (!surface) return handleLoadedMapClick(ctrl, target);
+  withSurfaceStyles(ctrl, surface, target, () => {
+    if (!target.matches(':disabled')) handleLoadedMapClick(ctrl, target);
+  });
+  return true;
+}
+
+function handleLoadedMapClick(ctrl: UIController, target: HTMLElement): boolean {
   if (target.hasAttribute('data-map-entry-open')) {
     const mapId = target.dataset.mapEntryOpen;
     const source: MapEntrySourceBinding = {
@@ -1886,17 +1898,16 @@ function handleOperationClick(ctrl: UIController, event: MouseEvent): void {
     return;
   }
 
-  if (target.hasAttribute('data-operation-start')) {
-    const eventId = target.dataset.operationStart;
-    if (!eventId || !operationFunctionAvailable(ctrl, target, eventId)) return;
-    enterOperationEvent(ctrl, eventId, true);
-    return;
-  }
-  if (target.hasAttribute('data-operation-resume-run')) {
+  if (target.matches('[data-operation-start], [data-operation-resume-run]')) {
+    const restart = target.hasAttribute('data-operation-start');
+    const eventId = restart ? target.dataset.operationStart : target.dataset.operationEventId;
     const runId = target.dataset.operationResumeRun;
-    const eventId = target.dataset.operationEventId;
-    if (!runId || !eventId || !operationFunctionAvailable(ctrl, target, eventId) || ctrl.game.operationEntry.getView(runId)?.eventId !== eventId) return;
-    enterOperationEvent(ctrl, eventId);
+    if (!eventId || (!restart && !runId)) return;
+    withSurfaceStyles(ctrl, 'operation', target, () => {
+      if (target.matches(':disabled') || !operationFunctionAvailable(ctrl, target, eventId)) return;
+      if (!restart && ctrl.game.operationEntry.getView(runId)?.eventId !== eventId) return;
+      enterOperationEvent(ctrl, eventId, restart);
+    });
     return;
   }
   if (target.hasAttribute('data-operation-back')) {

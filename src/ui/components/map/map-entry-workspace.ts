@@ -5,7 +5,6 @@ import type { PanelState } from '../shared/app-shell';
 import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 import { getSpotReveal } from '../tooltip/tooltip';
-import '../../css/map-entry-workspace.css';
 
 function escape(ctx: UIContext, value: string): string {
   return ctx.escapeHtml(value);

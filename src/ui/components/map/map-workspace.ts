@@ -30,7 +30,6 @@ import {
 } from '../../cards/card-host';
 import { renderMapActionCardButton, renderMapActionCardContent, stableMapActionCardAngle } from '../../cards/action-card';
 import type { MapRunCardInstance, MapRunCardRef } from '../../../arona-clicker/contracts/map/map-cards';
-import '../../css/map-workspace.css';
 
 function escape(ctx: UIContext, value: string): string {
   return ctx.escapeHtml(value);

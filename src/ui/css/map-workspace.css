@@ -192,11 +192,6 @@
   background: color-mix(in srgb, var(--panel-light) 78%, transparent);
 }
 
-.app-modal .map-workspace__danger-confirm {
-  background: var(--danger, #b43b48);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger, #b43b48) 28%, transparent);
-}
-
 .map-workspace__feed {
   flex: 1 1 auto;
   min-width: 0;

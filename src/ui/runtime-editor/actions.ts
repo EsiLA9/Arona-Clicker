@@ -87,7 +87,7 @@ import {
 import type { UIController } from '../controller/controller';
 import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
 import { downloadBytes } from '../utilities/file-download';
-import { withEditorStyles } from '../utilities/editor-styles';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 import { createUIContext } from '../runtime/context';
 import { bindConditionReferencePicker, createConditionReferencePicker, storyReferenceRow } from '../components/shared/condition-reference-picker';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
@@ -1538,7 +1538,7 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     if (ctrl.runtimeEditorLauncherOpen) {
       ctrl.runtimeEditorLauncherOpen = false;
       syncRuntimeEditorLauncher(ctrl);
-    } else withEditorStyles(ctrl, 'runtime', event.currentTarget as Element, () => openRuntimeEditorLauncher(ctrl));
+    } else withSurfaceStyles(ctrl, 'runtime', event.currentTarget as Element, () => openRuntimeEditorLauncher(ctrl));
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-editor-kind-tab]').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -1758,12 +1758,12 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-edit]').forEach(button => {
     button.addEventListener('click', () => {
-      withEditorStyles(ctrl, 'runtime', button, () => openLoadedRuntimeSpotEditor(ctrl, button.dataset.runtimeSpotEdit));
+      withSurfaceStyles(ctrl, 'runtime', button, () => openLoadedRuntimeSpotEditor(ctrl, button.dataset.runtimeSpotEdit));
     });
   });
   scope.querySelectorAll<HTMLElement>('[data-runtime-spot-delete]').forEach(button => {
     button.addEventListener('click', () => {
-      withEditorStyles(ctrl, 'runtime', button, () => openRuntimeSpotDeleteConfirm(ctrl, button.dataset.runtimeSpotDelete));
+      withSurfaceStyles(ctrl, 'runtime', button, () => openRuntimeSpotDeleteConfirm(ctrl, button.dataset.runtimeSpotDelete));
     });
   });
   scope.querySelector('[data-runtime-delete-preserve]')?.addEventListener('click', () => removeRuntimeSpot(ctrl, true));

@@ -60,6 +60,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: '/',
+    watch: { ignored: '**/.test-artifacts/**' },
   },
   preview: {
     port: 4173,

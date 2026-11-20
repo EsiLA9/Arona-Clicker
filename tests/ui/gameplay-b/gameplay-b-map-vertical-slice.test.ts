@@ -126,7 +126,12 @@ describe('Gameplay B Map normal entry vertical slice', () => {
     const game = createAppRuntime();
     games.push(game);
     await loadDefaultDatapack(game);
-    const controller = new UIController(game, root);
+    let resolveEntryStyles!: () => void;
+    let resolveMapStyles!: () => void;
+    const entryStyles = new Promise<void>(resolve => { resolveEntryStyles = resolve; });
+    const mapStyles = new Promise<void>(resolve => { resolveMapStyles = resolve; });
+    const controller = new UIController(game, root, surface =>
+      surface === 'map-entry' ? entryStyles : surface === 'map' ? mapStyles : undefined);
     controllers.push(controller);
     controller.mount();
     root.querySelector<SVGElement>(`[data-init-select="${DEFAULT_INIT_ID}"]`)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -157,10 +162,19 @@ describe('Gameplay B Map normal entry vertical slice', () => {
       root.querySelector<HTMLButtonElement>(`[data-ui-spot-card="${terminal.id}"] [data-upgrade="${terminal.id}"]`)!.click();
     }
     acquireMapParty(game, map.partyCharacterIds);
-    root.querySelector<HTMLButtonElement>(`[data-map-entry-open="${mapId}"]`)!.click();
+    const entryButton = root.querySelector<HTMLButtonElement>(`[data-map-entry-open="${mapId}"]`)!;
+    entryButton.click();
+    expect(entryButton.getAttribute('aria-busy')).toBe('true');
+    expect(root.querySelector('[data-map-entry-workspace]')).toBeNull();
+    resolveEntryStyles();
+    await entryStyles;
     expect(game.mapRun.getSnapshot()).toBeNull();
     expect(root.querySelector('[data-map-entry-workspace]')).not.toBeNull();
     root.querySelector<HTMLButtonElement>(`[data-map-entry-start="${mapId}"]`)!.click();
+    expect(game.mapRun.getSnapshot()).toBeNull();
+    expect(root.querySelector('[data-map-entry-workspace]')).not.toBeNull();
+    resolveMapStyles();
+    await mapStyles;
     const runId = game.mapRun.getSnapshot()!.runId;
     moveToMapNode(root, 'battle');
     expect(root.textContent).toContain('两人对两敌');

@@ -39,76 +39,6 @@
    line-height: 1.65;
 }
 
-.modal-panel.user-theme-modal {
-   width: min(560px, calc(100vw - 32px));
-   height: min(760px, calc(100vh - 32px));
-   max-height: min(760px, calc(100vh - 32px));
-}
-
-.modal-panel.user-theme-modal .modal-body {
-   display: flex;
-   flex: 1 1 auto;
-   min-height: 0;
-   overflow: hidden;
-}
-
-.modal-panel.user-theme-modal .modal-foot {
-   flex: 0 0 auto;
-}
-
-.modal-panel.user-theme-modal .modal-body > .user-theme-editor {
-   display: flex;
-   flex: 1 1 auto;
-   flex-direction: column;
-   min-height: 0;
-}
-
-.modal-panel.user-theme-modal .user-theme-workspace {
-   flex: 1 1 auto;
-   height: auto;
-}
-
-.modal-overlay-user-theme {
-   place-items: start end;
-   padding: 16px;
-   background: transparent;
-   backdrop-filter: none;
-   pointer-events: none;
-}
-
-/* 主题编辑器是浮动面板，不应以全屏事件层阻断后方游戏界面。 */
-.app-modal:has(.modal-overlay-user-theme) {
-   pointer-events: none;
-}
-
-.modal-overlay-user-theme .modal-panel {
-   position: fixed;
-   top: 16px;
-   right: 16px;
-   bottom: auto;
-   pointer-events: auto;
-   width: min(560px, calc(100vw - 32px));
-   max-height: min(760px, calc(100vh - 32px));
-   margin: 0;
-   animation: user-theme-float-in .2s ease-out both;
-}
-
-.modal-head-user-theme {
-   cursor: grab;
-   user-select: none;
-   touch-action: none;
-}
-
-.modal-head-user-theme:active,
-.modal-panel.user-theme-modal.is-dragging .modal-head-user-theme {
-   cursor: grabbing;
-}
-
-@keyframes user-theme-float-in {
-   from { opacity: 0; transform: translateX(18px); }
-   to { opacity: 1; transform: translateX(0); }
-}
-
 .modal-head {
    display: flex;
    align-items: center;
@@ -808,21 +738,6 @@
    .modal-panel {
       max-height: 90vh;
    }
-
-   .modal-overlay-user-theme {
-      place-items: end center;
-      padding: 0;
-   }
-
-   .modal-overlay-user-theme .modal-panel {
-      top: auto;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      max-width: none;
-      max-height: min(70vh, 620px);
-      border-radius: 16px 16px 0 0;
-   }
 }
 
 @media (max-width: 620px) {
@@ -893,4 +808,9 @@
       scroll-behavior: auto !important;
       transition: none !important;
    }
+}
+
+.app-modal .map-workspace__danger-confirm {
+  background: var(--danger, #b43b48);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--danger, #b43b48) 28%, transparent);
 }

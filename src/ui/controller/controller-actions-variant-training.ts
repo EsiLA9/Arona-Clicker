@@ -1,6 +1,7 @@
 import { createUIContext } from '../runtime/context';
 import { getSpotReveal } from '../components/tooltip/tooltip';
 import type { UIController } from './controller';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 
 const boundControllers = new WeakSet<UIController>();
 
@@ -14,25 +15,30 @@ export function bindVariantTrainingActions(ctrl: UIController): void {
     const button = target.closest<HTMLButtonElement>('[data-open-variant-training]');
     if (!button || !ctrl.root.contains(button)) return;
     event.preventDefault();
-    const spotId = button.dataset.openVariantTraining ?? '';
-    const functionalityId = button.dataset.variantTrainingFunctionality ?? '';
-    const entry = validateEntry(ctrl, spotId, functionalityId);
-    if ('reason' in entry) {
-      ctrl.toast.show(entry.reason, 'error');
-      return;
-    }
-    try {
-      const run = ctrl.commands.enterVariantTraining(spotId, functionalityId);
-      ctrl.panelState.mapEntrySource = undefined;
-      ctrl.enterWorkspaceRoute({ kind: 'map', runId: run.runId });
-      ctrl.render();
-    } catch (error) {
-      const message = error instanceof Error && error.message.trim()
-        ? error.message
-        : '演练场暂时无法进入，请检查入口和队伍准入。';
-      ctrl.toast.show(message, 'error');
-    }
+    withSurfaceStyles(ctrl, 'map', button, () => enterTraining(ctrl, button));
   });
+}
+
+function enterTraining(ctrl: UIController, button: HTMLButtonElement): void {
+  if (button.disabled) return;
+  const spotId = button.dataset.openVariantTraining ?? '';
+  const functionalityId = button.dataset.variantTrainingFunctionality ?? '';
+  const entry = validateEntry(ctrl, spotId, functionalityId);
+  if ('reason' in entry) {
+    ctrl.toast.show(entry.reason, 'error');
+    return;
+  }
+  try {
+    const run = ctrl.commands.enterVariantTraining(spotId, functionalityId);
+    ctrl.panelState.mapEntrySource = undefined;
+    ctrl.enterWorkspaceRoute({ kind: 'map', runId: run.runId });
+    ctrl.render();
+  } catch (error) {
+    const message = error instanceof Error && error.message.trim()
+      ? error.message
+      : '演练场暂时无法进入，请检查入口和队伍准入。';
+    ctrl.toast.show(message, 'error');
+  }
 }
 
 type ValidEntry = { readonly spotId: string; readonly functionalityId: string };

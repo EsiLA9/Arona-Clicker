@@ -10,7 +10,7 @@ describe('startup asset delivery', () => {
     server = await createServer({
       configFile: 'vite.config.ts',
       cacheDir: '.test-artifacts/vite-startup-assets-test',
-      server: { host: '127.0.0.1', port: 5374, open: false, watch: { ignored: '**/.test-artifacts/**' } },
+      server: { host: '127.0.0.1', port: 5374, open: false },
     });
     await server.listen();
     origin = `http://127.0.0.1:${(server.httpServer!.address() as AddressInfo).port}`;
@@ -36,7 +36,7 @@ describe('startup asset delivery', () => {
     expect(portal).not.toContain('/src/ui/startup/');
   }, 30000);
 
-  it('keeps shared styles in the startup module and loads editor styles separately', async () => {
+  it('keeps shared styles in the startup module and loads surface styles separately', async () => {
     const main = await getModule('/src/ui/main.ts');
     const styles = [...main.matchAll(/import\(["']([^"']+\.css)["']\)/g)].map(match => match[1]);
     expect(styles).toEqual(['/src/ui/css/game.css']);
@@ -45,20 +45,32 @@ describe('startup asset delivery', () => {
     expect(css).toContain('.choice-option');
     expect(css).toContain('.condition-reference-picker');
     expect(css).toContain('.console-background-layer');
+    expect(css).toContain('.area-map-entry');
+    expect(css).toContain('.user-theme-field');
+    expect(css).toContain('.chat-text-overlay');
     expect(css.indexOf('--muted-on-panel')).toBeLessThan(css.indexOf('.console-background-layer'));
     expect(css).not.toMatch(/import ["']\/src\/ui\/css\//);
-    expect(css).not.toContain('.story-editor-list-content');
-    expect(css).not.toContain('.runtime-editor-panel');
-    expect(css).not.toContain('.runtime-editor-codex__search');
-
-    const entries = await getModule('/src/ui/utilities/editor-styles.ts');
-    expect(entries).toContain('import("/src/ui/css/story-editor.css")');
-    expect(entries).toContain('import("/src/ui/css/runtime-editor.css")');
-    const story = await getModule('/src/ui/css/story-editor.css?import');
-    const runtime = await getModule('/src/ui/css/runtime-editor.css?import');
-    expect(story).toContain('.story-editor-list-content');
-    expect(runtime).toContain('.runtime-editor-panel');
-    expect(runtime).toContain('.runtime-editor-codex__search');
+    const entries = await getModule('/src/ui/utilities/surface-styles.ts');
+    for (const [name, selector] of [
+      ['story-editor', '.story-editor-list-content'],
+      ['runtime-editor', '.runtime-editor-codex__search'],
+      ['operation-workspace', '.workspace-frame--operation'],
+      ['map-entry-workspace', '.map-entry-workspace__primary'],
+      ['map-workspace', '.map-workspace__feed'],
+      ['area-map', '.area-map-viewport'],
+      ['user-theme-editor', '.theme-layer-manager'],
+      ['codex', '.coll-summary'],
+    ]) {
+      expect(css).not.toContain(selector);
+      expect(entries).toContain(`import("/src/ui/css/${name}.css")`);
+      expect(await getModule(`/src/ui/css/${name}.css?import`)).toContain(selector);
+    }
+    for (const file of ['map-entry-workspace', 'map-workspace', 'area-map-workspace']) {
+      expect(await getModule(`/src/ui/components/map/${file}.ts`)).not.toMatch(/import ["']\/src\/ui\/css\//);
+    }
+    expect(css).not.toContain('.variant-training-panel');
+    expect(await getModule('/src/ui/components/character/variant-training-panel.ts'))
+      .toContain('import "/src/ui/css/variant-training.css"');
   }, 30000);
 
   it('uses the pre-bundled JSZip in both archive readers and the shared writer', async () => {

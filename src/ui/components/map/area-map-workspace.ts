@@ -7,7 +7,6 @@ import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 import { createAreaNavigationColumn } from '../../columns';
 import { travelErrorText } from '../shared/errors';
 import { buildConditionView, renderConditionTree } from '../../presentation/condition-presentation';
-import '../../css/area-map.css';
 
 export function areaMapReason(reason?: string): string {
   if (reason === 'Unavailable') return '目标不可用';

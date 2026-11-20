@@ -8,6 +8,7 @@ import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderAppShell, type PanelState } from '../../../src/ui/components/shared/app-shell';
 import { UI_HOST_REGISTRY } from '../../../src/ui/runtime/ui-host-registry';
 import { UIController } from '../../../src/ui/controller/controller';
+import type { SurfaceStyleLoader } from '../../../src/ui/utilities/surface-styles';
 import { IS_DEBUG_EDITING } from '../../../src/ui/runtime-editor/config';
 import '../../../src/ui/runtime/service-definitions';
 
@@ -67,7 +68,7 @@ describe('顶栏与设置工作区', () => {
     let resolveStoryStyles!: () => void;
     const storyStyles = new Promise<void>(resolve => { resolveStoryStyles = resolve; });
     const runtimeStyles = Promise.reject(new Error('missing stylesheet'));
-    const loadStyles = vi.fn((editor: 'story' | 'runtime') =>
+    const loadStyles = vi.fn<SurfaceStyleLoader>(editor =>
       editor === 'story' ? storyStyles : runtimeStyles);
     const controller = new UIController(game, root, loadStyles);
     const toast = vi.spyOn(controller.toast, 'show').mockImplementation(() => {});

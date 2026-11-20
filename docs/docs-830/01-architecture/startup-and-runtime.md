@@ -33,9 +33,9 @@ flowchart TD
 
 ## 开发启动与本地试玩
 
-`npm run dev` 通过根目录的 `vite.config.ts` 服务门户、游戏、独立 Datapack Editor 和 Infinite Board。Vite 预打包清单显式包含 `jszip`，跳过启动时对四个入口的自动依赖扫描。新增或替换浏览器侧需要预打包的依赖（例如 CommonJS 包）时，同步调整 `optimizeDeps.include`，并验证使用它的开发入口。
+`npm run dev` 通过根目录的 `vite.config.ts` 服务门户、游戏、独立 Datapack Editor 和 Infinite Board。Vite 预打包清单显式包含 `jszip`，跳过启动时对四个入口的自动依赖扫描。文件监听排除 `.test-artifacts/` 中的测试报告、浏览器缓存和构建探针。新增或替换浏览器侧需要预打包的依赖（例如 CommonJS 包）时，同步调整 `optimizeDeps.include`，并验证使用它的开发入口。
 
-进入游戏时由 `game.css` 一次交付大厅和公用样式，包括两个编辑器共用的条件引用选择器。Story 编辑器与 Runtime Editor 的专用样式由 `editor-styles.ts` 在用户点击对应入口后加载。样式就绪才打开编辑器，同页后续打开复用已装载的样式。加载失败时保留当前页面，并提示刷新后重试。
+进入游戏时由 `game.css` 一次交付大厅和公用样式，包括主题宿主、区域导航按钮和两个编辑器共用的条件引用选择器。`surface-styles.ts` 在用户打开 Story 编辑器、Runtime Editor、Operation、地图准备、地图探索、区域地图、主题编辑或图鉴时加载对应样式。样式就绪后才创建本局、切换工作区或打开弹窗。同页后续打开复用该样式。加载失败时保留当前页面，并提示刷新后重试。玩法 B 本地试玩台启用时同时加载专用演练面板和地图探索样式。
 
 本地试玩可先构建，再用 Vite 预览构建产物。启动预览后访问 [AronaClicker](http://localhost:4173/game)。
 

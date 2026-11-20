@@ -23,7 +23,7 @@ import {
 import { bindRuntimeDatapackEditorActions, openRuntimeEditingPack, syncRuntimeEditorCreateActions } from '../runtime-editor/actions';
 import { runtimeEditorHasUnsavedChanges } from '../runtime-editor/state';
 import type { UIController } from './controller';
-import { withEditorStyles } from '../utilities/editor-styles';
+import { withSurfaceStyles } from '../utilities/surface-styles';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogEntry, PackCatalogReadModel } from '../../arona-clicker/contracts/index';
 
@@ -78,7 +78,7 @@ function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab
 /** 绑定顶栏 / 全局工具条（render 后调用）；Workspace 栏动作由实例装配绑定。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   scope.querySelector('#story-editor-launch')?.addEventListener('click', event => {
-    withEditorStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.storyEditor.open());
+    withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.storyEditor.open());
   });
   bindDatapackActions(ctrl, scope);
   bindRuntimeDatapackEditorActions(ctrl, scope);
@@ -92,8 +92,8 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
   scope.querySelectorAll<HTMLButtonElement>('[data-topbar-action="inventory"]').forEach(button => {
     button.addEventListener('click', () => navigateFromTopbar(ctrl, 'inventory'));
   });
-  scope.querySelector('#collection-modal')?.addEventListener('click', () => {
-    openCollectionModal(ctrl.modal, ctrl.game);
+  scope.querySelector('#collection-modal')?.addEventListener('click', event => {
+    withSurfaceStyles(ctrl, 'collection', event.currentTarget as Element, () => openCollectionModal(ctrl.modal, ctrl.game));
   });
   scope.querySelector('#import-datapack')?.addEventListener('click', () => {
     ctrl.io.importDatapack();
@@ -362,7 +362,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           render();
           return;
         }
-        withEditorStyles(ctrl, 'runtime', button, () => {
+        withSurfaceStyles(ctrl, 'runtime', button, () => {
           setDatapackSelection(root, selectedRecordId);
           if (!openRuntimeEditingPack(ctrl, selectedRecordId)) render();
         });
@@ -452,7 +452,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
         render();
         return;
       }
-      withEditorStyles(ctrl, 'runtime', button, () => {
+      withSurfaceStyles(ctrl, 'runtime', button, () => {
         if (!openRuntimeEditingPack(ctrl, packRecordId)) render();
       });
     });
