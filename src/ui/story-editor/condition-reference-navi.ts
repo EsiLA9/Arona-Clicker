@@ -1,11 +1,14 @@
 import type { UIContext } from '../runtime/context';
 import { storyReferenceRow, type ConditionReferenceRow } from '../components/shared/condition-reference-picker';
-import type { StoryEditorState } from './model';
+import { storyEntries, type StoryEditorState } from './model';
+import { resolveStoryIdentity } from '../components/story/story-identity';
 import { storyReferenceDocuments, storyReferenceOptions, type StoryReferenceKind } from './property-options';
 
 export function conditionReferenceChoices(ctx: UIContext, state: StoryEditorState, kind: StoryReferenceKind, preferred: readonly string[]): ConditionReferenceRow[] {
   const registry = ctx.game.registry;
-  const stories = kind === 'story' ? storyReferenceDocuments(ctx, state) : undefined;
+  const entryKind = kind === 'entry' || kind === 'activeEntry' || kind === 'passiveEntry';
+  const stories = kind === 'story' || entryKind ? storyReferenceDocuments(ctx, state) : registry.stories;
+  const entries = entryKind ? storyEntries(state, registry.storyEntries) : registry.storyEntries;
   const areaScope = (id: string) => {
     const init = registry.areas.get(id)?.initId;
     return init ? [init] : null;
@@ -29,7 +32,17 @@ export function conditionReferenceChoices(ctx: UIContext, state: StoryEditorStat
     } else if (kind === 'variant') {
       const variant = registry.characterVariants.get(row.value);
       description = variant?.description;
-    } else if (kind === 'story') return storyReferenceRow(ctx, row, stories?.get(row.value)?.initId);
+    } else if (kind === 'story') {
+      const story = stories.get(row.value);
+      return storyReferenceRow(ctx, row, story?.initId, resolveStoryIdentity({ kind, id: row.value }, stories, entries));
+    } else if (entryKind) {
+      const entry = entries.get(row.value);
+      const storyIdentity = resolveStoryIdentity({ kind: 'entry', id: row.value }, stories, entries);
+      const type = entry?.activation.kind === 'active' ? '主动入口' : entry?.activation.kind === 'random' ? '随机入口' : '好感／角色阶段入口';
+      initIds = entry?.availableInits.filter(Boolean) ?? null;
+      const scope = initIds?.length ? initIds.map(id => registry.inits.get(id)?.name || id).join(' / ') : '通用入口';
+      return { ...row, initIds, scope: `${type} · ${scope}`, storyIdentity };
+    }
     const scope = initIds === null ? '未标明 Init' : !initIds.length ? 'Global'
       : initIds.map(id => registry.inits.get(id)?.name || id).join(' / ');
     return { ...row, initIds, scope, description };

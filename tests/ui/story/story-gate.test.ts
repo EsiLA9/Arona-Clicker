@@ -146,7 +146,11 @@ describe('UIController 剧情入口确认浮层', () => {
     const hidden = game.registry.storyEntries.get(FLOW_SHOW)!;
     hidden.revealTriggers = [{ reveal: 'name', condition: { type: 'OR', conditions: [] } }];
     hidden.publicDescription = '未揭示正文';
-    expect(renderStoryDirectoryEntryDetails(createUIContext(game), { id: hidden.id, progress: 'read' })).not.toContain('未揭示正文');
+    const hiddenDetails = renderStoryDirectoryEntryDetails(createUIContext(game), { id: hidden.id, progress: 'read' });
+    expect(hiddenDetails).toContain('data-story-target-kind="entry"');
+    expect(hiddenDetails).toContain('???');
+    expect(hiddenDetails).not.toContain(hidden.id);
+    expect(hiddenDetails).not.toContain('未揭示正文');
 
     const workspace = controller.openStoryWorkspace();
     workspace.navPath = path;

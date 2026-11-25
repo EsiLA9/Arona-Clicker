@@ -649,7 +649,7 @@ function renderKizunaCard(
     <div class="kizuna-card${alignCls}"${disabled ? ' aria-disabled="true"' : token ? (authoring ? ` data-authoring-action="advance" data-preview-token="${ctx.escapeHtml(token)}"` : ` data-story-card-token="${ctx.escapeHtml(token)}"`) : preview ? ' data-story-editor-click-card' : ` data-kizuna="${entryId}"`}>
       <div class="yuzu-item yuzu-special-item">
         <div class="yuzu-kizuna-item">
-          <div class="yuzu-kizuna-header">
+          <div class="yuzu-kizuna-header"${entryId ? ' data-story-target-kind="entry"' : ''}>
             <span class="text">${title}</span>
           </div>
           <div class="yuzu-kizuna-heart">

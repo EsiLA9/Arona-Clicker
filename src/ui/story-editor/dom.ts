@@ -46,5 +46,8 @@ export function patchEditorDOM(current: HTMLElement, next: HTMLElement, beforeRe
     if (child instanceof HTMLElement) beforeRemove(child);
     child.remove();
   }
-  if (current instanceof HTMLSelectElement && next instanceof HTMLSelectElement && current.value !== next.value) current.value = next.value;
+  if (current instanceof HTMLSelectElement && next instanceof HTMLSelectElement) {
+    const value = next.querySelector<HTMLOptionElement>('option[selected]')?.value ?? next.value;
+    if (current.value !== value) current.value = value;
+  }
 }

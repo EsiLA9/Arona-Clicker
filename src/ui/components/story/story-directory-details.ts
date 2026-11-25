@@ -2,6 +2,7 @@ import type { UIContext } from '../../runtime/context';
 import type { ThemeDesignDef } from '../../../data-services/contracts/color';
 import { readableOnColor } from '../../../engine/core/color';
 import { themeTreeFromThemeDef } from '../../presentation/theme-tree';
+import { renderStoryIdentityInline, type StoryIdentityKind } from './story-identity';
 
 export function renderStoryDescription(ctx: UIContext, description?: string, summary = false): string {
   const text = description?.trim();
@@ -15,6 +16,7 @@ export function renderStoryDirectoryDetails(ctx: UIContext, details: {
   theme?: ThemeDesignDef;
   read?: number;
   completed?: number;
+  identityKind?: StoryIdentityKind;
 }): string {
   const cover = details.coverPicId ? ctx.game.pics.urlOf(details.coverPicId) : undefined;
   const tree = details.theme && themeTreeFromThemeDef(details.theme.theme, id => ctx.game.registry.colorGroups.get(id));
@@ -25,7 +27,7 @@ export function renderStoryDirectoryDetails(ctx: UIContext, details: {
   ].filter(([, value]) => value && !/[;{}]|url\s*\(/i.test(value)).map(([name, value]) => `${name}:${value}`).join(';');
   return `<section class="story-directory-overview"${style ? ` data-story-directory-theme="${ctx.escapeHtml(details.theme!.id)}" style="${ctx.escapeHtml(style)}"` : ''}>
     ${cover ? `<img class="story-directory-cover" src="${ctx.escapeHtml(cover)}" alt="">` : ''}
-    <h2>${ctx.escapeHtml(details.title)}</h2>
+    <h2>${details.identityKind ? renderStoryIdentityInline(ctx, details.identityKind, details.title) : ctx.escapeHtml(details.title)}</h2>
     ${renderStoryDescription(ctx, details.description)}
     ${details.read === undefined ? '' : `<small>已读 ${details.read} · 已完成 ${details.completed ?? 0}</small>`}
   </section>`;

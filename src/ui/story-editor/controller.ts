@@ -15,6 +15,8 @@ import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dial
 import { createStoryDirectoryManagement } from './directory-management';
 import { openConditionTreeDialog } from './condition-tree-dialog';
 import { conditionReferenceChoices } from './condition-reference-navi';
+import { storyReferenceDocuments } from './property-options';
+import { resolveStoryIdentity } from '../components/story/story-identity';
 import { entryConditionField, STORY_CONDITION_TARGETS } from './condition-fields';
 import { openReferenceNavi, prepareReferenceNavi, referenceChoices, referenceTarget, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
@@ -711,7 +713,7 @@ export class StoryEditorController {
     const stream = current?.querySelector<HTMLElement>('[data-preview-stream]');
     const followPreview = !stream || stream.scrollHeight - stream.clientHeight - stream.scrollTop <= 8;
     this.inlineText.prepare(next);
-    prepareReferenceNavi(next, target => this.hasTarget(target));
+    this.prepareReferenceControls(next);
     if (!current) {
       const page = this.ctrl.root.querySelector<HTMLElement>('.workspace-page-content');
       if (!page) return false;
@@ -802,7 +804,7 @@ export class StoryEditorController {
   }
   bind(root: HTMLElement): () => void {
     this.inlineText.prepare(root);
-    prepareReferenceNavi(root, target => this.hasTarget(target));
+    this.prepareReferenceControls(root);
     const select = (event: Event): void => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target)) return;
@@ -2047,6 +2049,15 @@ export class StoryEditorController {
     this.pendingFocus=parsed.path.length?JSON.stringify(parsed.path):null;
   }
   private closeSelectionNavi(): void { if (this.selectionNaviOpen) this.ctrl.modal.close(); }
+  private prepareReferenceControls(root: ParentNode): void {
+    const ctx = createUIContext(this.editorGame);
+    const stories = storyReferenceDocuments(ctx, this.state);
+    const entries = storyEntries(this.state, ctx.game.registry.storyEntries);
+    prepareReferenceNavi(root, target => this.hasTarget(target), {
+      ctx, resolve: target => resolveStoryIdentity(target, stories, entries),
+    });
+  }
+
   private openContentNavi(field: ReferenceField): void {
     const target = this.state.target, nodeId = this.state.selectedNodeId;
     const live = () => this.isOpen() && field.isConnected && !field.disabled
@@ -2055,14 +2066,18 @@ export class StoryEditorController {
     if (!target || !live()) return;
     this.requiredFlagDropdown.close(); this.selectionNaviOpen = true;
     const ctx = createUIContext(this.editorGame);
-    const storyRows = field.dataset.storyReference === 'story' ? conditionReferenceChoices(ctx, this.state, 'story', []) : undefined;
+    const kind = field.dataset.storyReference;
+    const fieldChoices = new Set(referenceChoices(field).filter(row => !row.disabled).map(row => row.value));
+    const storyRows = kind === 'story' ? conditionReferenceChoices(ctx, this.state, kind, [])
+      : kind === 'entry' || kind === 'activeEntry' || kind === 'passiveEntry'
+        ? conditionReferenceChoices(ctx, this.state, kind, []).filter(row => fieldChoices.has(row.value)) : undefined;
     openReferenceNavi(this.ctrl.modal, ctx, field, {
       storyRows,
       close: () => { this.selectionNaviOpen = false; if (field.isConnected) field.focus({ preventScroll: true }); },
       select: value => {
         if (!live()) { this.ctrl.modal.close(); return; }
         const fitsField = referenceChoices(field).some(row => row.value === value && !row.disabled);
-        if (!fitsField && !(storyRows && field instanceof HTMLInputElement && this.storyKey(value))) return;
+        if (!fitsField && !(kind === 'story' && field instanceof HTMLInputElement && this.storyKey(value))) return;
         this.ctrl.modal.close(); field.value = value;
         field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
       },

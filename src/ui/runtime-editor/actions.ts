@@ -90,6 +90,7 @@ import { downloadBytes } from '../utilities/file-download';
 import { withSurfaceStyles } from '../utilities/surface-styles';
 import { createUIContext } from '../runtime/context';
 import { bindConditionReferencePicker, createConditionReferencePicker, storyReferenceRow } from '../components/shared/condition-reference-picker';
+import { renderStoryIdentityPreview, resolveStoryIdentity } from '../components/story/story-identity';
 import type { PackCatalogCommands, PackCatalogReadModel } from '../../arona-clicker/contracts';
 import type { RuntimeSpotMutationResult, RuntimeWorldDraft } from '../../arona-clicker/contracts/runtime/runtime-content';
 import { hasDatapackWorkspaceChanges } from '../workspace/datapack-workspace-state';
@@ -1490,10 +1491,21 @@ export function bindRuntimeDatapackEditorActions(ctrl: UIController, scope: Pare
     scope.addEventListener('change', captureDraft);
   }
   for (const button of scope.querySelectorAll<HTMLButtonElement>('[data-runtime-story-reference]')) {
-    button.onclick = () => {
-      const field = button.closest('.runtime-story-reference-field')?.querySelector<HTMLSelectElement>('select');
-      if (field) openRuntimeStoryReference(ctrl, field.getAttribute('aria-label') || 'Story', field);
+    const row = button.closest('.runtime-story-reference-field');
+    const field = row?.querySelector<HTMLInputElement | HTMLSelectElement>('[data-runtime-editor-field]');
+    if (!field) continue;
+    button.onclick = () => openRuntimeStoryReference(ctrl, field.getAttribute('aria-label') || 'Story', field);
+    const preview = row?.querySelector<HTMLElement>('[data-runtime-story-preview]');
+    if (!preview) continue;
+    const update = () => {
+      const ctx = createUIContext(ctrl.game);
+      const { stories, storyEntries } = ctx.game.registry;
+      const identity = resolveStoryIdentity({ kind: storyEntries.has(field.value) ? 'entry' : 'story', id: field.value }, stories, storyEntries);
+      preview.hidden = !identity;
+      preview.innerHTML = identity ? renderStoryIdentityPreview(ctx, identity) : '';
     };
+    field.onchange = update;
+    update();
   }
   const defaultAreaInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-default-area-id-name]');
   const initIdInput = scope.querySelector<HTMLInputElement>('[data-runtime-editor-field="idName"]');
@@ -2113,15 +2125,19 @@ function openCollectionItemDialog(
 function openRuntimeStoryReference(ctrl: UIController, label: string, field: HTMLInputElement | HTMLSelectElement): void {
   if (field.disabled || field instanceof HTMLInputElement && field.readOnly) return;
   const ctx = createUIContext(ctrl.game);
-  const { stories, activeStories } = ctx.game.registry;
+  const { stories, activeStories, storyEntries } = ctx.game.registry;
   const rows = field instanceof HTMLSelectElement
     ? [...field.options].flatMap(option => {
       if (!option.value || option.disabled) return [];
       const entry = activeStories?.get(option.value);
       const story = stories.get(entry?.storyId ?? option.value);
-      return entry || story ? [storyReferenceRow(ctx, { value: option.value, label: option.label || option.textContent || option.value }, story?.initId)] : [];
+      if (!entry && !story) return [];
+      const identity = resolveStoryIdentity({ kind: entry ? 'entry' : 'story', id: option.value }, stories, storyEntries);
+      const row = storyReferenceRow(ctx, { value: option.value, label: option.label || option.textContent || option.value }, story?.initId, identity);
+      return [entry ? { ...row, scope: `主动入口 · ${row.scope}` } : row];
     })
-    : [...stories.values()].map(story => storyReferenceRow(ctx, { value: story.id, label: story.name || story.id }, story.initId));
+    : [...stories.values()].map(story => storyReferenceRow(ctx, { value: story.id, label: story.name || story.id }, story.initId,
+      resolveStoryIdentity({ kind: 'story', id: story.id }, stories, storyEntries)));
   const picker = createConditionReferencePicker(ctx, label, rows, field.value, value => {
     closeSubDialog();
     if (!field.isConnected || field.disabled) return;

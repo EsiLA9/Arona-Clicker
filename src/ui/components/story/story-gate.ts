@@ -10,6 +10,7 @@
 import { UIContext } from '../../runtime/context';
 import type { ActiveBanner, StoryGateState } from '../shared/app-shell';
 import { renderAvatarSvg } from '../../presentation/avatar-renderer';
+import { renderStoryIdentityInline } from './story-identity';
 
 /** 横幅动画总时长（毫秒）：单一事实源——CSS 的 story-banner-life 与 ChatStream 的清除计时均以此为准，改时长只改这里 + CSS。 */
 export const BANNER_ANIMATION_MS = 3000;
@@ -54,7 +55,7 @@ function variantAvatar(ctx: UIContext, variantId: string, size = 96): string | n
 
 /** 入口确认浮层：标题栏（X / 遮罩空白 / 取消均可关闭）+ 头像 + 名字 + 标题横带 + 奖励 + 进入。 */
 export function renderStoryGate(ctx: UIContext, gate: StoryGateState): string {
-  const title = ctx.escapeHtml(storyDisplayTitle(ctx, gate.storyId));
+  const title = storyDisplayTitle(ctx, gate.storyId);
   const titleId = `story-gate-title-${gate.storyId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   const label = gate.owner ? '羁绊剧情' : '剧情';
   // 确认文案三态：重读入口 = 重看（isReplay 受 branchGuards 约束）；
@@ -93,7 +94,7 @@ export function renderStoryGate(ctx: UIContext, gate: StoryGateState): string {
         </div>
         <div class="story-gate-body">
           ${avatarBlock}
-          <div class="story-gate-band"><span id="${titleId}">${title}</span></div>
+          <div class="story-gate-band"><span id="${titleId}">${renderStoryIdentityInline(ctx, gateEntry ? 'entry' : 'story', title)}</span></div>
           ${rewardBlock}
           <button class="story-gate-confirm" data-story-gate-confirm>${confirmText}</button>
           <button class="story-gate-cancel" data-story-gate-cancel>取消</button>

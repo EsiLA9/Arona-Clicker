@@ -125,7 +125,7 @@ export function renderRuntimeEditorFields(
     const error = problem ? `<em class="runtime-editor-field-error">${esc(problem.message)}</em>` : '';
     const field = `<label class="user-theme-field runtime-editor-field" data-runtime-editor-row="${view.key}"><span>${esc(view.label)}${view.required ? '' : '（可选）'}</span>${control}${locked}${hint}${error}</label>`;
     return policy && getWritableField(policy, view.key)?.refType === 'story'
-      ? `<div class="runtime-story-reference-field">${field}<button type="button" class="mini-action" data-runtime-story-reference="${esc(view.key)}" aria-label="选择${esc(view.label)}"${view.locked ? ' disabled' : ''}>选择…</button></div>`
+      ? `<div class="runtime-story-reference-field">${field}<button type="button" class="mini-action" data-runtime-story-reference="${esc(view.key)}" aria-label="选择${esc(view.label)}"${view.locked ? ' disabled' : ''}>选择…</button><div data-runtime-story-preview hidden></div></div>`
       : field;
   }).join('');
 }

@@ -11,6 +11,7 @@ import type { PassiveStoryEntry } from '../../../data-services/contracts/story-e
 import type { PassivePoolDef } from '../../../data-services/contracts/passive-pool';
 import type { UIContext } from '../../runtime/context';
 import { renderAvatarSvg } from '../../presentation/avatar-renderer';
+import { renderStoryIdentityInline } from '../story/story-identity';
 
 // --- 色彩收集图鉴 ---
 
@@ -152,7 +153,7 @@ function entryRow(ctx: UIContext, entry: PassiveStoryEntry, collected: Map<strin
   return `
     <div class="coll-entry hover-wrap ${done ? 'is-done' : 'is-missed'}" data-tooltip="passive:${esc(entry.id)}">
       <span class="coll-mark">${done ? '✓' : '✗'}</span>
-      <span class="coll-name">${esc(name)}</span>
+      <span class="coll-name">${renderStoryIdentityInline(ctx, 'entry', name)}</span>
       <span class="coll-meta">${entry.activation.kind === 'random' ? `w${entry.activation.weight}` : '好感／角色阶段'}</span>
       ${done ? `<span class="coll-count">×${info!.count}</span>` : '<span class="coll-count coll-new">未收集</span>'}
     </div>`;

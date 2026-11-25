@@ -96,7 +96,7 @@ describe('StoryDef inspector pages and flag drops', () => {
     expect(summary.title).toContain('将本 Story 的节点拖到此处');
     expect(item.textContent).not.toContain('将本 Story 的节点拖到此处');
     const provider = item.querySelector<HTMLButtonElement>('[data-story-flag-role="providers"] [data-story-flag-node="writer"]')!;
-    expect(provider.textContent).toBe('writer');
+    expect(provider.querySelector('[data-story-target-kind="story"] code')?.textContent).toBe('writer');
     expect(provider.title).toContain('$.nodes[0].action');
     expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).toContain('writer');
     expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('remove');

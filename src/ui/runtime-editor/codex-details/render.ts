@@ -1,6 +1,7 @@
 import { buildFieldTree, formatInspectorScalar, inspectorTypeLabel, type InspectorFieldNode } from './field-tree';
 import { collectSemanticSummaries } from './semantic';
 import { codexKindLabel } from '../codex/content-labels';
+import { renderStoryIdentityInline, storyIdentityKindForTable } from '../../components/story/story-identity';
 import type {
   DefinitionInspectorViewModel,
   InspectorDefinitionTarget,
@@ -120,8 +121,12 @@ function renderReferenceTarget(
   reference?: InspectorReference,
   direction?: ReferenceDirection,
 ): string {
-  const identity = '<span>' + esc(codexKindLabel(target.definitionKind)) + '</span><code>' + esc(target.fullId) + '</code>'
-    + (target.label ? '<span>' + esc(target.label) + '</span>' : '');
+  const storyKind = storyIdentityKindForTable(target.definitionKind);
+  const identity = storyKind
+    ? renderStoryIdentityInline({ escapeHtml: esc }, storyKind, target.label || target.fullId, target.fullId)
+      + '<small>' + esc(codexKindLabel(target.definitionKind)) + '</small>'
+    : '<span>' + esc(codexKindLabel(target.definitionKind)) + '</span><code>' + esc(target.fullId) + '</code>'
+      + (target.label ? '<span>' + esc(target.label) + '</span>' : '');
   if (!interactive || !target.entryKey) return identity;
   const location = reference && direction ? renderReferenceLocation(reference, direction, target) : undefined;
   const locationAttribute = location ? ' data-codex-reference-location=\"' + esc(location) + '\"' : '';

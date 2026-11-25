@@ -117,7 +117,7 @@ function stateEffectSummary(ctx: UIContext, effect: StoryStateAction): string {
   }
 }
 
-function operationSummary(ctx: UIContext, action: StoryAction | undefined): string {
+function operationSummary(ctx: UIContext, action: Exclude<StoryAction, { kind: 'entryRequest' }> | undefined): string {
   if (!action) return '尚未配置行为';
   const registry = ctx.game.registry;
   switch (action.kind) {
@@ -134,13 +134,6 @@ function operationSummary(ctx: UIContext, action: StoryAction | undefined): stri
     }
     case 'travel':
       return `前往区域：${referenceLabel(registry.areas.values(), action.areaId, item => item.id, item => item.name)}`;
-    case 'entryRequest': {
-      const request = action.request;
-      if (!request) return '请求剧情入口';
-      const entry = referenceLabel(registry.storyEntries.values(), request.entryId, item => item.id,
-        item => item.openingTitle || registry.stories.get(item.storyId)?.name);
-      return `请求${request.entryType === 'active' ? '主动' : '被动'}剧情：${entry}`;
-    }
     case 'overlay': {
       const command = action.command;
       if (!command) return '执行覆盖层演出';
@@ -167,13 +160,17 @@ function operationSummary(ctx: UIContext, action: StoryAction | undefined): stri
 }
 
 function renderOperationPreview(ctx: UIContext, action: StoryAction | undefined): string {
+  if (action?.kind === 'entryRequest') {
+    const type = action.request?.entryType === 'active' ? '主动' : action.request?.entryType === 'passive' ? '被动' : '';
+    return `<div class="story-editor-action-node"><span>请求${type}入口</span></div>`;
+  }
   return `<div class="chat-current story-editor-operation-preview">${renderChatEntry(ctx, { kind: 'system', text: operationSummary(ctx, action) })}</div>`;
 }
 
 export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: StoryDraftNode): string {
   const draft = currentDraft(state)!;
   let body: string;
-  let entryTarget = '';
+  let targetEntryId: string | undefined;
   if (node.type === 'talklet') {
     const talklet = node as Partial<Extract<StoryDraftNode, { type: 'talklet' }>>;
     const content = talklet.content;
@@ -186,20 +183,21 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
   } else if (node.type === 'click') {
     const click = node as Partial<Extract<StoryDraftNode, { type: 'click' }>>;
     const legacyTargets = [...new Set([...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].flatMap(entry => entry.kizuna ? [entry.kizuna.entryId] : []))];
-    const targetId = click.interaction?.kind === 'entryCard' ? click.interaction.card?.request?.entryId ?? ''
+    targetEntryId = click.interaction?.kind === 'entryCard' ? click.interaction.card?.request?.entryId ?? ''
       : click.interaction?.kind === 'kizunaCard' ? legacyTargets.length === 1 ? legacyTargets[0] : '' : undefined;
-    if (targetId !== undefined) {
-      const entry = storyEntries(state, ctx.game.registry.storyEntries).get(targetId);
-      const label = entry ? entryName(ctx, state, entry) : targetId || '未配置 Entry';
-      entryTarget = renderStoryEditorTarget(ctx, 'entry', targetId, label, Boolean(entry), { gradient: entry?.cardGradient });
-    }
     const choice = click.interaction?.kind === 'choice' ? click.interaction : undefined;
     body = renderStoryClickPreview(ctx, click.interaction, choice ? {
       choiceOptionAddon: (option, index) => renderChoiceOptionFlags(ctx, state, node.id, index, option.id, choice.options?.[index]),
     } : {});
     body=renderStoryClickAppearance(body,storyNodeDisplay(node));
   } else {
-    if (node.type === 'operation') body = renderOperationPreview(ctx, node.action);
+    if (node.type === 'operation') {
+      body = renderOperationPreview(ctx, node.action);
+      if (node.action?.kind === 'entryRequest') targetEntryId = node.action.request?.entryId ?? '';
+      if (node.action?.kind === 'overlay' && node.action.command?.command === 'show' && node.action.command.content?.kind === 'entryCard') {
+        targetEntryId = node.action.command.content.card?.request?.entryId ?? '';
+      }
+    }
     else if (node.type === 'transfer') {
       body = renderStoryTransfer(ctx, state, node.transfer);
     } else {
@@ -208,6 +206,9 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
         : { type: 'chara', characterId: node.characterId ?? '' });
     }
   }
+  const entry = targetEntryId === undefined ? undefined : storyEntries(state, ctx.game.registry.storyEntries).get(targetEntryId);
+  const entryTarget = targetEntryId === undefined ? '' : renderStoryEditorTarget(ctx, 'entry', targetEntryId,
+    entry ? entryName(ctx, state, entry) : '', Boolean(entry), { gradient: entry?.cardGradient });
   const flagRecord = node.requiresFlag ? renderFlowFlag(ctx, state, node.requiresFlag, 'read', 'story-editor-flag-reader-record') : '';
   const editing = state.performanceEditing?.[draft.draftId]?.includes(node.id) ?? false;
   const performanceToggle = hasStoryNodeOverlay(node) ? `<button type="button" class="mini-action story-editor-performance-toggle${editing ? ' is-active' : ''}" data-story-performance-toggle="${ctx.escapeHtml(node.id)}" data-editor-key="performance-toggle:${ctx.escapeHtml(node.id)}" aria-pressed="${editing}" title="${editing ? '结束此节点的演出编辑' : '在聊天窗格中编辑演出位置'}"${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>${editing ? '结束演出' : '演出'}</button>` : '';

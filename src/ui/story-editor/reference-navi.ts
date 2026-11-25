@@ -2,6 +2,7 @@ import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
 import type { StoryEditorTarget } from './model';
 import { openStoryReferencePicker, type ConditionReferenceRow } from '../components/shared/condition-reference-picker';
+import { renderStoryIdentityPreview, type StoryIdentity } from '../components/story/story-identity';
 
 export type ReferenceField = HTMLInputElement | HTMLSelectElement;
 
@@ -16,7 +17,8 @@ export function referenceTarget(field: ReferenceField): StoryEditorTarget | unde
 }
 
 /** Decorate the next render before keyed reconciliation, keeping the original field as the write entry. */
-export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: StoryEditorTarget) => boolean): void {
+export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: StoryEditorTarget) => boolean,
+  preview?: { ctx: UIContext; resolve(target: StoryEditorTarget): StoryIdentity | undefined }): void {
   for (const field of root.querySelectorAll<ReferenceField>('[data-story-reference]')) {
     if (field.closest('[data-reference-control]')) continue;
     const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
@@ -26,14 +28,25 @@ export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: Story
     button.dataset.referenceNavi = ''; button.textContent = '选择…'; button.title = `打开${label} Navi`;
     button.setAttribute('aria-label', `选择${label}`); button.disabled = field.disabled || field instanceof HTMLInputElement && field.readOnly;
     field.before(row); row.append(field, button);
-    if (referenceTargetKind(field.dataset.storyReference)) {
-      const target = referenceTarget(field);
+    const kind = referenceTargetKind(field.dataset.storyReference);
+    if (kind) {
+      if (!field.hasAttribute('aria-label') && !field.hasAttribute('aria-labelledby')) field.setAttribute('aria-label', label);
+      const value = field instanceof HTMLSelectElement ? field.querySelector<HTMLOptionElement>('option[selected]')?.value ?? field.value : field.value;
+      const target = value ? { kind, id: value } : undefined;
       const jump = document.createElement('button');
       jump.type = 'button'; jump.className = 'mini-action'; jump.dataset.referenceJump = '';
       jump.textContent = '前往'; jump.setAttribute('aria-label', `前往${label}`);
       jump.disabled = !target || !hasTarget(target);
       jump.title = target ? jump.disabled ? `当前来源中找不到 ${target.id}` : `前往${label} · ${target.id}` : '尚未设置目标';
       row.append(jump);
+      // The Transfer inspector already renders the same target next to its fields.
+      if (target && preview && field.dataset.storyPropertyPath !== '["transfer","storyId"]') {
+        const identity = preview.resolve(target);
+        if (identity) {
+          row.insertAdjacentHTML('afterend', renderStoryIdentityPreview(preview.ctx, identity));
+          (row.nextElementSibling as HTMLElement).dataset.editorKey = `${row.dataset.editorKey}:preview`;
+        }
+      }
     }
   }
 }
@@ -55,9 +68,9 @@ export function openReferenceNavi(modal: ModalManager, ctx: UIContext, field: Re
   const rows = referenceChoices(field), kind = field.dataset.storyReference;
   const targetKind = referenceTargetKind(kind);
   const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
-  if (kind === 'story' && options.storyRows) {
+  if (targetKind && options.storyRows) {
     openStoryReferencePicker(modal, ctx, label, options.storyRows, field.value, options.select, {
-      close: options.close, navigate: id => options.navigate({ kind: 'story', id }),
+      close: options.close, navigate: id => options.navigate({ kind: targetKind, id }),
     });
     return;
   }

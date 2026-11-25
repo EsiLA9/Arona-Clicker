@@ -373,3 +373,75 @@
   max-height: 220px;
   object-fit: contain;
 }
+
+[data-story-target-kind="story"] { --story-card-icon: url('../story-editor/book.svg'); }
+[data-story-target-kind="entry"] { --story-card-icon: url('../story-editor/clapperboard.svg'); }
+.story-editor-tree-row[data-story-target-kind] .story-editor-tree-name,
+.story-identity-inline > strong,
+.story-identity-card > strong {
+  font-family: '方正兰亭圆简体_中', '方正兰亭圆简体', Manrope, sans-serif;
+  font-weight: 600;
+}
+.story-identity-inline::before,
+.yuzu-kizuna-header[data-story-target-kind]::before,
+.story-editor-tree-row[data-story-target-kind]::before {
+  content: '';
+  flex: 0 0 13px;
+  height: 13px;
+  background: currentColor;
+  mask: var(--story-card-icon) center / contain no-repeat;
+}
+.story-identity-card {
+  --story-card-icon-size: 20px;
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  min-width: 0;
+  gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 12px 6px;
+  background: linear-gradient(var(--story-card-scrim), var(--story-card-scrim)),
+    linear-gradient(105deg, var(--story-card-default-start), var(--story-card-default-end));
+  color: var(--story-card-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.story-identity-card::before {
+  content: '';
+  position: absolute;
+  inset: 4px 5px auto auto;
+  width: var(--story-card-icon-size);
+  height: var(--story-card-icon-size);
+  background: #fff;
+  mask: var(--story-card-icon) center / contain no-repeat;
+  pointer-events: none;
+}
+.story-identity-card > strong { padding-inline-end: var(--story-card-icon-size); }
+.story-identity-card > code {
+  font: 400 10px/1.35 'DM Mono', Consolas, ui-monospace, monospace;
+}
+.story-identity-inline {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+.story-identity-inline > strong { min-width: 0; }
+.story-identity-inline > code { font: 400 11px/1.35 'DM Mono', Consolas, ui-monospace, monospace; }
+.story-identity-preview > code { padding-inline-end: var(--story-card-icon-size); }
+.yuzu-kizuna-header[data-story-target-kind]::before {
+  display: inline-block;
+  width: 13px;
+  margin-inline-end: 5px;
+  vertical-align: middle;
+}
+.yuzu-kizuna-header[data-story-target-kind] .text {
+  font-family: '方正兰亭圆简体_中', '方正兰亭圆简体', Manrope, sans-serif;
+}

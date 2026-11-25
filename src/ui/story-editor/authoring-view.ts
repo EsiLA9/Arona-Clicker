@@ -12,6 +12,7 @@ import { isTrueConditionRoot } from './condition-tree-model';
 import { entryConditionField } from './condition-fields';
 import { storyReferenceOptions } from './property-options';
 import { renderStoryEditorTarget } from './target-view';
+import { renderStoryIdentityInline } from '../components/story/story-identity';
 import type { Condition, ConditionGroup } from '../../engine/types/expression';
 
 export function renderPublicDescriptionField(ctx: UIContext, draft: StoryDraft, scope: '$document' | '$authoring',
@@ -263,13 +264,15 @@ export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorStat
   const targets = (catalog?.entries ?? []).filter(x => x.editingMode === 'editing');
   const targetPackId = draft.targetPackId ?? state.targetPackId;
   const { entries, entryId } = storyPreviewEntries(state, draft, ctx.game.registry.storyEntries);
+  const previewEntry = entries.find(entry => entry.id === entryId);
   return `<section class="story-editor-authoring" data-editor-key="story-authoring:${e(draft.draftId)}">
     <section class="story-editor-tool-section">
       <h3>试播</h3>
       <div class="story-editor-actions story-editor-actions--tools">
-        ${entries.length ? `<label class="story-editor-property">试播入口<select data-editor-key="preview-entry:${e(draft.draftId)}" data-authoring-preview-entry><option value=""${entryId === '' ? ' selected' : ''}>直接试播正文</option>${entries.map(entry => `<option value="${e(entry.id)}"${entry.id === entryId ? ' selected' : ''}>${e(entry.openingTitle || entry.id)}</option>`).join('')}</select></label>` : ''}
+        ${entries.length ? `<label class="story-editor-property">试播入口<select data-editor-key="preview-entry:${e(draft.draftId)}" data-authoring-preview-entry><option value=""${entryId === '' ? ' selected' : ''}>直接试播正文</option>${entries.map(entry => `<option value="${e(entry.id)}"${entry.id === entryId ? ' selected' : ''}>${e(entry.openingTitle || draft.document.name || entry.id)}</option>`).join('')}</select></label>` : ''}
         <button type="button" class="mini-action" data-authoring-action="preview" data-editor-key="tools-preview">试播</button>
       </div>
+      ${previewEntry ? renderStoryIdentityInline(ctx, 'entry', previewEntry.openingTitle || draft.document.name || previewEntry.id, previewEntry.id) : ''}
       <p class="story-editor-hint">${entryId ? '使用所选入口试播，会检查入口资格与重读分支条件。' : '从当前正文开始。'} 试播决定只在本次播放中生效。</p>
     </section>
     <section class="story-editor-tool-section">

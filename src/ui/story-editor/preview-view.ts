@@ -11,6 +11,7 @@ import { buildBackgroundView, renderBackground } from '../presentation/backgroun
 import { describeConditionLeaf } from '../presentation/condition-presentation';
 import type { UIContext } from '../runtime/context';
 import type { StoryEditorState } from './model';
+import { renderStoryIdentityInline } from '../components/story/story-identity';
 
 const decisionLabels: Record<StoryPreviewDecision, string> = {
   actual: '按真实结果', pass: '本次视为满足', fail: '本次视为不满足',
@@ -143,8 +144,8 @@ export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState)
   const history = decisions.history;
   return { id: 'story-editor', updates: 'external', columns: [
     {
-      ...column('left', '试播路线', `<div class="story-preview-side"><div class="story-preview-entry"><strong>${e(decisions.entryTitle)}</strong>${decisions.directStory ? '<small>直接试播正文</small>' : `<code>${e(decisions.entryId)}</code>`}</div>
-        <ol class="story-preview-route">${route.map((item, index) => `<li data-editor-key="route:${index}"${item === current ? ' aria-current="step"' : ''}><small>${routeLabels[item.kind]}</small><strong>${e(item.title)}</strong><code>${e(item.storyId)}</code></li>`).join('')}</ol></div>`),
+      ...column('left', '试播路线', `<div class="story-preview-side"><div class="story-preview-entry">${renderStoryIdentityInline(ctx, decisions.directStory ? 'story' : 'entry', decisions.entryTitle, decisions.directStory ? route[0]?.storyId : decisions.entryId)}${decisions.directStory ? '<small>直接试播正文</small>' : ''}</div>
+        <ol class="story-preview-route">${route.map((item, index) => `<li data-editor-key="route:${index}"${item === current ? ' aria-current="step"' : ''}><small>${routeLabels[item.kind]}</small>${renderStoryIdentityInline(ctx, 'story', item.title, item.storyId)}</li>`).join('')}</ol></div>`),
       footer: '<div class="story-editor-actions story-editor-actions--tools story-preview-route-actions" role="group" aria-label="试播操作"><button type="button" class="mini-action" data-authoring-action="restart-preview">从头试播</button><button type="button" class="mini-action" data-authoring-action="close-preview">关闭试播</button></div>',
     },
     { ...column('center', sceneName || '试播正文', visual), footer: `<div class="story-preview-footer"><p role="status">${e(notice || (pending ? '等待条件决定' : playback ? phaseLabels[playback.phase] : '等待开播'))}</p>${controls}</div>` },

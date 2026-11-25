@@ -3,6 +3,7 @@ import type { StoryEntryCatalog, StoryEntryDef } from '../../data-services/contr
 import { STORY_CATALOG_ORDER_STEP, UNGROUPED_STORY_CHAPTER_ID, withAuthoredStoryCatalog } from '../columns/authored-story-catalog';
 import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
+import { renderStoryIdentityInline } from '../components/story/story-identity';
 import { patchEditorDOM } from './dom';
 import { openStoryEditorDialog } from './editor-dialog';
 import { readStructuredInput } from './structured-value';
@@ -129,7 +130,7 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
         if (contains(folder.trail) || contains(folder.id)) results.push(folderButton(folder, escape(folder.trail)));
         for (const { row, title } of items(folder)) {
           if ([title, row.id, row.storyId, options.storyName(row.storyId) ?? ''].some(contains)) {
-            results.push(folderButton(folder, `<strong>${escape(title)}</strong><small>${escape(folder.trail)} · ${escape(row.id)}</small>`));
+            results.push(folderButton(folder, `${renderStoryIdentityInline(ctx, 'entry', title, row.id)}<small>${escape(folder.trail)}</small>`));
           }
         }
       }
@@ -164,7 +165,7 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
         ${siblings.some(item => item.canEdit) ? `<p class="story-editor-hint">${filter ? '查看全部目录时可拖动排序。' : '拖动条目调整顺序。顺序值留空时使用自动值。'}</p>` : ''}
         ${siblings.length ? `<ul class="story-catalog-siblings">${siblings.map(({ row, title, explicit, effective, canEdit }) => `<li data-editor-key="catalog-entry:${escape(row.id)}" data-catalog-row="${escape(row.id)}">
           ${canEdit && !filter ? '<span data-catalog-drag draggable="true" title="拖动排序">⠿</span>' : ''}
-          <div><strong>${escape(title)}${row.id === entry.id ? '（当前 Entry）' : ''}</strong><small>${escape(scope(row))} · ${explicit === undefined ? '自动 ' : '顺序 '}${effective}${canEdit ? '' : ' · 只读'}</small></div>
+          <div>${renderStoryIdentityInline(ctx, 'entry', title, row.id)}<small>${row.id === entry.id ? '当前入口 · ' : ''}${escape(scope(row))} · ${explicit === undefined ? '自动 ' : '顺序 '}${effective}${canEdit ? '' : ' · 只读'}</small></div>
           ${canEdit && row.id !== entry.id ? `<label>顺序<input data-catalog-peer-order="${escape(row.id)}" value="${escape(orderInputs.get(row.id) ?? String(explicit ?? ''))}" inputmode="decimal" placeholder="自动"></label>` : ''}
         </li>`).join('')}</ul>` : '<p>当前筛选下无同级条目。</p>'}` : ''}
       <div class="story-editor-actions"><button type="button" class="mini-action" data-catalog-root>回到目录根</button>

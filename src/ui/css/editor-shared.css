@@ -53,6 +53,7 @@ button[aria-busy="true"] { cursor: wait; }
 .condition-reference-results > label { display: flex; flex-direction: column; gap: 6px; }
 .condition-reference-cards { display: flex; flex-wrap: wrap; align-content: start; gap: 8px; overflow: auto; }
 .condition-reference-cards > .condition-reference-card { flex: 1 1 145px; width: auto; overflow-wrap: anywhere; }
+.condition-reference-card .story-identity-inline > code { flex-basis: 100%; }
 .condition-reference-picker :is(.condition-reference-card, .condition-reference-detail) > code {
    font: 400 11px/1.45 'DM Mono', Consolas, ui-monospace, 'Lucida Console', 'Courier New', monospace;
    overflow-wrap: anywhere;

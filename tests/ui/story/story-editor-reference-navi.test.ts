@@ -91,6 +91,26 @@ describe('Story content reference Navi', () => {
     expect(ctrl.storyEditor.beforeLeave()).toBe(true); expect(ctrl.modal.isOpen()).toBe(false);
   });
 
+  it('uses the same Entry identity in the picker, the selected field and the flow', () => {
+    draft.document.nodes.push({ id: 'request', type: 'operation',
+      action: { kind: 'entryRequest', request: { entryId: '', entryType: 'active', owner: null, intent: 'ordinary' } } });
+    refresh();
+    selectNode('request');
+    const field = property(['action', 'request', 'entryId']);
+    const id = 'local:activestory:navi';
+    open(field);
+    const candidate = find<HTMLButtonElement>(`[data-condition-picker-choice="${id}"]`);
+    expect(candidate.querySelector('[data-story-target-kind="entry"] strong')?.textContent).toBe('未应用的目标故事');
+    candidate.click();
+    expect(find('.condition-reference-detail .story-identity-card code').textContent).toBe(id);
+    expect(field.value).toBe('');
+    choose(id);
+    expect(draft.document.nodes.find(node => node.id === 'request')).toMatchObject({ action: { request: { entryId: id } } });
+    expect(field.value).toBe(id);
+    expect(find(`.story-editor-right .story-identity-preview[data-story-target-id="${id}"] strong`).textContent).toBe('未应用的目标故事');
+    expect(find(`[data-editor-node="request"] [data-editor-entry-target="${id}"] code`).textContent).toBe(id);
+  });
+
   it('updates draft grouping, filters the Story directory, and preserves the optional value through saves', () => {
     const init = [...game.registry.inits.values()][0];
     const grouping = find<HTMLSelectElement>('[data-editor-field="story-init"]');
@@ -135,7 +155,8 @@ describe('Story content reference Navi', () => {
     bindRuntimeDatapackEditorActions(ctrl, scope);
     find<HTMLButtonElement>('[data-runtime-story-reference="startStoryId"]').click();
     find<HTMLButtonElement>(`[data-condition-picker-filter="${initId}"]`).click();
-    expect(find(`[data-condition-picker-choice="${entry.id}"] strong`).textContent).toContain('主动入口');
+    expect(find(`[data-condition-picker-choice="${entry.id}"] [data-story-target-kind]`).getAttribute('data-story-target-kind')).toBe('entry');
+    expect(find(`[data-condition-picker-choice="${entry.id}"] small`).textContent).toContain('主动入口');
     choose(entry.id);
     const field = find<HTMLSelectElement>('[data-runtime-editor-field="startStoryId"]');
     expect(field.value).toBe(entry.id);

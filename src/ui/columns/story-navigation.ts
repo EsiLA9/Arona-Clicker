@@ -2,6 +2,7 @@ import type { StoryDirectoryEntry, StoryDirectoryNode } from '../../arona-clicke
 import type { UIContext } from '../runtime/context';
 import { getStoryReveal } from '../components/tooltip/tooltip';
 import { renderStoryDescription, renderStoryDirectoryDetails } from '../components/story/story-directory-details';
+import { renderStoryIdentityInline } from '../components/story/story-identity';
 
 export function storyDirectoryTrail(roots: readonly StoryDirectoryNode[], path: readonly string[]): StoryDirectoryNode[] {
   const trail: StoryDirectoryNode[] = [];
@@ -56,7 +57,7 @@ function entryDetails(ctx: UIContext, row: StoryDirectoryEntry) {
 export function renderStoryDirectoryEntryDetails(ctx: UIContext, row: StoryDirectoryEntry, node?: StoryDirectoryNode): string {
   const details = entryDetails(ctx, row);
   const theme = node?.definition?.themeDesignId;
-  return `${renderStoryDirectoryDetails(ctx, { title: details.name, description: details.description,
+  return `${renderStoryDirectoryDetails(ctx, { title: details.name, description: details.description, identityKind: 'entry',
     theme: theme ? ctx.game.registry.themeDesigns.get(theme) : undefined })}<p>${ctx.escapeHtml(details.status)}</p>`;
 }
 
@@ -80,7 +81,7 @@ export function renderStoryNavigation(ctx: UIContext, path: string[], roots = ct
       ? `<button type="button" data-replay-story="${ctx.escapeHtml(row.id)}" class="story-trigger">重读</button>` : '';
     return `<div class="nav-item story-entry${running ? ' active' : ''}">
       <span class="nav-marker"></span><div class="story-entry-body">
-        <button type="button" class="story-name mini-action" data-story-directory-entry="${ctx.escapeHtml(row.id)}" aria-pressed="${selectedEntryId === row.id}">${ctx.escapeHtml(name)}</button>
+        <button type="button" class="story-name mini-action" data-story-directory-entry="${ctx.escapeHtml(row.id)}" aria-pressed="${selectedEntryId === row.id}">${renderStoryIdentityInline(ctx, 'entry', name)}</button>
         ${renderStoryDescription(ctx, description, true)}
         <small class="${running ? 'story-active' : 'story-done'}">${running ? '● 播放中' : status}</small>
         ${button}

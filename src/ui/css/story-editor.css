@@ -154,20 +154,6 @@
 .story-editor-tree-note[data-directory-origin="手动"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--lime)); }
 .story-editor-tree-note[data-directory-origin="路径"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--orange)); }
 .story-editor-tree-arrow { flex: 0 0 12px; text-align: center; }
-[data-story-target-kind="story"] { --story-card-icon: url('../story-editor/book.svg'); }
-[data-story-target-kind="entry"] { --story-card-icon: url('../story-editor/clapperboard.svg'); }
-.story-editor-tree-row[data-story-target-kind] .story-editor-tree-name,
-.story-editor-target-card[data-story-target-kind] > strong {
-  font-family: '方正兰亭圆简体_中', '方正兰亭圆简体', Manrope, sans-serif;
-  font-weight: 600;
-}
-.story-editor-tree-row[data-story-target-kind]::before {
-  content: '';
-  flex: 0 0 13px;
-  height: 13px;
-  background: currentColor;
-  mask: var(--story-card-icon) center / contain no-repeat;
-}
 .story-editor-tree-item { padding-inline-start: 14px; }
 .story-editor-tree-item small { margin-left: auto; color: var(--muted-on-panel); font-size: 11px; white-space: nowrap; }
 .story-hierarchy-status { display: grid; gap: 4px; margin: 0; font-size: 12px; }
@@ -388,40 +374,7 @@
   gap: 8px;
 }
 .has-target-card > .story-editor-performance-toggle { grid-column: 1 / -1; justify-self: end; }
-.story-editor-target-card[data-story-target-kind] {
-  --story-card-icon-size: 20px;
-  position: relative;
-  display: grid;
-  box-sizing: border-box;
-  min-width: 0;
-  gap: 2px;
-  padding: 5px 7px;
-  border: 1px solid transparent;
-  border-radius: 6px 6px 12px 6px;
-  background: linear-gradient(var(--story-card-scrim), var(--story-card-scrim)),
-    linear-gradient(105deg, var(--story-card-default-start), var(--story-card-default-end));
-  color: var(--story-card-ink);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.35;
-  text-align: start;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-.story-editor-target-card[data-story-target-kind]::before {
-  content: '';
-  position: absolute;
-  inset: 4px 5px auto auto;
-  width: var(--story-card-icon-size);
-  height: var(--story-card-icon-size);
-  background: #fff;
-  mask: var(--story-card-icon) center / contain no-repeat;
-  pointer-events: none;
-}
-.story-editor-target-card[data-story-target-kind] > strong { padding-inline-end: var(--story-card-icon-size); }
-.story-editor-target-card[data-story-target-kind] > code {
-  font: 400 10px/1.35 'DM Mono', Consolas, ui-monospace, monospace;
-}
+button.story-editor-target-card { cursor: pointer; }
 button.story-editor-target-card:hover:not(:disabled) { outline: 1px solid currentColor; outline-offset: 1px; }
 .story-editor-target-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .story-editor-target-card:disabled { border-color: #c9cdd4; background: #e8ebf0; color: #202836; cursor: default; }

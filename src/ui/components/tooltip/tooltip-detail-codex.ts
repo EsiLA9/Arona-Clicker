@@ -7,6 +7,7 @@ import type { PassiveStoryEntry } from '../../../data-services/contracts/story-e
 import type { PassivePoolDef } from '../../../data-services/contracts/passive-pool';
 import { UIContext } from '../../runtime/context';
 import { describeCondition } from './tooltip-enhancement';
+import { renderStoryIdentityInline } from '../story/story-identity';
 
 /** 被动闲聊池详情（收集图鉴悬停用）。 */
 export function renderPoolDetail(ctx: UIContext, pool: PassivePoolDef): string {
@@ -22,7 +23,7 @@ export function renderPoolDetail(ctx: UIContext, pool: PassivePoolDef): string {
     ...directEntries.map(entry => {
       const count = (ctx.game.state.storyLog ?? []).filter(s => s.storyId === entry.storyId).length;
       const done = count > 0;
-      return `<div class="info-row"><span>${ctx.escapeHtml(ctx.nameOf('story', entry.storyId))}</span><span class="${done ? 'info-accent' : 'info-dim'}">${done ? `已收集 ×${count}` : '未收集'} · w${(entry.activation.kind === 'random' ? entry.activation.weight : 0)}</span></div>`;
+      return `<div class="info-row">${renderStoryIdentityInline(ctx, 'entry', ctx.nameOf('story', entry.storyId))}<span class="${done ? 'info-accent' : 'info-dim'}">${done ? `已收集 ×${count}` : '未收集'} · w${(entry.activation.kind === 'random' ? entry.activation.weight : 0)}</span></div>`;
     }),
     ...subPoolIds.map(child => `<div class="info-row"><span>子池</span><span>${ctx.escapeHtml(ctx.nameOf('pool', child.id))}</span></div>`),
   ].join('');
@@ -56,10 +57,10 @@ export function renderPassiveEntryDetail(ctx: UIContext, entry: PassiveStoryEntr
 
   return `
     <div class="info-popover">
-      <div class="info-head"><span class="info-kind">PASSIVE</span><strong>${ctx.escapeHtml(ctx.nameOf('story', entry.storyId))}</strong></div>
+      <div class="info-head"><span class="info-kind">PASSIVE</span>${renderStoryIdentityInline(ctx, 'entry', ctx.nameOf('story', entry.storyId))}</div>
       <div class="info-sub">${done ? '已收集' : '未收集'}</div>
       <div class="info-row"><span>完成次数</span><span>${logs.length}</span></div>
-      ${entry.activation.kind === 'random' ? `<div class="info-row"><span>基础权重</span><span>${entry.activation.weight}（${entry.activation.repeatable ? '可重复触发' : '单次触发'}）</span></div>` : `<div class="info-row"><span>角色阶段</span><span>${entry.activation.when.kind === 'level' ? `好感等级 ${entry.activation.when.level}` : ctx.escapeHtml(ctx.nameOf('story', entry.activation.when.storyId))+' 完成后'}</span></div>`}
+      ${entry.activation.kind === 'random' ? `<div class="info-row"><span>基础权重</span><span>${entry.activation.weight}（${entry.activation.repeatable ? '可重复触发' : '单次触发'}）</span></div>` : `<div class="info-row"><span>角色阶段</span><span>${entry.activation.when.kind === 'level' ? `好感等级 ${entry.activation.when.level}` : renderStoryIdentityInline(ctx, 'story', ctx.nameOf('story', entry.activation.when.storyId)) + ' 完成后'}</span></div>`}
       <div class="info-row"><span>可用世界线</span><span>${ctx.escapeHtml(inits)}</span></div>
       <div class="info-row"><span>标签</span><span>${ctx.escapeHtml(tags)}</span></div>
       <div class="info-divider"></div>

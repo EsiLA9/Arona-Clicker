@@ -15,6 +15,7 @@ import {
 } from './helpers';
 import { codexKindGroup, codexKindLabel } from './content-labels';
 import { renderContentWorkspace } from './workspace';
+import { renderStoryIdentityInline, storyIdentityKindForTable } from '../../components/story/story-identity';
 import {
   getCodexVisibleEntries,
   getCodexVisibleKinds,
@@ -193,7 +194,10 @@ function renderEntryRow(
   const selected = state.selectedEntryKey === codexEntryKey(entry);
   const kind = view.kinds.find(candidate => candidate.definitionKind === entry.definitionKind);
   const mod = view.loadedMods.find(candidate => candidate.id === entry.modId);
-  return `<button type="button" class="runtime-editor-codex__entry${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" aria-posinset="${index + 1}" aria-setsize="${total}" data-codex-entry="${escapeCodexHtml(codexEntryKey(entry))}"><span class="runtime-editor-codex__entry-signal" aria-hidden="true"></span><span class="runtime-editor-codex__entry-copy"><strong>${escapeCodexHtml(entry.label || entry.fullId)}</strong><code>${escapeCodexHtml(entry.fullId)}</code><small>${escapeCodexHtml(kind?.label ?? entry.definitionKind)} · ${escapeCodexHtml(mod?.label ?? entry.modId)}</small>${entry.summary ? `<span>${escapeCodexHtml(entry.summary)}</span>` : ''}${renderCodexBadges(entry.badges)}</span><span class="runtime-editor-codex__chevron" aria-hidden="true">›</span></button>`;
+  const storyKind = storyIdentityKindForTable(entry.definitionKind);
+  const title = storyKind ? renderStoryIdentityInline({ escapeHtml: escapeCodexHtml }, storyKind, entry.label || entry.fullId)
+    : `<strong>${escapeCodexHtml(entry.label || entry.fullId)}</strong>`;
+  return `<button type="button" class="runtime-editor-codex__entry${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" aria-posinset="${index + 1}" aria-setsize="${total}" data-codex-entry="${escapeCodexHtml(codexEntryKey(entry))}"><span class="runtime-editor-codex__entry-signal" aria-hidden="true"></span><span class="runtime-editor-codex__entry-copy">${title}<code>${escapeCodexHtml(entry.fullId)}</code><small>${escapeCodexHtml(kind?.label ?? entry.definitionKind)} · ${escapeCodexHtml(mod?.label ?? entry.modId)}</small>${entry.summary ? `<span>${escapeCodexHtml(entry.summary)}</span>` : ''}${renderCodexBadges(entry.badges)}</span><span class="runtime-editor-codex__chevron" aria-hidden="true">›</span></button>`;
 }
 
 export function renderCodexDetailPane(

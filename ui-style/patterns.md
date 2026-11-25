@@ -136,7 +136,7 @@ Story 与 Entry 的目录管理右栏也可以直接填写层级路径。「层�
 
 单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
 
-Story 引用复用 `components/shared/condition-reference-picker.ts`。普通 Story 字段使用 ModalManager，触发条件仍在原弹窗内切页，运行内容编辑器使用其子弹窗栈。左侧世界线筛选源于正文 `initId`，缺省归「其他」；卡片和详情的 ID 采用 11px 的本地 DM Mono，并保留系统等宽回退与长 ID 换行。编辑器草稿覆盖同 ID 的正式候选。搜索保留控件焦点，确认按原字段写入，取消保持原值。Story 编辑器的 Story / Entry 引用行在「选择…」旁使用 `.mini-action` 提供「前往」，沿用浏览历史与工作区区域更新。只读时仍可前往当前来源中的有效目标，空值和缺失目标禁用。
+Story 与 StoryEntry 引用复用 `components/shared/condition-reference-picker.ts`，候选使用书本／场记板紧凑行，详情和已选目标使用共用的渐变卡。触发条件在原弹窗内切页，运行内容编辑器使用其子弹窗栈。世界线筛选按原有候选语义组织，编辑器草稿覆盖同 ID 的正式候选。确认回填原字段，取消保持原值，查看来源与前往采用工作区历史。只读字段仍可前往有效目标。试播路线、Flag 来源、目录及运行内容资料库复用身份图标、标题和间距。玩家目录与邀请沿用当前可见标题，不为身份展示增加数据 ID 或提前揭示名称。
 
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 
