@@ -481,7 +481,8 @@ describe('Story Editor workspace prototype', () => {
     ask(); answer('yes');
     expect(Object.values(parent.flagImports!)).toEqual([true]);
     expect(find('.story-editor-flag-catalog').textContent).toContain('child-private');
-    expect(find('.story-editor-flag-catalog').textContent).toContain('其他 Entry 内部');
+    const privateFlag = find<HTMLDetailsElement>('.story-editor-flag-item[data-story-flag-name="child-private"]');
+    expect(privateFlag.querySelector('summary')?.title).toContain('其他 Entry 内部');
     expect(find<HTMLInputElement>('[data-editor-field="name"]')).toBe(nameField);
     expect(find('.story-editor-right .workspace-column__body')).toBe(body);
     expect(body.scrollTop).toBe(114);
@@ -492,7 +493,8 @@ describe('Story Editor workspace prototype', () => {
     const saved = JSON.parse(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)!);
     expect(saved.drafts.find((draft: {draftId:string})=>draft.draftId===parent.draftId).flagImports).toEqual(parent.flagImports);
     expect(saved.drafts.find((draft: {draftId:string})=>draft.draftId===parent.draftId).document.flagImports).toBeUndefined();
-    find<HTMLButtonElement>(`[data-editor-story-target="${child.document.id}"][data-story-flag-node="secret"]`).click(); ctrl.flushUIUpdates();
+    find<HTMLDetailsElement>('.story-editor-flag-item[data-story-flag-name="child-private"]').querySelector('summary')!.click();
+    find<HTMLButtonElement>(`[data-story-flag-node="secret"] [data-editor-story-target="${child.document.id}"]`).click(); ctrl.flushUIUpdates();
     expect(currentDraft(state)).toBe(child); expect(state.selectedNodeId).toBe('secret');
     click('history-back'); expect(currentDraft(state)).toBe(parent);
     ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates(); expect(ctrl.modal.isOpen()).toBe(false);

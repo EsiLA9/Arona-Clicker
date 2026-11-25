@@ -82,7 +82,7 @@ describe('local flag Navi',()=>{
     expect(internal.disabled).toBe(true);internal.click();expect(ctrl.modal.isOpen()).toBe(true);ctrl.modal.close();
     selectNode('card');
     const path=JSON.stringify(['interaction','card','continuation','returnFlags',0]);
-    const input=[...root.querySelectorAll<HTMLInputElement>('[data-value-input]')].find(input=>input.dataset.valuePath===path)!;
+    const input=[...root.querySelectorAll<HTMLInputElement>('[data-story-property-path]')].find(input=>input.dataset.storyPropertyPath===path)!;
     expect(input).toBeDefined();open(input);choose('child-secret');
     expect(draft.document.nodes.at(-1)).toMatchObject({interaction:{card:{continuation:{returnFlags:['child-secret']}}}});
   });

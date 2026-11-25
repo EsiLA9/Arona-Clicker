@@ -4,9 +4,12 @@ import type { StoryDef } from '../../data-services/contracts/story';
 import { emptyStoryAuthoring, STORY_AUTHORING_TABLES } from '../../data-services/authoring/story-authoring';
 import { planStoryIdentityChange, replaceStoryIdentityReferences, storyIdentityReferences } from '../../data-services/authoring/story-identity';
 import { cloneStory, storyDefinitionFromDraft, type StoryDraft, type StoryEditorState } from './model';
+import { isLoadedStoryPack } from './pack-source';
 
 export function storyEditingMods(game: object) {
-  return ((game as Partial<PackCatalogReadModel>).getPackCatalog?.().entries ?? []).filter(pack=>pack.editingMode==='editing');
+  const query = game as Partial<PackCatalogReadModel>;
+  return (query.getPackCatalog?.().entries ?? []).filter(pack => pack.editingMode === 'editing'
+    && (!query.getRunningStoryPackId || isLoadedStoryPack(query, pack)));
 }
 export function knownModStoryIds(game: object, mod: string): string[] {
   const query=game as Partial<PackCatalogReadModel>;
@@ -16,7 +19,7 @@ export function knownModStoryIds(game: object, mod: string): string[] {
 export function storyEditingMod(game: object, id: string) {
   const entry = storyEditingMods(game).find(pack=>(pack.packRecordId ?? pack.id)===id);
   const record = (game as Partial<PackCatalogReadModel>).getPackRecord?.(id);
-  if (!entry || !record || record.editingMode !== 'editing' || record.manifest.modName !== record.datapack.modName) throw new Error('请选择仍可编辑的 Mod。');
+  if (!entry || !record || record.editingMode !== 'editing' || record.manifest.modName !== record.datapack.modName) throw new Error('请选择当前已载入的编辑态 Mod。');
   return {entry,record};
 }
 

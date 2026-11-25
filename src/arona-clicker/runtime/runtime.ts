@@ -55,6 +55,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
   private activeDatapacks: readonly Datapack[] = [];
   private readonly storyOverlaySources = new WeakMap<Datapack, string | undefined>();
+  private readonly loadedStoryPackMetadata = new WeakMap<Datapack, Pick<StoredPack, 'manifest' | 'images'>>();
   private runtimeMod: RuntimeModDraft | null = null;
   private runtimeEditorPackRecordId: string | null = null;
   private readonly runtimeContent: RuntimeContentCoordinator;
@@ -126,6 +127,13 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.activeDatapacks = [...datapacks];
     super.init(datapacks, options);
     this.packManager.adoptRuntimeDatapacks(datapacks, retained);
+    const packsByContent = new Map(this.packManager.listPacks().map(pack => [pack.datapack, pack]));
+    for (const datapack of datapacks) {
+      if (this.loadedStoryPackMetadata.has(datapack)) continue;
+      const recordId = this.getRunningStoryPackId(datapack.modName ?? 'base');
+      const record = packsByContent.get(datapack) ?? (recordId ? this.packManager.getPack(recordId) : undefined);
+      if (record) this.loadedStoryPackMetadata.set(datapack, { manifest: record.manifest, images: record.images });
+    }
     this.runtimeWorldContent.reset();
     this.clearRuntimeAreaTopology();
   }
@@ -309,8 +317,18 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   private resolveStoryPackSources(source: StoryPackSource) {
-    const root = this.packManager.getPack(source.packRecordId);
-    const modName = root?.manifest.modName ?? source.modName;
+    const root = this.activeDatapacks.find(pack => (pack.modName ?? 'base') === source.modName);
+    if (!root || this.getRunningStoryPackId(source.modName) !== source.packRecordId) {
+      return { datapacks: [], issues: [`来源 Mod「${source.modName}」当前未载入，请先在数据包管理中应用所需版本。`], images: [] };
+    }
+    const metadata = this.loadedStoryPackMetadata.get(root);
+    const content = this.resolveLoadedStoryDependencies(source.modName, metadata?.manifest.dependencies ?? source.dependencies);
+    content.datapacks.push(root);
+    if (metadata) content.images.push(metadata);
+    return content;
+  }
+
+  private resolveLoadedStoryDependencies(modName: string, dependencies: readonly string[]) {
     const issues: string[] = [];
     const datapacks: Datapack[] = [];
     const images: Pick<StoredPack, 'manifest' | 'images'>[] = [];
@@ -319,24 +337,17 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       if (visited.has(name)) return;
       visited.add(name);
       const active = this.activeDatapacks.find(pack => (pack.modName ?? 'base') === name);
-      const candidates = this.packManager.listPacks().filter(pack => pack.manifest.modName === name);
-      const selected = active
-        ? candidates.find(pack => pack.id === this.getRunningStoryPackId(name))
-        : candidates.length === 1 ? candidates[0] : undefined;
-      if (!active && !selected) {
-        issues.push(candidates.length ? `依赖 Mod「${name}」有多个本地来源，请先应用所需版本。` : `缺少依赖 Mod「${name}」。`);
+      if (!active) {
+        issues.push(`依赖 Mod「${name}」当前未载入，请先在数据包管理中应用。`);
         return;
       }
+      const selected = this.loadedStoryPackMetadata.get(active);
       for (const dependency of selected?.manifest.dependencies ?? []) visit(dependency);
-      datapacks.push(active ?? selected!.datapack);
-      if (selected) images.push({ manifest: selected.manifest, images: selected.images });
+      datapacks.push(active);
+      if (selected) images.push(selected);
     };
     visit('base');
-    for (const dependency of root?.manifest.dependencies ?? source.dependencies) visit(dependency);
-    if (root) {
-      datapacks.push(root.datapack);
-      images.push({ manifest: root.manifest, images: root.images });
-    }
+    for (const dependency of dependencies) visit(dependency);
     return { datapacks, issues, images };
   }
 
@@ -774,9 +785,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   private validateStoryPackCandidate(pack: StoredPack, datapack: Datapack, patch?: StoryAuthoringPatch): void {
-    const { datapacks, issues } = this.resolveStoryPackSources({
-      packRecordId: pack.id, modName: pack.manifest.modName, dependencies: pack.manifest.dependencies,
-    });
+    const { datapacks, issues } = this.resolveLoadedStoryDependencies(pack.manifest.modName, pack.manifest.dependencies);
     if (issues.length) throw new Error(issues.join(' '));
     const registry = this.validatePackDatapacks(replaceRuntimeDatapack(datapacks, datapack));
     if (patch) {

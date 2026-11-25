@@ -20,6 +20,7 @@ export function patchEditorDOM(current: HTMLElement, next: HTMLElement, beforeRe
     if (!next.hasAttribute(attribute.name)) current.removeAttribute(attribute.name);
   }
   for (const attribute of [...next.attributes]) if (current.getAttribute(attribute.name) !== attribute.value) current.setAttribute(attribute.name, attribute.value);
+  if (current.hasAttribute('data-story-flag-rename-slot') && next.hasAttribute('data-story-flag-rename-slot') && current.querySelector('form')) return;
   // The browser owns the active text subtree, including its selection and IME composition.
   if (current.hasAttribute('data-story-inline-active') && next.hasAttribute('data-story-inline-active')
     && current.dataset.storyInlineKey === next.dataset.storyInlineKey) return;

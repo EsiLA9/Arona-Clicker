@@ -22,7 +22,7 @@ import { openReferenceNavi, prepareReferenceNavi, referenceChoices, referenceTar
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
 import { ENTRY_FIELD_SEEDS } from './authoring-view';
 import { buildStoryRelations } from './relations-model';
-import { buildStoryFlagCatalog, flagImportKey, storyFlagNames } from './flag-catalog';
+import { buildStoryFlagCatalog, flagImportKey, renameStoryCatalogFlag, storyFlagNames, storyFlagRenameUses } from './flag-catalog';
 import { openLocalFlagNavi } from './local-flag-navi';
 import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
 import { StoryInlineTextEditor } from './inline-text';
@@ -41,7 +41,7 @@ import { ImageStore } from '../../data-services/assets/image-store';
 import { PicService } from '../../data-services/assets/pic-service';
 import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/contracts/runtime/runtime';
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
-import { storyPackCatalog, storyPackSource, storySourceGame } from './pack-source';
+import { isLoadedStoryPack, storyPackCatalog, storyPackSource, storySourceGame } from './pack-source';
 import { createStoryEditorFrame, createStoryEditorListColumn, storySenders } from './view';
 import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch } from './sidebar-tree';
 import { StoryEditorTheme } from './theme';
@@ -49,7 +49,7 @@ import { storyEditorSceneTarget } from './scene-view';
 import { patchEditorDOM } from './dom';
 import { hasStoryNodeOverlay } from './property-fields';
 import { addRow, editProperty, editStoryNodeBody, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
-import type { Discriminator, LiteralKind, PropertyPath } from './property-model';
+import type { Discriminator, PropertyPath } from './property-model';
 
 const DISCRIMINATORS: readonly string[] = ['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type', 'entityKind'];
 const STORY_EDITOR_DRAG_TYPE = 'application/x-acprogram-story-editor';
@@ -106,6 +106,12 @@ function storyFlagBindingDrop(target: Element | null, item: StoryEditorDragItem)
 function clearStoryFlagDropStates(flow: HTMLElement): void {
   for (const element of flow.querySelectorAll<HTMLElement>('[data-story-flag-drop-status]')) delete element.dataset.storyFlagDropStatus;
 }
+
+function flagTableDropTarget(target: EventTarget | null): HTMLElement | null {
+  return target instanceof Element && !target.closest('.story-editor-flag-details')
+    ? target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]')
+    : null;
+}
 function highlightStoryDropAnchor(flow: HTMLElement, beforeNodeId: string | null): void {
   for (const slot of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="insertion-point"]')) {
     const active = beforeNodeId === null ? slot.hasAttribute('data-story-insertion-end') : slot.dataset.storyInsertionBefore === beforeNodeId;
@@ -156,7 +162,7 @@ export class StoryEditorController {
   private overlayDrag?: { pointerId: number; draftId: string; nodeId: string; path: PropertyPath; overlay: HTMLElement; canvas: HTMLElement; pixels: boolean; x: number; y: number; baseX: number; baseY: number; offsetX: number; offsetY: number };
   private returnState?: { location: WorkspaceLocation; navigation?: WorkspaceNavigationState; workspace: PanelState['workspace']; mapEntrySource: PanelState['mapEntrySource']; init: string | null };
   private revealNodeId: string | null = null;
-  private pendingFlagReveal?: { storyId: string; nodeId: string; name: string; role: 'providers' | 'readers' };
+  private pendingFlagReveal?: { storyId: string; name: string; kind: string; renamed?: { scope: string; open: boolean } };
   private focusName = false;
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
@@ -197,7 +203,8 @@ export class StoryEditorController {
   }
 
   private packSource(id: string): StoryDraft['packSource'] {
-    const entry = this.packQuery.getPackCatalog?.().entries.find(pack => (pack.packRecordId ?? pack.id) === id);
+    const query = this.packQuery;
+    const entry = query.getPackCatalog?.().entries.find(pack => (pack.packRecordId ?? pack.id) === id && isLoadedStoryPack(query, pack));
     return entry && storyPackSource(entry);
   }
 
@@ -205,10 +212,10 @@ export class StoryEditorController {
     if (!this.state.sourceOptions) return true;
     const source = draft.packSource;
     if (!source || draft.targetPackId !== source.packRecordId || this.state.sourceSelection?.startsWith('draft:')) return false;
+    if (this.packQuery.getRunningStoryPackId?.(source.modName) !== source.packRecordId) return false;
     const pack = this.packQuery.getPackCatalog?.().entries.find(item => (item.packRecordId ?? item.id) === source.packRecordId);
     return Boolean(pack?.editingMode === 'editing' && (!source.digest || source.digest === pack.contentDigest)
-      && (this.state.sourceSelection === `pack:${source.packRecordId}`
-        || !this.state.sourceSelection && this.packQuery.getRunningStoryPackId?.(source.modName) === source.packRecordId));
+      && (!this.state.sourceSelection || this.state.sourceSelection === `pack:${source.packRecordId}`));
   }
 
   private persist(state = this.state, force = false): boolean {
@@ -230,11 +237,12 @@ export class StoryEditorController {
     const query = this.packQuery;
     if (!query.getRunningStoryPackId || !query.getStoryPackSources) return;
     const catalog = query.getPackCatalog?.();
-    const sources = new Map(catalog?.entries.map(entry => {
+    const loaded = (catalog?.entries ?? []).filter(entry => isLoadedStoryPack(query, entry));
+    const sources = new Map(loaded.map(entry => {
       const source = storyPackSource(entry);
       return [source.packRecordId, source] as const;
     }));
-    const editing = new Set(catalog?.entries.filter(entry => entry.editingMode === 'editing').map(entry => entry.packRecordId ?? entry.id));
+    const editing = new Set(loaded.filter(entry => entry.editingMode === 'editing').map(entry => entry.packRecordId ?? entry.id));
     const state = this.state, selection = state.sourceSelection ?? '';
     const bank = [...state.drafts, ...(state.parkedDrafts ?? [])];
     const previous = currentAuthoringDraft(state);
@@ -243,24 +251,22 @@ export class StoryEditorController {
     const live = this.ctrl.game.registry;
     const liveChanged = this.liveRegistry !== live;
     this.liveRegistry = live;
-    const signature = JSON.stringify(catalog?.entries.map(item => [item.packRecordId ?? item.id, item.contentDigest]));
+    const signature = JSON.stringify(loaded.map(item => [item.packRecordId ?? item.id, item.contentDigest]));
     const catalogChanged = this.packCatalogSignature !== signature;
     this.packCatalogSignature = signature;
     state.sourceMod = selected?.modName;
     if (liveChanged) {
+      if (this.preview) this.closeAuthoringPreview();
       this.sourceVisits.delete('');
       if (!selection) { state.visits = []; state.visitIndex = -1; }
     }
-    const runningIds: string[] = [];
-    state.sourceOptions = (catalog?.entries ?? []).map(item => {
+    state.sourceOptions = loaded.map(item => {
       const id = item.packRecordId ?? item.id;
-      const running = query.getRunningStoryPackId!(item.modName) === id;
-      if (running) runningIds.push(id);
       const applied = catalog?.panes?.some(pane => pane.runtimePackRecordId === id);
-      const status = running ? applied ? '已应用' : '临时载入' : '未应用';
+      const status = applied ? '已应用' : '临时载入';
       return { value: `pack:${id}`, group: 'packs', label: `${sources.get(id)!.label} · ${status}` };
     });
-    state.sidebarRuntimeScope = JSON.stringify(runningIds.sort());
+    state.sidebarRuntimeScope = JSON.stringify([...sources.keys()].sort());
     if (force || liveChanged || catalogChanged) {
       const source = selected ?? recovery?.packSource;
       const resolved = source ? query.getStoryPackSources(source) : undefined;
@@ -269,7 +275,7 @@ export class StoryEditorController {
       if (state.sourcePics instanceof PicService) for (const pack of resolved?.images ?? []) {
         state.sourcePics.register(pack.manifest.modName, pack.images);
       }
-      state.sourceWarning = resolved?.issues.join(' ') || (selection.startsWith('pack:') && !selected ? '这个数据包已不在包库。' : undefined);
+      state.sourceWarning = resolved?.issues.join(' ') || undefined;
     }
     const active: StoryDraft[] = [], parked: StoryDraft[] = [];
     for (const draft of bank) {
@@ -297,6 +303,7 @@ export class StoryEditorController {
         label: `${draft.document.name || draft.document.id} · ${draft.packSource?.label ?? draft.document.id}` });
     }
     if (previous && !active.includes(previous)) {
+      this.closeAuthoringPreview();
       this.closeEditorDialog(); this.closeSelectionNavi(); this.closeThemeContentEdit();
       if (parked.includes(previous)) {
         state.sourceSelection = `draft:${previous.draftId}`;
@@ -306,17 +313,29 @@ export class StoryEditorController {
       }
       state.target = null; state.selectedNodeId = null; state.insertionBeforeNodeId = null;
     }
+    if (selection.startsWith('pack:') && !selected) {
+      state.sourceSelection = undefined; state.targetPackId = undefined;
+      state.visits = []; state.visitIndex = -1;
+      this.syncSource(true);
+      state.sourceWarning = '原数据包来源已卸载，已切回当前游戏。';
+      return;
+    }
     const draft = currentAuthoringDraft(state);
     const source = draft?.packSource;
     const pack = source && catalog?.entries.find(entry => (entry.packRecordId ?? entry.id) === source.packRecordId);
     state.readOnlyReason = recovery
-      ? `草稿已保留，暂时无法保存。原来源为 ${recovery.packSource?.label ?? recovery.document.id}。请从包库打开对应编辑态 Mod 后继续。`
-      : draft && !this.draftSaveAllowed(draft) ? '当前内容可查阅和试播。请从包库打开对应编辑态 Mod 后编辑。' : undefined;
+      ? `草稿已保留，暂时无法保存。原来源为 ${recovery.packSource?.label ?? recovery.document.id}。请在数据包管理中载入对应的编辑态 Mod。`
+      : draft && !this.draftSaveAllowed(draft) ? '当前内容可查阅和试播。请在数据包管理中载入对应的编辑态 Mod 后编辑。' : undefined;
     state.canApplySource = Boolean(draft && this.draftSaveAllowed(draft) && pack && query.getRunningStoryPackId(pack.modName) === source?.packRecordId);
   }
 
   private selectSource(selection: string): void {
     if (selection === (this.state.sourceSelection ?? '')) return;
+    if (selection.startsWith('pack:') && !this.packSource(selection.slice(5))) {
+      this.state.sourceWarning = '该数据包未载入。请先在数据包管理中应用。';
+      this.requestRefresh();
+      return;
+    }
     if (!this.save(false, false)) return;
     this.closeAuthoringPreview(); this.closeEditorDialog(); this.closeSelectionNavi(); this.closeThemeContentEdit();
     this.requiredFlagDropdown.close(); this.nodeMenu.close();
@@ -386,8 +405,7 @@ export class StoryEditorController {
         dirty: false, persisted: false, savedAt: null,
       };
       this.bindDraftSource(draft, entryMod);
-      const pack = draft.targetPackId && this.packQuery.getPackRecord?.(draft.targetPackId);
-      for (const pool of pack ? pack.datapack.passivePools ?? [] : []) if (pool.children.some(child => child.id === entry.id)) {
+      for (const pool of this.registry.passivePools.values()) if (draft.targetPackId && pool.id.startsWith(`${entryMod}:`) && pool.children.some(child => child.id === entry.id)) {
         draft.authoring!.passivePools.push(structuredClone(pool));
       }
       drafts.push(draft);
@@ -801,6 +819,13 @@ export class StoryEditorController {
     for (const control of this.ctrl.root.querySelectorAll<HTMLElement>('[data-story-property-path]')) {
       if (control.dataset.storyPropertyPath === raw) { control.focus({ preventScroll: true }); return; }
     }
+    for (const control of this.ctrl.root.querySelectorAll<HTMLElement>('[data-choice-condition]')) {
+      const path = control.dataset.choiceCondition;
+      if (path && (raw === path || raw.startsWith(path.slice(0, -1) + ','))) {
+        control.focus({ preventScroll: true });
+        return;
+      }
+    }
   }
   bind(root: HTMLElement): () => void {
     this.inlineText.prepare(root);
@@ -883,7 +908,7 @@ export class StoryEditorController {
         return;
       }
       if (this.writeBlocked && event.target instanceof Element && event.target.closest(
-        '[data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-condition-add], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind], [data-story-flag-import], [data-story-theme-content-open], [data-theme-content-action], [data-column-action^="story-editor-node-type:"]')) return;
+        '[data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind], [data-story-flag-import], [data-story-theme-content-open], [data-theme-content-action], [data-column-action^="story-editor-node-type:"]')) return;
       const previewControl = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-preview-confirm], [data-preview-toggle]') : null;
       if (previewControl && root.contains(previewControl)) {
         const view = this.state.preview;
@@ -921,6 +946,15 @@ export class StoryEditorController {
         if (!flagImport.disabled) this.confirmFlagImport(flagImport.dataset.storyFlagImport ?? '');
         return;
       }
+      const flagRename = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-story-flag-rename], [data-story-flag-rename-cancel]') : null;
+      if (flagRename && root.contains(flagRename)) {
+        const slot = flagRename.closest<HTMLElement>('[data-story-flag-rename-slot]');
+        if (slot && flagRename.hasAttribute('data-story-flag-rename-cancel')) {
+          slot.querySelector('form')?.remove();
+          slot.querySelector<HTMLButtonElement>('[data-story-flag-rename]')?.focus({ preventScroll: true });
+        } else if (slot) this.openFlagRename(slot);
+        return;
+      }
       const flowFlag = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-flow-flag]') : null;
       if (flowFlag && root.contains(flowFlag)) {
         const nodeId = flowFlag.closest<HTMLElement>('[data-editor-node]')?.dataset.editorNode;
@@ -930,7 +964,7 @@ export class StoryEditorController {
           this.state.inspectorView = 'story';
           this.state.storyInspectorTab = 'flags';
           this.restoreInspectorScroll();
-          this.pendingFlagReveal = { storyId: this.state.target.id, nodeId, name, role: flowFlag.dataset.storyFlowFlag === 'write' ? 'providers' : 'readers' };
+          this.pendingFlagReveal = { storyId: this.state.target.id, name, kind: 'local' };
           this.requestRefresh();
         }
         return;
@@ -946,8 +980,8 @@ export class StoryEditorController {
           const key = this.storyKey(storyLink.dataset.editorStoryTarget ?? '');
           if (key) {
             this.browseStory(key);
-            const nodeId = storyLink.dataset.storyFlagNode;
-            if (nodeId && currentDraft(this.state)?.document.nodes.some(node => node.id === nodeId)) {
+            const nodeId = storyLink.closest<HTMLElement>('[data-story-flag-node]')?.dataset.storyFlagNode;
+            if (nodeId && this.state.target?.id === storyLink.dataset.editorStoryTarget && currentDraft(this.state)?.document.nodes.some(node => node.id === nodeId)) {
               if (!storyLink.closest('.story-editor-flag-catalog')) this.state.inspectorView = 'node';
               this.state.selectedNodeId = nodeId; this.revealNodeId = nodeId;
             }
@@ -1032,6 +1066,11 @@ export class StoryEditorController {
         if (!conditionTrigger.disabled) this.editEntryCondition(conditionTrigger);
         return;
       }
+      const choiceCondition = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-choice-condition]') : null;
+      if (choiceCondition && root.contains(choiceCondition)) {
+        if (!choiceCondition.disabled) this.editChoiceCondition(choiceCondition);
+        return;
+      }
       const directoryTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-directory]') : null;
       if (directoryTrigger && root.contains(directoryTrigger)) {
         if (!directoryTrigger.disabled) {
@@ -1082,7 +1121,7 @@ export class StoryEditorController {
       }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-condition-add], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
         const beforeNodeId = element.hasAttribute('data-story-insertion-end') ? null : element.dataset.storyInsertionBefore ?? null;
@@ -1261,7 +1300,9 @@ export class StoryEditorController {
         }
       } else if (target instanceof HTMLSelectElement && target.hasAttribute('data-story-literal-kind-path')) {
         const path = this.parsePropertyPath(target.dataset.storyLiteralKindPath);
-        if (draft && node && path && (target.value === 'string' || target.value === 'number' || target.value === 'boolean')) selectLiteralKind(draft, node.id, path, target.value as LiteralKind);
+        if (!draft || !node || !path || event.type !== 'change') return;
+        if (target.value === 'string' || target.value === 'number' || target.value === 'boolean') selectLiteralKind(draft, node.id, path, target.value);
+        else if (target.value) constructStructuredValue(draft, node.id, path, target.value);
       } else if (target instanceof HTMLInputElement && target.hasAttribute('data-story-optional-path')) {
         const path = this.parsePropertyPath(target.dataset.storyOptionalPath);
         if (draft && node && path) toggleOptional(draft, node.id, path, target.checked);
@@ -1292,13 +1333,16 @@ export class StoryEditorController {
       (flag ?? target).classList.add('is-dragging');
     };
     const dragOver = (event: DragEvent): void => {
-      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
+      const flagRow = flagTableDropTarget(event.target);
       if (flagRow && root.contains(flagRow)) {
         const draft = currentDraft(this.state), item = this.draggingItem;
-        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || item?.kind !== 'story-node' || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
-        for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
-        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false};
+        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || item?.kind !== 'story-node' || item.draftId !== draft.draftId || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
+        for (const row of root.querySelectorAll<HTMLElement>('[data-story-drop-target="story-flag-table"]')) if (row !== flagRow) this.clearFlagTableDrop(row);
+        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false as const};
         flagRow.classList.toggle('is-drop-target',plan.ok); flagRow.classList.toggle('is-drop-invalid',!plan.ok);
+        const status = plan.ok ? plan.changed ? '可绑定' : '已绑定' : '不可绑定';
+        flagRow.dataset.storyFlagDropStatus = status;
+        flagRow.querySelector('summary')?.setAttribute('data-drop-label', status);
         event.preventDefault(); event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none'; return;
       }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
@@ -1337,15 +1381,15 @@ export class StoryEditorController {
     const dragLeave = (event: DragEvent): void => {
       const binding = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-flag-drop-status]') : null;
       if (binding && !(event.relatedTarget instanceof Node && binding.contains(event.relatedTarget))) delete binding.dataset.storyFlagDropStatus;
-      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
-      if (flagRow && !(event.relatedTarget instanceof Node && flagRow.contains(event.relatedTarget))) flagRow.classList.remove('is-drop-target','is-drop-invalid');
+      const flagRow = flagTableDropTarget(event.target);
+      if (flagRow && flagTableDropTarget(event.relatedTarget) !== flagRow) this.clearFlagTableDrop(flagRow);
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       if (!flow || event.relatedTarget instanceof Node && flow.contains(event.relatedTarget)) return;
       clearStoryFlagDropStates(flow);
       highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
     };
     const drop = (event: DragEvent): void => {
-      const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
+      const flagRow = flagTableDropTarget(event.target);
       if (flagRow && root.contains(flagRow)) {
         const draft = currentDraft(this.state), item = readStoryDragItem(event);
         if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || item?.kind !== 'story-node' || item.draftId !== draft.draftId) return;
@@ -1353,7 +1397,7 @@ export class StoryEditorController {
         const result = flagRow.dataset.storyFlagKind === 'local' ? bindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false,reason:'全局标记不能作为节点的局部执行条件。'};
         this.state.error = result.ok ? null : result.reason;
         this.state.inspectorView = 'story'; this.state.storyInspectorTab = 'flags';
-        for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
+        this.clearFlagTableDrop(flagRow);
         this.requestRefresh(); return;
       }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
@@ -1398,7 +1442,7 @@ export class StoryEditorController {
       highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
     };
     const dragEnd = (): void => {
-      for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
+      for (const row of root.querySelectorAll<HTMLElement>('[data-story-drop-target="story-flag-table"]')) this.clearFlagTableDrop(row);
       this.draggingItem = null;
       const flow = root.matches('.story-editor-flow') ? root : root.querySelector<HTMLElement>('.story-editor-flow');
       for (const target of flow?.querySelectorAll('.is-dragging') ?? []) target.classList.remove('is-dragging');
@@ -1587,14 +1631,73 @@ export class StoryEditorController {
     if (!flag || this.state.target?.kind !== 'story' || this.state.target.id !== flag.storyId) return;
     const body = this.editorScrollHost('right');
     if (!body) return;
-    const rows = [...body.querySelectorAll<HTMLDetailsElement>('[data-story-flag-kind="local"]')].filter(row =>
-      row.dataset.storyFlagName === flag.name && [...row.querySelectorAll<HTMLElement>(`[data-story-flag-role="${flag.role}"] [data-story-flag-node]`)]
-        .some(source => source.dataset.editorStoryTarget === flag.storyId && source.dataset.storyFlagNode === flag.nodeId));
-    for (const row of rows) row.open = true;
+    const rows = [...body.querySelectorAll<HTMLDetailsElement>('.story-editor-flag-item')].filter(row =>
+      row.dataset.storyFlagName === flag.name && row.dataset.storyFlagKind === flag.kind
+      && (flag.renamed ? row.dataset.storyFlagScope === flag.renamed.scope
+        : [...row.querySelectorAll<HTMLElement>('[data-editor-story-target]')].some(card => card.dataset.editorStoryTarget === flag.storyId)));
+    for (const row of rows) row.open = flag.renamed?.open ?? true;
+    if (flag.renamed) {
+      rows[0]?.parentElement?.querySelector<HTMLButtonElement>('[data-story-flag-rename]')?.focus({ preventScroll: true });
+      return;
+    }
     const summary = rows[0]?.querySelector('summary');
     if (!summary) return;
     const bounds = body.getBoundingClientRect(), heading = summary.getBoundingClientRect();
     if (heading.top < bounds.top || heading.bottom > bounds.bottom) body.scrollTop += heading.top - bounds.top;
+  }
+
+  private clearFlagTableDrop(row: HTMLElement): void {
+    row.classList.remove('is-drop-target', 'is-drop-invalid');
+    delete row.dataset.storyFlagDropStatus;
+    row.querySelector('summary')?.removeAttribute('data-drop-label');
+  }
+
+  private openFlagRename(slot: HTMLElement): void {
+    const owner = currentDraft(this.state);
+    const row = slot.parentElement?.querySelector<HTMLDetailsElement>('.story-editor-flag-item');
+    if (!owner || !row || this.writeBlocked) return;
+    const { storyFlagName: name, storyFlagKind: kind, storyFlagScope: scope } = row.dataset;
+    if (!name || !kind || !scope) return;
+    const ctx = createUIContext(this.editorGame);
+    const catalog = () => currentRelatedFlagCatalog(createUIContext(this.editorGame), this.state);
+    const { locations, external } = storyFlagRenameUses(catalog(), owner.document.id, kind, name, scope);
+    if (!locations.length) return;
+    for (const form of this.ctrl.root.querySelectorAll('.story-editor-flag-rename-form')) form.remove();
+    const externalCount = new Set(external.map(use => JSON.stringify(use.source))).size;
+    const form = document.createElement('form');
+    form.className = 'story-editor-flag-rename-form';
+    form.innerHTML = `<label class="story-editor-property">新 Flag ID<input data-story-flag-rename-input value="${ctx.escapeHtml(name)}" autocomplete="off"></label>
+      <p>将更新本篇 ${locations.length} 处。${externalCount ? `已发现 ${externalCount} 个外部 Story／Entry 仍引用旧名。` : '查阅范围外可能还有引用。'}外部引用可能因此失效。</p>
+      <p class="story-editor-error" role="alert" hidden></p>
+      <div><button type="button" class="mini-action" data-story-flag-rename-cancel>取消</button><button type="submit" class="mini-action">确认重命名</button></div>`;
+    const input = form.querySelector('input')!;
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      if (this.state.target?.kind !== 'story' || this.state.target.id !== owner.document.id || currentDraft(this.state) !== owner || this.writeBlocked) return;
+      const next = input.value.trim();
+      const error = renameStoryCatalogFlag(owner, catalog(), kind, name, scope, next);
+      if (error) {
+        const message = form.querySelector<HTMLElement>('[role="alert"]')!;
+        message.textContent = error; message.hidden = false; input.focus();
+        return;
+      }
+      form.remove();
+      if (next === name) {
+        slot.querySelector<HTMLButtonElement>('[data-story-flag-rename]')?.focus({ preventScroll: true });
+        return;
+      }
+      this.state.error = null;
+      this.pendingFlagReveal = { storyId: owner.document.id, name: next, kind, renamed: { scope, open: row.open } };
+      this.requestRefresh();
+    });
+    form.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        form.querySelector<HTMLButtonElement>('[data-story-flag-rename-cancel]')?.click();
+      }
+    });
+    slot.append(form);
+    input.focus(); input.select();
   }
 
   private openChoiceOptionIdPrompt(button: HTMLElement): void {
@@ -1852,6 +1955,10 @@ export class StoryEditorController {
       const selection = this.state.sourceSelection;
       const source = selection?.startsWith('pack:') ? this.packSource(selection.slice(5))
         : selection?.startsWith('draft:') ? draft.packSource : undefined;
+      if ((selection?.startsWith('pack:') && !source) || (draft.packSource && this.packQuery.getRunningStoryPackId?.(draft.packSource.modName) !== draft.packSource.packRecordId)) {
+        this.state.error = '试播来源当前未载入，请先在数据包管理中应用所需版本。';
+        return;
+      }
       this.startAuthoringPreview(compiled.patch, entryId || { storyId: draft.document.id }, target, source);
       return;
     }
@@ -2010,31 +2117,23 @@ export class StoryEditorController {
   }
   private propertyAction(element: HTMLElement): void {
     const draft=currentDraft(this.state); const node=currentNode(this.state); if(!draft||!node)return;
-    const path=this.parsePropertyPath(element.dataset.storyRowPath ?? element.dataset.storyConditionPath ?? element.dataset.storyPath);
+    const path=this.parsePropertyPath(element.dataset.storyRowPath ?? element.dataset.storyPath);
     if(element.dataset.storyInitBranch&&path) { toggleOptional(draft,node.id,path,true); selectBranch(draft,node.id,path,element.dataset.storyInitBranch); return; }
     if(element.dataset.storyInitCondition&&path) { toggleOptional(draft,node.id,path,true); if(readProperty(draft,node.id,path)===undefined) editProperty(draft,node.id,path,{type:'AND',conditions:[]}); return; }
     if(element.dataset.storyInitObject!==undefined&&path) { toggleOptional(draft,node.id,path,true); if(readProperty(draft,node.id,path)===undefined) editProperty(draft,node.id,path,{}); return; }
     if(element.dataset.storyInitValue&&path) { toggleOptional(draft,node.id,path,true); editProperty(draft,node.id,path,{}); return; }
-    if(element.dataset.storyConditionAdd&&path) {
-      const seed=element.dataset.storyConditionAdd==='group'?{type:'AND',conditions:[]}:{target:'alwaysTrue',key:'',comparator:'==',value:1};
-      if(!Array.isArray(readProperty(draft,node.id,path)))editProperty(draft,node.id,path,[]);
-      addRow(draft,node.id,path,seed); return;
-    }
     const action=element.dataset.storyRowAction; const rowPath=this.parsePropertyPath(element.dataset.storyRowPath);
     if(!action||!rowPath)return;
     if(action==='add') {
       if(!Array.isArray(readProperty(draft,node.id,rowPath)))editProperty(draft,node.id,rowPath,[]);
       const choice=node.type==='click'&&node.interaction.kind==='choice';
       const choiceMarks=choice&&rowPath[0]==='interaction'&&rowPath[1]==='options'&&rowPath.at(-1)==='marks';
-      const row=rowPath.at(-1)==='options'?{id:`option_${crypto.randomUUID().replace(/-/g,'')}`,text:''}:choiceMarks?'':{};
+      const row=rowPath.at(-1)==='options'?{id:`option_${crypto.randomUUID().replace(/-/g,'')}`,text:''}:choiceMarks||rowPath.at(-1)==='returnFlags'?'':{};
       addRow(draft,node.id,rowPath,row); return;
     }
     const rowId=element.dataset.storyRowId;
     if(action==='remove'&&rowId)removeRow(draft,node.id,rowPath,rowId);
     if((action==='up'||action==='down')&&rowId)moveRowBy(draft,node.id,rowPath,rowId,action==='up'?-1:1);
-    if(action==='remove-index') {
-      const index=Number(element.dataset.storyRowIndex); const stable=rowIdAt(draft,node.id,rowPath,index); if(stable)removeRow(draft,node.id,rowPath,stable);
-    }
   }
   /** Select the failing node and remember the field; `refresh` focuses it once the patched DOM exists. */
   private locateIssue(draft: NonNullable<ReturnType<typeof currentDraft>>, issuePath: string): void {
@@ -2149,7 +2248,7 @@ export class StoryEditorController {
     const packs=storyEditingMods(this.ctrl.game), e=createUIContext(this.editorGame).escapeHtml;
     const preferred=currentAuthoringDraft(this.state)?.targetPackId ?? this.state.targetPackId;
     this.ctrl.modal.open({title:'选择新 Story 所属 Mod',panelClass:'story-editor-identity',width:520,
-      body:`<label class="story-editor-property">编辑态 Mod<select data-story-new-mod><option value="">选择编辑态 Mod</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)} · ${e(pack.version)}</option>`).join('')}</select></label>${packs.length?'':'<p>暂无编辑态 Mod，请先在包管理创建编辑副本。</p>'}<p class="story-editor-error" data-story-identity-error hidden></p>`,
+      body:`<label class="story-editor-property">编辑态 Mod<select data-story-new-mod><option value="">选择编辑态 Mod</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)} · ${e(pack.version)}</option>`).join('')}</select></label>${packs.length?'':'<p>暂无已载入的编辑态 Mod，请在数据包管理中创建并应用编辑副本。</p>'}<p class="story-editor-error" data-story-identity-error hidden></p>`,
       footer:`<button type="button" class="modal-close">取消</button><button type="button" class="mini-action" data-modal-action="create-story-in-mod"${packs.length?'':' disabled'}>确认并新建</button>`,
       onAction:action=>{
         if (action!=='create-story-in-mod' || !this.isOpen() || this.state.storageBlocked) return;
@@ -2283,9 +2382,10 @@ export class StoryEditorController {
     }
     for (const entry of this.packQuery.getPackCatalog?.().entries ?? []) {
       const recordId = entry.packRecordId ?? entry.id;
-      if (recordId === packId ? automatic : entry.modName === own) continue;
-      const record = this.packQuery.getPackRecord?.(recordId);
-      if (record) add(storyDirectoryReferences(id, record.datapack), `pack:${recordId}`, `${entry.name} · ${entry.version}`);
+      if (!isLoadedStoryPack(this.packQuery, entry) || (recordId === packId ? automatic : entry.modName === own)) continue;
+      const root = recordId === packId ? this.packQuery.getPackRecord?.(recordId)?.datapack
+        : this.packQuery.getStoryPackSources?.(storyPackSource(entry)).datapacks.at(-1);
+      if (root?.modName === entry.modName) add(storyDirectoryReferences(id, root), `pack:${recordId}`, `${entry.name} · ${entry.version}`);
     }
     const registry = this.registry;
     add(storyDirectoryReferences(id, {
@@ -2520,6 +2620,43 @@ export class StoryEditorController {
       if (matches.length === 1) targets.set(id, matches[0].record);
     }
     return targets;
+  }
+
+  private editChoiceCondition(trigger: HTMLButtonElement): void {
+    const draft = currentDraft(this.state), node = currentNode(this.state);
+    const path = this.parsePropertyPath(trigger.dataset.choiceCondition);
+    if (!draft || node?.type !== 'click' || node.interaction.kind !== 'choice' || !path || this.writeBlocked) return;
+    const listPath = ['interaction', 'options'];
+    const rowId = trigger.dataset.choiceConditionRow;
+    const original = readProperty(draft, node.id, path);
+    const signature = JSON.stringify(original);
+    const ctx = createUIContext(this.editorGame);
+    this.editorDialog = openConditionTreeDialog(this.ctrl.modal, ctx, trigger, {
+      original,
+      label: '出现条件',
+      plainRoot: true,
+      targets: STORY_CONDITION_TARGETS,
+      state: this.state,
+      availableInits: draft.document.initId ? [draft.document.initId] : [],
+      globalFlags: storyFlagNames(currentStoryFlagCatalog(ctx, this.state), 'global'),
+      pendingValue: suffix => {
+        const value = valueAt(original, suffix);
+        return typeof value === 'string' ? value : undefined;
+      },
+      beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
+      onClose: () => { this.editorDialog = undefined; },
+      commit: condition => {
+        const current = currentNode(this.state);
+        if (!this.isOpen() || this.writeBlocked || currentDraft(this.state) !== draft || current?.id !== node.id
+          || current.type !== 'click' || current.interaction.kind !== 'choice') return '条件所属的选项已变化。';
+        const index = current.interaction.options.findIndex((_, index) => rowIdAt(draft, node.id, listPath, index) === rowId);
+        const nextPath = [...listPath, index, 'showWhen'];
+        if (index < 0 || JSON.stringify(readProperty(draft, node.id, nextPath)) !== signature) return '条件已变化，请重新打开。';
+        if (!editProperty(draft, node.id, nextPath, condition)) return '无法写入出现条件。';
+        this.state.error = null;
+        this.requestRefresh();
+      },
+    });
   }
 
   private editEntryCondition(trigger: HTMLButtonElement): void {

@@ -4,6 +4,7 @@
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0378-editor-workspace-shell]] | 待处理 | 从 Story 正文接入可选编辑外壳 |
 | [[ai/plan/task-0374-arona-vite-watch-and-progressive-css]] | 进行中 | 监听及 CSS 分批装载已验证，等 Windows 自然重启复测 |
 | [[ai/plan/task-0373-arona-dev-cold-start]] | 进行中 | 等 Windows 自然重启后复测首次进入大厅及刷新 |
 | [[ai/plan/task-0371-cross-init-state-affector-implementation]] | 待处理 | 固定错线发奖、钱包不一致及 Operation 越线提交的回归用例 |

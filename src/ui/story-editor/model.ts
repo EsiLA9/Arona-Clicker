@@ -697,15 +697,16 @@ export function unbindStoryNodeFromChoiceOption(draft: StoryDraft, choiceNodeId:
   draft.dirty = true;
   return true;
 }
-export function renameStoryLocalFlag(draft: StoryDraft, oldName: string, newName: string): { ok: true; changed: boolean } | { ok: false; reason: string } {
+export function renameStoryLocalFlag(draft: StoryDraft, oldName: string, newName: string, includeEntry = true): { ok: true; changed: boolean } | { ok: false; reason: string } {
   if (!validStoryFlagName(newName)) return { ok: false, reason: '标记名称不能为空。' };
   if (oldName === newName) return { ok: true, changed: false };
-  const names = storyLocalFlagNames(draft.document, draft.editorState, draft.authoring);
+  const authoring = includeEntry ? draft.authoring : undefined;
+  const names = storyLocalFlagNames(draft.document, draft.editorState, authoring);
   if (!names.has(oldName)) return { ok: false, reason: `找不到局部标记「${oldName}」。` };
   if (names.has(newName)) return { ok: false, reason: `局部标记「${newName}」已存在，不能合并标记。` };
   const document = cloneStory(draft.document) as StoryDraftDocument;
   let changed = false;
-  visitStoryLocalFlagReferences(document, draft.editorState, draft.authoring, (name, _usage, replace) => {
+  visitStoryLocalFlagReferences(document, draft.editorState, authoring, (name, _usage, replace) => {
     if (name === oldName) { replace(newName); changed = true; }
   });
   if (changed) { draft.document = document; draft.dirty = true; }

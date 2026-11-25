@@ -58,7 +58,7 @@ const TITLES: Record<string, string> = {
 export const valueTitle = (key: string | number): string => typeof key === 'number' ? `第 ${key + 1} 项` : TITLES[key] ?? key;
 
 /** Flat rows retain a path heading; object structure does not introduce nested cards or scrolling hosts. */
-export function renderStructuredValue(ctx: UIContext, scope: string, path: ValuePath, value: unknown, title: string, inputs: StructuredInputs = {}, disabled = false, depth = 0, identity?: (scope: string, path: ValuePath) => string, references?: Record<string, readonly {value:string;label:string}[]>, renderField?: (path: ValuePath, value: unknown) => string | undefined): string {
+export function renderStructuredValue(ctx: UIContext, scope: string, path: ValuePath, value: unknown, title: string, inputs: StructuredInputs = {}, disabled = false, depth = 0, identity?: (scope: string, path: ValuePath) => string, references?: Record<string, readonly {value:string;label:string}[]>, renderField?: (path: ValuePath, value: unknown) => string | undefined, contentOnly = false): string {
   const e = ctx.escapeHtml; const key = identity?.(scope, path) ?? JSON.stringify([scope, ...path]);
   const field = renderField?.(path, value);
   if (field !== undefined) return field;
@@ -97,7 +97,7 @@ export function renderStructuredValue(ctx: UIContext, scope: string, path: Value
     const listId = `value-ref-${Array.from(key).map(c=>c.codePointAt(0)!.toString(16)).join('-')}`;
     content = `<label class="story-editor-property">值<input${reference && !localFlagField ? ` data-story-reference="${kind ?? 'globalFlag'}" data-reference-label="${e(title)}"` : ''} data-editor-key="value:${e(key)}" data-value-input="${mode}" ${attrs} value="${e(inputs[key]?.text ?? String(value))}"${mode === 'number' ? ' inputmode="decimal"' : ''}${reference ? ` list="${e(listId)}"` : ''}${locked}>${localFlagField ? renderLocalFlagNaviButton(disabled,path.at(-2)==='returnFlags') : ''}</label>${reference ? `<datalist id="${e(listId)}">${candidates.map(x=>`<option value="${e(x.value)}" label="${e(x.label)}"></option>`).join('')}</datalist>` : ''}`;
   }
-  return `<section class="story-editor-value" data-editor-key="structured:${e(key)}">${heading}${selector}${selector ? '<small class="story-editor-hint">切换值类型或构造会替换本项内容。</small>' : ''}${inputs[key]?.error ? `<p class="story-editor-error">${e(inputs[key].error!)}</p>` : ''}${content}</section>`;
+  return `<section class="story-editor-value" data-editor-key="structured:${e(key)}">${contentOnly ? '' : heading + selector + (selector ? '<small class="story-editor-hint">切换值类型或构造会替换本项内容。</small>' : '')}${inputs[key]?.error ? `<p class="story-editor-error">${e(inputs[key].error!)}</p>` : ''}${content}</section>`;
 }
 
 export function readStructuredInput(kind: string, text: string): { ok: true; value: unknown } | { ok: false; message: string } {

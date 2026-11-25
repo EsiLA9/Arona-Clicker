@@ -13,7 +13,14 @@ describe('Story identity UI',()=>{
   const q=<T extends HTMLElement=HTMLElement>(selector:string):T=>{const element=document.querySelector<T>(selector);expect(element,selector).not.toBeNull();return element!;};
   const click=(selector:string)=>{q<HTMLButtonElement>(selector).click();ctrl.flushUIUpdates();};
   const change=(selector:string,value:string)=>{const input=q<HTMLInputElement|HTMLSelectElement>(selector);input.value=value;input.dispatchEvent(new Event(input instanceof HTMLSelectElement?'change':'input',{bubbles:true}));ctrl.flushUIUpdates();};
-  const editing=()=>game.packManager.cloneAsEditing(game.packManager.listPacks().find(pack=>pack.manifest.modName==='base')!.id).pack;
+  const editing=(load = true)=>{
+    const pack = game.packManager.cloneAsEditing(game.packManager.listPacks().find(pack=>pack.manifest.modName==='base')!.id).pack;
+    if (load) {
+      game.setPackSelection(`base@${pack.manifest.version}`, 'editing');
+      expect(game.applyPackSelection().ok).toBe(true);
+    }
+    return pack;
+  };
   const create=(id:string)=>{click('[data-editor-action="new"]');change('[data-story-new-mod]',id);click('[data-modal-action="create-story-in-mod"]');return currentDraft(ctrl.storyEditor.state)!;};
   beforeEach(()=>{
     localStorage.clear();document.body.innerHTML='<div id="app"></div>';root=q('#app');
@@ -24,10 +31,11 @@ describe('Story identity UI',()=>{
   it('requires an explicit Mod confirmation, supports cancellation and explains an empty editing library',()=>{
     click('[data-editor-action="new"]');
     expect(q<HTMLButtonElement>('[data-modal-action="create-story-in-mod"]').disabled).toBe(true);
-    expect(q('.story-editor-identity').textContent).toContain('创建编辑副本');
+    expect(q('.story-editor-identity').textContent).toContain('创建并应用编辑副本');
     click('.story-editor-identity .modal-close');expect(ctrl.storyEditor.state.drafts).toHaveLength(0);
-    editing();click('[data-editor-action="new"]');click('[data-modal-action="create-story-in-mod"]');
-    expect(ctrl.storyEditor.state.drafts).toHaveLength(0);expect(q('[data-story-identity-error]').hidden).toBe(false);
+    editing(false);click('[data-editor-action="new"]');
+    expect(q<HTMLButtonElement>('[data-modal-action="create-story-in-mod"]').disabled).toBe(true);
+    expect(ctrl.storyEditor.state.drafts).toHaveLength(0);
     click('.story-editor-identity .modal-close');expect(ctrl.storyEditor.state.visits).toHaveLength(0);
   });
   it('allocates IDs from the chosen Mod and its existing content, prompts every time and persists ownership',()=>{
@@ -43,8 +51,10 @@ describe('Story identity UI',()=>{
   });
   it('rejects a removed editing target without creating a draft',()=>{
     const pack=editing();click('[data-editor-action="new"]');change('[data-story-new-mod]',pack.id);
+    game.setPackSelection(`base@${pack.manifest.version}`, 'fixed');
+    expect(game.applyPackSelection().ok).toBe(true);
     game.packManager.removePack(pack.id);click('[data-modal-action="create-story-in-mod"]');
-    expect(ctrl.storyEditor.state.drafts).toHaveLength(0);expect(q('[data-story-identity-error]').textContent).toContain('仍可编辑');
+    expect(ctrl.storyEditor.state.drafts).toHaveLength(0);expect(q('[data-story-identity-error]').textContent).toContain('已载入的编辑态');
   });
   it('shows one current ID and only shows the original ID when it differs',()=>{
     const draft=create(editing().id);

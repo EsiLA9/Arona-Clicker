@@ -1,6 +1,7 @@
-import type { StoryEditorState, StoryEditorTarget } from './model';
+import type { StoryDraft, StoryEditorState, StoryEditorTarget } from './model';
+import { renameStoryLocalFlag } from './model';
 import { storyTransferContext, type StoryCall, type StoryRelations } from './relations-model';
-import { propertyKey } from './property-model';
+import { editProperty, propertyKey, readProperty } from './property-model';
 
 export interface StoryFlagUse {
   name: string;
@@ -62,20 +63,19 @@ export function buildStoryFlagCatalog(state: StoryEditorState, relations: StoryR
     };
     const condition = (value: unknown, path: string): void => {
       if (!object(value)) return;
-      if (value.target === 'flag') add(value.key, 'global', 'read', path);
+      if (value.target === 'flag') add(value.key, 'global', 'read', `${path}.key`);
       rows(value.conditions).forEach((item, index) => condition(item, `${path}.conditions[${index}]`));
     };
     const effects = (value: unknown, path: string): void => rows(value).forEach((item, index) => {
-      if (object(item) && item.op === 'setFlag') add(item.flagId ?? item.target, 'global', 'write', `${path}[${index}]`);
+      if (object(item) && item.op === 'setFlag') add(item.flagId ?? item.target, 'global', 'write', `${path}[${index}].${item.flagId == null ? 'target' : 'flagId'}`);
     });
     const returns = (value: unknown, path: string): void => { if (object(value)) rows(value.returnFlags).forEach((name, index) => add(name, 'local', 'return', `${path}.returnFlags[${index}]`)); };
     const action = (value: unknown, path: string): void => {
       if (!object(value)) return;
-      if (value.kind === 'localFlag' && (value.op === 'set' || value.op === 'remove')) add(value.name, 'local', value.op === 'set' ? 'write' : 'remove', path);
+      if (value.kind === 'localFlag' && (value.op === 'set' || value.op === 'remove')) add(value.name, 'local', value.op === 'set' ? 'write' : 'remove', `${path}.name`);
       if (value.kind === 'state') effects(value.effects, `${path}.effects`);
       if (value.kind === 'overlay' && object(value.command) && value.command.command === 'show' && object(value.command.content) && value.command.content.kind === 'entryCard' && object(value.command.content.card)) returns(value.command.content.card.continuation, `${path}.command.content.card.continuation`);
     };
-    const actions = (value: unknown, path: string): void => rows(value).forEach((item, index) => action(item, `${path}[${index}]`));
     if (target.kind === 'story' && 'nodes' in content) {
       content.nodes.forEach((node, index) => {
         nodeId = node.id; const path = `$.nodes[${index}]`;
@@ -121,4 +121,36 @@ export function buildStoryFlagCatalog(state: StoryEditorState, relations: StoryR
 
 export function storyFlagNames(catalog: StoryFlagCatalog, kind: StoryFlagUse['kind']): string[] {
   return [...new Set(catalog.uses.filter(use => use.kind === kind && use.available).map(use => use.name))].sort();
+}
+
+export function storyFlagRenameUses(catalog: StoryFlagCatalog, storyId: string, kind: string, name: string, scope: string) {
+  const own = (use: StoryFlagUse) => use.source.kind === 'story' && use.source.id === storyId;
+  const matches = catalog.uses.filter(use => use.kind === kind && use.name === name);
+  const current = matches.filter(own);
+  const scopes = new Set(current.map(use => use.scope));
+  const locations = [...new Map(current.map(use => [use.path, use])).values()];
+  return {
+    locations: scopes.has(scope) ? locations : [],
+    external: matches.filter(use => !own(use) && scopes.has(use.scope)),
+    scopes,
+  };
+}
+
+export function renameStoryCatalogFlag(draft: StoryDraft, catalog: StoryFlagCatalog, kind: string, name: string, scope: string, next: string) {
+  const { locations, scopes } = storyFlagRenameUses(catalog, draft.document.id, kind, name, scope);
+  if (!locations.length) return '本篇已找不到此标记的引用。';
+  if (!next) return '请输入新的 Flag ID。';
+  if (next === name) return undefined;
+  if (catalog.uses.some(use => use.name === next && use.kind === kind && scopes.has(use.scope))) return '该作用域内已有同名 Flag。';
+  const fields = locations.map(use => ({
+    nodeId: use.nodeId!,
+    path: [...use.path.replace(/^\$\.nodes\[\d+\]/, '').matchAll(/\.([^.[\]]+)|\[(\d+)\]/g)].map(match => match[1] ?? Number(match[2])),
+  }));
+  if (fields.some(({ nodeId, path }) => readProperty(draft, nodeId, path) !== name)) return 'Flag 的引用已变化，请重新打开重命名。';
+  if (kind === 'local') {
+    const result = renameStoryLocalFlag(draft, name, next, false);
+    if (!result.ok) return result.reason;
+  }
+  for (const { nodeId, path } of fields) editProperty(draft, nodeId, path, next);
+  return undefined;
 }

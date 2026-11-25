@@ -10,7 +10,7 @@ import { StoryDraftPersistence, STORY_EDITOR_STORAGE_KEY } from '../../../src/ui
 import { createStoryEditorState } from '../../../src/ui/story-editor/model';
 import '../../../src/ui/runtime/service-definitions';
 
-it('browses and previews both slots, then preserves a draft when the running source switches', () => {
+it('browses and previews only the loaded slot, then preserves a draft when the source is unloaded', () => {
   localStorage.clear();
   const game = new AronaClickerRuntime();
   const storyId = 'author-source:story:test';
@@ -56,24 +56,39 @@ it('browses and previews both slots, then preserves a draft when the running sou
   };
   try {
     ctrl.storyEditor.open();
+    const sources = () => [...root.querySelectorAll<HTMLOptionElement>('[data-editor-source] option')].map(option => option.value);
+    const editingSource = { packRecordId: edit, modName: pack.modName, dependencies: ['base'] };
+    expect(sources()).toContain(`pack:${fixedId}`);
+    expect(sources()).not.toContain(`pack:${edit}`);
+    expect(game.getStoryPackSources(editingSource).datapacks).toEqual([]);
+    expect(game.createStoryAuthoringPreview(patch, { storyId }, editingSource)).toMatchObject({ ok: false, message: expect.stringContaining('未载入') });
+    const sourceControl = root.querySelector<HTMLSelectElement>('[data-editor-source]')!;
+    const staleOption = document.createElement('option');
+    staleOption.value = `pack:${edit}`;
+    sourceControl.add(staleOption);
+    choose(`pack:${edit}`);
+    expect(ctrl.storyEditor.state.sourceSelection).toBeUndefined();
+    expect(sources()).not.toContain(`pack:${edit}`);
     chooseStory('公开版本');
     expect(root.querySelector<HTMLButtonElement>('[data-editor-action="save"]')?.disabled).toBe(true);
     click('[data-editor-key="quick-preview"]');
     expect(root.querySelector('[aria-label="试播正文"]')?.textContent).toContain('普通态文本');
     click('[data-authoring-action="close-preview"]');
+    game.setPackSelection(paneKey, 'editing');
+    ctrl.storyEditor.refresh(createUIContext(game));
+    expect(sources()).not.toContain(`pack:${edit}`);
+    expect(game.applyPackSelection().ok).toBe(true);
+    ctrl.storyEditor.refresh(createUIContext(game));
+    expect(sources()).toContain(`pack:${edit}`);
+    expect(sources()).not.toContain(`pack:${fixedId}`);
     choose(`pack:${edit}`);
     chooseStory('编辑副本');
     expect(root.querySelector<HTMLButtonElement>('[data-authoring-action="pack"]')?.disabled).toBe(false);
-    expect(root.querySelector<HTMLButtonElement>('[data-editor-action="save-to-runtime"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-editor-action="save-to-runtime"]')?.disabled).toBe(false);
     click('[data-editor-key="quick-preview"]');
     expect(root.querySelector('[aria-label="试播正文"]')?.textContent).toContain('编辑态专属文本');
     click('[data-authoring-action="close-preview"]');
 
-    game.setPackSelection(paneKey, 'editing');
-    expect(game.getRunningStoryPackId(pack.modName)).toBe(fixedId);
-    expect(game.applyPackSelection().ok).toBe(true);
-    choose('');
-    chooseStory('编辑副本');
     const state = ctrl.storyEditor.state;
     const draft = state.drafts.find(item => item.document.id === storyId)!;
     draft.document = { ...draft.document, name: '已保存的草稿' };
@@ -84,6 +99,7 @@ it('browses and previews both slots, then preserves a draft when the running sou
     game.setPackSelection(paneKey, 'fixed');
     expect(game.applyPackSelection().ok).toBe(true);
     ctrl.storyEditor.refresh(createUIContext(game));
+    expect(sources()).not.toContain(`pack:${edit}`);
     expect(root.querySelector('[data-editor-key="source-status"]')?.textContent).toContain('暂时无法保存');
     expect(ctrl.storyEditor.save(true, false)).toBe(false);
     const saved = JSON.parse(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)!);
@@ -95,17 +111,51 @@ it('browses and previews both slots, then preserves a draft when the running sou
     expect(reopened.drafts).toEqual([expect.objectContaining({ dirty: true, savedAt: saved.drafts[0].savedAt,
       document: expect.objectContaining({ name: '切换前的修改' }) })]);
     click('[data-editor-key="quick-preview"]');
-    expect(root.querySelector('[aria-label="试播正文"]')?.textContent).toContain('编辑态专属文本');
-    click('[data-authoring-action="close-preview"]');
+    expect(root.querySelector('[aria-label="试播正文"]')).toBeNull();
+    expect(ctrl.storyEditor.state.error).toContain('未载入');
+    game.setPackSelection(paneKey, 'editing');
+    expect(game.applyPackSelection().ok).toBe(true);
+    ctrl.storyEditor.refresh(createUIContext(game));
     click('[data-editor-action="recover-source"]');
     expect(ctrl.storyEditor.state.sourceSelection).toBe(`pack:${edit}`);
     expect(ctrl.storyEditor.save(true, false)).toBe(true);
-    expect(game.registry.stories.get(storyId)?.name).toBe('公开版本');
+    expect(game.registry.stories.get(storyId)?.name).toBe('编辑副本');
   } finally {
     ctrl.destroy();
     game.storyService.dispose();
     game.stop();
     localStorage.clear();
+  }
+});
+
+it('builds scoped Story sources from loaded snapshots and refuses to fill missing dependencies from the library', () => {
+  const game = new AronaClickerRuntime();
+  try {
+    const add = (modName: string, dependencies: string[]) => {
+      const template = game.packManager.getPack(game.createEmptyEditingPack({ modId: modName + '-template', versionId: '1.0.0' }).packRecordId!)!;
+      const datapack = { ...template.datapack, modName, name: modName };
+      game.packManager.importFixed({ id: modName, sourceKind: 'zip', importedAt: 1, images: [], datapack,
+        manifest: { modName, name: modName, version: datapack.version, dependencies } });
+      return datapack;
+    };
+    const dependency = add('story-support', ['base']);
+    const root = add('story-root', ['story-support']);
+    game.init([baseDatapack, root]);
+    const source = { packRecordId: 'story-root', modName: 'story-root', dependencies: ['story-support'] };
+    const missing = game.getStoryPackSources(source);
+    expect(missing.datapacks.map(pack => pack.modName ?? 'base')).toEqual(['base', 'story-root']);
+    expect(missing.issues).toEqual([expect.stringContaining('story-support')]);
+    const record = game.packManager.getPack('story-root')!;
+    game.packManager.savePack({ ...record, manifest: { ...record.manifest, dependencies: ['new-unloaded'] },
+      datapack: { ...root, name: '包库中的新版本' }, contentDigest: undefined });
+    game.init([baseDatapack, dependency, root]);
+    const sources = game.getStoryPackSources(source);
+    expect(sources.issues).toEqual([]);
+    expect(sources.datapacks.map(pack => pack.modName ?? 'base')).toEqual(['base', 'story-support', 'story-root']);
+    expect(sources.datapacks.at(-1)?.name).toBe('story-root');
+  } finally {
+    game.storyService.dispose();
+    game.stop();
   }
 });
 
@@ -218,6 +268,9 @@ it('creates hierarchy data in active editing packs and saves an Entry without ch
     expect(preview.textContent).not.toContain('未保存');
     expect(game.getPackRecord(packId)?.datapack.storyDirectories?.find(row => row.id === directoryId)?.description).toBe(description.value);
     click('[data-editor-action="directory-back"]');
+    expect(game.registry.storyDirectories.has(directoryId)).toBe(false);
+    game.applyEnabledPacks();
+    ui.storyEditor.refresh(createUIContext(game));
     const editorSource = root.querySelector<HTMLSelectElement>('[data-editor-source]')!;
     editorSource.value = `pack:${packId}`;
     editorSource.dispatchEvent(new Event('change', { bubbles: true }));

@@ -291,7 +291,21 @@ describe('Story Editor property panel', () => {
     rowAction('add',['interaction','options',0,'marks']);
     setProperty(['interaction','options',0,'marks',0],'selected');
     expect(node().interaction).toMatchObject({kind:'choice',options:[{showWhen:{type:'AND',conditions:[]},requiresFlag:'available',marks:['selected']} ]});
-    expect(hasProperty(['interaction','options',0,'showWhen','type'])).toBe(true);
+    expect(hasProperty(['interaction','options',0,'showWhen','type'])).toBe(false);
+    expect(q('[data-choice-condition]').parentElement?.textContent).toContain('全部满足 · 0 项');
+    const editCondition = () => {
+      q<HTMLButtonElement>('[data-choice-condition]').click();
+      const relation = document.querySelector<HTMLSelectElement>('.app-modal [data-condition-field="operator"]')!;
+      expect(relation.value).toBe('AND');
+      relation.value = 'OR'; relation.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    editCondition();
+    document.querySelector<HTMLButtonElement>('.app-modal .modal-foot .modal-close')!.click();
+    expect(node().interaction).toMatchObject({options:[{showWhen:{type:'AND'}}]});
+    editCondition();
+    document.querySelector<HTMLButtonElement>('[data-modal-action="apply-condition-tree"]')!.click();
+    ctrl.flushUIUpdates();
+    expect(node().interaction).toMatchObject({options:[{showWhen:{type:'OR',conditions:[]}}]});
     expect(hasProperty(['interaction','options',0,'condition','type'])).toBe(false);
     expect(root.textContent).toContain('选择标记用于关联后续节点');
     expect(root.textContent).not.toContain('选择结果');
@@ -444,6 +458,9 @@ describe('Story Editor property panel', () => {
     click('operation');
     selectBranch(['action'], 'kind', 'travel');
     setProperty(['action', 'areaId'], area);
+    setProperty(['action', 'notice'], 'false');
+    expect(node(1).action).toMatchObject({ notice: false });
+    setProperty(['action', 'notice'], '');
     expect(node(1).action).toEqual({ kind: 'travel', areaId: area });
 
     submit();
@@ -453,6 +470,31 @@ describe('Story Editor property panel', () => {
       { op: 'addItem', itemId: item, amount: 3 },
     ]);
     expect((stored().nodes as Obj[])[1].action).toEqual({ kind: 'travel', areaId: area });
+  });
+
+  it('uses one value type control when switching a persistent Flag between a literal and an expression', () => {
+    open(); click('new'); click('operation');
+    selectBranch(['action'], 'kind', 'state');
+    rowAction('add', ['action', 'effects']);
+    const effect = ['action', 'effects', 0];
+    const value = [...effect, 'value'];
+    selectBranch(effect, 'op', 'setFlag');
+    const switchKind = (kind: string) => {
+      const field = q<HTMLSelectElement>('[data-story-literal-kind-path]');
+      field.value = kind;
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+      ctrl.flushUIUpdates();
+    };
+    switchKind('number');
+    setProperty(value, '5');
+    expect(root.querySelectorAll(`[data-value-path='${json(value)}']`)).toHaveLength(0);
+    switchKind('const');
+    expect(node().action).toMatchObject({ effects: [{ value: { type: 'const', value: 0 } }] });
+    expect(root.querySelectorAll(`[data-value-type][data-value-path='${json(value)}']`)).toHaveLength(0);
+    expect(hasProperty(value)).toBe(false);
+    switchKind('boolean');
+    setProperty(value, 'true');
+    expect(node().action).toMatchObject({ effects: [{ value: true }] });
   });
 
   it('authors map collection and scoped information grants with catalog-backed targets', () => {
@@ -645,6 +687,8 @@ describe('Story Editor property panel', () => {
     const runtime=new AronaClickerRuntime();game=runtime;runtime.init([baseDatapack]);ctrl=new UIController(runtime,root);
     const source=runtime.packManager.listPacks().find(pack=>pack.manifest.modName==='base')!;
     const editing=runtime.packManager.cloneAsEditing(source.id).pack;
+    runtime.setPackSelection(`base@${source.manifest.version}`, 'editing');
+    expect(runtime.applyPackSelection().ok).toBe(true);
     open();click('new');click('operation');
     const selected=currentDraft(ctrl.storyEditor.state)!.document.nodes[0]!;const group=[...runtime.registry.colorGroups.values()][0]!;
     ctrl.storyEditor.state.targetPackId=editing.id;
@@ -764,7 +808,12 @@ describe('Story Editor property panel', () => {
     setProperty(['interaction','card','align'],'right');
     q<HTMLButtonElement>('[data-story-init-object]').click(); ctrl.flushUIUpdates();
     setProperty(['interaction','card','continuation','areaId'],area);
-    editProperty(draft(),String(node().id),['interaction','card','continuation','returnFlags'],['route-a']);
+    const returnFlags = ['interaction','card','continuation','returnFlags'];
+    rowAction('add',returnFlags);
+    setProperty([...returnFlags,0],'route-a');
+    rowAction('add',returnFlags);
+    setProperty([...returnFlags,1],'extra-flag');
+    rowAction('remove',returnFlags,1);
     toggleOptional(['interaction','card','continuation'],false);
     q<HTMLButtonElement>('[data-story-init-object]').click(); ctrl.flushUIUpdates();
     expect((node().interaction as Obj).card).toMatchObject({continuation:{areaId:area,returnFlags:['route-a']}});
@@ -819,7 +868,8 @@ describe('Story Editor property panel', () => {
     open(); click('new'); click('operation');
     selectBranch(['action'], 'kind', 'localFlag');
     const flagFields = root.querySelector<HTMLElement>('[data-editor-key="local-flag-fields"]');
-    const actionGroup = flagFields?.closest('.story-editor-property-group');
+    expect(flagFields?.closest('.story-editor-property-group')).toBeNull();
+    const actionGroup = flagFields?.parentElement;
     expect(actionGroup?.querySelector('[data-story-branch-field="kind"]')?.closest('label')?.textContent).toContain('行为类型');
     expect(flagFields?.querySelector('[data-editor-field="local-flag-op"]')).not.toBeNull();
     selectBranch(['action'], 'kind', 'travel');

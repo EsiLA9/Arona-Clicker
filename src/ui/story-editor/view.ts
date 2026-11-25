@@ -333,7 +333,7 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
       <option value=""${state.sourceSelection ? '' : ' selected'}>当前游戏</option>
       ${(['packs', 'drafts'] as const).map(group => {
         const options = state.sourceOptions!.filter(option => option.group === group);
-        return options.length ? `<optgroup label="${group === 'packs' ? '本地包库' : '保留草稿'}">${options.map(option =>
+        return options.length ? `<optgroup label="${group === 'packs' ? '已载入数据包' : '保留草稿'}">${options.map(option =>
           `<option value="${ctx.escapeHtml(option.value)}"${option.value === state.sourceSelection ? ' selected' : ''}>${ctx.escapeHtml(option.label)}</option>`).join('')}</optgroup>` : '';
       }).join('')}
     </select></label>

@@ -5,14 +5,13 @@ import { storyFlagNames } from './flag-catalog';
 import { renderStoryTransferTarget } from './transfer-view';
 import { structuredKey } from './authoring-model';
 import { choiceOptionFlagBindings, currentDraft } from './model';
-import { renderStructuredValue } from './structured-value';
+import { renderStructuredValue, VALUE_PRESETS } from './structured-value';
 import type { UIContext } from '../runtime/context';
 import { renderTabs } from '../components/shared/tabs';
 import type { StoryDraft, StoryDraftNode, StoryEditorState } from './model';
 import { localFlagInput } from './flag-fields';
-import { isOptionalEnabled, literalKindAt, propertyKey, readStoryNodeBody, rowIdAt } from './property-model';
+import { literalKindAt, propertyKey, readStoryNodeBody, rowIdAt } from './property-model';
 import { storyReferenceOptions, type StoryReferenceKind } from './property-options';
-import { STORY_CONDITION_COMPARATORS, STORY_CONDITION_HINTS, STORY_CONDITION_REFERENCES, STORY_CONDITION_TARGETS } from './condition-fields';
 import { renderChatTexts, resolveStorySpeaker, type ChatTextEntry } from '../components/story/story';
 import { renderChatEntry, renderStoryClickPreview, renderStoryClickAppearance, renderStoryNodePlacement } from '../components/story/story';
 import { projectStoryContent, storyNodeDisplay } from '../../data-services/authoring/story-content-display';
@@ -66,7 +65,7 @@ function scalar(ctx: UIContext, label: string, path: Path, value: unknown, state
   flagKind ??= path.at(-1) === 'requiresFlag' || label === '局部标记名称' ? 'local' : path.at(-1) === 'flagId' ? 'global' : undefined;
   if (flagKind === 'global') control = control.replace('<input ', '<input data-story-reference="globalFlag" ');
   if (flagKind) control = control.replace('<input ', `<input list="story-editor-${flagKind}-flags" `);
-  if (flagKind === 'local') control = path.length === 1 && path.at(-1) === 'requiresFlag' ? renderRequiredFlagControl(ctx,state,control) : `<span class="story-editor-flag-control">${control}${renderLocalFlagNaviButton((state.storageBlocked || Boolean(state.readOnlyReason)))}</span>`;
+  if (flagKind === 'local') control = path.length === 1 && path.at(-1) === 'requiresFlag' ? renderRequiredFlagControl(ctx,state,control) : `<span class="story-editor-flag-control">${control}${renderLocalFlagNaviButton((state.storageBlocked || Boolean(state.readOnlyReason)),path.at(-2)==='returnFlags')}</span>`;
   const pathId = JSON.stringify(path); const legacy = pathId === '[\"requiresFlag\"]' ? 'requires-flag' : pathId === '[\"content\",\"text\"]' || pathId === '[\"interaction\",\"text\"]' ? 'text' : '';
   if (legacy) control = control.replace('<input ', `<input data-editor-field=\"${legacy}\" `).replace('<textarea ', `<textarea data-editor-field=\"${legacy}\" `).replace('<select ', `<select data-editor-field=\"${legacy}\" `);
   return `<label class="story-editor-property">${esc(ctx, label)}${control}${hint ? `<small class="story-editor-hint">${esc(ctx, hint)}</small>` : ''}</label>`;
@@ -90,14 +89,6 @@ function branch(ctx: UIContext, label: string, path: Path, current: unknown, val
   const missing = selected && !values.some(([value]) => value === selected) ? `<option value="${esc(ctx, selected)}" selected>${esc(ctx, selected)}（原值，暂不支持编辑）</option>` : '';
   return `<label class="story-editor-property">${esc(ctx, label)}<select data-editor-key="${esc(ctx, key(path, ':branch'))}" data-story-branch-path="${esc(ctx, p)}" data-story-branch-field="${esc(ctx,String(discriminator))}"${disabled(state)}>${selected ? '' : '<option value="" selected>选择…</option>'}${missing}${values.map(([value, text]) => `<option value="${esc(ctx, value)}"${selected === value ? ' selected' : ''}>${esc(ctx, text)}</option>`).join('')}</select></label>`;
 }
-function optional(ctx: UIContext, label: string, path: Path, enabled: boolean, state: StoryEditorState, content: string, hint?: string, draft?: StoryDraft, nodeId?: string, create?: string): string {
-  enabled = draft && nodeId ? isOptionalEnabled(draft, nodeId, path) || enabled : enabled;
-  return `<section class="story-editor-optional" data-editor-key="${esc(ctx, key(path, ':optional'))}"><label class="story-editor-toggle"><input type="checkbox" data-story-optional-path="${esc(ctx, pathText(path))}"${enabled ? ' checked' : ''}${disabled(state)}>${esc(ctx, label)}</label>${hint ? `<small class="story-editor-hint">${esc(ctx, hint)}</small>` : ''}${enabled ? `<div class="story-editor-optional-content">${content}</div>` : create ?? ''}</section>`;
-}
-function scalarOptional(ctx: UIContext, label: string, parent: Obj | null, name: string, path: Path, state: StoryEditorState, kind: Parameters<typeof scalar>[5] = 'text', ref?: StoryReferenceKind, draft?: StoryDraft, nodeId?:string): string {
-  const enabled = Boolean(parent && Object.prototype.hasOwnProperty.call(parent, name)) || Boolean(draft&&nodeId&&isOptionalEnabled(draft,nodeId,path));
-  return optional(ctx, label, path, enabled, state, scalar(ctx, label, [...path], parent?.[name], state, kind, ref), '启用后才写入 Story。',draft,nodeId);
-}
 function rowButtons(ctx: UIContext, path: Path, rowId: string, index: number, total: number, state: StoryEditorState): string {
   const attr = `data-story-row-path="${esc(ctx, pathText(path))}" data-story-row-id="${esc(ctx, rowId)}"`;
   return `<div class="story-editor-actions"><button type="button" class="mini-action" data-story-row-action="up" ${attr}${index === 0 || (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>上移</button><button type="button" class="mini-action" data-story-row-action="down" ${attr}${index === total - 1 || (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>下移</button><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" ${attr}${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>删除</button></div>`;
@@ -106,7 +97,7 @@ function listHeader(ctx: UIContext, title: string, path: Path, state: StoryEdito
   return `<div class="story-editor-list-heading"><strong>${esc(ctx, title)}</strong><button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx, pathText(path))}"${disabled(state)}>添加</button></div>`;
 }
 
-function contentEditor(ctx: UIContext, state: StoryEditorState, path: Path, content: Obj | null, presentation = false): string {
+function contentEditor(ctx: UIContext, state: StoryEditorState, path: Path, content: Obj | null): string {
   const kind = val(content, 'kind'); const out = [branch(ctx, '内容形式', [...path, 'kind'], kind, [['talk', '对话'], ['narration', '旁白']], state)];
   out.push(scalar(ctx, '正文', [...path, 'text'], val(content, 'text'), state, 'textarea'));
   if (kind === 'talk') {
@@ -114,8 +105,7 @@ function contentEditor(ctx: UIContext, state: StoryEditorState, path: Path, cont
     out.push(scalar(ctx, '发出方（显示名）', [...path, 'displayName'], val(content, 'displayName'), state, 'text', undefined, '留空使用角色默认名称；只修改文字，保留角色头像。'));
     out.push(scalar(ctx, '图片引用', [...path, 'image'], val(content, 'image'), state, 'image', undefined, '从数据包图片目录选择。'));
   }
-  if (presentation) out.push(presentationEditor(ctx, state, [...path.slice(0, 1), 'presentation'], null));
-  return `<div class="story-editor-property-group">${out.join('')}</div>`;
+  return out.join('');
 }
 function presentationEditor(ctx: UIContext, state: StoryEditorState, path: Path, presentation: Obj | null): string {
   return `<section class="story-editor-presentation" data-editor-key="${esc(ctx, key(path, ':presentation'))}">
@@ -151,10 +141,23 @@ function entryCardEditor(ctx: UIContext, state: StoryEditorState, path: Path, ca
   const continuation = record(val(card,'continuation'));
   const continuationPath = [...path,'continuation'];
   const continuationCreate = `<button type="button" class="mini-action" data-story-init-object="true" data-story-path="${esc(ctx,pathText(continuationPath))}"${disabled(state)}>完成后返回当前故事</button>`;
-  out.push(continuation ? optional(ctx,'父故事续接',continuationPath,true,state,
-    `${scalar(ctx,'赴约地点',[...continuationPath,'areaId'],val(continuation,'areaId'),state,'ref','area')}${structuredField(ctx,state,[...continuationPath,'returnFlags'],continuation.returnFlags,'回传局部标记白名单')}`,
-    undefined,draft,nodeId) : continuationCreate);
-  return `<div class="story-editor-property-group">${out.join('')}</div>`;
+  out.push(continuation ? `<section class="story-editor-property-content" data-editor-key="${esc(ctx,key(continuationPath,':optional'))}">
+    <label class="story-editor-toggle"><input type="checkbox" data-story-optional-path="${esc(ctx,pathText(continuationPath))}" checked${disabled(state)}>父故事续接</label>
+    ${scalar(ctx,'赴约地点',[...continuationPath,'areaId'],val(continuation,'areaId'),state,'ref','area')}
+    ${returnFlagList(ctx,state,[...continuationPath,'returnFlags'],continuation.returnFlags,draft,nodeId)}
+  </section>` : continuationCreate);
+  return out.join('');
+}
+function returnFlagList(ctx: UIContext, state: StoryEditorState, path: Path, value: unknown, draft: StoryDraft, nodeId: string): string {
+  if (value !== undefined && !Array.isArray(value)) return legacyChoiceField(ctx,state,'回传标记结构无效',path,value);
+  const rows = array(value).map((name,index) => {
+    const rowId = rowIdAt(draft,nodeId,path,index) ?? String(index);
+    return `<div class="story-editor-compact-property" data-editor-key="return-flag:${esc(ctx,rowId)}">
+      ${typeof name === 'string' ? scalar(ctx,'回传标记',[...path,index],name,state,'text',undefined,undefined,'local') : `<code>${esc(ctx,JSON.stringify(name))}</code>`}
+      <button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(path))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除</button>
+    </div>`;
+  });
+  return `<div class="story-editor-list-block">${listHeader(ctx,'回传局部标记',path,state)}${rows.join('')}</div>`;
 }
 function storyEntryReference(ctx: UIContext,state:StoryEditorState,path:Path,value:unknown,draft:StoryDraft):string {
   const current=value==null?'':String(value);
@@ -199,7 +202,7 @@ function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, actio
       out.push(`<label class="story-editor-property">局部标记操作${choices(ctx,[['set','写入 / 覆盖'],['remove','移除']],val(action,'op'),[...path,'op'],state)}</label>`,scalar(ctx,'局部标记名称',[...path,'name'],val(action,'name'),state));
       if (val(action,'op') === 'set') out.push(structuredField(ctx,state,[...path,'value'],val(action,'value'),'局部标记值'));
     }
-  } else if (kind === 'travel') out.push(scalar(ctx,'区域',[...path,'areaId'],val(action,'areaId'),state,'ref','area'),scalarOptional(ctx,'显示移动通知',action,'notice',[...path,'notice'],state,'boolean',undefined,draft,nodeId));
+  } else if (kind === 'travel') out.push(scalar(ctx,'区域',[...path,'areaId'],val(action,'areaId'),state,'ref','area'),labelledChoices(ctx,'移动通知',[['true','显示'],['false','隐藏']],val(action,'notice'),[...path,'notice'],state,true));
   else if (kind === 'entryRequest') {
     const request = record(val(action,'request')) ?? action;
     out.push(branch(ctx,'Entry 类型',[...path,'request','entryType'],val(request,'entryType'),[['active','主动 Entry'],['passive','被动 Entry']],state));
@@ -216,7 +219,7 @@ function actionEditor(ctx: UIContext, state: StoryEditorState, path: Path, actio
   if (kind === 'overlay') out.push(overlayEditor(ctx,state,[...path,'command'],record(val(action,'command')),draft,nodeId));
   if (kind === 'presentation') out.push(presentationActionEditor(ctx,state,[...path,'command'],record(val(action,'command')),draft,nodeId));
   const impact=actionImpact(ctx,action); if(impact)out.push(`<p class="story-editor-hint"><strong>执行影响：</strong>${esc(ctx,impact)}</p>`);
-  return `<div class="story-editor-property-group">${out.join('')}</div>`;
+  return out.join('');
 }
 function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, index: number, rows: unknown[], row: Obj | null, draft: StoryDraft, nodeId: string): string {
   const opValues: [string,string][] = [['setResource','设置资源'],['addResource','增加资源'],['setSpotLevel','设置设施等级'],['addSpotLevel','增加设施等级'],['setManager','设置经理'],['addEnhancement','获得强化'],['addItem','获得物品'],['unlockInit','解锁世界线'],['acquireAreaMap','收录区域地图'],['revealInformation','告知世界信息'],['setFlag','写持久标记'],['setExtra','设置 Extra'],['addExtra','增加 Extra'],['removeExtra','移除 Extra'],['grantCharacter','获得角色'],['addAffectionExp','增加好感经验']];
@@ -245,37 +248,52 @@ function stateActionRow(ctx: UIContext, state: StoryEditorState, path: Path, ind
     if (entityKind === 'area' || entityKind === 'areaMap' || entityKind === 'areaMapNode') fields.push(labelledChoices(ctx,'信息面',[['existence','存在'],['name','身份'],['utility','用途'],['condition','方法']],val(target,'target'),[...targetPath,'target'],state));
   }
   if (op==='setFlag') { fields.push(scalar(ctx,'全局标记名称',[...p,'flagId'],val(row,'flagId'),state)); fields.push(literalValueEditor(ctx,'值',[...p,'value'],val(row,'value'),state,draft,nodeId)); }
-  if (op==='setExtra'||op==='addExtra'||op==='removeExtra') { fields.push(scalar(ctx,'Extra 路径',[...p,'path'],val(row,'path'),state,'text',undefined,'按现有 ExtraPath 规则填写。')); if(op==='setExtra') fields.push(literalValueEditor(ctx,'值',[...p,'value'],val(row,'value'),state,draft,nodeId)); if(op==='addExtra') fields.push(numericValueEditor(ctx,'增量',[...p,'amount'],val(row,'amount'),state)); }
+  if (op==='setExtra'||op==='addExtra'||op==='removeExtra') { fields.push(scalar(ctx,'Extra 路径',[...p,'path'],val(row,'path'),state,'text',undefined,'按现有 ExtraPath 规则填写。')); if(op==='setExtra') fields.push(literalValueEditor(ctx,'值',[...p,'value'],val(row,'value'),state,draft,nodeId,true)); if(op==='addExtra') fields.push(numericValueEditor(ctx,'增量',[...p,'amount'],val(row,'amount'),state)); }
   if (op==='grantCharacter'||op==='addAffectionExp') { fields.push(scalar(ctx,'角色差分',[...p,'variantId'],val(row,'variantId'),state,'ref','variant')); if(op==='addAffectionExp') fields.push(numericValueEditor(ctx,'经验',[...p,'amount'],val(row,'amount'),state)); }
   const rowId=rowIdAt(draft,nodeId,path,index)??String(index);
   return `<div class="story-editor-property-row" data-editor-key="effect:${esc(ctx,rowId)}">${fields.join('')}${rowButtons(ctx,path,rowId,index,rows.length,state)}</div>`;
 }
-function structuredField(ctx: UIContext, state: StoryEditorState, path: Path, value: unknown, title: string): string {
+function structuredField(ctx: UIContext, state: StoryEditorState, path: Path, value: unknown, title: string, contentOnly = false): string {
   const draft = currentDraft(state);
   const flags = currentStoryFlagCatalog(ctx,state);
   const globalFlags = storyFlagNames(flags,'global').map(name=>({value:name,label:name}));
   const localFlags = [...new Set(flags.uses.filter(use=>use.kind==='local').map(use=>use.name))].map(name=>({value:name,label:name}));
-  return renderStructuredValue(ctx, state.selectedNodeId ?? '', path, value, title, draft?.structuredInputs, (state.storageBlocked || Boolean(state.readOnlyReason)), 0, draft ? (scope, p) => structuredKey(draft,scope,p) : undefined, {flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags});
+  return renderStructuredValue(ctx, state.selectedNodeId ?? '', path, value, title, draft?.structuredInputs, (state.storageBlocked || Boolean(state.readOnlyReason)), 0, draft ? (scope, p) => structuredKey(draft,scope,p) : undefined, {flagId:globalFlags,$globalFlags:globalFlags,$localFlags:localFlags}, undefined, contentOnly);
+}
+const expressionPresets = ['const','value','add','sub','mul','div','min','max','floor','ceil','round','clamp'] as const;
+const extraPresets = ['extra-int','extra-float','extra-str','extra-bool','extra-list','extra-dict'] as const;
+function valueKindOptions(ctx: UIContext, ids: readonly string[], current: string): string {
+  return ids.map(id => {
+    const preset = VALUE_PRESETS[id as keyof typeof VALUE_PRESETS];
+    return `<option value="${id}"${current === id ? ' selected' : ''}>${esc(ctx,preset?.label ?? id)}</option>`;
+  }).join('');
 }
 function numericValueEditor(ctx: UIContext,label: string,path: Path,value: unknown,state: StoryEditorState): string {
-  if (typeof value === 'number' || value === undefined || typeof value === 'string') return `${scalar(ctx,label,path,value,state,'number')}<label class="story-editor-property">数值构造<select data-value-type data-value-scope="${esc(ctx,state.selectedNodeId)}" data-value-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value="">选择表达式构造…</option><option value="const">常量表达式</option><option value="value">读取数值</option><option value="add">加法</option><option value="mul">乘法</option><option value="clamp">范围限制</option></select></label>`;
-  return structuredField(ctx,state,path,value,label);
+  const expression = record(value);
+  const kind = expression ? String(expression.type ?? 'unknown') : 'number';
+  const selector = `<label class="story-editor-property">${esc(ctx,label)}方式<select data-editor-key="${esc(ctx,key(path,':numeric-kind'))}" data-value-type data-value-scope="${esc(ctx,state.selectedNodeId)}" data-value-path="${esc(ctx,pathText(path))}"${disabled(state)}>${!['number',...expressionPresets].includes(kind) ? '<option value="" selected>原有表达式</option>' : ''}<option value="number"${kind === 'number' ? ' selected' : ''}>直接填写</option>${valueKindOptions(ctx,expressionPresets,kind)}</select></label>`;
+  return selector + (expression ? structuredField(ctx,state,path,value,label,true) : scalar(ctx,label,path,value,state,'number'));
 }
-function literalValueEditor(ctx: UIContext,label: string,path: Path,value: unknown,state: StoryEditorState,draft: StoryDraft,nodeId: string): string {
-  if (value !== null && value !== undefined && typeof value === 'object') return structuredField(ctx,state,path,value,label);
+function literalValueEditor(ctx: UIContext,label: string,path: Path,value: unknown,state: StoryEditorState,draft: StoryDraft,nodeId: string, extra = false): string {
+  const compound = value !== null && typeof value === 'object';
+  const object = record(value);
   const recorded=literalKindAt(draft,nodeId,path);
-  const kind=recorded ?? (typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? 'number' : typeof value === 'string' ? 'string' : undefined);
-  const kindSelect=`<label class="story-editor-property">${esc(ctx,label)}类型<select data-story-literal-kind-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${kind?'':' selected'}>选择类型…</option>${[['string','文字'],['number','数字'],['boolean','布尔']].map(([value,text])=>`<option value="${value}"${value===kind?' selected':''}>${esc(ctx,text)}</option>`).join('')}</select><small class="story-editor-hint">持久标记只接受标量或数值表达式；Extra 还支持有类型的复合结构。</small></label>`;
+  const options = ['string','number','boolean',...expressionPresets,...(extra ? extraPresets : [])];
+  const kind = compound ? String(object?.type ?? (object?.t ? `extra-${object.t}` : 'unknown'))
+    : recorded ?? (value === null || value === undefined ? '' : typeof value);
+  const kindSelect = `<label class="story-editor-property">${esc(ctx,label)}类型<select data-editor-key="${esc(ctx,key(path,':literal-kind'))}" data-story-literal-kind-path="${esc(ctx,pathText(path))}"${disabled(state)}>${!options.includes(kind) ? `<option value="" selected>${compound ? '原有结构' : '选择类型…'}</option>` : ''}${valueKindOptions(ctx,options,kind)}</select></label>`;
   const control=kind==='boolean' ? scalar(ctx,label,path,value===true,state,'boolean')
     : kind==='number' ? scalar(ctx,label,path,value,state,'number')
     : scalar(ctx,label,path,value,state,'text');
-  return `<div class="story-editor-literal" data-editor-key="${esc(ctx,key(path,':literal'))}">${kindSelect}${control}${structuredField(ctx,state,path,value,`${label} / 结构化构造`)}</div>`;
+  return kindSelect + (compound ? structuredField(ctx,state,path,value,label,true) : control);
 }
 function overlayEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: Obj|null,draft: StoryDraft,nodeId: string): string {
   const command=val(value,'command'); const listId=`story-overlay-ids-${pathText(path).replace(/[^a-zA-Z0-9_-]/g,'-')}`; const out=[branch(ctx,'覆盖层命令',[...path,'command'],command,[['show','显示'],['clearId','按 ID 清除'],['clearAllTexts','清除全部覆盖文本'],['clearFlow','清除当前聊天流']],state)];
   if(command==='show') {
     const ids=storyOverlayIds(ctx,draft); const current=String(val(value,'id')??'');
-    out.push(`<label class="story-editor-property">覆盖层 ID<input data-story-reference="overlay" list="${listId}" data-editor-key="${esc(ctx,key([...path,'id']))}" data-story-property-path="${esc(ctx,pathText([...path,'id']))}" value="${esc(ctx,current)}"${readOnly(state)}><datalist id="${listId}">${ids.map(id=>`<option value="${esc(ctx,id)}"></option>`).join('')}</datalist><small class="story-editor-hint">同一聊天流内再次显示同 ID 会替换旧覆盖层；可在后续动作按 ID 清除。</small></label>`,scalarOptional(ctx,'X（0–1，左下原点）',value,'x',[...path,'x'],state,'number',undefined,draft,nodeId),scalarOptional(ctx,'Y（0–1，左下原点）',value,'y',[...path,'y'],state,'number',undefined,draft,nodeId),labelledChoices(ctx,'覆盖层对齐',[['left','左'],['center','中'],['right','右']],val(value,'align'),[...path,'align'],state,true),`<div class="story-editor-overlay-presets"><strong>常用位置</strong>${[['top-left','左上'],['top-center','上中'],['top-right','右上'],['bottom-left','左下'],['bottom-center','下中'],['bottom-right','右下']].map(([preset,label])=>`<button type="button" class="mini-action" data-story-overlay-preset="${preset}" data-story-overlay-path="${esc(ctx,pathText(path))}"${disabled(state)}>${label}</button>`).join('')}</div>`);
+    out.push(`<label class="story-editor-property">覆盖层 ID<input data-story-reference="overlay" list="${listId}" data-editor-key="${esc(ctx,key([...path,'id']))}" data-story-property-path="${esc(ctx,pathText([...path,'id']))}" value="${esc(ctx,current)}"${readOnly(state)}><datalist id="${listId}">${ids.map(id=>`<option value="${esc(ctx,id)}"></option>`).join('')}</datalist><small class="story-editor-hint">同一聊天流内再次显示同 ID 会替换旧覆盖层；可在后续动作按 ID 清除。</small></label>`,
+      `<div class="story-editor-coordinate-row">${['x','y'].map(axis => scalar(ctx,axis.toUpperCase(),[...path,axis],val(value,axis),state,'number',undefined,undefined,undefined,true)).join('')}</div><small class="story-editor-hint">坐标范围 0–1，左下原点。留空沿用默认位置。</small>`,
+      labelledChoices(ctx,'覆盖层对齐',[['left','左'],['center','中'],['right','右']],val(value,'align'),[...path,'align'],state,true),`<div class="story-editor-overlay-presets"><strong>常用位置</strong>${[['top-left','左上'],['top-center','上中'],['top-right','右上'],['bottom-left','左下'],['bottom-center','下中'],['bottom-right','右下']].map(([preset,label])=>`<button type="button" class="mini-action" data-story-overlay-preset="${preset}" data-story-overlay-path="${esc(ctx,pathText(path))}"${disabled(state)}>${label}</button>`).join('')}</div>`);
     const cp=[...path,'content']; const content=record(val(value,'content')); const kind=val(content,'kind'); out.push(branch(ctx,'内容类型',[...cp,'kind'],kind,[['text','文本'],['message','消息'],['entryCard','入口卡']],state));
     if(kind==='text') out.push(scalar(ctx,'文本',[...cp,'text'],val(content,'text'),state,'textarea'),labelledChoices(ctx,'文本模板',[['default','默认'],['title','标题'],['badge','徽标'],['note','注记']],val(content,'template'),[...cp,'template'],state,true),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
     if(kind==='message') out.push(contentEditor(ctx,state,[...cp,'content'],record(val(content,'content'))),presentationEditor(ctx,state,[...cp,'presentation'],record(val(content,'presentation'))),styleEditor(ctx,state,[...cp,'style'],record(val(content,'style'))));
@@ -284,7 +302,7 @@ function overlayEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: 
   if(command==='clearId') out.push(`<label class="story-editor-property">覆盖层 ID<input data-story-reference="overlay" list="${listId}" data-editor-key="${esc(ctx,key([...path,'id']))}" data-story-property-path="${esc(ctx,pathText([...path,'id']))}" value="${esc(ctx,val(value,'id')??'')}"${readOnly(state)}><datalist id="${listId}">${storyOverlayIds(ctx,draft).map(id=>`<option value="${esc(ctx,id)}"></option>`).join('')}</datalist></label><p class="story-editor-hint">候选来自当前 Story 与可达转移。只清除当前 owner 的同 ID 覆盖层；未找到时不改聊天流。</p>`);
   if(command==='clearAllTexts') out.push('<p class="story-editor-hint">清除当前 owner 的全部演出覆盖层，保留聊天历史与 Story 进度。</p>');
   if(command==='clearFlow') out.push('<p class="story-editor-hint">清空当前 owner 的聊天流（含 Story 输出与覆盖层）；不清除其他 owner，也不回退已执行动作或剧情进度。</p>');
-  return `<div class="story-editor-property-group">${out.join('')}</div>`;
+  return out.join('');
 }
 function storyOverlayIds(ctx:UIContext,draft:StoryDraft):string[] {
   const ids=new Set<string>(); const stories=new Set<string>([draft.document.id]); const queue=[draft.document.id];
@@ -409,24 +427,13 @@ function presentationActionEditor(ctx: UIContext,state:StoryEditorState,path: Pa
       out.push(labelledChoices(ctx,'表现生命周期',[['story','Story'],['area','区域'],['init','世界线'],['manual','手动']],val(value,'lifetime'),[...path,'lifetime'],state,true),'<small class="story-editor-hint">默认手动；Story 在 Run 结束时清理，区域表现随 Area 进入清理，世界线表现切换 Init 时清理。手动项需显式 clearEntityPresentation。</small>');
     }
   }
-  return `<div class="story-editor-property-group">${out.join('')}</div>`;
+  return out.join('');
 }
 function entityKeySelect(ctx: UIContext,state: StoryEditorState,path: Path,value: unknown,scope: 'area'|'student'): string {
   const current=typeof value==='string'?value:''; const prefix=scope==='area'?'area:':'variant:';
   const options=storyReferenceOptions(ctx,scope==='area'?'area':'variant').map(item=>({value:`${prefix}${item.value}`,label:item.label}));
   const missing=current&&!options.some(item=>item.value===current)?`<option value="${esc(ctx,current)}" selected data-reference-missing>${esc(ctx,current)}（实体不存在）</option>`:'';
   return `<label class="story-editor-property">${scope==='area'?'区域':'角色差分'}<select data-story-reference="${scope==='area'?'area':'variant'}" data-editor-key="${esc(ctx,key(path))}" data-story-property-path="${esc(ctx,pathText(path))}"${disabled(state)}><option value=""${current?'':' selected'}>选择…</option>${missing}${options.map(item=>`<option value="${esc(ctx,item.value)}"${item.value===current?' selected':''}>${esc(ctx,item.label)}</option>`).join('')}</select></label>`;
-}
-function conditionEditor(ctx: UIContext,state: StoryEditorState,path: Path,value: unknown): string {
-  if (!record(value)) return '<p class="story-editor-hint">条件尚未配置。</p>';
-  const group=Array.isArray(record(value)?.conditions); const obj=record(value)!;
-  if(group) {
-    const rows=array(obj.conditions); return `<section class="story-editor-condition" data-editor-key="condition:${pathText(path)}">${labelledChoices(ctx,'条件关系',[['AND','全部满足'],['OR','任一满足']],val(obj,'type'),[...path,'type'],state)}<div class="story-editor-actions"><button type="button" class="mini-action" data-story-condition-add="leaf" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件</button><button type="button" class="mini-action" data-story-condition-add="group" data-story-condition-path="${esc(ctx,pathText([...path,'conditions']))}"${disabled(state)}>添加条件组</button></div>${rows.map((child,index)=>`<div class="story-editor-condition-child" data-editor-key="condition-row:${pathText(path)}:${index}">${conditionEditor(ctx,state,[...path,'conditions',index],child)}<button type="button" class="mini-action mini-action--danger" data-story-row-action="remove-index" data-story-row-path="${esc(ctx,pathText([...path,'conditions']))}" data-story-row-index="${index}"${disabled(state)}>删除</button></div>`).join('')}</section>`;
-  }
-  const target = STORY_CONDITION_TARGETS.find(([id]) => id === val(obj,'target'))?.[0];
-  const conditionRef = target && STORY_CONDITION_REFERENCES[target];
-  const conditionHint = (target && STORY_CONDITION_HINTS[target]) ?? '从当前内容目录选择判断对象。';
-  return `<section class="story-editor-condition-leaf" data-editor-key="condition-leaf:${pathText(path)}">${labelledChoices(ctx,'条件目标',STORY_CONDITION_TARGETS,val(obj,'target'),[...path,'target'],state)}${scalar(ctx,'条件键',[...path,'key'],val(obj,'key'),state,conditionRef?'ref':'text',conditionRef,conditionHint,target==='flag'?'global':undefined)}${labelledChoices(ctx,'比较方式',STORY_CONDITION_COMPARATORS,val(obj,'comparator'),[...path,'comparator'],state)}${scalar(ctx,'比较值',[...path,'value'],val(obj,'value'),state,'number')}</section>`;
 }
 function clickEditor(ctx: UIContext,state: StoryEditorState,path: Path,interaction: Obj|null,draft: StoryDraft,nodeId: string): string {
   const kind=val(interaction,'kind'); const out=[branch(ctx,'交互形式',[...path,'kind'],kind,[['button','按钮'],['choice','选项组'],['entryCard','剧情入口卡'],['areaContinue','到地点继续']],state)];
@@ -465,12 +472,12 @@ function choiceMarkList(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|n
       : `<p class="story-editor-error">选择标记结构无效：<code>${esc(ctx,JSON.stringify(name))}</code></p>`;
     const readers = marks.indexOf(name) === index ? bindings.find(binding => binding.flagName === name)?.nodeIds ?? [] : [];
     const unbind = readers.map(reader => `<button type="button" class="mini-action" data-editor-key="unbind:${esc(ctx,reader)}" data-story-choice-flag-unbind data-story-choice-node="${esc(ctx,nodeId)}" data-story-option-index="${optionIndex}" data-story-option-id="${esc(ctx,optionId)}" data-story-flag-name="${esc(ctx,name)}" data-story-node-id="${esc(ctx,reader)}" title="解除这个节点的标记条件。共用该标记的选项也将失去对该节点的控制。"${disabled(state)}>解绑 ${esc(ctx,reader)}</button>`).join('');
-    return `<div class="story-editor-property-row" data-editor-key="choice-mark:${esc(ctx,rowId)}">${editor}<div class="story-editor-actions"><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(marksPath))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除标记</button>${unbind}</div></div>`;
+    return `<div class="story-editor-choice-mark" data-editor-key="choice-mark:${esc(ctx,rowId)}"><div class="story-editor-compact-property">${editor}<button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(marksPath))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除</button></div>${unbind ? `<div class="story-editor-actions">${unbind}</div>` : ''}</div>`;
   }).join('');
   return `<div class="story-editor-list-block" data-editor-key="choice-marks:${esc(ctx,pathText(path))}"><div class="story-editor-list-heading"><strong>选择标记</strong><button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx,pathText(marksPath))}"${disabled(state)}>添加标记</button></div>${rows}</div>`;
 }
 function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|null,listPath:Path,index:number,total:number,draft:StoryDraft,nodeId:string):string {
-  const id=val(opt,'id'); const out=[`<div class="story-editor-property-row"><label class="story-editor-property">选项 ID<code>${esc(ctx,id)}</code></label><button type="button" class="mini-action" data-story-rename-option-id="true" data-story-node-id="${esc(ctx,nodeId)}" data-story-option-index="${index}" data-story-option-id="${esc(ctx,id)}"${disabled(state)}>更改 ID</button><small class="story-editor-hint">选项 ID 用于稳定标识；发布后尽量不要更改。若旧游标不再匹配，恢复时会从 Entry 开始。</small></div>`,scalar(ctx,'选项文案',[...path,'text'],val(opt,'text'),state,'textarea')];
+  const id=val(opt,'id'); const out=[`<div class="story-editor-compact-property"><span>选项 ID <code>${esc(ctx,id)}</code></span><button type="button" class="mini-action" data-story-rename-option-id="true" data-story-node-id="${esc(ctx,nodeId)}" data-story-option-index="${index}" data-story-option-id="${esc(ctx,id)}" title="更改后，旧游标找不到此选项时会从 Entry 重新开始。"${disabled(state)}>更改 ID</button></div>`,scalar(ctx,'选项文案',[...path,'text'],val(opt,'text'),state,'textarea')];
   const oldConditionPath=[...path,'condition'];
   if(opt&&hasOwn(opt,'condition')) out.push(legacyChoiceField(ctx,state,'旧 Choice condition（禁用语义，不等同于 showWhen）',oldConditionPath,opt.condition));
   const showWhenPath=[...path,'showWhen']; const showWhen=val(opt,'showWhen'); const showWhenRecord=record(showWhen);
@@ -478,7 +485,11 @@ function choiceOption(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|nul
   const showWhenCreate=`<button type="button" class="mini-action" data-story-init-condition="true" data-story-path="${esc(ctx,pathText(showWhenPath))}"${disabled(state)}>配置出现条件</button>`;
   out.push(showWhen!==undefined&&!showWhenGroup
     ? legacyChoiceField(ctx,state,'出现条件结构无效',showWhenPath,showWhen)
-    : showWhen!==undefined ? optional(ctx,'出现条件',showWhenPath,true,state,conditionEditor(ctx,state,showWhenPath,showWhen),undefined,draft,nodeId) : showWhenCreate);
+    : showWhenRecord ? `<div class="story-editor-compact-property" data-editor-key="choice-condition">
+      <label class="story-editor-toggle"><input type="checkbox" data-story-optional-path="${esc(ctx,pathText(showWhenPath))}" checked${disabled(state)}>出现条件</label>
+      <small class="story-editor-hint">${showWhenRecord.type === 'AND' ? '全部满足' : '任一满足'} · ${array(showWhenRecord.conditions).length} 项</small>
+      <button type="button" class="mini-action" data-choice-condition="${esc(ctx,pathText(showWhenPath))}" data-choice-condition-row="${esc(ctx,rowIdAt(draft,nodeId,listPath,index))}"${disabled(state)}>编辑</button>
+    </div>` : showWhenCreate);
   if(opt&&hasOwn(opt,'result')) out.push(legacyChoiceField(ctx,state,'旧 Choice result（不再执行）',[...path,'result'],opt.result));
   const requiredFlag=val(opt,'requiresFlag');
   out.push(requiredFlag!==undefined&&typeof requiredFlag!=='string'

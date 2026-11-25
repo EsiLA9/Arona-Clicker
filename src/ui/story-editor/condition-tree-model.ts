@@ -39,14 +39,14 @@ export function isTrueConditionRoot(value: unknown): boolean {
     && first.comparator === TRUE_ROOT_OPERAND.comparator && first.value === TRUE_ROOT_OPERAND.value;
 }
 
-export function createConditionTree(value: unknown, pendingValue?: (path: readonly (string | number)[]) => string | undefined) {
+export function createConditionTree(value: unknown, pendingValue?: (path: readonly (string | number)[]) => string | undefined, plainRoot = false) {
   let nextId = 0;
   const newGroup = (): ConditionTreeGroup => ({ kind: 'group', id: String(nextId++), operator: '', expanded: true, children: [] });
   const newLeaf = (): ConditionTreeLeaf => ({ kind: 'leaf', id: String(nextId++), target: '', comparator: '', value: '' });
   const original = asRecord(value);
   const root = newGroup();
   root.operator = 'OR';
-  const mode: ConditionRootMode = isTrueConditionRoot(value) ? 'true' : 'OR';
+  const mode: ConditionRootMode = !plainRoot && isTrueConditionRoot(value) ? 'true' : 'OR';
 
   const read = (value: unknown, path: readonly (string | number)[]): ConditionTreeNode => {
     const record = asRecord(value);
@@ -66,7 +66,10 @@ export function createConditionTree(value: unknown, pendingValue?: (path: readon
     return node;
   };
 
-  if (value !== undefined) {
+  if (plainRoot && Array.isArray(original?.conditions) && (original.type === 'AND' || original.type === 'OR')) {
+    root.operator = original.type;
+    root.children = original.conditions.map((child, index) => read(child, ['conditions', index]));
+  } else if (value !== undefined) {
     if (original?.type === 'OR' && Array.isArray(original.conditions)) {
       const offset = mode === 'true' ? 1 : 0;
       root.children = original.conditions.slice(offset).map((child, index) => read(child, ['conditions', index + offset]));

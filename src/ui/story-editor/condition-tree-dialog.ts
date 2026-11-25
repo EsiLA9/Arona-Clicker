@@ -24,6 +24,7 @@ interface ConditionTreeOptions {
   original?: unknown;
   label: string;
   defaultTrue?: boolean;
+  plainRoot?: boolean;
   targets: typeof STORY_CONDITION_TARGETS;
   state: StoryEditorState;
   globalFlags: readonly string[];
@@ -36,7 +37,7 @@ interface ConditionTreeOptions {
 
 export function openConditionTreeDialog(modal: ModalManager, ctx: UIContext, trigger: HTMLElement, options: ConditionTreeOptions): HTMLElement {
   const seed = options.original === undefined && options.defaultTrue ? { type: 'AND', conditions: [] } : options.original;
-  const { root, mode: initialMode, newGroup, newLeaf } = createConditionTree(seed, options.pendingValue);
+  const { root, mode: initialMode, newGroup, newLeaf } = createConditionTree(seed, options.pendingValue, options.plainRoot);
   const initial = compileConditionTree(root, initialMode);
   let mode: ConditionRootMode = initialMode;
   let selected: ConditionTreeNode = root;
@@ -83,7 +84,7 @@ export function openConditionTreeDialog(modal: ModalManager, ctx: UIContext, tri
   const properties = (): string => {
     const isRoot = selected === root;
     const title = isRoot ? '根节点' : selected.kind === 'group' ? '条件组' : '单条条件';
-    const fields = isRoot ? selectField('mode', '根节点模式', mode, [['OR', '任一满足 · OR'], ['true', '恒为 True']])
+    const fields = isRoot && !options.plainRoot ? selectField('mode', '根节点模式', mode, [['OR', '任一满足 · OR'], ['true', '恒为 True']])
       : selected.kind === 'group' ? selectField('operator', '组内关系', selected.operator, OPERATORS, '选择组内关系')
       : renderConditionLeafFields(selected, leafView);
     const actions = selected.kind === 'group'
@@ -237,7 +238,7 @@ export function openConditionTreeDialog(modal: ModalManager, ctx: UIContext, tri
       return;
     }
     if (field === 'mode' && selected === root && (value === 'true' || value === 'OR')) mode = value;
-    else if (field === 'operator' && selected.kind === 'group' && selected !== root && (value === '' || value === 'AND' || value === 'OR')) selected.operator = value;
+    else if (field === 'operator' && selected.kind === 'group' && (selected !== root || options.plainRoot) && (value === '' || value === 'AND' || value === 'OR')) selected.operator = value;
     else if (field === 'target' && selected.kind === 'leaf') {
       if (value === selected.target) return;
       if (value && !options.targets.some(([target]) => target === value)) return;

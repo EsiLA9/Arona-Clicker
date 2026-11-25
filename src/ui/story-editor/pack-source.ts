@@ -1,10 +1,14 @@
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
-import type { GameReadModel, PackCatalogEntry } from '../../arona-clicker/contracts/runtime/runtime';
+import type { GameReadModel, PackCatalogEntry, PackCatalogReadModel } from '../../arona-clicker/contracts/runtime/runtime';
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
 import { displayName } from '../../engine/core/display-name';
 import type { StoryDraft, StoryEditorState } from './model';
+
+export function isLoadedStoryPack(query: Partial<PackCatalogReadModel>, entry: PackCatalogEntry): boolean {
+  return query.getRunningStoryPackId?.(entry.modName) === (entry.packRecordId ?? entry.id);
+}
 
 export function storyPackSource(entry: PackCatalogEntry): NonNullable<StoryDraft['packSource']> {
   return { packRecordId: entry.packRecordId ?? entry.id, modName: entry.modName, dependencies: entry.dependencies ?? [], digest: entry.contentDigest,
@@ -30,7 +34,7 @@ export function storySourceContext(ctx: UIContext, state: StoryEditorState): UIC
   return { ...ctx, game, nameOf: (type, id) => displayName(game.registry, type, id) };
 }
 
-/** Let authors inspect installed files even when a dependency cannot be loaded into a Registry. */
+/** Index the runtime's loaded source and dependencies for a scoped editor view. */
 export function storyPackCatalog(packs: readonly Datapack[]): ContentCatalogQueryPort {
   const index = <T>(rows: (pack: Datapack) => readonly T[] | undefined, key: (row: T) => string) =>
     new Map(packs.flatMap(pack => (rows(pack) ?? []).map(row => [key(row), row] as const)));

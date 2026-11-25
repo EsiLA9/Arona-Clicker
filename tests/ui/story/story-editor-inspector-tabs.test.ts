@@ -18,7 +18,7 @@ describe('StoryDef inspector pages and flag drops', () => {
   const refresh = () => { ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates(); };
   const tab = (id: string) => { find<HTMLButtonElement>(`[data-column-action="story-editor-inspector-tab:${id}"]`).click(); ctrl.flushUIUpdates(); };
   const panel = (id: string) => find(`[data-story-inspector-panel="${id}"]`);
-  const row = (name: string, available = true) => [...root.querySelectorAll<HTMLElement>('[data-story-drop-target="story-flag-table"]')].find(row => row.dataset.storyFlagName === name && (row.getAttribute('aria-disabled') !== 'true') === available)!;
+  const row = (name: string, available = true) => [...root.querySelectorAll<HTMLDetailsElement>('[data-story-drop-target="story-flag-table"]')].find(row => row.dataset.storyFlagName === name && (row.dataset.storyFlagBindable === 'true') === available)!;
   function transfer() {
     const data = new Map<string,string>();
     return {setData:(type:string,value:string) => data.set(type,value),getData:(type:string) => data.get(type) ?? '',get types(){return [...data.keys()];},effectAllowed:'none',dropEffect:'none'} as unknown as DataTransfer;
@@ -76,12 +76,15 @@ describe('StoryDef inspector pages and flag drops', () => {
     const before = draft.document.nodes.map(node => node.id), running = game.storyService.getCurrentStoryId();
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 48;
     drag(source,'dragstart',data); expect(panel('flags').hidden).toBe(false);
-    expect(drag(target,'dragover',data).defaultPrevented).toBe(true); expect(target.classList.contains('is-drop-target')).toBe(true);
+    expect(drag(target,'dragover',data).defaultPrevented).toBe(true); expect(target.dataset.storyFlagDropStatus).toBe('可绑定');
     drag(target,'drop',data); drag(source,'dragend',data);
     expect(draft.document.nodes.find(node => node.id === 'reader')).toMatchObject({requiresFlag:'from-parent',content:{text:'正文'}});
     expect(draft.document.nodes.map(node => node.id)).toEqual(before); expect(game.storyService.getCurrentStoryId()).toBe(running);
     expect(panel('flags').hidden).toBe(false); expect(row('from-parent') === target).toBe(true); expect(body.scrollTop).toBe(48);
-    draft.dirty = false; drag(source,'dragstart',data); drag(target,'drop',data); drag(source,'dragend',data); expect(draft.dirty).toBe(false);
+    draft.dirty = false; drag(source,'dragstart',data); drag(target,'dragover',data);
+    expect(target.dataset.storyFlagDropStatus).toBe('已绑定');
+    drag(target,'drop',data); drag(source,'dragend',data); expect(draft.dirty).toBe(false);
+    expect(target.dataset.storyFlagDropStatus).toBeUndefined();
   });
 
   it('discloses coloured flags in place, groups their uses and keeps disclosure through a refresh', () => {
@@ -92,20 +95,17 @@ describe('StoryDef inspector pages and flag drops', () => {
     const flow = find('.story-editor-flow'), full = vi.spyOn(ctrl,'render'), refreshEditor = vi.spyOn(ctrl.storyEditor,'requestRefresh');
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 48;
     expect(item.tagName).toBe('DETAILS'); expect(item.open).toBe(false);
-    expect(summary.textContent).toBe('局部 · local'); expect(summary.getAttribute('style')).toContain('--story-editor-choice-flag-color:hsl(');
+    expect(summary.querySelector('code')?.textContent).toBe('local');
+    expect(summary.querySelector('.story-editor-flag-roles')?.textContent).toBe('本篇 双向');
+    expect(item.parentElement?.getAttribute('style')).toContain('--story-editor-choice-flag-color:hsl(');
     expect(summary.title).toContain('将本 Story 的节点拖到此处');
     expect(item.textContent).not.toContain('将本 Story 的节点拖到此处');
-    const provider = item.querySelector<HTMLButtonElement>('[data-story-flag-role="providers"] [data-story-flag-node="writer"]')!;
-    expect(provider.querySelector('[data-story-target-kind="story"] code')?.textContent).toBe('writer');
-    expect(provider.title).toContain('$.nodes[0].action');
-    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).toContain('writer');
-    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('remove');
-    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).toContain('reader');
-    expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('写入');
-    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).not.toContain('读取');
-    expect(item.querySelector('.story-editor-flag-scope')!.textContent).toContain('作用域 · Entry');
-    expect(item.querySelector('.story-editor-flag-scope code')!.textContent).toBe('local:activestory:parent');
-    expect(item.querySelector('[data-story-flag-role="removers"]')!.textContent).toContain('remove');
+    const cards = () => item.querySelectorAll<HTMLButtonElement>('.story-identity-card[data-editor-story-target]');
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0].querySelector('code')?.textContent).toBe(draft.document.id);
+    expect(cards()[0].querySelector('.story-editor-relation-detail')?.textContent).toBe('双向');
+    expect(cards()[0].parentElement?.dataset.storyFlagNode).toBe('writer');
+    expect(summary.title).toContain('local:activestory:parent');
     summary.click(); expect(item.open).toBe(true);
     expect(refreshEditor).not.toHaveBeenCalled(); expect(full).not.toHaveBeenCalled();
     expect(body.scrollTop).toBe(48); expect(find('.story-editor-flow')).toBe(flow);
@@ -113,11 +113,45 @@ describe('StoryDef inspector pages and flag drops', () => {
     refresh();
     expect(row('local')).toBe(item); expect(item.open).toBe(true);
     expect(item.querySelector('summary')).toBe(summary);
-    expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).toContain('another-reader');
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0].parentElement?.dataset.storyFlagNode).toBe('writer');
     expect((row('global',false) as HTMLDetailsElement).open).toBe(false);
     summary.click(); expect(item.open).toBe(false); refresh(); expect(item.open).toBe(false);
     const global = row('global',false) as HTMLDetailsElement;
     global.querySelector('summary')!.click(); expect(global.open).toBe(true);
+  });
+
+  it('renames only the current Story, warns about shared references and retains the expanded row', () => {
+    const parent = ctrl.storyEditor.state.drafts.find(item => item.draftId === 'parent')!;
+    parent.document.nodes.push({ id: 'external-reader', type: 'operation', requiresFlag: 'local' });
+    draft.document.nodes.push({ id: 'local-reader', type: 'operation', requiresFlag: 'local' });
+    refresh(); tab('flags');
+    const flag = row('local');
+    flag.querySelector('summary')!.click();
+    expect([...flag.querySelectorAll('.story-editor-flag-roles > span')].map(label => label.textContent)).toEqual(['本篇 双向', '其他 依赖']);
+    expect([...flag.querySelectorAll('.story-editor-relation-detail')].map(label => label.textContent)).toEqual(['双向', '依赖']);
+    flag.parentElement!.querySelector<HTMLButtonElement>('[data-story-flag-rename]')!.click();
+    const form = find<HTMLFormElement>('.story-editor-flag-rename-form');
+    const input = form.querySelector('input')!;
+    expect(form.textContent).toContain('已发现 1 个外部');
+    input.value = 'from-parent';
+    const submit = () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    submit(); expect(form.querySelector('[role="alert"]')?.textContent).toContain('同名');
+    input.value = 'local-renamed'; refresh();
+    expect(form.querySelector('input')?.value).toBe('local-renamed');
+    submit(); ctrl.flushUIUpdates();
+    expect(row('local-renamed').open).toBe(true);
+    expect(draft.document.nodes.find(node => node.id === 'local-reader')?.requiresFlag).toBe('local-renamed');
+    expect(draft.document.nodes.find(node => node.id === 'writer')).toMatchObject({ action: { name: 'local-renamed' } });
+    expect(parent.document.nodes.find(node => node.id === 'external-reader')?.requiresFlag).toBe('local');
+    expect(row('local', false).querySelector('.story-editor-flag-roles')?.textContent).toBe('其他 依赖');
+    const global = row('global', false);
+    global.parentElement!.querySelector<HTMLButtonElement>('[data-story-flag-rename]')!.click();
+    const globalForm = find<HTMLFormElement>('.story-editor-flag-rename-form');
+    globalForm.querySelector('input')!.value = 'global-renamed';
+    globalForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); ctrl.flushUIUpdates();
+    expect(draft.document.nodes.find(node => node.id === 'global')).toMatchObject({ action: { effects: [{ flagId: 'global-renamed' }] } });
+    expect(row('global-renamed', false).open).toBe(false);
   });
 
   it('remembers each Story page and does not apply pending tab scroll to another document', () => {
