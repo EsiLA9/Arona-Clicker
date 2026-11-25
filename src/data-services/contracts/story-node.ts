@@ -6,6 +6,7 @@ import type { AreaId } from '../../engine/types/ids';
 import type { HierachyString } from './story-directory';
 import type { VariantId } from '../../engine/types/character';
 import type { ChatTextStyle, StoryNodeLayout, StoryNodeTemplate } from '../../engine/contracts/chat-presentation';
+import type { StoryCardGradient } from './story-card-gradient';
 
 /** 文档内唯一的稳定局部身份：1–64位ASCII名，首位字母，后续字母/数字/_/-。 */
 export type StoryNodeId = string;
@@ -35,6 +36,8 @@ export interface StoryNodeDocument {
   readonly name: string;
   /** 玩家可见入口的同 Mod 正文简介回退。支持多行纯文本。 */
   readonly publicDescription?: string;
+  /** 编辑器剧情引用卡的渐变。 */
+  readonly cardGradient?: StoryCardGradient;
   /** 作者目录归属。省略时归入「其他」，不限制入口、播放或重读。 */
   readonly initId?: InitId;
   /** Folder path under initId. Missing initId uses the editor's Other root. */

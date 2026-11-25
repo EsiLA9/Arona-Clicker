@@ -5,6 +5,7 @@ import type { AreaId, InitId, StoryEntryId, StoryId } from '../../engine/types/i
 import type { RevealTrigger } from '../../engine/types/reveal';
 import type { TriggerEventDef } from '../../engine/types/trigger';
 import type { StoryEntryDirectoryPlacement } from './story-directory';
+import type { StoryCardGradient } from './story-card-gradient';
 
 export interface ConditionalReward { condition: ConditionGroup; effects: Effect[]; }
 export interface BranchGuard { storyId: StoryId; prerequisites: { storyId: StoryId; talkletIndex: number }[]; denialMessage: string; }
@@ -32,6 +33,8 @@ export interface StoryEntryBase {
   directoryPlacements?: StoryEntryDirectoryPlacement[];
   /** 已揭示入口在故事目录中的公开简介。支持多行纯文本。 */
   publicDescription?: string;
+  /** 编辑器剧情入口引用卡的渐变。 */
+  cardGradient?: StoryCardGradient;
   owner?: string;
   completionReward?: { first?: Effect[]; repeat?: Effect[] };
   revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';

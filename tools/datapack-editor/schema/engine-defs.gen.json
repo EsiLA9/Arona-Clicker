@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T13:32:43.557Z",
+  "generatedAt": "2026-11-25T07:47:12.174Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -17799,6 +17799,53 @@
           }
         },
         {
+          "key": "cardGradient",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryCardGradient",
+          "description": "编辑器剧情入口引用卡的渐变。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "start",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "end",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "sourceType": "StoryCardGradient"
+          },
+          "fields": [
+            {
+              "key": "start",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "end",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -18777,6 +18824,53 @@
           }
         },
         {
+          "key": "cardGradient",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryCardGradient",
+          "description": "编辑器剧情入口引用卡的渐变。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "start",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "end",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "sourceType": "StoryCardGradient"
+          },
+          "fields": [
+            {
+              "key": "start",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "end",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -19640,6 +19734,31 @@
                 }
               },
               {
+                "key": "cardGradient",
+                "required": false,
+                "description": "编辑器剧情入口引用卡的渐变。",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "start",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "end",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "sourceType": "StoryCardGradient"
+                }
+              },
+              {
                 "key": "owner",
                 "required": false,
                 "schema": {
@@ -20153,6 +20272,31 @@
                 }
               },
               {
+                "key": "cardGradient",
+                "required": false,
+                "description": "编辑器剧情入口引用卡的渐变。",
+                "schema": {
+                  "type": "object",
+                  "fields": [
+                    {
+                      "key": "start",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "key": "end",
+                      "required": true,
+                      "schema": {
+                        "type": "string"
+                      }
+                    }
+                  ],
+                  "sourceType": "StoryCardGradient"
+                }
+              },
+              {
                 "key": "owner",
                 "required": true,
                 "schema": {
@@ -20662,6 +20806,27 @@
           "kind": "string",
           "tsType": "string",
           "description": "玩家可见入口的同 Mod 正文简介回退。支持多行纯文本。"
+        },
+        {
+          "key": "cardGradient",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryCardGradient",
+          "description": "编辑器剧情引用卡的渐变。",
+          "fields": [
+            {
+              "key": "start",
+              "required": true,
+              "kind": "string",
+              "tsType": "string"
+            },
+            {
+              "key": "end",
+              "required": true,
+              "kind": "string",
+              "tsType": "string"
+            }
+          ]
         },
         {
           "key": "initId",
@@ -27361,6 +27526,53 @@
           }
         },
         {
+          "key": "cardGradient",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryCardGradient",
+          "description": "编辑器剧情入口引用卡的渐变。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "start",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "end",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "sourceType": "StoryCardGradient"
+          },
+          "fields": [
+            {
+              "key": "start",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "end",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        {
           "key": "owner",
           "required": false,
           "kind": "string",
@@ -28333,6 +28545,53 @@
           "authoringSchema": {
             "type": "string"
           }
+        },
+        {
+          "key": "cardGradient",
+          "required": false,
+          "kind": "object",
+          "tsType": "StoryCardGradient",
+          "description": "编辑器剧情入口引用卡的渐变。",
+          "authoringSchema": {
+            "type": "object",
+            "fields": [
+              {
+                "key": "start",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              {
+                "key": "end",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "sourceType": "StoryCardGradient"
+          },
+          "fields": [
+            {
+              "key": "start",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            },
+            {
+              "key": "end",
+              "required": true,
+              "kind": "string",
+              "tsType": "string",
+              "authoringSchema": {
+                "type": "string"
+              }
+            }
+          ]
         },
         {
           "key": "owner",
@@ -29635,6 +29894,7 @@
     "StatsState",
     "StoryAction",
     "StoryButtonInteraction",
+    "StoryCardGradient",
     "StoryChoice",
     "StoryChoiceInteraction",
     "StoryChoiceOption",

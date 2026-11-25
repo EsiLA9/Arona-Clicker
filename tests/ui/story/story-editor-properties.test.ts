@@ -108,6 +108,29 @@ describe('Story Editor property panel', () => {
     await setImmediate();
   });
 
+  it('keeps one transfer target when switching modes, replacing the target or clearing it', () => {
+    open(); click('new'); click('transfer');
+    const mode = ['transfer', 'mode'];
+    const target = ['transfer', 'storyId'];
+    const first = [...game.registry.stories.keys()][0];
+    const second = draft().document.id;
+    const targetInput = property<HTMLSelectElement>(target);
+    setProperty(target, first);
+    setProperty(mode, 'goto');
+    setProperty(mode, 'insert');
+    expect(property<HTMLSelectElement>(target)).toBe(targetInput);
+    expect(node().transfer).toEqual({ mode: 'insert', storyId: first });
+    setProperty(target, second);
+    setProperty(mode, 'goto');
+    expect(node().transfer).toEqual({ mode: 'goto', storyId: second });
+    expect(q<HTMLButtonElement>('.story-editor-right .story-editor-property-content [data-editor-story-target]').dataset.editorStoryTarget).toBe(second);
+    setProperty(target, '');
+    setProperty(mode, 'insert');
+    expect(node().transfer).toEqual({ mode: 'insert' });
+    expect(targetInput.value).toBe('');
+    expect(root.querySelector('.story-editor-right .story-editor-property-content [data-editor-story-target]')).toBeNull();
+  });
+
   it('keeps talk-only speaker, image and pacing asleep under narration and restores them on the way back', () => {
     open(); click('new');
     composer('[data-editor-composer-text]', '原始旁白'); click('send');

@@ -2,7 +2,7 @@ import { renderRequiredFlagControl } from './required-flag-dropdown';
 import { renderLocalFlagNaviButton } from './local-flag-navi';
 import { currentStoryFlagCatalog, renderStoryFlagSuggestions } from './flag-catalog-view';
 import { storyFlagNames } from './flag-catalog';
-import { renderStoryTransfer } from './transfer-view';
+import { renderStoryTransferTarget } from './transfer-view';
 import { structuredKey } from './authoring-model';
 import { choiceOptionFlagBindings, currentDraft } from './model';
 import { renderStructuredValue } from './structured-value';
@@ -126,9 +126,11 @@ function presentationEditor(ctx: UIContext, state: StoryEditorState, path: Path,
     ${scalar(ctx,'头像引用',[...path,'avatar'],val(presentation,'avatar'),state,'image',undefined,'覆盖角色头像；留空使用角色默认头像。隐藏时仍保留此引用。',undefined,true)}
   </section>`;
 }
-function transferEditor(ctx: UIContext, state: StoryEditorState, path: Path, value: Obj | null, draft?: StoryDraft): string {
-  const mode=val(value,'mode'); const id=String(val(value,'storyId')??''); const target=ctx.game.registry.stories.get(id);
-  return `<div class="story-editor-property-group">${branch(ctx,'转移方式',[...path,'mode'],mode,[['goto','跳转'],['insert','插入并返回']],state)}${draft ? storyReference(ctx,state,[...path,'storyId'],id,draft) : scalar(ctx,'Story',[...path,'storyId'],id,state,'ref','story')}<p class="story-editor-hint">${mode==='goto'?`goto 离开当前正文并进入“${esc(ctx,target?.name??(id||'目标 Story'))}”；不创建返回点。`:`insert 先播放“${esc(ctx,target?.name??(id||'目标 Story'))}”，结束后回到调用位置的下一节点。`}</p>${renderStoryTransfer(ctx,state,{ mode: mode === 'goto' || mode === 'insert' ? mode : undefined, storyId: id })}</div>`;
+function transferEditor(ctx: UIContext, state: StoryEditorState, value: Obj | null, draft: StoryDraft): string {
+  const id = String(val(value, 'storyId') ?? '');
+  return labelledChoices(ctx, '转移方式', [['goto', '跳转到'], ['insert', '插入并返回']], val(value, 'mode'), ['transfer', 'mode'], state)
+    + storyReference(ctx, state, ['transfer', 'storyId'], id, draft)
+    + (id ? renderStoryTransferTarget(ctx, state, id) : '');
 }
 function storyReference(ctx: UIContext,state:StoryEditorState,path:Path,value:unknown,draft:StoryDraft):string {
   const current=value==null?'':String(value); const options=storyReferenceOptions(ctx,'story',state); const self=draft.document.id;
@@ -572,7 +574,7 @@ export function renderStoryNodeProperties(ctx:UIContext,state:StoryEditorState,d
   let body='';
   if(type==='talklet'||type==='click') body=nodeDesigner(ctx,state,draft,node);
   else if(type==='operation') body=`<p class="story-editor-hint">重读保留清理与临时演出，业务结算不重复执行；空间切换请使用独立移动节点。</p>${actionEditor(ctx,state,['action'],record(val(n,'action')),draft,node.id)}`;
-  else if(type==='transfer') body=transferEditor(ctx,state,['transfer'],record(val(n,'transfer')),draft);
+  else if(type==='transfer') body=transferEditor(ctx,state,record(val(n,'transfer')),draft);
   else if(type==='moveToArea') body=`${scalar(ctx,'目标 Area',['areaId'],val(n,'areaId'),state,'ref','area')}<p class="story-editor-hint">正式播放会真实切换到目标 Area；隔离重读只切换演出场景。动作完成后继续当前正文，不建立返回点。</p>`;
   else if(type==='moveToCharaspace') body=`${scalar(ctx,'目标角色',['characterId'],val(n,'characterId'),state,'ref','variant')}<p class="story-editor-hint">正式播放切换到目标角色对话流；隔离重读只切换演出场景。动作完成后继续当前正文，不建立返回点。</p>`;
   const error=draft.editorIssues?.filter(issue=>issue.path.startsWith(`nodes[${index}]`)

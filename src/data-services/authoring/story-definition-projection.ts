@@ -2,6 +2,7 @@ import { storyEntryType, type StoryEntryDef } from '../contracts/story-entry';
 import type { StoryDef } from '../contracts/story';
 import { storyPerformanceIssues } from '../validation/story-performance';
 import { validateStoryNodeStructure } from '../validation/story-node-structure';
+import { isStoryCardGradient } from '../validation/story-card-gradient';
 import { isStoryLocalFlagAction, validStoryFlagName } from '../validation/story-run-flags';
 import { validateExtraValue } from '../../engine/extra/extra-validate';
 import { EXTRA_MAX_DEPTH } from '../../engine/extra/extra-core';
@@ -589,7 +590,7 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
     }
     fail(`${path}.command`, '未知 Presentation 命令'); return {};
   };
-  const root = object(value, '$', ['id', 'name', 'publicDescription', 'initId', 'hierarchyString', 'directoryId', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
+  const root = object(value, '$', ['id', 'name', 'publicDescription', 'cardGradient', 'initId', 'hierarchyString', 'directoryId', 'startContext', 'nodes', 'stages', 'extra']) ?? {};
   const id = string(root.id, 'id', true);
   if (parseEntityId(id)?.type !== 'story') fail('id', '需要有效的 Story ID');
   const name = string(root.name, 'name', true);
@@ -749,6 +750,10 @@ export function projectStoryDefinition(value: unknown, refs?: StoryDefinitionRef
   if (hasOwn(root, 'publicDescription')) {
     const description = string(root.publicDescription, 'publicDescription');
     if (description.trim()) out.publicDescription = description;
+  }
+  if (hasOwn(root, 'cardGradient')) {
+    if (isStoryCardGradient(root.cardGradient)) out.cardGradient = root.cardGradient;
+    else fail('cardGradient', '渐变起色和止色必须为 #RRGGBB');
   }
   if (hasOwn(root, 'directoryId')) out.directoryId = string(root.directoryId, 'directoryId', true);
   if (hasOwn(root, 'hierarchyString')) out.hierarchyString = string(root.hierarchyString, 'hierarchyString', true);

@@ -109,7 +109,7 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
     const selected = matches(state.target, kind, id);
     const data = kind === 'story' ? `data-editor-story="${e(storyKey!)}"` : `data-editor-entry="${e(id)}"`;
     return { selected: selected && (kind === 'story' || initId === preferredEntryInit), html: `<li data-editor-key="${e(JSON.stringify([path, kind, id]))}">
-      <button type="button" class="story-editor-tree-row story-editor-tree-item" ${data} aria-pressed="${selected}" title="${e(hint)}">
+      <button type="button" class="story-editor-tree-row story-editor-tree-item" data-story-target-kind="${kind}" ${data} aria-pressed="${selected}" title="${e(hint)}">
         <span class="story-editor-tree-name">${e(name)}</span>${label ? `<small>${e(label)}</small>` : ''}
       </button></li>` };
   };

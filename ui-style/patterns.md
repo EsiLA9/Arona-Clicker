@@ -50,7 +50,9 @@ Choice 属性沿用现有 `.story-editor-list-block` / `.story-editor-property-r
 
 Story / Entry 的调用关系复用 `.story-editor-list` 与 `.story-editor-list-item`，在既有属性栏内以「调用表 / 潜在调用集」及「被调用表」分区，不新增滚动宿主。每项显示对象类型、名称、ID 和调用来源；缺失目标禁用。`relations-view.ts` 使用原有 Story / Entry 目标按钮属性与浏览历史，`patchEditorDOM` 按目标和调用位置 key 协调关系行，保留三栏、输入焦点与滚动容器。机制见 [[runtime-editor-and-project-checks]]，行为证据见 `tests/ui/story/story-editor-relations-model.test.ts`、`tests/ui/story/story-editor-authoring.test.ts`；未做浏览器视觉验收。
 
-Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 与 `.workspace-back` 控件，按钮位于既有 `panel-tabs-region`，不新增滚动宿主。Transfer 目标使用 `transfer-view.ts` 的统一方式 / 名称 / ID 行与 `.mini-action`，顶层节点及属性栏共用；缺失目标禁用。切换走 `workspace.story-editor` 区域协调，保留顶部和正文滚动宿主，历史返回后恢复对应位置。状态边界见 [[runtime-editor-and-project-checks]]，DOM 与导航行为见 `tests/ui/story/story-editor-workspace.test.ts`；未做浏览器视觉验收。
+Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 与 `.workspace-back` 控件，按钮位于既有 `panel-tabs-region`，不新增滚动宿主。切换走 `workspace.story-editor` 区域协调，保留顶部和正文滚动宿主，历史返回后恢复对应位置。状态边界见 [[runtime-editor-and-project-checks]]，DOM 与导航行为见 `tests/ui/story/story-editor-workspace.test.ts`。
+
+Story 与 StoryEntry 分别用书本和场记板 SVG。剧情流、调用关系和关联入口复用 `story-editor/target-view.ts`，以方正兰亭圆标题、DM Mono ID 和右上角白色镂空图标识别内容。流内卡片随文字排版，右栏可补充类型与关系，缺失目标显示灰色禁用卡。左栏目录和内容概览复用图标与标题字体，保留单行排列。Story 的「概述」和 StoryEntry 的「基本信息」可编辑自身卡片的渐变，弹窗与已挂载的同目标卡片同步预览，确认后写入草稿 `cardGradient`。恢复自动配色会移除该字段。自动色按类型与 ID 分配。文字共用主题的 `readableOnColor`，渐变两端反差过大时补充对比保护。
 
 正式羁绊调用与地点续播复用 `story.ts` 的 `.kizuna-card / .yuzu-kizuna-*` 爱心卡片，标题来自关联 Entry / Story，目的地来自 Area。赴约或等待态没有可提交 token，避免远程开播；正式子结束停在最终场景，恢复该场景原有合法 `.send-button` / Choice，不另设召回按钮。结果已回到当前父空间时使用普通“继续故事”Click。沿用原聊天滚动宿主和区域刷新，不新增页面或卡片皮肤。行为验证见 `tests/ui/story/story-space-history.test.ts`、`story-continuation.test.ts`；尚未做浏览器视觉验收。
 
@@ -64,9 +66,9 @@ Story 编辑器左栏常驻一行「内容来源」，分组展示本地包库�
 
 节点的可选局部标记条件沿用右栏 label/input；Operation 的局部标记作为“行为类型”下的分支，操作方式、名称和值与其他行为字段处于同一属性组。写入/移除使用浅层 select，仅写入分支显示值控件，移除分支收起值。控件按语义 key 局部协调，不隐藏编辑态节点，不重建三栏或流滚动容器。
 
-Story 编辑流沿用 `.story-editor-target-card` 的配色显示局部 Flag，按钮和悬停提示都只显示单个 ID。节点与 Choice 选项需要的 Flag 位于左侧，选项提供的 Flag 位于右侧。点击切换至右栏 Flag 表，并展开该 Story 节点对应的同名条目。节点可拖到 Flag 上，Flag 也可拖到节点上，两种操作共用绑定判定并在拖拽时显示「可绑定／已绑定／不可绑定」。在 Choice 选项上拖放后续节点仍会声明 `marks[]` 并给节点写入 `requiresFlag`，解绑在 Choice 属性中。运行机制见 [[runtime-editor-and-project-checks]]。
+Story 编辑流的局部 Flag 使用纯色圆角矩形和代码字体，按钮和悬停提示都只显示单个 ID。节点与 Choice 选项需要的 Flag 位于左侧，选项提供的 Flag 位于右侧。点击切换至右栏 Flag 表，并展开该 Story 节点对应的同名条目。节点可拖到 Flag 上，Flag 也可拖到节点上，两种操作共用绑定判定并在拖拽时显示「可绑定／已绑定／不可绑定」。在 Choice 选项上拖放后续节点仍会声明 `marks[]` 并给节点写入 `requiresFlag`，解绑在 Choice 属性中。运行机制见 [[runtime-editor-and-project-checks]]。
 
-Click 剧情入口卡和 insert / goto 转移共用右侧独立 `.story-editor-target-card` 小按钮，显示目标名称与 ID，沿用局部标记按 ID 稳定生成的随机深色与 104px 宽度；长文本截断并保留完整 title，缺失目标禁用。主体只选择 StoryNode 查看属性；Transfer 主体沿用 `.story-editor-action-node`，展示转移方式与目标说明。Button 完成后进入后续独立节点；Choice 不内嵌 Transfer。目标按钮复用统一 Story / Entry 浏览历史。复用入口为 `story-editor/target-view.ts`、`transfer-view.ts`、`view.ts` 与 `story-editor.css`，行为见 `tests/ui/story/story-editor-workspace.test.ts`；不增加滚动宿主，未做浏览器视觉验收。
+Click 剧情入口卡和 insert / goto 转移共用右侧目标卡与 Story / Entry 浏览历史。Transfer 主体沿用虚线动作行，行首的直行箭头表示跳转，回程箭头表示插入后返回。英文动词用本机 Forgotten Futurist 斜体，中文保留界面字体。点击主体可查看节点属性。右栏平铺转移方式与目标选择器，切换方式沿用已选目标，选定后显示可直接打开的目标卡。Button 完成后进入后续独立节点。复用入口为 `story-editor/target-view.ts`、`transfer-view.ts`、`view.ts` 与 `story-editor.css`，行为见 `tests/ui/story/story-editor-workspace.test.ts`。
 
 Story 编辑器的属性栏顶部以 Switch 切换 Talklet、Click、Operation、Transfer、移动到 Area 与移动到 Chara；当前分支、可选能力、诊断与节点操作在 Switch 下方排列。节点流按 `nodes` 顺序自由组合；旧 stage 字段隐藏在兼容数据中，不作为编辑步骤。Talklet 后紧邻可用 Click 时自动衔接输入，否则送达后提供自由继续；连续 Click 逐个呈现。Runtime Operation 的可读状态效果按声明顺序以独立奖励条目加入聊天流；效果逐条显示期间，底部用橙色处理中状态短暂禁用推进，播完后自动衔接后续节点。标记与 Extra 控制状态不播报，Operation 不伪造聊天台词。其他字段沿用右栏既有 label / input / select / textarea 与 `.mini-action`，不引入独立表单框架或新配色。Talklet、Button 与入口卡的共享正文仍在子类型字段上方编辑；Choice 只编辑各自选项文案，不显示不能代表候选的共享“正文”输入。Click 交互选项与属性平铺，不再共用小型属性容器。可选能力是一个带复选框的 `.story-editor-toggle` 区块，未启用只收起子项、保留开关；启用后的字段放进左侧竖线的 `.story-editor-optional-content`，与父级形成层级而不是弹窗。有序列表使用 `.story-editor-list-heading`（标题＋添加）与 `.story-editor-property-row` 浅底虚线行，行操作按钮固定在行尾；只读复杂值使用 `.story-editor-readonly` 展示原值并提供显式清理按钮，不用输入框伪装可编辑。字段诊断沿用 `.story-editor-error`，每条诊断右挂“清理该字段”危险操作，作者可见地决定是否丢弃来源字段。样式入口为 `src/ui/css/story-editor.css`，属性 DOM 行为见 `tests/ui/story/story-editor-properties.test.ts`。
 

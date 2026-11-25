@@ -11,6 +11,7 @@ import { storyCatalogLabel } from './catalog-dialog';
 import { isTrueConditionRoot } from './condition-tree-model';
 import { entryConditionField } from './condition-fields';
 import { storyReferenceOptions } from './property-options';
+import { renderStoryEditorTarget } from './target-view';
 import type { Condition, ConditionGroup } from '../../engine/types/expression';
 
 export function renderPublicDescriptionField(ctx: UIContext, draft: StoryDraft, scope: '$document' | '$authoring',
@@ -246,8 +247,13 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
 export function renderStoryAuthoringEntryRelations(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
   const e = ctx.escapeHtml;
   const related = draft.authoring;
+  const entries = storyEntries(state, ctx.game.registry.storyEntries);
   const tables = [['activeStories','主动 Entry','active','activeStories'],['passiveStories','随机 Entry','random','passiveStories'],['passiveStories','好感／角色阶段 Entry','affection','affection']] as const;
-  const rows = tables.map(([table,label,kind,action]) => `<div class="story-editor-list-heading"><h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${action}" data-editor-key="authoring-add:${kind}"${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>新增${label}</button></div>${(related?.[table] ?? []).filter(row=>row.activation.kind===kind).map(row => `<button type="button" class="story-editor-list-item story-editor-relation-item" data-editor-key="entry:${table}:${e(row.id)}" data-editor-entry-target="${e(row.id)}"><strong>${e(String(row.openingTitle || label))}</strong><code>${e(row.id)}</code><small>${e(entryDirectorySummary(ctx, row, draft.targetPackId))}</small></button>`).join('')}`).join('');
+  const rows = tables.map(([table,label,kind,action]) => `<div class="story-editor-list-heading"><h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${action}" data-editor-key="authoring-add:${kind}"${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>新增${label}</button></div>${(related?.[table] ?? []).filter(row=>row.activation.kind===kind).map(row =>
+    renderStoryEditorTarget(ctx, 'entry', row.id, row.openingTitle || draft.document.name, true, {
+      relation: { key: `entry:${table}:${row.id}`, detail: entryDirectorySummary(ctx, row, draft.targetPackId), showType: false },
+      gradient: entries.get(row.id)?.cardGradient,
+    })).join('')}`).join('');
   return `<section class="story-editor-authoring" data-editor-key="story-authoring-relations:${e(draft.draftId)}"><h3>关联 Entry</h3><p class="story-editor-hint">创建 Entry，或选择现有 Entry 继续编辑。</p>${rows}</section>`;
 }
 export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {

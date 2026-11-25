@@ -3,7 +3,7 @@ import { projectStoryContent, storyNodeDisplay } from '../../data-services/autho
 import { renderStoryClickAppearance } from '../components/story/story';
 import { renderPublicDescriptionField, renderStoryAuthoringEntryRelations, renderStoryAuthoringTools, renderStoryEntryFields } from './authoring-view';
 import { renderStoryTransfer } from './transfer-view';
-import { renderStoryEditorTarget, storyEditorTargetColor } from './target-view';
+import { renderStoryCardOverview, renderStoryEditorTarget, storyEditorTargetColor } from './target-view';
 import { renderStoryEditorScene } from './scene-view';
 import { renderStoryRelations } from './relations-view';
 import { createStoryPreviewFrame } from './preview-view';
@@ -191,7 +191,7 @@ export function renderEditorNode(ctx: UIContext, state: StoryEditorState, node: 
     if (targetId !== undefined) {
       const entry = storyEntries(state, ctx.game.registry.storyEntries).get(targetId);
       const label = entry ? entryName(ctx, state, entry) : targetId || '未配置 Entry';
-      entryTarget = renderStoryEditorTarget(ctx, 'entry', targetId, label, Boolean(entry));
+      entryTarget = renderStoryEditorTarget(ctx, 'entry', targetId, label, Boolean(entry), { gradient: entry?.cardGradient });
     }
     const choice = click.interaction?.kind === 'choice' ? click.interaction : undefined;
     body = renderStoryClickPreview(ctx, click.interaction, choice ? {
@@ -249,6 +249,7 @@ function renderStoryInspector(ctx: UIContext, state: StoryEditorState, draft: St
   const panel = (tab: StoryEditorState['storyInspectorTab'], content: string): string =>
     `<section class="story-editor-inspector-page" data-editor-key="story-inspector-panel:${tab}" data-story-inspector-panel="${tab}" role="tabpanel"${state.storyInspectorTab === tab ? '' : ' hidden'}>${content}</section>`;
   const overview = `<div class="story-editor-fields" data-editor-key="document:${e(draft.draftId)}">
+    ${renderStoryCardOverview(ctx, 'story', draft.document.id, draft.document.name, draft.document.cardGradient, !readOnly)}
     <label>名称<input data-editor-key="name" data-editor-field="name" value="${e(draft.document.name)}"${readOnly}></label>
     ${renderPublicDescriptionField(ctx, draft, '$document', ['publicDescription'], draft.document.publicDescription, readOnly,
       '同 Mod 的关联入口未填写简介时，可在入口可见且名称已揭示后使用这段简介。')}
@@ -448,7 +449,8 @@ export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState):
     columns.push({ ...center, className: `${center.className} story-editor-entry-column`,
       header: editorHistoryHeader(ctx, state, name) + (tabs ? `<div class="story-editor-entry-tabs" data-editor-key="entry-tabs">${tabs}</div>` : ''),
       bodyOverlay: '',
-      content: `<div data-editor-key="entry-page" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${entry ? renderStoryEntryFields(ctx,state) : empty(pendingRemoval ? '已从草稿移除此入口。保存到编辑态包后更新该包。' : '该 Entry 已不存在。')}</div>`,
+      content: `<div data-editor-key="entry-page" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${entry && (state.entryEditorTab ?? 'basic') === 'basic'
+        ? renderStoryCardOverview(ctx, 'entry', entry.id, name, entry.cardGradient, !state.storageBlocked && !state.readOnlyReason) : ''}${entry ? renderStoryEntryFields(ctx,state) : empty(pendingRemoval ? '已从草稿移除此入口。保存到编辑态包后更新该包。' : '该 Entry 已不存在。')}</div>`,
       footer: entry || pendingRemoval ? `<div class="story-editor-actions story-editor-actions--tools" role="group" aria-label="入口操作"><button type="button" class="mini-action" data-authoring-action="preview"${entry ? '' : ' disabled'}>试播</button>${button('save', '保存草稿', Boolean(state.storageBlocked || state.readOnlyReason))}<button type="button" class="mini-action" data-authoring-action="check"${state.storageBlocked || state.readOnlyReason ? ' disabled' : ''}>检查内容</button>${state.sourceOptions ? `<button type="button" class="mini-action" data-authoring-action="pack"${state.storageBlocked || state.readOnlyReason ? ' disabled' : ''}>保存到编辑态包</button>` : ''}<button type="button" class="mini-action" data-authoring-action="apply"${state.storageBlocked || state.readOnlyReason || state.canApplySource === false ? ' disabled' : ''}>应用正文与关联内容</button></div>${sourceStatus(ctx, state)}<p class="story-editor-hint" role="status"${state.notice ? '' : ' hidden'}>${ctx.escapeHtml(state.notice ?? '')}</p><p class="story-editor-error" role="status"${state.error ? '' : ' hidden'}>${ctx.escapeHtml(state.error ?? '')}</p>` : '' },
     { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', 'Entry 属性'),
       content: `<div data-editor-key="entry-inspector" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${renderStoryRelations(ctx,state)}${renderStoryFlagCatalog(ctx,state)}</div>` });

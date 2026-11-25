@@ -8,6 +8,8 @@ import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
 import { openStoryEditorDialog } from './editor-dialog';
+import { openStoryCardGradientDialog } from './card-gradient-dialog';
+import { storyCardStyle } from './target-view';
 import { isActiveEditingPack, openActiveEditingPackPicker } from '../components/shared/active-editing-pack-picker';
 import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
 import { createStoryDirectoryManagement } from './directory-management';
@@ -929,6 +931,11 @@ export class StoryEditorController {
           this.pendingFlagReveal = { storyId: this.state.target.id, nodeId, name, role: flowFlag.dataset.storyFlowFlag === 'write' ? 'providers' : 'readers' };
           this.requestRefresh();
         }
+        return;
+      }
+      const cardEditor = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-story-card-edit]') : null;
+      if (cardEditor && root.contains(cardEditor)) {
+        this.openCardGradient(cardEditor);
         return;
       }
       const storyLink = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-story-target]') : null;
@@ -2195,6 +2202,39 @@ export class StoryEditorController {
         }
       },
     }, trigger);
+  }
+
+  private openCardGradient(trigger: HTMLElement): void {
+    const target = this.state.target;
+    const draft = currentAuthoringDraft(this.state);
+    if (!target || !draft || this.writeBlocked || this.state.readOnlyReason) return;
+    const { kind, id } = target;
+    const entry = kind === 'entry' ? storyEntries(this.state, this.registry.storyEntries).get(id) : undefined;
+    if (kind === 'entry' && !entry) return;
+    const original = kind === 'story' ? draft.document.cardGradient : entry?.cardGradient;
+    const name = trigger.querySelector('strong')?.textContent ?? id;
+    const scope = kind === 'story' ? '$document' : '$authoring';
+    this.closeEditorDialog();
+    this.editorDialog = openStoryCardGradientDialog(this.ctrl.modal, createUIContext(this.editorGame), trigger, target, name, original, gradient => {
+      const style = storyCardStyle(kind, id, gradient);
+      for (const card of this.ctrl.root.querySelectorAll<HTMLElement>('[data-story-target-kind][data-story-target-id]')) {
+        if (card.dataset.storyTargetKind === kind && card.dataset.storyTargetId === id) card.setAttribute('style', style);
+      }
+    }, gradient => {
+      if (!this.isOpen() || this.state.target?.kind !== kind || this.state.target.id !== id
+        || currentAuthoringDraft(this.state) !== draft || this.writeBlocked || this.state.readOnlyReason) return false;
+      if (gradient?.start === original?.start && gradient?.end === original?.end) return true;
+      let path: ValuePath = ['cardGradient'];
+      if (kind === 'entry') {
+        const table = entry?.activation.kind === 'active' ? 'activeStories' : 'passiveStories';
+        const index = draft.authoring?.[table].findIndex(row => row.id === id) ?? -1;
+        if (index === -1) return false;
+        path = [table, index, 'cardGradient'];
+      }
+      if (!writeStructuredValue(draft, scope, path, gradient, gradient === undefined)) return false;
+      this.requestRefresh();
+      return true;
+    }, () => { this.editorDialog = undefined; });
   }
 
   private closeEditorDialog(): void {

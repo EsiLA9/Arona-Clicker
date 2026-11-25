@@ -296,8 +296,10 @@ describe('Story Editor workspace prototype', () => {
     const card = find<HTMLButtonElement>('.story-editor-node-content.has-target-card > button[data-editor-entry-target]');
     expect(card.disabled).toBe(false);
     expect(card.dataset.editorEntryTarget).toBe(entry.id);
-    expect(card.textContent).toContain(entry.id);
-    expect(card.style.getPropertyValue('--story-editor-choice-flag-color')).toMatch(/^hsl\(/);
+    expect(card.dataset.storyTargetKind).toBe('entry');
+    expect(card.querySelector('code')?.textContent).toBe(entry.id);
+    expect(card.style.getPropertyValue('--story-card-default-start')).toMatch(/^hsl\(/);
+    expect(card.style.getPropertyValue('--story-card-default-end')).toMatch(/^hsl\(/);
     card.click(); ctrl.flushUIUpdates();
     expect(state.target).toEqual({ kind: 'entry', id: entry.id });
     expect(find('.story-editor-center [data-authoring-field]')).toBeTruthy();
@@ -375,7 +377,10 @@ describe('Story Editor workspace prototype', () => {
     expect(currentNode(state)?.id).toBe(node.id);
     expect(state.visitIndex).toBe(index);
     expect(find(`[data-editor-node="${node.id}"]`)).toBe(nodeElement);
-    expect(root.querySelector('.story-editor-right [data-story-branch-path]')).not.toBeNull();
+    const properties = find('.story-editor-right .story-editor-property-content');
+    const targetPreview = properties.querySelector<HTMLButtonElement>('[data-editor-story-target]');
+    expect(targetPreview?.dataset.editorStoryTarget).toBe(second.document.id);
+    expect(properties.querySelector('.story-editor-property-group, .story-editor-transfer-action')).toBeNull();
     expect(body.querySelector('[data-editor-story-target]')).toBeNull();
     find<HTMLButtonElement>(`[data-story-insertion-before="${node.id}"]`).click(); ctrl.flushUIUpdates();
     input('[data-editor-composer-text]', '待发送');
@@ -388,7 +393,7 @@ describe('Story Editor workspace prototype', () => {
     expect(target.textContent).toContain(second.document.name);
     expect(target.classList.contains('story-editor-target-card')).toBe(true);
     expect(target.parentElement!.textContent).toContain(mode);
-    target.click(); ctrl.flushUIUpdates();
+    (mode === 'insert' ? targetPreview! : target).click(); ctrl.flushUIUpdates();
     expect(currentDraft(state)).toBe(second);
     expect(center.scrollTop).toBe(0);
     click('history-back');

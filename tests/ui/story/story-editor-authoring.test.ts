@@ -80,6 +80,51 @@ describe('Story authoring UI and draft API', () => {
     expect(draft().document.id).toBe(id); expect(draft().authoring!.activeStories[0].id).toBe(entry.id);
     expect(draft().document.publicDescription).toBe('正文公开简介\n保留换行');
   });
+  it('previews card gradients live, applies Story and Entry overrides, and restores automatic colors', () => {
+    const openGradient = () => click('[data-story-card-edit]');
+    const modal = () => document.querySelector<HTMLElement>('.app-modal [role="dialog"]')!;
+    const chooseColors = (start: string, end: string) => {
+      change(modal().querySelector<HTMLInputElement>('[name="start"]')!, start);
+      change(modal().querySelector<HTMLInputElement>('[name="end"]')!, end);
+    };
+    const action = (name: string) => {
+      modal().querySelector<HTMLButtonElement>(`[data-modal-action="${name}"]`)!.click();
+      ctrl.flushUIUpdates();
+    };
+    const storyCard = q<HTMLButtonElement>('[data-story-card-edit]');
+    const initial = storyCard.getAttribute('style');
+    openGradient();
+    chooseColors('#101010', '#202020');
+    expect(storyCard.style.getPropertyValue('--story-card-ink')).toBe('#ffffff');
+    expect(modal().querySelector('.story-editor-card-overview')?.getAttribute('style')).toBe(storyCard.getAttribute('style'));
+    expect(draft().document.cardGradient).toBeUndefined();
+    modal().querySelector<HTMLButtonElement>('.modal-foot .modal-close')!.click();
+    expect(storyCard.getAttribute('style')).toBe(initial);
+
+    openGradient();
+    chooseColors('#ffffff', '#eeeeee');
+    action('apply');
+    expect(draft().document.cardGradient).toEqual({ start: '#ffffff', end: '#eeeeee' });
+    expect(storyCard.style.getPropertyValue('--story-card-ink')).not.toBe('#ffffff');
+    click('[data-authoring-add="activeStories"]');
+    const entry = draft().authoring!.activeStories[0];
+    click(`[data-editor-entry-target="${entry.id}"]`);
+    openGradient();
+    chooseColors('#151515', '#252525');
+    action('apply');
+    expect(entry.cardGradient).toEqual({ start: '#151515', end: '#252525' });
+    click('[data-authoring-action="apply"]');
+    expect(ctrl.storyEditor.state.error).toBeNull();
+    expect(game.registry.stories.get(entry.storyId)?.cardGradient).toEqual({ start: '#ffffff', end: '#eeeeee' });
+    expect(game.registry.activeStories.get(entry.id)?.cardGradient).toEqual(entry.cardGradient);
+
+    openGradient();
+    action('reset');
+    expect(entry.cardGradient).toBeDefined();
+    action('apply');
+    expect(draft().authoring!.activeStories[0].cardGradient).toBeUndefined();
+  });
+
   it('supports the default and explicit Entry replay policies without converting the default to a boolean', () => {
     click('[data-authoring-add="activeStories"]');
     const entry = draft().authoring!.activeStories[0];
@@ -768,6 +813,12 @@ describe('Story authoring UI and draft API', () => {
     const relations = q('.story-editor-right .story-editor-relations');
     expect(relations.textContent).toContain('调用表');
     expect(relations.textContent).toContain('被调用表');
+    const flowTarget = q<HTMLButtonElement>(`.story-editor-flow [data-editor-story-target="${second.document.id}"]`);
+    const relationTarget = q<HTMLButtonElement>(`.story-editor-relations [data-editor-story-target="${second.document.id}"]`);
+    expect(flowTarget.getAttribute('style')).toBe(relationTarget.getAttribute('style'));
+    expect(relationTarget.dataset.storyTargetKind).toBe('story');
+    expect(relationTarget.querySelector('code')?.textContent).toBe(second.document.id);
+    expect(relationTarget.querySelector('.story-editor-relation-detail')?.textContent).toContain('节点 next');
     expect(q<HTMLButtonElement>('.story-editor-relations [data-editor-story-target="test:story:missing"]').disabled).toBe(true);
     expect(q(`.story-editor-relations [data-editor-entry-target="${firstEntry.id}"]`).textContent).toContain('起始 Story');
     const name = q<HTMLInputElement>('[data-editor-field="name"]');
@@ -783,6 +834,7 @@ describe('Story authoring UI and draft API', () => {
     expect(pack.querySelector('summary')?.textContent).toBe('剧情包 · 2 个入口');
     const packRows = [...pack.querySelectorAll<HTMLButtonElement>('[data-editor-entry-target]')];
     expect(packRows.map(row => row.dataset.editorEntryTarget)).toEqual([secondEntry.id, firstEntry.id]);
+    expect(packRows[0].dataset.storyTargetKind).toBe('entry');
     expect(packRows[0].textContent).toContain('直接起始');
     expect(packRows[1].textContent).toContain('经剧情转移 · 起始于 关系测试');
     pack.open = true;

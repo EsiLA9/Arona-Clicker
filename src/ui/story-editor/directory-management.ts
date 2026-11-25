@@ -159,7 +159,7 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
   const renderContent = () => {
     const node = tree.nodes.get(selectedId);
     const link = (kind: 'story' | 'entry', id: string, name: string) => `<li data-editor-key="${kind}:${e(id)}">
-      <button type="button" class="story-editor-tree-row" title="${e(name)} · ${e(id)}" data-editor-${kind}-target="${e(id)}">
+      <button type="button" class="story-editor-tree-row" data-story-target-kind="${kind}" title="${e(name)} · ${e(id)}" data-editor-${kind}-target="${e(id)}">
         <span class="story-editor-tree-name">${e(name)}</span><small>${kind === 'story' ? '正文' : '入口'}</small>
       </button></li>`;
     const leaves = (folder?: StoryDirectoryNode) => [
