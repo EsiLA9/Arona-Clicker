@@ -69,9 +69,9 @@ export function validateStoryAuthoringShape(patch: StoryAuthoringPatch, draftOnl
     };
     if (!entry.triggerCondition || !('conditions' in entry.triggerCondition) || !condition(entry.triggerCondition)) throw new Error(`${entry.id} 的触发条件非法`);
     const raw = entry as unknown as Record<string, unknown>;
-    const allowed = ['id','storyId','availableInits','tags','triggerCondition','revealTriggers','replayable','travelToStartContext','completionStrategy','conditionalRewards','branchGuards','openingTitle','extra','kizuna','reactions','followUps','activation','catalog','directoryPlacements','completionReward','owner',...(type === 'passive' ? ['block','interruptible','leaveArea','blocksInteraction'] : [])];
+    const allowed = ['id','storyId','availableInits','tags','triggerCondition','revealTriggers','replayable','travelToStartContext','completionStrategy','conditionalRewards','branchGuards','openingTitle','publicDescription','extra','kizuna','reactions','followUps','activation','catalog','directoryPlacements','completionReward','owner',...(type === 'passive' ? ['block','interruptible','leaveArea','blocksInteraction'] : [])];
     if (Object.keys(raw).some(key => !allowed.includes(key))) throw new Error(`${entry.id} 含未知的 Entry 字段`);
-    for (const key of ['owner','openingTitle']) if (raw[key] !== undefined && typeof raw[key] !== 'string') throw new Error(`${entry.id}.${key} 必须是文字`);
+    for (const key of ['owner','openingTitle','publicDescription']) if (raw[key] !== undefined && typeof raw[key] !== 'string') throw new Error(`${entry.id}.${key} 必须是文字`);
     if (entry.kizuna && (typeof entry.kizuna !== 'object' || Array.isArray(entry.kizuna) || Object.keys(entry.kizuna).some(key=>!['entryId','areaId','returnFlags'].includes(key)))) throw new Error(`${entry.id} 的羁绊关联只能配置目标、赴约地点和回传白名单`);
     if (entry.completionReward && (typeof entry.completionReward !== 'object' || Array.isArray(entry.completionReward) || Object.keys(entry.completionReward).some(key=>!['first','repeat'].includes(key)))) throw new Error(`${entry.id} 完成奖励结构非法`);
     if (entry.completionStrategy !== undefined && !['simple','conditional'].includes(entry.completionStrategy)) throw new Error(`${entry.id} 完成策略非法`);

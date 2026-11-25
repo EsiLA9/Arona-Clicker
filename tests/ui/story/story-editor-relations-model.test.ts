@@ -5,7 +5,7 @@ import type { StoryAction } from '../../../src/data-services/contracts/story-nod
 import type { ActiveStoryEntry } from '../../../src/data-services/contracts/story-entry';
 import { emptyStoryAuthoring } from '../../../src/data-services/authoring/story-authoring';
 import { createStoryEditorState, selectStory, currentDraft } from '../../../src/ui/story-editor/model';
-import { buildStoryRelations, potentialStoryCalls } from '../../../src/ui/story-editor/relations-model';
+import { buildStoryRelations, potentialStoryCalls, storyTransferContext } from '../../../src/ui/story-editor/relations-model';
 
 const story = (id: string, nodes: StoryNode[] = []): StoryDef => ({ id, name: id, startContext: {type:'area',areaId:'test:area:home'}, nodes, stages: {} });
 const entry = (id: string, storyId: string): ActiveStoryEntry => ({ id, storyId, availableInits:[], triggerCondition:{type:'AND',conditions:[]}, activation: { kind: 'active' as const } });
@@ -87,6 +87,28 @@ describe('Story editor call relations', () => {
       {kind:'story',id:first.storyId}, {kind:'entry',id:'test:activestory:later'},
       {kind:'entry',id:'test:activestory:reward'}, {kind:'entry',id:'test:activestory:reaction'}, {kind:'entry',id:'test:activestory:conditional'},
     ]);
+  });
+
+  it('finds Entry contexts through chained transfers, without crossing an Entry request', () => {
+    const leaf = story('test:story:leaf'), sibling = story('test:story:sibling');
+    const rootId = 'test:story:root';
+    const bridge = story('test:story:bridge', [
+      { id: 'leaf', type: 'transfer', transfer: { mode: 'insert', storyId: leaf.id } },
+      { id: 'alternative', type: 'transfer', transfer: { mode: 'goto', storyId: leaf.id } },
+      { id: 'loop', type: 'transfer', transfer: { mode: 'goto', storyId: rootId } },
+    ]);
+    const root = story(rootId, [
+      { id: 'intermediate', type: 'transfer', transfer: { mode: 'goto', storyId: bridge.id } },
+      { id: 'sibling', type: 'transfer', transfer: { mode: 'goto', storyId: sibling.id } },
+    ]);
+    const inherited = entry('test:activestory:root', root.id), direct = entry('test:activestory:leaf', leaf.id);
+    const requester = story('test:story:requester', [{ id: 'request', type: 'operation', action: request(direct.id) }]);
+    const siblingEntry = entry('test:activestory:sibling', sibling.id), external = entry('test:activestory:requester', requester.id);
+    const relations = build([root, bridge, leaf, sibling, requester], [inherited, direct, siblingEntry, external]);
+    const context = storyTransferContext(relations, leaf.id);
+    expect(context.storyIds).toEqual(new Set([leaf.id, bridge.id, root.id]));
+    expect(context.entries).toEqual([inherited, direct]);
+    expect(storyTransferContext(relations, leaf.id, 'both').entries).toEqual([inherited, direct, siblingEntry]);
   });
 
   it('uses current draft edits and explicit Entry removals without modifying registry inputs', () => {

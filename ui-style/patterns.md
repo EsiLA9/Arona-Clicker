@@ -34,13 +34,15 @@ Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡
 
 Story 编辑器的顶部主题浮窗沿用现有 `.theme-palette` / `.theme-swatches` / `.theme-editor-entry`，列出全部色组，标记当前编辑器主题，并复用用户主题表单编辑本会话自定义主题。Area / 通讯录场景卡片以 title 提示可双击应用目标完整主题；单击仍查看属性。选择色组、双击和颜色预览只更新主题变量、背景、表现宿主与浮窗选中属性，保留顶部按钮、浮窗、Workspace、输入焦点和滚动；组件位置修改沿用既有表单结构刷新。来源、隔离和会话边界见 [[runtime-editor-and-project-checks]]，实现为 `story-editor/theme.ts`、`controller-theme.ts` 与共享 header / theme actions；验证为 `tests/ui/story/story-editor-theme.test.ts`，未做浏览器人工验收。
 
-StoryDef 属性沿现有 renderTabs 分为概述、关系、Flag表、其他工具包四个常驻面板；切换只更新 hidden / 激活态，保留控件节点，并按 Story / 页签记忆原右栏滚动。节点属性仅保留自己的局部条件和 Navi，完整 Flag 表归入 StoryDef 的 Flag 页；Entry 信息栏显式保留其 Flag 表。Flag 项默认以沿用 Choice 标记配色的 summary 色块收起，原生 details 展开后用浅底卡片展示作用域、提供方、需求方及单独的移除操作；提供方 / 需求方的条目不重复标注写入 / 读取，回传声明保留独立文字；来源 ID 与节点分行呈现，沿用主题文字色与长文本换行；来源按钮保持独立导航，定位节点后右栏仍显示 Flag 表；从 Flag 页切换 Story 和前后浏览同样保持该页，并恢复目标 Story 的 Flag 页滚动。展开仅改变当前项的 open，按稳定 key 协调时保留，不写入草稿或触发刷新。局部 Flag 项收起时仍接受同 Story 编辑流的节点，沿用有效 / 无效投放反馈，绑定 requiresFlag 并留在 Flag 页；全局、其他 Entry 私有及无提供方的名称给出不可绑定原因。跨 Entry 获取继续复用 ModalManager 确认，来源导航独立。入口为 `view.ts`、`flag-catalog-view.ts`、`flag-table-binding.ts` 与 `controller.ts`；面板/字段/滚动及拖放由 `tests/ui/story/story-editor-inspector-tabs.test.ts` 验证，未做浏览器验收。
+StoryDef 属性沿现有 renderTabs 分为概述、关系、Flag表、其他工具包四个常驻面板；切换更新 hidden / 激活态并记忆原右栏滚动。节点属性提供自己的局部条件和 Navi，Entry 信息栏保留 Flag 表。Flag 项以浅底和标记色边线收起，展开后在同一项内平铺作用域、实际存在的提供方、需求方及移除操作。来源行显示节点名或内容 ID，完整来源与字段路径在悬停时显示。拖放说明放在标题提示中，收起时仍可接收拖入节点。来源导航、跨 Entry 获取及拖放规则沿用现有逻辑。展开状态按稳定 key 保留。入口为 `flag-catalog-view.ts`、`flag-table-binding.ts` 与 `controller.ts`；回归见 `tests/ui/story/story-editor-inspector-tabs.test.ts`。
 
 概述的 Story ID 复用 `.story-editor-readonly` 与主题表面，当前值旁提供“更改 ID”；不重复显示相同来源 ID，只有来源与当前值不同时显示同样式的“原 Story ID”。身份字段使用分组而非无关联控件的 label。入口为 `view.ts`、`.story-editor-identity-field`；三种来源状态由 `tests/ui/story/story-editor-identity.test.ts` 核验。
 
 更改 Story ID 弹窗只允许修改名称部分，ModId 在创建后固定并以只读字段显示；“保存到编辑副本”只列出同一 Mod 的可用目标。入口为 `controller.ts` 的 `changeStoryId`，跨 Mod 请求仍由身份规划校验拒绝。
 
 关系页的调用、被调用与关联 Entry 统一使用 `.story-editor-list-item.story-editor-relation-item`：沿用只读字段的浅底、边框与圆角，名称、完整 ID、调用说明分行显示，长 ID 自动折行；关联 Entry 的新增按钮与组标题同行。条目保留原 target / key，整条可跳转，缺失目标禁用；右栏继续使用原滚动宿主，不增设关系表内滚动。入口为 `relations-view.ts`、`authoring-view.ts` 和 `story-editor.css`；导航与原位更新由 `tests/ui/story/story-editor-authoring.test.ts` 验证。
+
+Story 关系页的「剧情包」默认折叠，汇总直接起始及经 Story 转移可达的 Entry，复用关系条目与跳转。详情展开状态在当前 Story 的局部刷新中保留。入口归属与 Flag 分析共用 `relations-model.ts` 的 Story 转移查询，跨 Entry 请求沿用独立的调用与 Flag 信息获取规则。
 
 Story 编辑器的移动场景预览复用 `.area-hero` 与 `.story-editor-scene-card`：移动到 Area 显示「前往区域名」，按目标 Area 声明主题构建局部 ThemeTree 渐变；移动到通讯录显示「前往角色名的通讯录」，取角色对话主题 / 默认色组主色绘制单色面并用 `readableOnColor` 确定字色。未配置与缺失目标保留文字占位。首个插入点之前的起始场景使用相同外观，显示「起始于……」并打开 Story 属性；它不属于 StoryNode，不参与拖动、排序或序列化。入口为 `story-editor/scene-view.ts`、`view.ts`；节点和起始占位沿稳定 key 更新，保留现有 flow 与滚动宿主，局部更新仍走编辑器 region。自动化证据为 `tests/ui/story/story-editor-scene.test.ts` 与 workspace 用例；未做浏览器视觉验收。
 
@@ -54,15 +56,15 @@ Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 
 
 运行态已提交的 Choice 复用 `story.ts` 的 Choice 卡片和现有 disabled 样式，保留全部选项，所选项显示“已选择”。历史卡片的 `.chat-current` 根以 Runtime 输出 ID 对应的流实例 key 协调；下一组 Choice 保持独立的当前输入。更新沿用聊天区域刷新与滚动恢复，不新增滚动宿主、定时器或整页刷新。行为验证见 `tests/ui/story/story-consecutive-choice.test.ts`，保存归属见 [[story-chat-and-theme-presentation]]。
 
-Story 编辑器左栏顶部以 Switch 切换 Story、Entry 列表和发出方目录；三种视图保持挂载，切换只显隐对应面板，保留各自搜索、滚动和编辑中的 Composer。Entry 沿用 Story 列表项样式，显示名称、ID 与 Active / Passive 类型。点击 Story 或 Entry 统一切换中右两栏，复用相同 Frame、列身份、顶部栏与滚动容器；Entry 中栏复用原有结构化字段表单和 `.story-editor-authoring`，并在独立的被动池区块编辑所属 Story 共用的 PassivePool，右栏显示调用关系；Story 右栏以入口链接替代 Entry 详情表单，PassivePool 表单与新增操作也移至 Entry 中栏，浏览历史共用中栏前进 / 后退控件。StoryNode 的 Entry 入口卡沿用爱心卡片外观，主体只选择节点；右侧目标小卡片打开 Entry，缺失目标时禁用。发出方来自当前 Registry 的旁白、老师与角色；目录项只显示圆形头像和名字，优先使用默认角色差分的色组或图片，无头像时显示名字首字。当前发出方在目录中标记。后续入口可复用该左栏视图切换，不替换三栏 Workspace。
+Story 编辑器左栏使用 `renderWorkspaceTitlebar` 的标题内操作位。主按钮显示当前视图并在「故事目录 / 发出方」之间循环，右侧箭头展开原生浮层以直接选择。切换只协调左栏并保留两种列表的滚动、目录搜索与筛选。目录按 Init 和现有目录路径组织 Story 与 Entry，并可筛选内容类型。行内只显示名称和必要标记，悬停显示完整名称、ID 与入口类型。点击箭头折叠分支，点击内容行切换中右两栏。Entry 中栏使用结构化字段和独立抽取池区块，右栏显示调用关系；Story 右栏显示关联入口。浏览历史共用中栏前进 / 后退控件，跳转后左栏定位目标。发出方列表使用圆形头像和名字，优先取角色差分色组或图片，无头像时显示名字首字。
 
 Story 编辑器固定输入区沿用 Talklet 的头像、姓名与气泡层级；圆形发出方头像入口切换左栏到发出方目录，正文编辑留在聊天气泡内，发送使用共享 `send-button` / `send-bubble` 样式。输入更新保留 textarea 节点与焦点。“保存草稿”和“保存到运行内容”仍在操作组中；运行内容保存是显式动作，不随输入或导航自动提交。成功与错误提示使用原位状态区，保留输入、选中节点与滚动；“仅当前运行有效”说明保存范围。写入机制见 [[runtime-editor-and-project-checks]]。
 
-Story 编辑器左栏在现有搜索和页签上方使用「内容来源」选择器，分组展示本地包库与保留草稿。当前 Mod、版本、槽位及只读原因放在正文或入口的底栏状态区。还原入口复用带边框的 `.mini-action`，试播入口保持在原位置。来源变动沿既有区域更新机制协调三栏，关闭试播时还原发起按钮焦点。源码为 `story-editor/view.ts` 与 `controller.ts`，行为见 `tests/ui/story/story-editor-pack-source.test.ts`。
+Story 编辑器左栏常驻一行「内容来源」，分组展示本地包库与保留草稿。「搜索与筛选」默认折叠，收起后仍显示启用条件和清除按钮。普通展开状态随来源记忆，搜索暂时展开匹配路径，清空后恢复原折叠。草稿操作收在工具行末尾。搜索只协调左栏原有滚动区域，折叠直接更新分支，保留中右两栏。来源切换沿既有区域更新机制协调三栏，当前 Mod、版本、槽位及只读原因仍在正文或入口的底栏。源码为 `story-editor/sidebar-tree.ts`、`view.ts` 和 `controller.ts`。行为见 `tests/ui/story/story-editor-workspace.test.ts` 与 `tests/ui/story/story-editor-pack-source.test.ts`。
 
 节点的可选局部标记条件沿用右栏 label/input；Operation 的局部标记作为“行为类型”下的分支，操作方式、名称和值与其他行为字段处于同一属性组。写入/移除使用浅层 select，仅写入分支显示值控件，移除分支收起值。控件按语义 key 局部协调，不隐藏编辑态节点，不重建三栏或流滚动容器。
 
-Choice 编辑预览的每个选项旁保留紧凑 `.story-editor-choice-flag-card`，拖入后续节点在该选项 `marks[]` 声明选择标记，并给目标节点写入 `requiresFlag`；同一个选择标记可服务多个后续读取者，重复拖放保持幂等。显式解绑只移除指定节点的读取条件，声明可继续供选项局部条件或 continuation 回传使用。每组 marks 由 Runtime 在成功选择时整体替换。读取标记的 StoryNode 在最左侧显示固定宽度、同 ID 稳定配色的记录；其他节点仍可拖到该记录复用标记。只在编辑态预览启用，不改 Runtime Choice 卡片；标记不是通用 StoryAction，详见 [[runtime-editor-and-project-checks]]。
+Story 编辑流沿用 `.story-editor-target-card` 的配色显示局部 Flag，按钮和悬停提示都只显示单个 ID。节点与 Choice 选项需要的 Flag 位于左侧，选项提供的 Flag 位于右侧。点击切换至右栏 Flag 表，并展开该 Story 节点对应的同名条目。节点可拖到 Flag 上，Flag 也可拖到节点上，两种操作共用绑定判定并在拖拽时显示「可绑定／已绑定／不可绑定」。在 Choice 选项上拖放后续节点仍会声明 `marks[]` 并给节点写入 `requiresFlag`，解绑在 Choice 属性中。运行机制见 [[runtime-editor-and-project-checks]]。
 
 Click 剧情入口卡和 insert / goto 转移共用右侧独立 `.story-editor-target-card` 小按钮，显示目标名称与 ID，沿用局部标记按 ID 稳定生成的随机深色与 104px 宽度；长文本截断并保留完整 title，缺失目标禁用。主体只选择 StoryNode 查看属性；Transfer 主体沿用 `.story-editor-action-node`，展示转移方式与目标说明。Button 完成后进入后续独立节点；Choice 不内嵌 Transfer。目标按钮复用统一 Story / Entry 浏览历史。复用入口为 `story-editor/target-view.ts`、`transfer-view.ts`、`view.ts` 与 `story-editor.css`，行为见 `tests/ui/story/story-editor-workspace.test.ts`；不增加滚动宿主，未做浏览器视觉验收。
 
@@ -120,11 +122,19 @@ StoryEntry 触发条件使用同一弹窗外壳。左侧树按层级展开，行
 
 StoryEntry 目录浏览复用 Story 编辑弹窗。搜索和 Init 筛选常驻顶部，左侧目录树或搜索结果、右侧落点与同级条目分别滚动。筛选不移除目录落点；选择搜索结果后恢复树并定位该路径。全部目录视图可拖动编辑态条目，同级行的高亮边线表示插入点，只读条目仍可作为参照。顺序输入可留空使用自动值。弹窗内新建项和排序变更随确认写入草稿。入口为 `story-editor/catalog-dialog.ts`，行为见 `tests/ui/story/story-editor-authoring.test.ts`。
 
-Init 目录弹窗沿用 Story 编辑弹窗，工具行常驻，目录树、同级内容和目录资料分别滚动。搜索仅更新目录树，切换目录时以稳定目录 ID 保留原有区域和滚动宿主。玩家「故事」工作区沿用导航栏及面包屑，用中栏滚动区显示选中目录的资料和进度；进入重读时继续使用原对话栏。入口是 `story-editor/directory-dialog.ts` 和 `columns/story-navigation.ts`。
+Story 编辑器为每个 Init 保留「角色故事」与已载入角色的自动目录，空目录也能查看。左栏的「管理」和折叠按钮共用标题行，子树独立位于标题行下方。管理时中栏用 SwitchTabs 切换「目录设计」与「内容概览」，概览为可折叠的紧凑目录行和 Story／StoryEntry 链接。两页保留各自的滚动位置。右栏显示完整路径、资料候选、当前应用状态与预览选择。选择内容进入对应编辑页，点中栏返回可恢复先前编辑位置。入口为 `story-editor/sidebar-tree.ts`、`story-editor/directory-management.ts` 和 `story-editor/view.ts`。玩家「故事」工作区沿用 `columns/story-navigation.ts` 的导航栏与面包屑。
+
+左栏目录行用彩色短注记表示构建来源、资料有无和多个直接关联，注记与管理按钮固定在同行。右栏「层级状态」列出手动资料份数以及直接归属的 Story 和 Entry 数量。搜索、筛选和折叠不改变这些计数。
+
+目录结构操作继续留在工作区。中栏子目录行右侧提供「上移／下移」，以稳定目录 ID 调整预览顺序；右栏切换到可搜索的上级目录树或移除检查，分别展示新旧路径或引用链接。键入搜索与操作后的更新沿用编辑器区域协调，保留三栏滚动宿主。保存仍由所属编辑态 Mod 校验。
+
+Story 与 Entry 的目录管理右栏也可以直接填写层级路径。「层级与手动资料」的同一组控件负责查看、新建、编辑和删除。Init 根可新建目录，旧手动目录保留移动与引用校验，角色目录可新建资料或恢复默认。创建时通过共享的 `active-editing-pack-picker.ts` 选择当前实际运行的编辑态包，保留原浏览来源和层级，确认选择和保存时复核包状态。路径资料通过紧凑候选行选择和预览，主资料和默认显示单独操作。标题、简介和主题输入只刷新中栏的局部预览，复用玩家资料组件。目录路径保留为导航身份，资料标题只影响显示。
+
+手动目录和自动角色目录使用 `story-directory-details.ts` 展示纯文本简介、封面和局部目录配色。预览在输入时保留表单输入节点和三个滚动区。玩家目录行的简介最多显示两行。玩家从入口标题打开右栏详情，左栏只更新选中态，中栏对话或目录概览保留。
 
 单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
 
-Story 引用复用 `components/shared/condition-reference-picker.ts`。普通 Story 字段使用 ModalManager，触发条件仍在原弹窗内切页，运行内容编辑器使用其子弹窗栈。左侧世界线筛选源于正文 `initId`，缺省归「其他」；卡片和详情的 ID 采用 11px 的本地 DM Mono，并保留系统等宽回退与长 ID 换行。编辑器草稿覆盖同 ID 的正式候选。搜索保留控件焦点，确认按原字段写入，取消保持原值；Story 编辑器的查看来源是独立动作。
+Story 引用复用 `components/shared/condition-reference-picker.ts`。普通 Story 字段使用 ModalManager，触发条件仍在原弹窗内切页，运行内容编辑器使用其子弹窗栈。左侧世界线筛选源于正文 `initId`，缺省归「其他」；卡片和详情的 ID 采用 11px 的本地 DM Mono，并保留系统等宽回退与长 ID 换行。编辑器草稿覆盖同 ID 的正式候选。搜索保留控件焦点，确认按原字段写入，取消保持原值。Story 编辑器的 Story / Entry 引用行在「选择…」旁使用 `.mini-action` 提供「前往」，沿用浏览历史与工作区区域更新。只读时仍可前往当前来源中的有效目标，空值和缺失目标禁用。
 
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 

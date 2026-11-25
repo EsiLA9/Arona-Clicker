@@ -13,6 +13,15 @@ import { entryConditionField } from './condition-fields';
 import { storyReferenceOptions } from './property-options';
 import type { Condition, ConditionGroup } from '../../engine/types/expression';
 
+export function renderPublicDescriptionField(ctx: UIContext, draft: StoryDraft, scope: '$document' | '$authoring',
+  path: (string | number)[], description: string | undefined, locked: string, hint: string): string {
+  const e = ctx.escapeHtml;
+  const key = structuredKey(draft, scope, path);
+  return `<label class="story-editor-property">公开简介<textarea data-editor-key="value:${e(key)}" data-value-scope="${scope}"
+    data-value-path="${e(JSON.stringify(path))}" data-public-description${locked}>${e(draft.structuredInputs?.[key]?.text ?? description ?? '')}</textarea>
+    <small class="story-editor-hint">${e(hint)}</small></label>`;
+}
+
 export const ENTRY_FIELD_SEEDS: Record<string, { label: string; value: unknown }> = {
   owner: { label: '归属角色', value: '' },
   openingTitle: { label: '开幕标题', value: '' }, travelToStartContext: { label: '前往起始场景', value: true },
@@ -31,11 +40,13 @@ function entryDirectorySummary(ctx: UIContext, row: StoryEntryDef, packId?: stri
   const pack = packId ? (ctx.game as Partial<PackCatalogReadModel>).getPackRecord?.(packId) : undefined;
   const names = row.directoryPlacements?.map(placement => {
     const init = registry.inits.get(placement.initId)?.name ?? placement.initId;
-    const title = pack?.datapack.storyDirectories?.find(folder => folder.id === placement.directoryId)?.title
-      ?? registry.storyDirectories.get(placement.directoryId)?.definition.title;
-    const automatic = !title && parseCharacterStoryDirectoryId(placement.directoryId);
+    if (placement.hierarchyString !== undefined) return `${init} · ${placement.hierarchyString}`;
+    const id = placement.directoryId ?? '';
+    const title = pack?.datapack.storyDirectories?.find(folder => folder.id === id)?.title
+      ?? registry.storyDirectories.get(id)?.definition.title;
+    const automatic = !title && parseCharacterStoryDirectoryId(id);
     const character = automatic ? registry.characters.get(automatic.characterId)?.displayName : undefined;
-    return `${init} · ${title ?? character ?? placement.directoryId}`;
+    return `${init} · ${title ?? character ?? id}`;
   });
   return names?.length ? names.join(' / ') : row.catalog ? storyCatalogLabel(row.catalog) : '使用自动归档';
 }
@@ -142,6 +153,8 @@ export function renderStoryEntryFields(ctx: UIContext, state: StoryEditorState):
         ${row.openingTitle === undefined ? '' : `<button type="button" class="mini-action" data-value-action="remove" data-value-scope="$authoring" data-value-path="${e(JSON.stringify([...base, 'openingTitle']))}"${locked}>恢复默认标题</button>`}
       </div>
       <p class="story-editor-hint">当前显示标题：${e(effectiveTitle)}</p>
+      ${renderPublicDescriptionField(ctx, draft, '$authoring', [...base, 'publicDescription'], row.publicDescription, locked,
+        '入口可见且名称已揭示后展示。留空时可使用同 Mod 正文的公开简介。')}
       <label class="story-editor-property">剧情重读
         <select ${binding('replayable')} data-value-input="boolean" data-entry-replay-policy${locked}>
           <option value=""${row.replayable === undefined ? ' selected' : ''}>按已读记录开放（默认）</option>

@@ -1,27 +1,21 @@
 import type { UIContext } from '../runtime/context';
 import type { StoryEditorState } from './model';
-import { buildStoryRelations, type StoryRelations } from './relations-model';
+import { buildStoryRelations, storyTransferContext, type StoryRelations } from './relations-model';
 import { buildStoryFlagCatalog } from './flag-catalog';
 import { renderLocalFlagNaviButton } from './local-flag-navi';
 
 /** Transfers share an Entry's flags; crossing into another Entry does not inherit its private names. */
 export function requiredFlagOptions(state: StoryEditorState, relations: StoryRelations): string[] {
   if (state.target?.kind !== 'story') return [];
-  const ancestors = new Set([state.target.id]), pending = [state.target.id];
-  for (let index = 0; index < pending.length; index++) {
-    for (const call of relations.calls) {
-      if (call.from.kind !== 'story' || call.to.kind !== 'story' || call.to.id !== pending[index] || ancestors.has(call.from.id)) continue;
-      ancestors.add(call.from.id); pending.push(call.from.id);
-    }
-  }
+  const { storyIds, entries } = storyTransferContext(relations, state.target.id);
   const names = new Set<string>();
   const collect = (target: {kind:'story'|'entry';id:string}) => {
     for (const use of buildStoryFlagCatalog(state,relations,target).uses) {
       if (use.kind==='local' && use.available && (use.usage==='write' || use.usage==='return')) names.add(use.name);
     }
   };
-  for (const id of ancestors) collect({kind:'story',id});
-  for (const entry of relations.entries.values()) if (ancestors.has(entry.storyId)) collect({kind:'entry',id:entry.id});
+  for (const id of storyIds) collect({kind:'story',id});
+  for (const entry of entries) collect({kind:'entry',id:entry.id});
   return [...names].sort((a,b)=>a.localeCompare(b));
 }
 

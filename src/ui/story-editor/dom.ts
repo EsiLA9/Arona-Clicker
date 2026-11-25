@@ -12,7 +12,7 @@ function key(node: Node): string | null {
 function compatible(current: Node, next: Node): boolean {
   return current.nodeType === next.nodeType && (!(current instanceof Element) || current.tagName === (next as Element).tagName);
 }
-const editorDisclosure = 'details.story-editor-flag-item, details.story-editor-entry-pool, details.story-preview-record, details.story-editor-advanced';
+const editorDisclosure = 'details.story-editor-flag-item, details.story-editor-entry-pool, details.story-preview-record, details.story-editor-advanced, details.story-editor-sidebar-ops, details.story-editor-story-pack';
 export function patchEditorDOM(current: HTMLElement, next: HTMLElement, beforeRemove: (root: HTMLElement) => void): void {
   for (const attribute of [...current.attributes]) {
     // Disclosure state belongs to the mounted item.

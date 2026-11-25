@@ -2,7 +2,7 @@ import { createChatColumn } from '../../columns';
 import type { UIContext } from '../../runtime/context';
 import type { PanelState, StoryWorkspaceState } from '../shared/app-shell';
 import { renderStoryNavigation } from '../../columns';
-import { renderStoryDirectoryOverview, storyDirectoryTrail } from '../../columns/story-navigation';
+import { renderStoryDirectoryEntryDetails, renderStoryDirectoryOverview, storyDirectoryTrail } from '../../columns/story-navigation';
 import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 
@@ -21,15 +21,17 @@ export function createStoryWorkspaceFrame(
   const hasConversation = workspace.subroute === 'overview'
     && (workspace.selectedEntryId !== null || workspace.mode === 'playing');
   const directory = ctx.game.story.getStoryDirectory();
+  const currentDirectory = storyDirectoryTrail(directory, workspace.navPath).at(-1);
+  const directoryEntry = currentDirectory?.entries.find(row => row.id === workspace.directoryEntryId);
   const left = '<div class="story-workspace__navigation" data-scroll-owner="content-region">'
-    + renderStoryNavigation(ctx, workspace.navPath, directory)
+    + renderStoryNavigation(ctx, workspace.navPath, directory, directoryEntry?.id)
     + '</div>';
   const centerContent = workspace.subroute === 'archive'
     ? '<div class="story-workspace__archive">'
       + '<div class="workspace-placeholder"><h2>故事档案</h2><p>档案内容将在 Records Service 或 Story 子路由中继续设计。</p>'
       + '<button type="button" class="toolbar-button" data-story-archive-back>返回故事</button></div></div>'
-    : renderStoryDirectoryOverview(ctx, storyDirectoryTrail(directory, workspace.navPath).at(-1));
-  const right = placeholder(
+    : renderStoryDirectoryOverview(ctx, currentDirectory);
+  const right = directoryEntry && workspace.subroute === 'overview' ? renderStoryDirectoryEntryDetails(ctx, directoryEntry, currentDirectory) : placeholder(
         workspace.selectedEntryId
           ? '当前故事的详情与辅助信息将在此 Workspace 内继续设计。'
           : '故事详情、档案和统计的归属正在规划中。',

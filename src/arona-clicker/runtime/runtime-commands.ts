@@ -37,7 +37,7 @@ export interface GameCommandSource {
   applyStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
   createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackSource): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
-  saveStoryDirectoryToPack?(packRecordId: string, directory: import('../../data-services/contracts/story-directory').StoryDirectoryDef, remove?: boolean): StoryAuthoringResult;
+  saveStoryDirectoryToPack?: GameCommands['saveStoryDirectoryToPack'];
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef, packRecordId?: string): StoryDefinitionSaveResult;
   restoreStoryDefinition(storyId: string, packRecordId?: string): StoryDefinitionRestoreResult;

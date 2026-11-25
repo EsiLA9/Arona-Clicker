@@ -9,7 +9,7 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { legacyStoryDatapack as baseDatapack } from '../../engine/story/legacy-story-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
 import { bindStoryActions } from '../../../src/ui/controller/controller-actions-story';
-import { renderStoryNavigation } from '../../../src/ui/columns/story-navigation';
+import { renderStoryDirectoryEntryDetails, renderStoryNavigation, storyDirectoryTrail } from '../../../src/ui/columns/story-navigation';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { finishStory, finishWelcome } from '../../engine/story/story-test-fixtures';
 
@@ -122,6 +122,45 @@ describe('UIController 剧情入口确认浮层', () => {
     expect(panel.storyReplay?.replayId).toBeTruthy();
     expect(game.story.getReplayStoryView(panel.storyReplay.replayId)?.storyId).toBe(welcome);
     expect(game.getView().currentStory).toBeNull();
+  });
+
+  it('按已揭示入口显示简介，并把详情选择与重读分开', () => {
+    const welcome = 'base:activestory:schale_welcome';
+    const entry = game.registry.storyEntries.get(welcome)!;
+    const story = game.registry.stories.get(entry.storyId)!;
+    expect(game.saveStoryDefinition({ ...story, publicDescription: '同 Mod 正文简介' }).ok).toBe(true);
+    const path = game.state.storyDirectoryPaths?.[welcome]?.folders.map(folder => folder.id) ?? [];
+    const directory = game.story.getStoryDirectory();
+    const node = storyDirectoryTrail(directory, path).at(-1)!;
+    const row = node.entries.find(item => item.id === welcome)!;
+    const details = () => renderStoryDirectoryEntryDetails(createUIContext(game), row);
+    expect(details()).toContain('同 Mod 正文简介');
+    const owner = game.registry.storyDirectoryContentOwner.bind(game.registry);
+    const external = vi.spyOn(game.registry, 'storyDirectoryContentOwner').mockImplementation((id, kind) => id === welcome ? 'other' : owner(id, kind));
+    expect(details()).not.toContain('同 Mod 正文简介');
+    entry.publicDescription = '入口简介\n<第二行>';
+    expect(details()).toContain('入口简介\n&lt;第二行&gt;');
+    external.mockRestore();
+    expect(details()).not.toContain('同 Mod 正文简介');
+    expect(renderStoryDirectoryEntryDetails(createUIContext(game), { ...row, historical: true })).not.toContain('入口简介');
+    const hidden = game.registry.storyEntries.get(FLOW_SHOW)!;
+    hidden.revealTriggers = [{ reveal: 'name', condition: { type: 'OR', conditions: [] } }];
+    hidden.publicDescription = '未揭示正文';
+    expect(renderStoryDirectoryEntryDetails(createUIContext(game), { id: hidden.id, progress: 'read' })).not.toContain('未揭示正文');
+
+    const workspace = controller.openStoryWorkspace();
+    workspace.navPath = path;
+    controller.render();
+    const center = root.querySelector('.story-workspace__center .workspace-column__body');
+    const button = root.querySelector<HTMLButtonElement>(`[data-story-directory-entry="${welcome}"]`)!;
+    button.click();
+    controller.flushUIUpdates();
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('.story-workspace__right')?.textContent).toContain('入口简介\n<第二行>');
+    expect(root.querySelector('.story-workspace__center .workspace-column__body')).toBe(center);
+    expect(panel.storyGate).toBeNull();
+    expect(game.getView().currentStory).toBeNull();
+    expect(storyDirectoryTrail([{ ...node, id: 'new-parent', children: [node] }], path).map(item => item.id)).toEqual(['new-parent', node.id]);
   });
 
   it('开幕横幅：呼出后连续播放（重渲染断点续播不闪动），展示期结束自动消失', () => {

@@ -5,8 +5,18 @@ import { openStoryReferencePicker, type ConditionReferenceRow } from '../compone
 
 export type ReferenceField = HTMLInputElement | HTMLSelectElement;
 
+function referenceTargetKind(kind?: string): StoryEditorTarget['kind'] | undefined {
+  if (kind === 'story') return 'story';
+  if (kind === 'entry' || kind === 'activeEntry' || kind === 'passiveEntry') return 'entry';
+}
+
+export function referenceTarget(field: ReferenceField): StoryEditorTarget | undefined {
+  const kind = referenceTargetKind(field.dataset.storyReference);
+  if (kind && field.value) return { kind, id: field.value };
+}
+
 /** Decorate the next render before keyed reconciliation, keeping the original field as the write entry. */
-export function prepareReferenceNavi(root: ParentNode): void {
+export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: StoryEditorTarget) => boolean): void {
   for (const field of root.querySelectorAll<ReferenceField>('[data-story-reference]')) {
     if (field.closest('[data-reference-control]')) continue;
     const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
@@ -16,6 +26,15 @@ export function prepareReferenceNavi(root: ParentNode): void {
     button.dataset.referenceNavi = ''; button.textContent = '选择…'; button.title = `打开${label} Navi`;
     button.setAttribute('aria-label', `选择${label}`); button.disabled = field.disabled || field instanceof HTMLInputElement && field.readOnly;
     field.before(row); row.append(field, button);
+    if (referenceTargetKind(field.dataset.storyReference)) {
+      const target = referenceTarget(field);
+      const jump = document.createElement('button');
+      jump.type = 'button'; jump.className = 'mini-action'; jump.dataset.referenceJump = '';
+      jump.textContent = '前往'; jump.setAttribute('aria-label', `前往${label}`);
+      jump.disabled = !target || !hasTarget(target);
+      jump.title = target ? jump.disabled ? `当前来源中找不到 ${target.id}` : `前往${label} · ${target.id}` : '尚未设置目标';
+      row.append(jump);
+    }
   }
 }
 
@@ -34,7 +53,7 @@ export function openReferenceNavi(modal: ModalManager, ctx: UIContext, field: Re
   storyRows?: readonly ConditionReferenceRow[];
 }): void {
   const rows = referenceChoices(field), kind = field.dataset.storyReference;
-  const targetKind = kind === 'story' ? 'story' : ['entry','activeEntry','passiveEntry'].includes(kind ?? '') ? 'entry' : undefined;
+  const targetKind = referenceTargetKind(kind);
   const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
   if (kind === 'story' && options.storyRows) {
     openStoryReferencePicker(modal, ctx, label, options.storyRows, field.value, options.select, {

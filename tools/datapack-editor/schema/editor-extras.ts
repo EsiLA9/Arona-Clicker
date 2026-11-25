@@ -657,7 +657,7 @@ const affectorEntryObject = (): FieldDef =>
 
 const storyEntryCatalogField = (): FieldDef => o('catalog',[s('category','分类',{required:true}),s('part','篇章',{required:true}),s('chapter','章节'),n('order','条目排序')],'历史归档');
 const storyEntryPlacementsField = (): FieldDef => a('directoryPlacements', o('$', [
-  r('initId', 'inits', '世界线', { required: true }), s('directoryId', '目录 ID', { required: true }), n('order', '排序'),
+  r('initId', 'inits', '世界线', { required: true }), s('hierarchyString', '层级路径'), s('directoryId', '旧目录 ID'), n('order', '排序'),
 ]), '世界线目录位置');
 const storyEntryActivationField = (passive: boolean): FieldDef => ({key:'activation',label:'激活方式',required:true,type:{kind:'union',tagField:'kind',variants:passive?[
   {tag:'random',label:'随机抽取',fields:[n('weight','基础权重',{required:true}),b('repeatable','允许再次正式触发',{required:true}),n('cooldownFrames','冷却帧数')]},
@@ -746,7 +746,8 @@ const storiesTable = (): TableSchema => ({
     s('id', 'ID', { required: true }),
     s('name', '名称', { required: true }),
     r('initId', 'inits', '所属世界线', { description: '用于作者目录和选择器，省略时归入「其他」。' }),
-    s('directoryId', '正文目录 ID'),
+    s('hierarchyString', '正文层级路径'),
+    s('directoryId', '旧正文目录 ID'),
     a('nodes', { key: 'node', label: 'Story Node JSON', type: { kind: 'json' } }, '有序节点', { required: true,
       description: '所有节点可选 requiresFlag（一个局部键名，存在才执行）。Talklet content.characterId 引用 characters，content.displayName 仅覆盖显示名称；appearance.presentation.avatar 另行覆盖头像。Choice 选项只声明 id/text、showWhen（持久条件组）、requiresFlag（局部出现条件）与 marks（选择标记名称）；成功选择时替换本组标记，不接受共同动作或通用结果。Button 仅声明文案与 press，不接受 result；动作、转移与移动使用后续独立节点。Talklet / Click performance 支持 layout（flow / positioned，anchor 为横纵基准，X/Y 是偏移，unit 可选 percent 或 px，缺省 anchor 使用旧左下原点）；Talklet 的 performance.pacing 支持非右侧对话的打字和思考。外观由 appearance.style 声明，Talklet 另支持 appearance.template 和 appearance.presentation。Operation 可使用 clearNode（storyId/nodeId，限当前运行展示），或 localFlag set/remove，set 另带 JSON value。建议标记名称 StoryName-flagid，不强制。' }),
     {
@@ -1124,6 +1125,8 @@ export const TABLE_META: TableMeta[] = [
     key: 'storyDirectories', label: '故事目录', type: 'StoryDirectoryDef', idField: 'id', worldlineSplit: true,
     overrides: {
       initId: () => r('initId', 'inits', '世界线', { required: true }),
+      hierarchyString: () => s('hierarchyString', '层级路径'),
+      themeDesignId: () => s('themeDesignId', '目录主题 ID'),
       characterId: () => r('characterId', 'characters', '自动目录所属角色'),
       coverPicId: () => r('coverPicId', 'pics', '封面'),
       parentId: () => s('parentId', '上级目录 ID'),

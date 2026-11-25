@@ -814,3 +814,5 @@
   background: var(--danger, #b43b48);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--danger, #b43b48) 28%, transparent);
 }
+.active-editing-pack-options { display: grid; gap: 6px; }
+.active-editing-pack-options [role="status"]:empty { display: none; }

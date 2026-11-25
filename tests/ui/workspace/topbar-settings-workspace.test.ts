@@ -8,6 +8,7 @@ import { createUIContext } from '../../../src/ui/runtime/context';
 import { renderAppShell, type PanelState } from '../../../src/ui/components/shared/app-shell';
 import { UI_HOST_REGISTRY } from '../../../src/ui/runtime/ui-host-registry';
 import { UIController } from '../../../src/ui/controller/controller';
+import { bindTopBarActions } from '../../../src/ui/controller/controller-actions-topbar';
 import type { SurfaceStyleLoader } from '../../../src/ui/utilities/surface-styles';
 import { IS_DEBUG_EDITING } from '../../../src/ui/runtime-editor/config';
 import '../../../src/ui/runtime/service-definitions';
@@ -37,6 +38,40 @@ describe('顶栏与设置工作区', () => {
     localStorage.clear();
     vi.clearAllTimers();
     vi.useRealTimers();
+  });
+
+  it('显示数据包加载进度，并在 Runtime 应用结束后用同一条通知反馈结果', async () => {
+    const game = new AronaClickerRuntime();
+    game.init([baseDatapack]);
+    const root = document.body.appendChild(document.createElement('div'));
+    root.innerHTML = '<button type="button" data-pack-apply>应用到 Runtime</button>';
+    const controller = new UIController(game, root);
+    controller.resetDatapackDraft();
+    bindTopBarActions(controller, root);
+    const save = vi.spyOn(SaveSystem, 'save').mockReturnValue(true);
+    const apply = vi.spyOn(game, 'applyPackConfiguration').mockReturnValue({
+      ok: true, message: '数据包启用集已应用。', validation: { ok: true, errors: [], warnings: [] },
+    });
+    try {
+      root.querySelector<HTMLButtonElement>('[data-pack-apply]')!.click();
+      const confirm = document.querySelector<HTMLButtonElement>('[data-modal-action="apply-datapack"]')!;
+      confirm.click();
+      confirm.click();
+      const loading = document.querySelector('#toast-layer .toast-progress')!;
+      expect(loading.querySelector('progress')?.hasAttribute('value')).toBe(false);
+      expect(apply).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(loading.querySelector('progress')).toBeNull();
+        expect(loading.textContent).toBe('数据包启用集已应用。');
+        expect(loading.classList.contains('toast-success')).toBe(true);
+        expect(apply).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      save.mockRestore();
+      apply.mockRestore();
+      controller.destroy();
+      game.stop();
+    }
   });
 
   it('Init 选择大厅可直接打开 Runtime Editor 迷你入口，不依赖设置页', () => {

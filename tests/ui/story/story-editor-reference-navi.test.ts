@@ -57,6 +57,8 @@ describe('Story content reference Navi', () => {
 
   it('searches by name or ID, selects a draft Story and preserves field, scroll, history and playback', () => {
     selectNode('transfer'); const field = property(['transfer','storyId']);
+    const jump = field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-jump]')!;
+    expect(jump.disabled).toBe(true);
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 73;
     const history = ctrl.storyEditor.state.visitIndex, running = game.storyService.getCurrentStoryId();
     const full = vi.spyOn(ctrl, 'render'); open(field);
@@ -73,6 +75,7 @@ describe('Story content reference Navi', () => {
     expect(body.scrollTop).toBe(73); expect(ctrl.storyEditor.state.visitIndex).toBe(history);
     expect(game.storyService.getCurrentStoryId()).toBe(running); expect(full).not.toHaveBeenCalled();
     expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'local:story:navi' } });
+    expect(jump.disabled).toBe(false);
     open(field); find<HTMLButtonElement>('.story-editor-reference-navi .modal-close').click();
     expect(document.activeElement === field).toBe(true);
     expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'local:story:navi' } });
@@ -102,7 +105,7 @@ describe('Story content reference Navi', () => {
     change(grouping, init.id);
     expect(row()).toBeNull();
     change(filter, init.id);
-    expect(row()?.textContent).toContain(init.name);
+    expect(row()?.closest('[data-editor-key="story-list"]')?.textContent).toContain(init.name);
     draft.document = { ...draft.document, nodes: [{ id: 'line', type: 'talklet', stageId: 'body', content: { kind: 'narration', text: '正文' } }],
       stages: { body: { advance: 'auto' } } };
     const saved = ctrl.storyEditor.saveToRuntime();
@@ -164,6 +167,34 @@ describe('Story content reference Navi', () => {
     expect(state.drafts.find(row => row.draftId === 'navi-child')!.authoring!.activeStories[0].storyId).toBe(draft.document.id);
   });
 
+  it('jumps from the current linked Story field even when the Entry is read-only', () => {
+    const state = ctrl.storyEditor.state;
+    const entryId = 'local:activestory:navi';
+    const entryDraft = state.drafts.find(row => row.draftId === 'navi-child')!;
+    entryDraft.authoring!.activeStories[0].availableInits = [];
+    refresh();
+    find<HTMLButtonElement>(`[data-editor-entry="${entryId}"]`).click(); ctrl.flushUIUpdates();
+    const field = find<HTMLInputElement>('[data-value-scope="$authoring"][data-story-reference="story"]');
+    const jump = field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-jump]')!;
+    for (const [value, disabled] of [['', true], ['missing:story:absent', true], [draft.document.id, false]] as const) {
+      field.value = value;
+      field.dispatchEvent(new Event('input', { bubbles: true })); ctrl.flushUIUpdates();
+      expect(jump.isConnected).toBe(true);
+      expect(jump.disabled).toBe(disabled);
+    }
+    state.readOnlyReason = '当前内容只读';
+    refresh();
+    expect(field.disabled).toBe(true);
+    expect(field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-navi]')!.disabled).toBe(true);
+    expect(jump.disabled).toBe(false);
+    jump.click(); ctrl.flushUIUpdates();
+    expect(ctrl.modal.isOpen()).toBe(false);
+    expect(state.target).toEqual({ kind: 'story', id: draft.document.id });
+    expect(entryDraft.authoring!.activeStories[0].storyId).toBe(draft.document.id);
+    find<HTMLButtonElement>('[data-editor-action="history-back"]').click(); ctrl.flushUIUpdates();
+    expect(state.target).toEqual({ kind: 'entry', id: entryId });
+  });
+
   it('refuses detached or blocked fields and leaves fixed enums without Navi buttons', () => {
     selectNode('move'); open(property(['areaId'])); draft.document.nodes.splice(2,1); refresh();
     choose([...game.registry.areas.keys()][0]); expect(ctrl.modal.isOpen()).toBe(false);
@@ -180,8 +211,9 @@ describe('Story content reference Navi', () => {
     const ctx = createUIContext(game);
     expect(storyReferenceOptions(ctx,'activeEntry',ctrl.storyEditor.state).some(row => row.value === 'local:activestory:navi')).toBe(true);
     const container = document.createElement('div'); container.innerHTML = '<label>空目录<select data-editor-key="empty" data-story-reference="funclet"><option value="">选择…</option></select></label>';
-    prepareReferenceNavi(container); prepareReferenceNavi(container);
+    prepareReferenceNavi(container, () => false); prepareReferenceNavi(container, () => false);
     expect(container.querySelectorAll('[data-reference-navi]')).toHaveLength(1);
+    expect(container.querySelector('[data-reference-jump]')).toBeNull();
     const field = container.querySelector('select')!;
     expect(referenceChoices(field)).toEqual([]);
     field.innerHTML += '<option value="old" data-reference-missing>缺失引用</option><option value="same">旧名称</option><option value="same">新名称</option>';

@@ -3,6 +3,8 @@ import type { StoryDef } from '../../data-services/contracts/story';
 import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackSource } from '../contracts/runtime/runtime';
 import type { StoryAuthoringPreviewTarget } from '../contracts/runtime/story-authoring';
 import { packStoryIdentityReferences, planStoryIdentityChange, type StoryIdentityChange } from '../../data-services/authoring/story-identity';
+import { storyDirectoryReferences } from '../../data-services/authoring/story-directory-references';
+import type { StoryDirectoryDef } from '../../data-services/contracts/story-directory';
 import { GameInstance } from './runtime-game-instance';
 import { buildSaveData } from './runtime-save-codec';
 import type { GameInstanceOptions } from './runtime-options';
@@ -804,16 +806,36 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     } catch (error) { return { ok: false, message: error instanceof Error ? error.message : String(error) }; }
   }
 
-  saveStoryDirectoryToPack(packRecordId: string, directory: import('../../data-services/contracts/story-directory').StoryDirectoryDef, remove = false): StoryAuthoringResult {
+  saveStoryDirectoryToPack(packRecordId: string, directory: StoryDirectoryDef | readonly StoryDirectoryDef[], remove = false): StoryAuthoringResult {
     try {
       const pack = this.requireEditingPack(packRecordId);
-      const current = pack.datapack.storyDirectories ?? [];
-      const existing = current.find(row => row.id === directory.id);
-      if (remove && !existing) throw new Error('所选编辑态 Mod 没有这条目录配置。');
-      if (existing && (existing.initId !== directory.initId || existing.characterId !== directory.characterId)) throw new Error('目录身份和 Init 在建立后固定。');
-      const storyDirectories = current.filter(row => row.id !== directory.id);
-      if (!remove) storyDirectories.push(structuredClone(directory));
-      const datapack = { ...pack.datapack, storyDirectories };
+      const updates = 'id' in directory ? [directory] : directory;
+      const current = new Map((pack.datapack.storyDirectories ?? []).map(row => [row.id, row]));
+      if (!updates.length || new Set(updates.map(row => row.id)).size !== updates.length) throw new Error('目录提交不能为空或包含重复目录。');
+      for (const update of updates) {
+        const existing = current.get(update.id);
+        if (existing && (existing.initId !== update.initId || existing.characterId !== update.characterId)) throw new Error('目录身份和 Init 在建立后固定。');
+        if (remove) {
+          if (!existing) throw new Error('所选编辑态 Mod 没有这条目录配置。');
+        }
+        if (remove || existing?.acceptExternalEntries && !update.acceptExternalEntries) {
+          for (const source of this.packManager.listPacks()) {
+            const own = source.id === pack.id;
+            if (own ? !remove || existing?.characterId : source.manifest.modName === pack.manifest.modName) continue;
+            const reference = storyDirectoryReferences(update.id, source.datapack)[0];
+            if (reference) throw new Error(`目录仍被引用：${source.manifest.name} · ${reference.title}（${reference.id}）。`);
+          }
+          const runtimeReference = storyDirectoryReferences(update.id, {
+            stories: [...this.registry.stories.values()].filter(row => this.registry.storyDirectoryContentOwner(row.id, 'story') !== pack.manifest.modName),
+            activeStories: [...this.registry.activeStories.values()].filter(row => this.registry.storyDirectoryContentOwner(row.id) !== pack.manifest.modName),
+            passiveStories: [...this.registry.passiveStories.values()].filter(row => this.registry.storyDirectoryContentOwner(row.id) !== pack.manifest.modName),
+          })[0];
+          if (runtimeReference) throw new Error(`当前运行内容仍引用此目录：${runtimeReference.title}（${runtimeReference.id}）。`);
+        }
+        if (remove) current.delete(update.id);
+        else current.set(update.id, structuredClone(update));
+      }
+      const datapack = { ...pack.datapack, storyDirectories: [...current.values()] };
       this.validateStoryPackCandidate(pack, datapack);
       this.packManager.savePack({ ...pack, datapack, contentDigest: undefined });
       this.persistPackManagerSnapshot();

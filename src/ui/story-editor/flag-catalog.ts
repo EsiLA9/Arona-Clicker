@@ -1,5 +1,5 @@
 import type { StoryEditorState, StoryEditorTarget } from './model';
-import type { StoryCall, StoryRelations } from './relations-model';
+import { storyTransferContext, type StoryCall, type StoryRelations } from './relations-model';
 import { propertyKey } from './property-model';
 
 export interface StoryFlagUse {
@@ -42,13 +42,7 @@ export function buildStoryFlagCatalog(state: StoryEditorState, relations: StoryR
   const seenUses = new Set<string>();
   const pending = [{ target: start, scope: targetKey(start), available: true }];
   if (related && start.kind === 'story') {
-    const stories = new Set([start.id]), queue = [start];
-    for (let i = 0; i < queue.length; i++) {
-      const target = queue[i];
-      const neighbors = [...(outgoing.get(targetKey(target)) ?? []).map(call => call.to), ...(incoming.get(targetKey(target)) ?? []).map(call => call.from)];
-      for (const next of neighbors) if (next.kind === 'story' && !stories.has(next.id)) { stories.add(next.id); queue.push(next); }
-    }
-    const entries = [...relations.entries.values()].filter(entry => stories.has(entry.storyId));
+    const { entries } = storyTransferContext(relations, start.id, 'both');
     if (entries.length) pending.splice(0,1,...entries.map(entry => ({target:{kind:'entry' as const,id:entry.id},scope:`entry:${entry.id}`,available:true})));
   }
   for (let i = 0; i < pending.length; i++) {

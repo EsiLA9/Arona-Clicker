@@ -6,7 +6,7 @@ import { mergeFragments, parseFragment } from '../../../src/data-services/datapa
 import { emptyStoryAuthoring } from '../../../src/data-services/authoring/story-authoring';
 import type { StoryEntryDef } from '../../../src/data-services/contracts/story-entry';
 import { AronaClickerRuntime } from '../../../src/arona-clicker/runtime/runtime';
-import { buildStoryDirectory, type StoryDirectoryNode } from '../../../src/arona-clicker/content/story/story-directory';
+import { buildStoryDirectory, storyHierarchyNodeId, type StoryDirectoryNode } from '../../../src/arona-clicker/content/story/story-directory';
 import { finishStory, finishWelcome, makePack, settleStoryPresentation, supplyDetail, supplyEntry, supplyMain } from './story-test-fixtures';
 
 const initId = baseDatapack.inits[0].id;
@@ -32,6 +32,45 @@ const find = (nodes: readonly StoryDirectoryNode[], id: string): StoryDirectoryN
 };
 
 describe('Init story directory', () => {
+  it('joins Story, Entry and independent descriptions by Init and path without requiring a definition', () => {
+    const registry = new Registry();
+    registry.load(baseDatapack);
+    const hierarchyString = '角色故事/白子/天台';
+    const entry: StoryEntryDef = { ...supplyEntry, directoryPlacements: [{ initId, hierarchyString }] };
+    const story = { ...supplyMain, initId, hierarchyString };
+    const content = { ...makePack([entry], [story, supplyDetail]), modName: 'test' };
+    registry.load(content);
+    const id = storyHierarchyNodeId(hierarchyString);
+    let tree = buildStoryDirectory(registry, initId);
+    expect(tree.nodes.get(id)).toMatchObject({ initId, hierarchyString, title: '天台', stories: [story] });
+    expect(tree.entryFolders.get(entry.id)).toBe(tree.nodes.get(id));
+    expect(tree.roots.find(row => row.hierarchyString === '角色故事')?.children[0].title).toBe('白子');
+    expect(buildStoryDirectory(registry, 'different-init').nodes.has(id)).toBe(false);
+    const descriptions = [
+      { id: 'zine:story-hierarchy:view', initId, hierarchyString, title: '候选资料', public: true },
+      { id: 'album:story-hierarchy:view', initId, hierarchyString, title: '天台档案', description: '卷首语' },
+    ];
+    for (const definition of descriptions) {
+      registry.load({ ...makePack([], []), modName: definition.id.split(':')[0], storyDirectories: [definition] });
+    }
+    tree = buildStoryDirectory(registry, initId);
+    expect(tree.nodes.get(id)).toMatchObject({ title: '天台档案', definition: descriptions[1] });
+    expect(tree.entryFolders.get(entry.id)?.id).toBe(id);
+    expect(registry.storyDirectories.size).toBe(2);
+    const theme = { id: 'zine:themedesign:rooftop', name: '天台主题', theme: { tokens: { primary: '#123456' } } };
+    const featured = { ...descriptions[0], primary: 'design' as const, themeDesignId: theme.id };
+    const zine = { ...makePack([], []), modName: 'zine' };
+    expect(() => registry.load({ ...zine, storyDirectories: [featured] })).toThrow('目录资料无效');
+    registry.load({ ...zine, storyDirectories: [featured], themeDesigns: [theme] });
+    expect(buildStoryDirectory(registry, initId).entryFolders.get(entry.id)).toMatchObject({ id, definition: featured });
+    registry.load({ ...zine, storyDirectories: [{ ...featured, primary: 'path' }] });
+    expect(buildStoryDirectory(registry, initId).entryFolders.get(entry.id)).toMatchObject({ id, title: '天台', definition: undefined });
+    expect(() => registry.load({ ...content, stories: [{ ...story, hierarchyString: 'a/../b' }, supplyDetail] })).toThrow('层级路径无效');
+    expect(() => registry.load({ ...content, passiveStories: [{ ...entry,
+      directoryPlacements: [{ initId, hierarchyString, directoryId: chapter.id }],
+    }] } as typeof content)).toThrow('层级路径无效');
+  });
+
   it('keeps explicit, automatic and unfiled placements in one tree and round-trips serialized directory data', () => {
     const registry = new Registry();
     const automatic: StoryEntryDef = { ...supplyEntry, id: 'test:story:role_entry', storyId: 'test:story:role_body', owner: character.id };
@@ -118,17 +157,62 @@ describe('Init story directory', () => {
       const packId = copy.packRecordId!;
       const directory = { ...root, id: 'directory-qa:story-directory:volume' };
       expect(game.saveStoryDirectoryToPack(packId, directory).ok).toBe(true);
-      const story = { ...supplyMain, id: 'directory-qa:story:body', nodes: [supplyMain.nodes[0]], initId, directoryId: directory.id };
+      const story = { ...supplyMain, id: 'directory-qa:story:body', nodes: [supplyMain.nodes[0]], initId, directoryId: directory.id,
+        publicDescription: '正文简介\n第二行' };
       const entry: StoryEntryDef = { ...explicitEntry, id: 'directory-qa:story:source', storyId: story.id,
+        publicDescription: '入口简介',
         directoryPlacements: [{ initId, directoryId: directory.id }] };
       const patch = { ...emptyStoryAuthoring(), stories: [story], passiveStories: [entry] } as ReturnType<typeof emptyStoryAuthoring>;
       expect(game.validateStoryAuthoring(patch, packId)).toMatchObject({ ok: true });
       expect(game.getPackRecord(packId)?.datapack.stories).toHaveLength(0);
       expect(game.saveStoryAuthoringToPack(packId, patch)).toMatchObject({ ok: true });
       expect(game.getPackRecord(packId)?.datapack.stories[0].directoryId).toBe(directory.id);
+      expect(game.getPackRecord(packId)?.datapack.stories[0].publicDescription).toBe(story.publicDescription);
+      expect(game.getPackRecord(packId)?.datapack.passiveStories[0].publicDescription).toBe('入口简介');
       expect(game.getPackRecord(packId)?.datapack.passiveStories[0].directoryPlacements).toEqual(entry.directoryPlacements);
       expect(game.saveStoryDirectoryToPack(packId, directory, true)).toMatchObject({ ok: false });
       expect(game.registry.storyDirectories.has(directory.id)).toBe(false);
+      game.packManager.setEnabled(packId, true);
+      game.applyEnabledPacks();
+      expect(find(game.story.getStoryDirectory(), directory.id)).toMatchObject({ definition: { description: '卷首语' }, entries: [] });
+      const hierarchyString = '新卷/第一章';
+      const position = [{ initId, hierarchyString }];
+      const { directoryId: oldDirectory, ...body } = story;
+      const save = game.saveStoryAuthoringToPack(packId, { ...patch, stories: [{ ...body, hierarchyString }],
+        passiveStories: [{ ...patch.passiveStories[0], directoryPlacements: position }] });
+      expect(save, save.message).toMatchObject({ ok: true });
+      const description: StoryDirectoryDef = { id: 'directory-qa:story-hierarchy:chapter', initId, hierarchyString, public: true };
+      expect(game.saveStoryDirectoryToPack(packId, description)).toMatchObject({ ok: true });
+      game.applyEnabledPacks();
+      expect(find(game.story.getStoryDirectory(), storyHierarchyNodeId(hierarchyString))).toMatchObject({ definition: description });
+      expect(game.saveStoryDirectoryToPack(packId, description, true)).toMatchObject({ ok: true });
+      expect(game.getPackRecord(packId)?.datapack.passiveStories[0].directoryPlacements).toEqual(position);
+      game.applyEnabledPacks();
+      expect(buildStoryDirectory(game.registry, initId).entryFolders.get(entry.id)).toMatchObject({ id: storyHierarchyNodeId(hierarchyString), title: '第一章' });
+    } finally { game.stop(); }
+  });
+
+  it('validates a directory batch before writing and refuses removal referenced by an unloaded pack', () => {
+    const game = new AronaClickerRuntime();
+    try {
+      game.init([baseDatapack]);
+      const id = game.createEmptyEditingPack({ modId: 'directory-owner', versionId: '1.0.0' }).packRecordId!;
+      const volume = { ...root, id: 'directory-owner:story-directory:volume', acceptExternalEntries: true };
+      const spare = { ...chapter, id: 'directory-owner:story-directory:spare', parentId: undefined };
+      const directories = () => game.getPackRecord(id)!.datapack.storyDirectories;
+      expect(game.saveStoryDirectoryToPack(id, [volume, spare]).ok).toBe(true);
+      expect(game.saveStoryDirectoryToPack(id, [{ ...volume, parentId: spare.id }, { ...spare, parentId: volume.id }])).toMatchObject({ ok: false });
+      expect(directories()).toEqual([volume, spare]);
+      const foreignEntry = { ...explicitEntry, id: 'directory-reader:story:entry',
+        directoryPlacements: [{ initId, directoryId: volume.id }] };
+      game.registerParsedPack({
+        manifest: { modName: 'directory-reader', name: '外部收录包', version: '1.0.0', dependencies: ['base', 'directory-owner'] },
+        datapack: { ...makePack([foreignEntry], []), modName: 'directory-reader' },
+        images: [], jsonFileCount: 1, ignoredCount: 0,
+      });
+      expect(game.registry.storyEntries.has(foreignEntry.id)).toBe(false);
+      expect(game.saveStoryDirectoryToPack(id, volume, true)).toMatchObject({ ok: false, message: expect.stringContaining(foreignEntry.id) });
+      expect(directories()).toEqual([volume, spare]);
     } finally { game.stop(); }
   });
 });

@@ -1724,7 +1724,7 @@ export class GameInstance {
   protected previewStoryWithContent(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackContent): StoryAuthoringPreviewResult {
     // The sandbox uses the runtime's enabled packs, while a draft may target an unapplied directory.
     patch = { ...patch,
-      stories: patch.stories.map(({ directoryId, ...story }) => story),
+      stories: patch.stories.map(({ directoryId, hierarchyString, ...story }) => story),
       activeStories: patch.activeStories.map(({ directoryPlacements, ...entry }) => entry),
       passiveStories: patch.passiveStories.map(({ directoryPlacements, ...entry }) => entry),
     };

@@ -165,5 +165,9 @@
    min-width: 0;
 }
 
+.workspace-title--with-actions { flex-wrap: nowrap; align-items: center; }
+.workspace-title--with-actions > b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-title__actions { flex: 0 0 auto; }
+
 .workspace-title small,
 .conversation-title small { color: var(--muted); }

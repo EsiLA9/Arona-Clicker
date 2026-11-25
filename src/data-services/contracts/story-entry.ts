@@ -30,6 +30,8 @@ export interface StoryEntryBase {
   catalog?: StoryEntryCatalog;
   /** Explicit placement in each applicable Init. Missing placements are inferred. */
   directoryPlacements?: StoryEntryDirectoryPlacement[];
+  /** 已揭示入口在故事目录中的公开简介。支持多行纯文本。 */
+  publicDescription?: string;
   owner?: string;
   completionReward?: { first?: Effect[]; repeat?: Effect[] };
   revealTriggers?: RevealTrigger[]; replayable?: boolean; travelToStartContext?: boolean; completionStrategy?: 'simple' | 'conditional';

@@ -110,9 +110,16 @@ describe('Runtime Editor Mod ZIP 导出', () => {
     editor.modName = 'base';
     editor.displayName = defaultDatapack.name;
     editor.version = defaultDatapack.version;
+    const initId = defaultDatapack.inits[0].id;
+    const hierarchyString = '手记/卷一';
     const sourceDatapack = {
       ...structuredClone(defaultDatapack),
       modName: 'base',
+      storyDirectories: [{ id: 'base:story-hierarchy:public', initId, hierarchyString,
+        title: '公开目录', description: '目录简介\n第二行', public: true }],
+      stories: defaultDatapack.stories.map((story, index) => index ? story : { ...story, initId, hierarchyString, publicDescription: '正文简介' }),
+      activeStories: defaultDatapack.activeStories.map((entry, index) => index ? entry : { ...entry, availableInits: [initId],
+        directoryPlacements: [{ initId, hierarchyString }], publicDescription: '入口简介' }),
     };
     const compiled = compileRuntimeEditorPack(editor, {
       sourceDatapack,
@@ -135,6 +142,11 @@ describe('Runtime Editor Mod ZIP 导出', () => {
     expect(parsed.datapack.items).toEqual(sourceDatapack.items);
     expect(parsed.datapack.gachaPools).toEqual(sourceDatapack.gachaPools);
     expect(parsed.datapack.gearConfig).toEqual(sourceDatapack.gearConfig);
+    expect(parsed.datapack.storyDirectories).toEqual(sourceDatapack.storyDirectories);
+    expect(parsed.datapack.stories[0]?.publicDescription).toBe('正文简介');
+    expect(parsed.datapack.activeStories[0]?.publicDescription).toBe('入口简介');
+    expect(parsed.datapack.stories[0]).toMatchObject({ initId, hierarchyString });
+    expect(parsed.datapack.activeStories[0]?.directoryPlacements).toEqual([{ initId, hierarchyString }]);
   });
 
   test('AreaMap 的 mixed 节点随 ZIP 导出并可再次解析', async () => {

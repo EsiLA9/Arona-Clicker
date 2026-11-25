@@ -11,6 +11,7 @@ import type { SaveData } from './save-data';
 import type { DevLogEntry } from '../../../engine/core/dev-log';
 import type { ContentCatalogQueryPort } from './content-catalog';
 import type { StoryDef } from '../../../data-services/contracts/story';
+import type { StoryDirectoryDef } from '../../../data-services/contracts/story-directory';
 import type { ConditionGroup } from '../../../engine/types/expression';
 import type { AreaMapEdgeDef, AreaMapNodeDef } from '../../../data-services/contracts/area-map';
 import type { WorldInformationDef } from '../../../data-services/contracts/world-reveal';
@@ -711,7 +712,7 @@ export interface GameCommands {
   applyStoryAuthoring(patch: StoryAuthoringPatch, packRecordId?: string): StoryAuthoringResult;
   createStoryAuthoringPreview(patch: StoryAuthoringPatch, target: StoryAuthoringPreviewTarget, source?: StoryPackSource): StoryAuthoringPreviewResult;
   saveStoryAuthoringToPack?(packRecordId: string, patch: StoryAuthoringPatch): StoryAuthoringResult;
-  saveStoryDirectoryToPack?(packRecordId: string, directory: import('../../../data-services/contracts/story-directory').StoryDirectoryDef, remove?: boolean): StoryAuthoringResult;
+  saveStoryDirectoryToPack?(packRecordId: string, directory: StoryDirectoryDef | readonly StoryDirectoryDef[], remove?: boolean): StoryAuthoringResult;
   renameStoryInPack?(packRecordId: string, change: StoryIdentityChange): StoryAuthoringResult;
   saveStoryDefinition(story: StoryDef, packRecordId?: string): StoryDefinitionSaveResult;
   /** Restore the loaded source definition, or remove a Story created only in the current Registry. */

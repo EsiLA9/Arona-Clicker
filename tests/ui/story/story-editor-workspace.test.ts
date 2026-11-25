@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
+import { characterStoryDirectoryId } from '../../../src/data-services/contracts/story-directory';
 import { UIController } from '../../../src/ui/controller/controller';
 import { appendNode, composer, currentDraft, currentNode } from '../../../src/ui/story-editor/model';
 import { editProperty } from '../../../src/ui/story-editor/property-model';
@@ -78,7 +79,8 @@ describe('Story Editor workspace prototype', () => {
     center.scrollTop = 128; right.scrollTop = 64;
     const render = vi.spyOn(ctrl, 'render');
     find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click(); ctrl.flushUIUpdates();
-    expect(stories.hidden).toBe(true);
+    expect(stories.hidden).toBe(false);
+    expect(stories.querySelector('[data-editor-story]')).toBeNull();
     expect(currentDraft(state)).toBe(first);
     expect(find('[data-editor-composer-text]')).toBeTruthy();
     const entry = [...game.registry.activeStories.values()][0];
@@ -130,7 +132,7 @@ describe('Story Editor workspace prototype', () => {
     find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click(); ctrl.flushUIUpdates();
     expect(find(`[data-editor-entry="${active.id}"]`).textContent).toContain('草稿入口标题');
     expect(root.querySelectorAll(`[data-editor-entry="${active.id}"]`)).toHaveLength(1);
-    expect(find(`[data-editor-entry="${passive.id}"] .story-editor-draft-label`).textContent).toBe('随机抽取');
+    expect(find(`[data-editor-entry="${passive.id}"]`).title).toContain('随机抽取');
     input('[data-editor-entry-search]', '未发布入口');
     expect(root.querySelectorAll('[data-editor-entry]')).toHaveLength(1);
     find<HTMLButtonElement>('[data-editor-entry="local:activestory:unpublished"]').click(); ctrl.flushUIUpdates();
@@ -140,6 +142,110 @@ describe('Story Editor workspace prototype', () => {
     input('[data-editor-entry-search]', passive.id);
     expect(root.querySelectorAll('[data-editor-entry]')).toHaveLength(1);
     expect(find(`[data-editor-entry="${passive.id}"]`)).toBeTruthy();
+  });
+
+  it('collapses filters by default and restores directory folds after searching, without replacing the center', () => {
+    open(); click('new');
+    const draft = currentDraft(ctrl.storyEditor.state)!;
+    input('[data-editor-field="name"]', '验收目录折叠');
+    const center = find('.story-editor-center .workspace-column__body');
+    center.scrollTop = 73;
+    const filters = find('[data-editor-key="sidebar-filters"]');
+    const toggle = find<HTMLButtonElement>('[data-sidebar-action="filters"]');
+    expect(filters.hidden).toBe(true);
+    const row = find(`[data-editor-story="${draft.draftId}"]`);
+    const folder = row.closest('ul')!.previousElementSibling!.querySelector<HTMLButtonElement>('[data-sidebar-folder]')!;
+    expect(folder.getAttribute('aria-expanded')).toBe('true');
+    folder.click(); ctrl.flushUIUpdates();
+    expect(folder.getAttribute('aria-expanded')).toBe('false');
+    expect(row.closest('ul')!.hidden).toBe(true);
+    toggle.click(); ctrl.flushUIUpdates();
+    expect(filters.hidden).toBe(false);
+    const search = find<HTMLInputElement>('[data-sidebar-search]');
+    expect(document.activeElement).toBe(search);
+    input('[data-sidebar-search]', draft.document.id);
+    expect(folder.getAttribute('aria-expanded')).toBe('true');
+    expect(find(`[data-editor-story="${draft.draftId}"]`)).toBe(row);
+    toggle.click(); ctrl.flushUIUpdates();
+    expect(filters.hidden).toBe(true);
+    expect(find('[data-editor-key="sidebar-summary"]').textContent).toContain(draft.document.id);
+    find<HTMLButtonElement>('[data-sidebar-action="clear"]').click(); ctrl.flushUIUpdates();
+    expect(folder.getAttribute('aria-expanded')).toBe('false');
+    expect(find('.story-editor-center .workspace-column__body')).toBe(center);
+    expect(center.scrollTop).toBe(73);
+  });
+
+  it('places Entries after their opening Story in the same folder and leaves unmatched Entries at the end', () => {
+    open(); click('new');
+    const firstDraft = currentDraft(ctrl.storyEditor.state)!;
+    click('new');
+    const secondDraft = currentDraft(ctrl.storyEditor.state)!;
+    const initId = game.state.activeInit;
+    const hierarchyString = '排序验收';
+    for (const draft of [firstDraft, secondDraft]) {
+      Object.assign(draft.document, { initId, hierarchyString });
+    }
+    const [first, second] = [firstDraft, secondDraft].sort((a, b) => a.document.id.localeCompare(b.document.id));
+    const active = [...game.registry.activeStories.values()][0];
+    secondDraft.authoring!.activeStories.push(...[
+      { id: 'local:activestory:unmatched', storyId: 'local:story:missing', order: 0 },
+      { id: 'local:activestory:second', storyId: second.document.id, order: 1 },
+      { id: 'local:activestory:first-b', storyId: first.document.id, order: 2 },
+      { id: 'local:activestory:first-a', storyId: first.document.id, order: 3 },
+    ].map(({ id, storyId, order }) => ({ ...active, id, storyId, availableInits: [initId], directoryPlacements: [{ initId, hierarchyString, order }] })));
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+
+    const rows = find(`[data-editor-story="${first.draftId}"]`).closest('ul')!;
+    const rowOrder = () => [...rows.querySelectorAll<HTMLElement>(':scope > li > button')].map(row => row.dataset.editorStory ?? row.dataset.editorEntry);
+    expect(rowOrder()).toEqual([
+      first.draftId, 'local:activestory:first-b', 'local:activestory:first-a',
+      second.draftId, 'local:activestory:second', 'local:activestory:unmatched',
+    ]);
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click();
+    expect(rowOrder()).toEqual(['local:activestory:unmatched', 'local:activestory:second', 'local:activestory:first-b', 'local:activestory:first-a']);
+  });
+
+  it('keeps empty character folders and opens their management from the title row', () => {
+    open(); click('new');
+    const initId = game.state.activeInit;
+    const initManager = find<HTMLButtonElement>(`[data-directory-init-id="${initId}"][data-directory-folder-id=""]`);
+    const groupManager = find<HTMLButtonElement>(`[data-directory-init-id="${initId}"][data-directory-folder-id="@characters"]`);
+    const heading = groupManager.parentElement!;
+    const group = heading.querySelector<HTMLButtonElement>('[data-sidebar-folder]')!;
+    const children = heading.nextElementSibling as HTMLUListElement;
+    expect(children.hidden).toBe(true);
+    group.click();
+    expect(children.hidden).toBe(false);
+    const character = [...game.registry.characters.values()].find(role => {
+      const id = characterStoryDirectoryId(initId, role.id);
+      return children.querySelector(`[data-directory-folder-id="${id}"]`)?.parentElement?.nextElementSibling === null;
+    })!;
+    expect(character).toBeDefined();
+    const roleId = characterStoryDirectoryId(initId, character.id);
+    const manage = find<HTMLButtonElement>(`[data-directory-folder-id="${roleId}"]`);
+    const center = find('.story-editor-center .workspace-column__body');
+    expect(groupManager.parentElement).toBe(heading);
+    expect(heading.lastElementChild).toBe(groupManager);
+    expect(heading.nextElementSibling).toBe(children);
+    expect(manage.parentElement?.querySelector<HTMLButtonElement>('[data-sidebar-folder]')?.disabled).toBe(true);
+    center.scrollTop = 84;
+    manage.click(); ctrl.flushUIUpdates();
+    expect(ctrl.modal.isOpen()).toBe(false);
+    expect(find('.story-editor-center .workspace-heading').textContent).toContain(character.displayName);
+    expect(find('.story-editor-center [aria-label="目录内容"]').textContent).toContain('此目录暂无内容');
+    expect(find('.story-editor-right [aria-label="目录资料"]').textContent).toContain('所属 Mod');
+    expect(manage.getAttribute('aria-pressed')).toBe('true');
+    group.click();
+    groupManager.click(); ctrl.flushUIUpdates();
+    expect(children.hidden).toBe(true);
+    expect(find('.story-editor-center .workspace-heading').textContent).toContain('角色故事');
+    initManager.click(); ctrl.flushUIUpdates();
+    find<HTMLButtonElement>('.story-editor-center [data-directory-folder-id="@characters"]').click(); ctrl.flushUIUpdates();
+    expect(groupManager.getAttribute('aria-pressed')).toBe('true');
+    click('directory-back');
+    expect(root.querySelector('[aria-label="目录内容"]')).toBeNull();
+    expect(find('.story-editor-center .workspace-column__body')).toBe(center);
+    expect(center.scrollTop).toBe(84);
   });
 
   it('blocks Story/Entry navigation on draft save failure and skips removed Entry history', () => {
@@ -474,16 +580,46 @@ describe('Story Editor workspace prototype', () => {
     expect(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)).not.toBeNull();
   });
 
-  it('shows an image sender avatar without also exposing its text fallback', () => {
+  it('switches left views from the title and preserves directory filters and list scroll', () => {
     open();
     click('new');
-    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:senders"]').click(); ctrl.flushUIUpdates();
+    const title = find('.story-editor-left .workspace-title');
+    const cycle = find<HTMLButtonElement>('[data-sidebar-mode-cycle]');
+    const dropdown = find<HTMLButtonElement>('[popovertarget="story-editor-sidebar-modes"]');
+    const menu = find('#story-editor-sidebar-modes');
+    const directoryMode = menu.querySelector<HTMLButtonElement>('[data-column-action="story-editor-sidebar:directory"]')!;
+    const senderMode = menu.querySelector<HTMLButtonElement>('[data-column-action="story-editor-sidebar:senders"]')!;
+    const storyList = find('[data-scroll-key="stories"]');
+    const senderList = find('[data-scroll-key="senders"]');
+    const composer = find('[data-editor-composer-text]');
+    expect(title.contains(cycle)).toBe(true);
+    expect(title.contains(dropdown)).toBe(true);
+    expect(cycle.textContent).toBe('故事目录');
+    expect(directoryMode.getAttribute('aria-pressed')).toBe('true');
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click();
+    input('[data-editor-entry-search]', '入口搜索');
+    storyList.scrollTop = 45;
+    cycle.click();
+    expect(cycle.textContent).toBe('发出方');
+    expect(senderMode.getAttribute('aria-pressed')).toBe('true');
     const hoshinoSender = storySenders(createUIContext(game)).find(sender => sender.label === '小鸟游星野')!;
     const hoshino = find<HTMLButtonElement>(`[data-editor-sender="${hoshinoSender.id}"]`);
     const avatar = hoshino.querySelector('.story-editor-sender-avatar')!;
     expect(avatar.querySelector('img')?.getAttribute('src')).toMatch(/Hoshino\.png/i);
     expect(avatar.querySelector(':scope > span[hidden]')?.textContent).toBe('小');
     expect(hoshino.querySelector('small')).toBeNull();
+    senderList.scrollTop = 65;
+    storyList.scrollTop = 0;
+    directoryMode.click();
+    expect(document.activeElement).toBe(dropdown);
+    expect(cycle.textContent).toBe('故事目录');
+    expect(storyList.scrollTop).toBe(45);
+    expect(ctrl.storyEditor.state.sidebarMode).toBe('entries');
+    expect(find<HTMLInputElement>('[data-editor-entry-search]').value).toBe('入口搜索');
+    senderList.scrollTop = 0;
+    senderMode.click();
+    expect(senderList.scrollTop).toBe(65);
+    expect(find('[data-editor-composer-text]')).toBe(composer);
   });
 
   it('updates the composer avatar immediately when the sender changes', () => {

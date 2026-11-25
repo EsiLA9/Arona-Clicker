@@ -2449,6 +2449,7 @@ export class UIController {
     const workspace: StoryWorkspaceState = {
       type: 'story',
       navPath: current?.navPath.slice() ?? [],
+      directoryEntryId: current?.directoryEntryId,
       subroute: 'overview',
       selectedEntryId: options.selectedEntryId === undefined ? current?.selectedEntryId ?? null : options.selectedEntryId,
       conversationOwner: owner,

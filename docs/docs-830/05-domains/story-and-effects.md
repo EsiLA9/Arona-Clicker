@@ -114,7 +114,13 @@ Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 
 
 ## 剧情目录与运行会话
 
-故事目录按 Init 解析。Datapack 的 `storyDirectories` 声明可多层嵌套的目录和角色自动目录的资料。正文的 `directoryId` 随 `Story.initId` 供作者整理；Entry 的 `directoryPlacements` 允许在每个适用 Init 指定一个位置。现有分类、篇章和章节仍作为兼容路径。角色目录按 Init 和角色身份生成；未编排内容归入「未归档」。角色所在 Mod 管理角色目录资料。跨 Mod 收录同时需要目录允许和 Entry 明确指定位置。
+故事位置由 `InitId + HierachyString` 组成。包字段名为 `hierarchyString`，各级以 `/` 分隔，例如 `主线/夏莱篇/第一章`。相同路径在不同 Init 下独立。正文使用 `{ initId, hierarchyString }`，入口在 `directoryPlacements` 中为每个适用 Init 指定一个 `{ initId, hierarchyString, order? }`。仅引用路径即可生成沿途各级。正文缺省 Init 时使用编辑器的「其他」根。
+
+`storyDirectories` 继续承载目录数据。路径资料使用 `mod:story-hierarchy:id`，通过 `initId` 和 `hierarchyString` 绑定位置。每个位置可以有多份资料。显式主资料优先，多个 Mod 各自指定时按完整资料 ID 升序裁定。旧包没有显式选择时沿用完整 ID 排序。`primary: design` 应用该份资料，`primary: path` 恢复路径默认显示。`themeDesignId` 引用已有 ThemeDesign，局部应用目录概览和入口资料的面板色、文字色与强调色。标题、简介、封面、公开状态和排序随中选资料一起应用。添加、撤下资料不会改变仍被内容引用的路径。编辑资料与显式选择限所属编辑态 Mod。
+
+旧 `directoryId`、分类／篇章／章节、手动目录、角色自动目录和「未归档」继续完整读取，并投影为 Init 下保留的兼容路径。旧目录仍使用原节点 ID 和跨 Mod 校验，角色资料继续由角色所属 Mod 管理。单个位置只能使用新路径或旧目录 ID 中的一种。旧 `catalog` 仍是 Entry 缺少有效显式位置时的回退，不会随新路径写入而删除。
+
+目录简介沿用 `StoryDirectoryDef.description`，随可见目录展示。提前公开目录也可展示空目录的资料。玩家目录中的 Entry 仍由既有进度和揭示规则决定是否出现、是否显示名称。名称已知时，优先展示 Entry 的 `publicDescription`；缺省时可回退至同一所属 Mod 的正文简介。历史缺包记录保留阅读状态，简介不从当前包或其他入口继承。查看简介不启动播放，重读继续使用原有资格和确认流程。
 
 故事工作区展示当前 Init 的公开目录与玩家已持有的 Entry。目录可提供公开简介和封面，已读和已完成统计按实际 Entry 计算。玩家持有的内容卸载时，目录沿已知路径保留历史节点，并提示「内容未载入」。只有精确的 Entry 进度参与统计；旧主动入口基于同 Story 日志的展示仍沿用。目录只用于编排和浏览，正式启动、触发条件、分支及重读资格仍由 Registry 和 `StoryService` 决定。StoryDef 的 `startContext` 与 Story Editor 文档属性共同维护 Area/Chara 起始位置；移动节点分别编辑目标 Area 或角色 ID。
 
@@ -132,7 +138,7 @@ Story Operation 的有限 `StoryStateAction` 支持 `acquireAreaMap(mapId)` 与 
 
 StoryEntry 将正文引用 `storyId`、归属角色 `owner`、历史编排 `catalog` 与正式激活 `activation` 分开。公共资格、重读和完结能力保存在公共记录；激活配置有且只有三类：`active` 为主动接取，可省略地区兜底，或声明 `current-area` / `fixed-area` 投放；`random` 保存基础权重、重复触发及冷却；`affection` 要求角色 owner，以等级或前置 Story 完成触发单次角色阶段，尾段仍优先。原顶层 type、weight、affectionRequired、pushAfterStory 不再是作者字段，active/passive 启动通道由 `storyEntryType()` 派生。Datapack 保留 activeStories 与 passiveStories 两个分区，后者容纳 random / affection；ID 和运行完成记录的身份保持不变。
 
-故事目录位置保存在 `catalog.category/part/chapter/order`，三类入口均可编排；分类和篇章是自由文本，可复用现有 ID / 名称，也可创建新目录项，章节与顺序可选。目录元数据只决定导航归属与顺序，不赋予首次播放资格，也不写入完成或已读状态；旧 `Extra.storyCatalog` 已迁移为顶层 `catalog`。目录分组名称与静态层级由产品模型提供，Story Editor 汇总内置层级、已载入 Entry 和当前草稿提示现有值。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
+旧目录编排使用 `catalog.category/part/chapter/order`，三类入口均可读取；分类和篇章可匹配内置 ID / 名称，也可由自由文本生成，章节与顺序可选。旧 `Extra.storyCatalog` 已迁移为顶层 `catalog`。目录元数据只决定浏览位置和展示，不赋予首次播放资格，也不写入完成或已读状态。主动地区兜底读取 Entry 自身配置，不再读取硬编码名单；它只创建可接取投放，不自动开播或旅行，且不能跨当前 Init。被动池仍独立持有 children，成员只能是随机入口或其他池；池成员与路径权重不在 Entry 反向双写。前置 Story 是激活依赖，不加入播放调用链或 Entry 局部 Flag 作用域。
 
 合同／导入边界见 `contracts/story-entry.ts`、`validation/story-entry.ts` 和 Registry；运行消费见 `story-entry-selection.ts`、`story-availability-delivery-mount.ts`、`passive-pool-system.ts`。回归入口为 `tests/data/story/story-entry-activation.test.ts`、`tests/engine/story/story-entry-fallback.test.ts` 及既有 Entry／池／重读测试。
 

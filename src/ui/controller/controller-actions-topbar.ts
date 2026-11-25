@@ -26,6 +26,7 @@ import type { UIController } from './controller';
 import { withSurfaceStyles } from '../utilities/surface-styles';
 import { refreshPresentationHostElements } from './controller-theme';
 import type { PackCatalogCommands, PackCatalogEntry, PackCatalogReadModel } from '../../arona-clicker/contracts/index';
+import type { PackApplyResult } from '../../arona-clicker/contracts/runtime/runtime';
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] ?? character));
@@ -184,6 +185,28 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
   let root = initialRoot;
   const host = ctrl.game as typeof ctrl.game & Partial<PackCatalogReadModel & PackCatalogCommands>;
   const render = () => ctrl.render();
+  let applying = false;
+  const applyWithProgress = async (apply: () => PackApplyResult): Promise<PackApplyResult> => {
+    applying = true;
+    const loading = ctrl.toast.showProgress('正在加载数据包…');
+    ctrl.modal.close();
+    try {
+      // Paint the notification before synchronous Registry and Runtime work begins.
+      await new Promise<void>(resolve => {
+        if (document.visibilityState === 'visible') requestAnimationFrame(() => setTimeout(resolve, 0));
+        else setTimeout(resolve, 0);
+      });
+      const result = apply();
+      loading.finish(result.message, result.ok ? 'success' : 'error');
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      loading.finish(message, 'error');
+      return { ok: false, message, validation: { ok: false, errors: [message], warnings: [] } };
+    } finally {
+      applying = false;
+    }
+  };
   // resetDatapackDraft 会替换 panelState 上的工作区对象，必须重新取引用，
   // 否则随后的 lastResult / validation 会写到已被丢弃的旧对象上（反馈丢失）。
   const resetDraft = (): void => {
@@ -535,13 +558,13 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
     });
   });
   scope.querySelector('[data-pack-selection-apply]')?.addEventListener('click', () => {
-    if (!host.applyPackSelection) return;
+    if (!host.applyPackSelection || applying) return;
     ctrl.modal.open({
       title: '确认应用数据包选择',
       body: '<p>将按每个 Pane 当前选择一次性重载 Runtime。未保存的编辑器内容不会被自动保存。</p><p class="muted">选择本身已经保存；取消不会改变当前 Runtime。</p>',
       footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-pack-selection">确认 Apply</button>',
-      onAction: action => {
-        if (action !== 'apply-pack-selection') return;
+      onAction: async action => {
+        if (action !== 'apply-pack-selection' || applying) return;
         const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
         if (!saved) {
           setDatapackResult(root, { ok: false, message: 'Apply 已停止：当前进度保存失败，Runtime 未重载。' });
@@ -549,16 +572,15 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           render();
           return;
         }
-        const result = host.applyPackSelection!();
+        const result = await applyWithProgress(() => host.applyPackSelection!());
         setDatapackResult(root, { ok: result.ok, message: result.message });
         if (result.ok) resetDraft();
-        ctrl.modal.close();
         render();
       },
     });
   });
   scope.querySelector('[data-pack-apply]')?.addEventListener('click', () => {
-    if (!host.applyPackConfiguration) return;
+    if (!host.applyPackConfiguration || applying) return;
     const draft = { enabledIds: [...root.draftEnabledIds], order: [...root.draftOrder] };
     const report = host.validatePackConfiguration?.(draft);
     if (report && !report.ok) {
@@ -571,8 +593,8 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
       title: '确认应用启用集',
       body: '<p>确认前会先保存当前进度；保存成功后才会重新加载数据包序列，并重建 Registry、图片索引和主题资源。</p><p class="muted">保存失败或取消时不会改变正式数据包序列。</p>',
       footer: '<button class="modal-close">取消</button><button class="primary-button" data-modal-action="apply-datapack">保存并应用</button>',
-      onAction: action => {
-        if (action !== 'apply-datapack') return;
+      onAction: async action => {
+        if (action !== 'apply-datapack' || applying) return;
         const saved = SaveSystem.save(ctrl.withHistories(ctrl.commands.save()));
         if (!saved) {
           setDatapackResult(root, { ok: false, message: '应用已停止：当前进度保存失败，数据包序列未重载。' });
@@ -580,7 +602,7 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           render();
           return;
         }
-        const result = host.applyPackConfiguration!(draft);
+        const result = await applyWithProgress(() => host.applyPackConfiguration!(draft));
         if (result.ok) {
           resetDraft();
           setDatapackResult(root, { ok: true, message: result.message });
@@ -589,7 +611,6 @@ function bindDatapackActions(ctrl: UIController, scope: ParentNode): void {
           setDatapackValidation(root, result.validation);
           setDatapackResult(root, { ok: false, message: result.message });
         }
-        ctrl.modal.close();
         render();
       },
     });

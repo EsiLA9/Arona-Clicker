@@ -63,9 +63,9 @@ export class ImportExportService {
       const file = input.files?.[0];
       if (!file) return;
       const { game, toast } = this.host;
+      const loading = toast.showProgress(`正在读取数据包 · ${file.name}`);
       try {
-        toast.show('正在读取压缩包数据包…', 'info');
-        const { manifest, datapack, jsonFileCount, ignoredCount, images } = await parsePackFromZipFile(file);
+        const { manifest, datapack, jsonFileCount, ignoredCount, images } = await parsePackFromZipFile(file, loading.update);
         if (game.registerParsedPack && game.applyEnabledPacks) {
           const escape = (value: string): string => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
           this.host.modal.open({
@@ -90,6 +90,7 @@ export class ImportExportService {
               this.host.render();
             },
           });
+          loading.finish('数据包读取完成，等待确认导入。', 'success');
           return;
         } else {
           // 导入后由运行时门面重新应用启用集。
@@ -106,15 +107,12 @@ export class ImportExportService {
           `导入数据包：${manifest.name} v${manifest.version}（${jsonFileCount} 个 json 文件，提取 ${images.length} 张图片${ignoredCount > 0 ? `，忽略 ${ignoredCount} 个其他文件` : ''}）`,
           { source: 'datapack', level: 'success' },
         );
-        toast.show(
-          `已加载 Mod <b>${manifest.name}</b> v${manifest.version}<br><small>${jsonFileCount} 个 json 文件 · ${images.length} 张图片${ignoredCount > 0 ? ` · 忽略 ${ignoredCount} 个其他文件` : ''}</small>`,
-          'success',
-        );
         this.host.render();
+        loading.finish(`已加载 ${manifest.name} v${manifest.version} · ${jsonFileCount} 个 JSON 文件 · ${images.length} 张图片${ignoredCount ? ` · 忽略 ${ignoredCount} 个其他文件` : ''}`, 'success');
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
         game.devLog.record(`导入数据包失败：${message}`, { source: 'datapack', level: 'error' });
-        toast.show(`导入失败：${message}`, 'error');
+        loading.finish(`导入失败：${message}`, 'error');
       } finally {
         input.remove();
       }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T06:41:14.714Z",
+  "generatedAt": "2026-11-20T13:32:43.557Z",
   "sourceDirs": [
     "src/engine/types",
     "src/engine/contracts",
@@ -17712,8 +17712,18 @@
                   }
                 },
                 {
+                  "key": "hierarchyString",
+                  "required": false,
+                  "description": "Path under this Init. May be used before any directory information has been authored.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "HierachyString"
+                  }
+                },
+                {
                   "key": "directoryId",
-                  "required": true,
+                  "required": false,
+                  "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                   "schema": {
                     "type": "string"
                   }
@@ -17745,10 +17755,22 @@
                 "table": "inits"
               },
               {
+                "key": "hierarchyString",
+                "required": false,
+                "kind": "string",
+                "tsType": "HierachyString",
+                "description": "Path under this Init. May be used before any directory information has been authored.",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "HierachyString"
+                }
+              },
+              {
                 "key": "directoryId",
-                "required": true,
+                "required": false,
                 "kind": "string",
                 "tsType": "string",
+                "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                 "authoringSchema": {
                   "type": "string"
                 }
@@ -17764,6 +17786,16 @@
               }
             ],
             "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
+          "key": "publicDescription",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+          "authoringSchema": {
+            "type": "string"
           }
         },
         {
@@ -18658,8 +18690,18 @@
                   }
                 },
                 {
+                  "key": "hierarchyString",
+                  "required": false,
+                  "description": "Path under this Init. May be used before any directory information has been authored.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "HierachyString"
+                  }
+                },
+                {
                   "key": "directoryId",
-                  "required": true,
+                  "required": false,
+                  "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                   "schema": {
                     "type": "string"
                   }
@@ -18691,10 +18733,22 @@
                 "table": "inits"
               },
               {
+                "key": "hierarchyString",
+                "required": false,
+                "kind": "string",
+                "tsType": "HierachyString",
+                "description": "Path under this Init. May be used before any directory information has been authored.",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "HierachyString"
+                }
+              },
+              {
                 "key": "directoryId",
-                "required": true,
+                "required": false,
                 "kind": "string",
                 "tsType": "string",
+                "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                 "authoringSchema": {
                   "type": "string"
                 }
@@ -18710,6 +18764,16 @@
               }
             ],
             "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
+          "key": "publicDescription",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+          "authoringSchema": {
+            "type": "string"
           }
         },
         {
@@ -19539,8 +19603,18 @@
                         }
                       },
                       {
+                        "key": "hierarchyString",
+                        "required": false,
+                        "description": "Path under this Init. May be used before any directory information has been authored.",
+                        "schema": {
+                          "type": "reference",
+                          "name": "HierachyString"
+                        }
+                      },
+                      {
                         "key": "directoryId",
-                        "required": true,
+                        "required": false,
+                        "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                         "schema": {
                           "type": "string"
                         }
@@ -19555,6 +19629,14 @@
                     ],
                     "sourceType": "StoryEntryDirectoryPlacement"
                   }
+                }
+              },
+              {
+                "key": "publicDescription",
+                "required": false,
+                "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+                "schema": {
+                  "type": "string"
                 }
               },
               {
@@ -20034,8 +20116,18 @@
                         }
                       },
                       {
+                        "key": "hierarchyString",
+                        "required": false,
+                        "description": "Path under this Init. May be used before any directory information has been authored.",
+                        "schema": {
+                          "type": "reference",
+                          "name": "HierachyString"
+                        }
+                      },
+                      {
                         "key": "directoryId",
-                        "required": true,
+                        "required": false,
+                        "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                         "schema": {
                           "type": "string"
                         }
@@ -20050,6 +20142,14 @@
                     ],
                     "sourceType": "StoryEntryDirectoryPlacement"
                   }
+                }
+              },
+              {
+                "key": "publicDescription",
+                "required": false,
+                "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+                "schema": {
+                  "type": "string"
                 }
               },
               {
@@ -20557,12 +20657,26 @@
           "description": "作者可读名称。"
         },
         {
+          "key": "publicDescription",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "玩家可见入口的同 Mod 正文简介回退。支持多行纯文本。"
+        },
+        {
           "key": "initId",
           "required": false,
           "kind": "ref",
           "tsType": "InitId",
           "description": "作者目录归属。省略时归入「其他」，不限制入口、播放或重读。",
           "table": "inits"
+        },
+        {
+          "key": "hierarchyString",
+          "required": false,
+          "kind": "string",
+          "tsType": "HierachyString",
+          "description": "Folder path under initId. Missing initId uses the editor's Other root."
         },
         {
           "key": "directoryId",
@@ -20617,6 +20731,31 @@
           "tsType": "InitId",
           "description": "The Init under which this directory appears.",
           "table": "inits"
+        },
+        {
+          "key": "hierarchyString",
+          "required": false,
+          "kind": "string",
+          "tsType": "HierachyString",
+          "description": "Bind independent directory information to a path. Uses a mod:story-hierarchy:id identity."
+        },
+        {
+          "key": "primary",
+          "required": false,
+          "kind": "enum",
+          "tsType": "'design' | 'path'",
+          "description": "Explicit primary presentation at this path, or use the path's default appearance.",
+          "options": [
+            "design",
+            "path"
+          ]
+        },
+        {
+          "key": "themeDesignId",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "Existing ThemeDesign used on the directory's local overview."
         },
         {
           "key": "characterId",
@@ -27135,8 +27274,18 @@
                   }
                 },
                 {
+                  "key": "hierarchyString",
+                  "required": false,
+                  "description": "Path under this Init. May be used before any directory information has been authored.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "HierachyString"
+                  }
+                },
+                {
                   "key": "directoryId",
-                  "required": true,
+                  "required": false,
+                  "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                   "schema": {
                     "type": "string"
                   }
@@ -27168,10 +27317,22 @@
                 "table": "inits"
               },
               {
+                "key": "hierarchyString",
+                "required": false,
+                "kind": "string",
+                "tsType": "HierachyString",
+                "description": "Path under this Init. May be used before any directory information has been authored.",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "HierachyString"
+                }
+              },
+              {
                 "key": "directoryId",
-                "required": true,
+                "required": false,
                 "kind": "string",
                 "tsType": "string",
+                "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                 "authoringSchema": {
                   "type": "string"
                 }
@@ -27187,6 +27348,16 @@
               }
             ],
             "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
+          "key": "publicDescription",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+          "authoringSchema": {
+            "type": "string"
           }
         },
         {
@@ -28077,8 +28248,18 @@
                   }
                 },
                 {
+                  "key": "hierarchyString",
+                  "required": false,
+                  "description": "Path under this Init. May be used before any directory information has been authored.",
+                  "schema": {
+                    "type": "reference",
+                    "name": "HierachyString"
+                  }
+                },
+                {
                   "key": "directoryId",
-                  "required": true,
+                  "required": false,
+                  "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                   "schema": {
                     "type": "string"
                   }
@@ -28110,10 +28291,22 @@
                 "table": "inits"
               },
               {
+                "key": "hierarchyString",
+                "required": false,
+                "kind": "string",
+                "tsType": "HierachyString",
+                "description": "Path under this Init. May be used before any directory information has been authored.",
+                "authoringSchema": {
+                  "type": "reference",
+                  "name": "HierachyString"
+                }
+              },
+              {
                 "key": "directoryId",
-                "required": true,
+                "required": false,
                 "kind": "string",
                 "tsType": "string",
+                "description": "Legacy directory reference, mutually exclusive with hierarchyString.",
                 "authoringSchema": {
                   "type": "string"
                 }
@@ -28129,6 +28322,16 @@
               }
             ],
             "tsType": "StoryEntryDirectoryPlacement"
+          }
+        },
+        {
+          "key": "publicDescription",
+          "required": false,
+          "kind": "string",
+          "tsType": "string",
+          "description": "已揭示入口在故事目录中的公开简介。支持多行纯文本。",
+          "authoringSchema": {
+            "type": "string"
           }
         },
         {
@@ -29289,6 +29492,7 @@
     "GearSlotDef",
     "GearSlotKind",
     "GearTierDef",
+    "HierachyString",
     "InfoItemPresentationDef",
     "InitDef",
     "InitId",

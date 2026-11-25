@@ -8,7 +8,7 @@ import type { PassivePoolDef } from '../../../data-services/contracts/passive-po
 import type { StoryDef } from '../../../data-services/contracts/story';
 import type { ActiveStoryEntry, PassiveStoryEntry, StoryEntryDef } from '../../../data-services/contracts/story-entry';
 import type { GachaPoolDef } from '../../../data-services/contracts/gacha-pool';
-import type { ColorEquipmentDef, ColorGroupDef } from '../../../data-services/contracts/color';
+import type { ColorEquipmentDef, ColorGroupDef, ThemeDesignDef } from '../../../data-services/contracts/color';
 import type { TagPath } from '../../../engine/core/tag';
 import type { ShopDef } from '../../../data-services/contracts/shop';
 import type { CharacterVariantDef } from '../../../data-services/contracts/character-variant';
@@ -42,6 +42,7 @@ export interface ContentCatalogQueryPort extends StoryDirectoryCatalog {
   readonly operationEvents: ReadonlyMap<string, OperationEventContentDef>;
   readonly studentOperationProfiles: ReadonlyMap<string, StudentOperationProfileDef>;
   readonly colorGroups: ReadonlyMap<string, ColorGroupDef>;
+  readonly themeDesigns: ReadonlyMap<string, ThemeDesignDef>;
   readonly colorEquipments: ReadonlyMap<string, ColorEquipmentDef>;
   readonly storyEntries: ReadonlyMap<string, StoryEntryDef>;
   readonly resourceDisplays: ReadonlyMap<string, ResourceDisplayDef>;

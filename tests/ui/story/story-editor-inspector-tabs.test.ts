@@ -93,6 +93,11 @@ describe('StoryDef inspector pages and flag drops', () => {
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 48;
     expect(item.tagName).toBe('DETAILS'); expect(item.open).toBe(false);
     expect(summary.textContent).toBe('局部 · local'); expect(summary.getAttribute('style')).toContain('--story-editor-choice-flag-color:hsl(');
+    expect(summary.title).toContain('将本 Story 的节点拖到此处');
+    expect(item.textContent).not.toContain('将本 Story 的节点拖到此处');
+    const provider = item.querySelector<HTMLButtonElement>('[data-story-flag-role="providers"] [data-story-flag-node="writer"]')!;
+    expect(provider.textContent).toBe('writer');
+    expect(provider.title).toContain('$.nodes[0].action');
     expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).toContain('writer');
     expect(item.querySelector('[data-story-flag-role="providers"]')!.textContent).not.toContain('remove');
     expect(item.querySelector('[data-story-flag-role="readers"]')!.textContent).toContain('reader');

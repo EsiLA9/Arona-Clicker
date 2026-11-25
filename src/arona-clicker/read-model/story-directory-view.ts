@@ -1,7 +1,7 @@
 import type { PlayerState } from '../types/state';
 import type { StoryEntryReadProgress, StoryDirectoryPath } from '../types/story-state';
 import type { StoryReplayStatus } from '../contracts/story/story-query';
-import { buildStoryDirectory, sortStoryDirectory, type StoryDirectoryCatalog, type StoryDirectoryEntry, type StoryDirectoryNode } from '../content/story/story-directory';
+import { buildStoryDirectory, legacyStoryHierarchy, sortStoryDirectory, storyHierarchyNodeId, type StoryDirectoryCatalog, type StoryDirectoryEntry, type StoryDirectoryNode } from '../content/story/story-directory';
 
 export function storyDirectoryPath(
   catalog: StoryDirectoryCatalog, initId: string, entryId: string,
@@ -75,7 +75,8 @@ export function buildPlayerStoryDirectory(
       // The old navigation granted active Entry visibility from a Story-level receipt.
       if (!progress && !(entry.activation.kind === 'active' && row.legacy && completedStories.has(entry.storyId))) continue;
       const explicit = entry.directoryPlacements?.find(placement => placement.initId === state.activeInit);
-      if (progress && (!explicit || explicit.directoryId !== node.id)
+      const explicitId = explicit?.hierarchyString ? storyHierarchyNodeId(explicit.hierarchyString) : explicit?.directoryId;
+      if (progress && explicitId !== node.id
         && safeHistoricalPath(paths[row.id]).some(folder => !nodes.has(folder.id))) continue;
       const knownTitle = paths[row.id]?.title;
       visible.push({ ...row, progress, title: typeof knownTitle === 'string' ? knownTitle : undefined,
@@ -95,7 +96,9 @@ export function buildPlayerStoryDirectory(
     for (const folder of folders.length ? folders : [{ id: '@history-unfiled', title: '历史未归档' }]) {
       let node = nodes.get(folder.id);
       if (!node) {
-        node = { id: folder.id, title: folder.title, parentId: parent?.id, source: 'History', children: [], stories: [], entries: [] };
+        node = { id: folder.id, initId: state.activeInit, title: folder.title,
+          hierarchyString: folder.id.startsWith('@hierarchy/') ? folder.id.slice('@hierarchy/'.length) : legacyStoryHierarchy(folder.id, parent),
+          parentId: parent?.id, source: 'History', children: [], stories: [], entries: [] };
         nodes.set(node.id, node);
         (parent?.children ?? roots).push(node);
       }

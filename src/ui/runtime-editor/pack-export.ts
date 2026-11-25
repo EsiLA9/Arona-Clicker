@@ -210,6 +210,7 @@ const DATAPACK_LIST_ARCHIVE_ENTRIES: ReadonlyArray<{ readonly field: DatapackLis
   { field: 'activeStories', path: 'data/50-active-stories.json' },
   { field: 'passiveStories', path: 'data/51-passive-stories.json' },
   { field: 'stories', path: 'data/52-stories.json' },
+  { field: 'storyDirectories', path: 'data/52-story-directories.json' },
   { field: 'items', path: 'data/53-items.json' },
   { field: 'dropTables', path: 'data/54-drop-tables.json' },
   { field: 'affectorPacks', path: 'data/55-affector-packs.json' },
@@ -237,7 +238,7 @@ const DATAPACK_LIST_ARCHIVE_ENTRIES: ReadonlyArray<{ readonly field: DatapackLis
 const DATAPACK_LIST_FIELDS = DATAPACK_LIST_ARCHIVE_ENTRIES.map(entry => entry.field) as readonly DatapackListField[];
 const DATAPACK_SINGLETON_FIELDS = ['gearConfig', 'characterPersistConfig', 'affectionConfig', 'extras'] as const;
 type DatapackListField =
-  | 'inits' | 'areas' | 'areaMaps' | 'spots' | 'enhancements' | 'activeStories' | 'passiveStories' | 'stories'
+  | 'inits' | 'areas' | 'areaMaps' | 'spots' | 'enhancements' | 'activeStories' | 'passiveStories' | 'stories' | 'storyDirectories'
   | 'items' | 'dropTables' | 'affectorPacks' | 'triggerDefs' | 'funcletDefs' | 'characters'
   | 'resourceDisplays' | 'pics' | 'charaProfiles' | 'passivePools' | 'characterVariants'
   | 'cultivateCurves' | 'favoriteItems' | 'uniqueWeapons' | 'traits' | 'gears' | 'colorGroups'

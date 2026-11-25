@@ -21,6 +21,7 @@ export function renderWorkspaceTitlebar(
   title: string,
   leaveAction?: WorkspaceTitlebarLeaveAction,
   accessory?: string,
+  titleActions?: string,
 ): string {
   const leaveLabel = leaveAction === 'data-area-workspace-leave' ? '返回经典界面'
     : leaveAction === 'data-map-entry-leave' ? '返回游戏'
@@ -31,7 +32,7 @@ export function renderWorkspaceTitlebar(
   const content = `
     <div class="workspace-heading">
       ${leaveButton}
-      <div class="workspace-title"><b>${ctx.escapeHtml(title)}</b></div>
+      <div class="workspace-title${titleActions ? ' workspace-title--with-actions' : ''}"><b>${ctx.escapeHtml(title)}</b>${titleActions ? `<div class="workspace-title__actions">${titleActions}</div>` : ''}</div>
     </div>`;
   return renderPanelHeaderRegion(ctx, panel, accessory
     ? `<div class="workspace-titlebar-layout">${content}${accessory}</div>`

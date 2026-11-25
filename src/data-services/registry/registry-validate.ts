@@ -1474,6 +1474,7 @@ export function validateDatapack(dp: Datapack, context: DatapackValidationContex
   const storyIds = new Set([...(context.storyIds ?? []),...dp.stories.map(s => s.id)]);
   const ownerIds=new Set([...(context.characterVariantIds ?? []),...(dp.characterVariants ?? []).map(role=>role.id)]);
   for (const entry of [...dp.activeStories, ...dp.passiveStories]) {
+    if (entry.publicDescription !== undefined && typeof entry.publicDescription !== 'string') throw new RegistryError(entry.id + '.publicDescription 必须是文字');
     if(entry.activation.kind==='affection'&&!ownerIds.has(entry.owner!))throw new RegistryError(entry.id+'.owner 未知角色差分');
     if (!storyIds.has(entry.storyId)) {
       throw new RegistryError(`Story entry "${entry.id}" references unknown story: "${entry.storyId}"`);

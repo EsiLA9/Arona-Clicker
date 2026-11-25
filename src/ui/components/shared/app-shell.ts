@@ -132,6 +132,7 @@ export interface StoryWorkspaceState {
   navPath: string[];
   subroute: 'overview' | 'archive';
   selectedEntryId: string | null;
+  directoryEntryId?: string;
   conversationOwner: string | null;
   mode: 'overview' | 'playing';
   returnContext: WorkspaceReturnContext;

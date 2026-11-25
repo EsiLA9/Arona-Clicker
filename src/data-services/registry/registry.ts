@@ -1587,7 +1587,8 @@ export class Registry {
   /** 使用当前注册表的已知 Init / Area 校验一个待合并数据包，不改变注册表。 */
   validate(datapack: Datapack): void {
     this.validateDefinitions(datapack);
-    validateStoryDirectories(datapack, this._storyDirectories, new Set(this.inits.keys()), this._storyDirectoryCharacterMods, new Set(this.pics.keys()));
+    validateStoryDirectories(datapack, this._storyDirectories, new Set(this.inits.keys()), this._storyDirectoryCharacterMods,
+      new Set(this.pics.keys()), new Set(this.themeDesigns.keys()));
   }
 
   private validateDefinitions(datapack: Datapack, completeStoryTables = false): void {

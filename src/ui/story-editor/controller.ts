@@ -2,17 +2,19 @@ import { currentRelatedFlagCatalog, currentStoryFlagCatalog } from './flag-catal
 import { changeEntryActivation, defaultEntryActivation, type EntryActivation } from './entry-activation';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { emptyStoryAuthoring, STORY_AUTHORING_TABLES, validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
+import { storyDirectoryReferences, type StoryDirectoryReference } from '../../data-services/authoring/story-directory-references';
 import { acceptEditorStoryRename, knownModStoryIds, planEditorStoryRename, storyEditingMod, storyEditingMods } from './identity';
 import { bindFlagTableNode, canBindFlagTableNode } from './flag-table-binding';
 import { copyStoryNode, pasteStoryNode, type StoryNodeClipboard } from './node-clipboard';
 import { StoryNodeContextMenu } from './node-context-menu';
 import { openStoryEditorDialog } from './editor-dialog';
+import { isActiveEditingPack, openActiveEditingPackPicker } from '../components/shared/active-editing-pack-picker';
 import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
-import { openStoryDirectoryDialog } from './directory-dialog';
+import { createStoryDirectoryManagement } from './directory-management';
 import { openConditionTreeDialog } from './condition-tree-dialog';
 import { conditionReferenceChoices } from './condition-reference-navi';
 import { entryConditionField, STORY_CONDITION_TARGETS } from './condition-fields';
-import { openReferenceNavi, prepareReferenceNavi, referenceChoices, type ReferenceField } from './reference-navi';
+import { openReferenceNavi, prepareReferenceNavi, referenceChoices, referenceTarget, type ReferenceField } from './reference-navi';
 import { hydrateStoryAuthoring, structuredKey, structuredRoot, editStructuredValue, writeStructuredValue, constructStructuredValue, compileStoryAuthoring, copyStoryIdentity, addStoryAuthoringRow } from './authoring-model';
 import { ENTRY_FIELD_SEEDS } from './authoring-view';
 import { buildStoryRelations } from './relations-model';
@@ -20,7 +22,7 @@ import { buildStoryFlagCatalog, flagImportKey, storyFlagNames } from './flag-cat
 import { openLocalFlagNavi } from './local-flag-navi';
 import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
 import { StoryInlineTextEditor } from './inline-text';
-import { currentAuthoringDraft, storyEntries, storyEditorTargetKey, storyPreviewEntries, type StoryDraft, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
+import { currentAuthoringDraft, storyEntries, storyPreviewEntries, type StoryDraft, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { setValueAt, valueAt, type ValuePath } from './structured-value';
 import type { StoryAuthoringPatch, StoryAuthoringPreview, StoryAuthoringPreviewTarget, StoryPreviewDecision } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
@@ -29,14 +31,15 @@ import type { UIContext } from '../runtime/context';
 import { createUIContext } from '../runtime/context';
 import { renderWorkspaceFrame, workspaceColumns, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import type { WorkspaceLocation, WorkspaceNavigationState } from '../workspace/workspace-router';
-import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId, unbindStoryNodeFromChoiceOption } from './model';
+import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId, unbindStoryNodeFromChoiceOption, type StoryDraftNode } from './model';
 import { StoryDraftPersistence } from './persistence';
 import { ImageStore } from '../../data-services/assets/image-store';
 import { PicService } from '../../data-services/assets/pic-service';
 import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/contracts/runtime/runtime';
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { storyPackCatalog, storyPackSource, storySourceGame } from './pack-source';
-import { createStoryEditorFrame, storySenders } from './view';
+import { createStoryEditorFrame, createStoryEditorListColumn, storySenders } from './view';
+import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch } from './sidebar-tree';
 import { StoryEditorTheme } from './theme';
 import { storyEditorSceneTarget } from './scene-view';
 import { patchEditorDOM } from './dom';
@@ -46,7 +49,8 @@ import type { Discriminator, LiteralKind, PropertyPath } from './property-model'
 
 const DISCRIMINATORS: readonly string[] = ['kind', 'command', 'op', 'entryType', 'mode', 'valueKind', 'type', 'entityKind'];
 const STORY_EDITOR_DRAG_TYPE = 'application/x-acprogram-story-editor';
-interface StoryEditorDragItem { version: 1; kind: 'story-node'; draftId: string; nodeId: string }
+type StoryEditorDragItem = { version: 1; draftId: string; nodeId: string } &
+  ({ kind: 'story-node' } | { kind: 'story-flag'; flagName: string; optionId?: string });
 function readStoryDragItem(event: DragEvent): StoryEditorDragItem | undefined {
   const raw = event.dataTransfer?.getData(STORY_EDITOR_DRAG_TYPE);
   if (!raw) return;
@@ -54,9 +58,16 @@ function readStoryDragItem(event: DragEvent): StoryEditorDragItem | undefined {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object') return;
     const item = value as Partial<StoryEditorDragItem>;
-    return item.version === 1 && item.kind === 'story-node' && typeof item.draftId === 'string' && typeof item.nodeId === 'string'
+    return item.version === 1 && typeof item.draftId === 'string' && typeof item.nodeId === 'string'
+      && (item.kind === 'story-node' || item.kind === 'story-flag' && typeof item.flagName === 'string' && (item.optionId === undefined || typeof item.optionId === 'string'))
       ? item as StoryEditorDragItem : undefined;
   } catch { return; }
+}
+function hasFlowFlag(node: StoryDraftNode, flagName: string, optionId?: string): boolean {
+  if (optionId === undefined) return node.requiresFlag === flagName;
+  if (node.type !== 'click' || node.interaction.kind !== 'choice') return false;
+  const option = node.interaction.options?.find(option => option.id === optionId);
+  return option?.requiresFlag === flagName || Array.isArray(option?.marks) && option.marks.includes(flagName);
 }
 function storyDropAnchor(target: Element | null, clientY: number, draft: NonNullable<ReturnType<typeof currentDraft>>): string | null | undefined {
   const dropTarget = target?.closest<HTMLElement>('[data-story-drop-target]');
@@ -82,12 +93,14 @@ function choiceFlagDropTarget(target: Element | null): ChoiceFlagDropTarget | un
   const optionId = card.dataset.storyOptionId;
   return choiceNodeId && optionId && Number.isInteger(optionIndex) && optionIndex >= 0 ? { choiceNodeId, optionIndex, optionId } : undefined;
 }
-function storyFlagReaderDropTarget(target: Element | null): string | undefined {
-  return target?.closest<HTMLElement>('[data-story-drop-target="story-flag-reader"]')?.dataset.storyFlagName;
+function storyFlagBindingDrop(target: Element | null, item: StoryEditorDragItem) {
+  const element = target?.closest<HTMLElement>(item.kind === 'story-flag' ? '[data-editor-node]' : '[data-story-drop-target="story-flag-reader"]');
+  const flagName = item.kind === 'story-flag' ? item.flagName : element?.dataset.storyFlagName;
+  const nodeId = item.kind === 'story-flag' ? element?.dataset.editorNode : item.nodeId;
+  return element && flagName && nodeId ? { element, flagName, nodeId } : undefined;
 }
 function clearStoryFlagDropStates(flow: HTMLElement): void {
-  for (const card of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="choice-flag"]')) card.classList.remove('is-drop-target', 'is-drop-invalid');
-  for (const record of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="story-flag-reader"]')) record.classList.remove('is-drop-target', 'is-drop-invalid');
+  for (const element of flow.querySelectorAll<HTMLElement>('[data-story-flag-drop-status]')) delete element.dataset.storyFlagDropStatus;
 }
 function highlightStoryDropAnchor(flow: HTMLElement, beforeNodeId: string | null): void {
   for (const slot of flow.querySelectorAll<HTMLElement>('[data-story-drop-target="insertion-point"]')) {
@@ -125,7 +138,7 @@ export class StoryEditorController {
   readonly state = createStoryEditorState();
   private loaded = false;
   private disposed = false;
-  private draggingNodeId: string | null = null;
+  private draggingItem: StoryEditorDragItem | null = null;
   private readonly inspectorScroll = new Map<string,number>();
   private readonly inspectorTabs = new Map<string,StoryEditorState['storyInspectorTab']>();
   private readonly sourceVisits = new Map<string, { visits: StoryEditorVisit[]; index: number }>();
@@ -139,6 +152,7 @@ export class StoryEditorController {
   private overlayDrag?: { pointerId: number; draftId: string; nodeId: string; path: PropertyPath; overlay: HTMLElement; canvas: HTMLElement; pixels: boolean; x: number; y: number; baseX: number; baseY: number; offsetX: number; offsetY: number };
   private returnState?: { location: WorkspaceLocation; navigation?: WorkspaceNavigationState; workspace: PanelState['workspace']; mapEntrySource: PanelState['mapEntrySource']; init: string | null };
   private revealNodeId: string | null = null;
+  private pendingFlagReveal?: { storyId: string; nodeId: string; name: string; role: 'providers' | 'readers' };
   private focusName = false;
   /** Node-relative property path JSON to focus after the next refresh; set by issue location. */
   private pendingFocus?: string | null;
@@ -148,6 +162,10 @@ export class StoryEditorController {
   private previewSignature = '';
   private previewReturnScroll?: Record<'left' | 'center' | 'right', number> & { launchKey?: string };
   private pendingVisit?: StoryEditorVisit;
+  private directoryReturn?: StoryEditorVisit;
+  private directoryPlacement?: 'story' | 'entry';
+  private pendingDirectoryReveal = false;
+  private pendingSidebarReveal = false;
   private selectionNaviOpen = false;
   private editorDialog?: HTMLElement;
   private readonly requiredFlagDropdown: RequiredFlagDropdown;
@@ -229,13 +247,16 @@ export class StoryEditorController {
       this.sourceVisits.delete('');
       if (!selection) { state.visits = []; state.visitIndex = -1; }
     }
+    const runningIds: string[] = [];
     state.sourceOptions = (catalog?.entries ?? []).map(item => {
       const id = item.packRecordId ?? item.id;
       const running = query.getRunningStoryPackId!(item.modName) === id;
+      if (running) runningIds.push(id);
       const applied = catalog?.panes?.some(pane => pane.runtimePackRecordId === id);
       const status = running ? applied ? '已应用' : '临时载入' : '未应用';
       return { value: `pack:${id}`, group: 'packs', label: `${sources.get(id)!.label} · ${status}` };
     });
+    state.sidebarRuntimeScope = JSON.stringify(runningIds.sort());
     if (force || liveChanged || catalogChanged) {
       const source = selected ?? recovery?.packSource;
       const resolved = source ? query.getStoryPackSources(source) : undefined;
@@ -298,6 +319,7 @@ export class StoryEditorController {
     const state = this.state;
     const previous = currentAuthoringDraft(state);
     this.rememberVisit();
+    this.closeDirectoryManagement();
     this.sourceVisits.set(state.sourceSelection ?? '', { visits: state.visits, index: state.visitIndex });
     const history = this.sourceVisits.get(selection);
     state.sourceSelection = selection || undefined;
@@ -305,11 +327,13 @@ export class StoryEditorController {
     state.target = null; state.selectedNodeId = null; state.insertionBeforeNodeId = null;
     state.visits = history?.visits ?? []; state.visitIndex = history?.index ?? -1;
     state.search = ''; state.entrySearch = ''; state.storyInitFilter = '';
+    state.sidebarSearchFolders = undefined; state.sidebarReveal = undefined;
     this.syncSource(true);
     const draft = state.drafts.find(item => selection === `draft:${item.draftId}` || item === previous
       || item.entryOnly === previous?.entryOnly && item.document.id === previous?.document.id);
     if (draft) {
       state.target = draft.entryOnly ? { kind: 'entry', id: draft.entryOnly } : { kind: 'story', id: draft.document.id };
+      state.sidebarReveal = state.target; this.pendingSidebarReveal = true;
       this.pushVisit(); this.syncSource();
     } else {
       const last = state.visits[state.visitIndex]?.target;
@@ -383,6 +407,7 @@ export class StoryEditorController {
       ?? (this.registry.stories.has(storyId) ? `source:${storyId}` : undefined);
   }
   private captureVisit(): StoryEditorVisit | undefined {
+    if (this.state.directoryManagement) return this.directoryReturn;
     const target = this.state.target;
     if (!target) return;
     return { target: { ...target }, selectedNodeId: this.state.selectedNodeId, insertionBeforeNodeId: this.state.insertionBeforeNodeId,
@@ -413,7 +438,11 @@ export class StoryEditorController {
       || this.state.drafts.some(draft => draft.entryOnly === target.id);
   }
   private browseTarget(target: StoryEditorTarget, historyIndex?: number): void {
-    if (!this.hasTarget(target) || historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
+    if (!this.hasTarget(target)) return;
+    if (historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) {
+      this.closeDirectoryManagement();
+      return;
+    }
     const keepFlagInspector = this.state.storyInspectorTab === 'flags' && (this.state.inspectorView === 'story' || !currentNode(this.state));
     if (!this.save(false, false)) return;
     this.nodeMenu.close(); this.closeSelectionNavi();
@@ -424,13 +453,14 @@ export class StoryEditorController {
     if(this.state.target?.kind==='entry'){
       const body=this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
       const scrolls=this.entryTabScroll.get(this.state.target.id)??{};
-      scrolls[this.state.entryEditorTab??'basic']=body?.scrollTop??0;
+      scrolls[this.state.entryEditorTab??'basic']=this.directoryReturn?.centerScroll??body?.scrollTop??0;
       this.entryTabScroll.set(this.state.target.id,scrolls);
       this.entryTabs.set(this.state.target.id,this.state.entryEditorTab??'basic');
     }
     const visit = historyIndex === undefined
       ? [...this.state.visits].reverse().find(visit => visit.target.kind === target.kind && visit.target.id === target.id)
       : this.state.visits[historyIndex];
+    this.closeDirectoryManagement();
     this.closeAuthoringPreview(); this.previewReturnScroll = undefined; this.closeThemeContentEdit();
     if (target.kind === 'story') {
       if (!this.selectDocument(this.storyKey(target.id)!)) return;
@@ -456,6 +486,9 @@ export class StoryEditorController {
     if (historyIndex !== undefined) this.state.visitIndex = historyIndex;
     else this.pushVisit();
     this.pendingVisit = visit;
+    if (this.state.sidebarMode === 'senders') this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
+    this.state.sidebarReveal = target;
+    this.pendingSidebarReveal = true;
     if (keepFlagInspector && target.kind === 'story') this.restoreInspectorScroll();
     this.state.notice = null;
   }
@@ -501,6 +534,7 @@ export class StoryEditorController {
   configureFrame(frame: WorkspaceFrameSpec): WorkspaceFrameSpec {
     return { ...frame, onBack: () => {
       if (this.preview) { this.closeAuthoringPreview(); this.requestRefresh(); }
+      else if (this.state.directoryManagement) { this.closeDirectoryManagement(); this.requestRefresh(); }
       else this.close();
     }, columns: workspaceColumns(frame).map(column => ({ ...column,
       onBack: column.key === 'story-editor-inspector' ? () => { this.action('info'); this.requestRefresh(); } : column.onBack,
@@ -551,7 +585,7 @@ export class StoryEditorController {
     this.closeAuthoringPreview();
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
-    if (saved) { this.previewReturnScroll = undefined; this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
+    if (saved) { this.closeDirectoryManagement(); this.previewReturnScroll = undefined; this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit(); }
     if (!saved) this.requestRefresh();
     return saved;
   }
@@ -602,6 +636,66 @@ export class StoryEditorController {
   requestRefresh(): void {
     if (this.isOpen()) this.ctrl.requestUIUpdate({ type: 'region', hostId: STORY_EDITOR_REGION, reason: 'story-editor-change' });
   }
+  private readonly sidebarModeScroll = new Map<string, number>();
+
+  private preserveSidebarModeScroll(update: () => void): void {
+    const previous = this.editorScrollHost('left');
+    const previousKey = previous?.dataset.scrollKey;
+    if (previous && previousKey) this.sidebarModeScroll.set(previousKey, previous.scrollTop);
+    update();
+    const current = this.editorScrollHost('left');
+    const currentKey = current?.dataset.scrollKey;
+    if (current && currentKey && currentKey !== previousKey) current.scrollTop = this.sidebarModeScroll.get(currentKey) ?? 0;
+  }
+
+  private refreshSidebar(updateHeader = false): void {
+    const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-left .workspace-column__body');
+    if (!body) return;
+    const column = createStoryEditorListColumn(createUIContext(this.editorGame), this.state, this.ctrl.game.registry.storyDirectories);
+    const next = body.cloneNode(false) as HTMLElement;
+    next.innerHTML = column.content;
+    const beforeRemove = (removed: HTMLElement) => this.ctrl.popovers.dismissBeforeRootMutation(removed);
+    this.preserveSidebarModeScroll(() => patchEditorDOM(body, next, beforeRemove));
+    if (!updateHeader) return;
+    const header = body.closest('.workspace-column__slot')?.querySelector<HTMLElement>('.workspace-column__header');
+    if (!header) return;
+    const nextHeader = header.cloneNode(false) as HTMLElement;
+    nextHeader.innerHTML = column.header ?? '';
+    patchEditorDOM(header, nextHeader, beforeRemove);
+  }
+
+  private setSidebarFolder(toggle: HTMLElement, open: boolean): void {
+    const list = toggle.parentElement?.nextElementSibling;
+    const id = toggle.dataset.sidebarFolder;
+    if (!id || !(list instanceof HTMLUListElement)) return;
+    const folds = sidebarSearch(this.state).trim()
+      ? this.state.sidebarSearchFolders ??= new Map() : this.state.sidebarFolders ??= new Map();
+    folds.set(id, open);
+    toggle.setAttribute('aria-expanded', String(open));
+    list.hidden = !open;
+    const arrow = toggle.querySelector('.story-editor-tree-arrow');
+    if (arrow) arrow.textContent = open ? '▾' : '▸';
+    if (toggle.hasAttribute('data-sidebar-deferred')) this.refreshSidebar();
+  }
+
+  private revealSidebarSelection(): void {
+    const list = this.editorScrollHost('left');
+    if (!list || this.state.sidebarMode === 'senders') return;
+    const selector = this.state.directoryManagement ? '[data-editor-directory="folder"][aria-pressed="true"]' : '.story-editor-tree-item[aria-pressed="true"]';
+    const selected = [...list.querySelectorAll<HTMLElement>(selector)];
+    const row = selected.find(item => !item.closest('ul[hidden]')) ?? selected[0];
+    if (!row) return;
+    let branch = row.closest('ul') as HTMLElement | null;
+    while (branch && branch !== list) {
+      if (branch instanceof HTMLUListElement && branch.hidden) {
+        const toggle = branch.previousElementSibling?.querySelector<HTMLElement>('[data-sidebar-folder]');
+        if (toggle) this.setSidebarFolder(toggle, true);
+      }
+      branch = branch.parentElement;
+    }
+    row.scrollIntoView?.({ block: 'nearest' });
+  }
+
   refresh(ctx: UIContext): boolean {
     if (!this.isOpen()) return false;
     this.syncSource();
@@ -615,18 +709,21 @@ export class StoryEditorController {
     const stream = current?.querySelector<HTMLElement>('[data-preview-stream]');
     const followPreview = !stream || stream.scrollHeight - stream.clientHeight - stream.scrollTop <= 8;
     this.inlineText.prepare(next);
-    prepareReferenceNavi(next);
+    prepareReferenceNavi(next, target => this.hasTarget(target));
     if (!current) {
       const page = this.ctrl.root.querySelector<HTMLElement>('.workspace-page-content');
       if (!page) return false;
       this.ctrl.columns.mount(page, ctx, frame);
     } else {
-      const oldBinding = current.querySelector<HTMLElement>('[data-column-binding]')?.dataset.columnBinding;
+      const oldBinding = current.querySelector<HTMLElement>('.story-editor-center')?.dataset.columnBinding;
       const active = document.activeElement instanceof HTMLElement && current.contains(document.activeElement) ? document.activeElement : null;
-      patchEditorDOM(current, next, root => { this.nodeMenu.dismissBeforeMutation(root); this.ctrl.popovers.dismissBeforeRootMutation(root); });
+      this.preserveSidebarModeScroll(() => patchEditorDOM(current, next, root => {
+        this.nodeMenu.dismissBeforeMutation(root);
+        this.ctrl.popovers.dismissBeforeRootMutation(root);
+      }));
       this.nodeMenu.retainIfAnchored();
       this.ctrl.columns.adopt(this.ctrl.root, ctx, frame);
-      if (oldBinding !== storyEditorTargetKey(this.state)) {
+      if (oldBinding !== current.querySelector<HTMLElement>('.story-editor-center')?.dataset.columnBinding) {
         for (const column of current.querySelectorAll<HTMLElement>('.story-editor-center, .story-editor-right')) {
           const body = column.querySelector<HTMLElement>('.workspace-column__body');
           if (body) body.scrollTop = 0;
@@ -659,16 +756,23 @@ export class StoryEditorController {
       }
       this.pendingVisit = undefined;
     }
+    if (!this.state.preview && (this.pendingSidebarReveal || this.pendingDirectoryReveal)) {
+      this.pendingSidebarReveal = false;
+      this.pendingDirectoryReveal = false;
+      this.revealSidebarSelection();
+    }
     if (this.pendingInspectorScroll !== undefined) {
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-right .workspace-column__body');
       if (body) body.scrollTop = this.pendingInspectorScroll;
       this.pendingInspectorScroll = undefined;
     }
+    if (this.pendingFlagReveal) this.revealInspectorFlag();
     if (this.pendingEntryScroll !== undefined) {
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
       if (body) body.scrollTop = this.pendingEntryScroll;
       this.pendingEntryScroll = undefined;
     }
+    this.state.directoryManagement?.restoreTabScroll(this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body'));
     if (this.revealNodeId) {
       const nodeId = this.revealNodeId;
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
@@ -696,7 +800,7 @@ export class StoryEditorController {
   }
   bind(root: HTMLElement): () => void {
     this.inlineText.prepare(root);
-    prepareReferenceNavi(root);
+    prepareReferenceNavi(root, target => this.hasTarget(target));
     const select = (event: Event): void => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
       if (!target || !root.contains(target)) return;
@@ -737,6 +841,26 @@ export class StoryEditorController {
       }
     };
     const click = (event: Event): void => {
+      const menu = this.ctrl.root.querySelector<HTMLDetailsElement>('.story-editor-sidebar-ops[open]');
+      if (menu && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+      const sidebar = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sidebar-folder], [data-sidebar-action]') : null;
+      if (sidebar && root.contains(sidebar)) {
+        if (sidebar.dataset.sidebarFolder) {
+          this.setSidebarFolder(sidebar, sidebar.getAttribute('aria-expanded') !== 'true');
+          return;
+        } else if (sidebar.dataset.sidebarAction === 'filters') {
+          this.state.sidebarFiltersOpen = !this.state.sidebarFiltersOpen;
+        } else {
+          this.state.search = ''; this.state.entrySearch = ''; this.state.storyInitFilter = '';
+          this.state.sidebarMode = 'all'; this.state.sidebarDirectoryMode = 'all';
+          this.state.sidebarReveal = undefined; this.state.sidebarSearchFolders = undefined;
+        }
+        this.refreshSidebar();
+        if (sidebar.dataset.sidebarAction === 'filters' && this.state.sidebarFiltersOpen) {
+          root.querySelector<HTMLInputElement>('[data-sidebar-search]')?.focus({ preventScroll: true });
+        }
+        return;
+      }
       const intent = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-action], [data-column-action], [data-authoring-action], [data-editor-directory]') : null;
       if (intent?.dataset.editorAction === 'open-pack-manager') {
         if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
@@ -770,11 +894,15 @@ export class StoryEditorController {
         }
         return;
       }
-      const referenceNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-reference-navi]') : null;
+      const referenceNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-reference-navi], [data-reference-jump]') : null;
       if (referenceNavi && root.contains(referenceNavi)) {
         event.preventDefault();
         const field = referenceNavi.closest('[data-reference-control]')?.querySelector<ReferenceField>('[data-story-reference]');
-        if (!referenceNavi.disabled && field) this.openContentNavi(field);
+        if (referenceNavi.disabled || !field) return;
+        if (referenceNavi.hasAttribute('data-reference-jump')) {
+          const target = referenceTarget(field);
+          if (target) { this.browseTarget(target); this.requestRefresh(); }
+        } else this.openContentNavi(field);
         return;
       }
       const flagNavi = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-local-flag-navi]') : null;
@@ -787,6 +915,20 @@ export class StoryEditorController {
       const flagImport = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-story-flag-import]') : null;
       if (flagImport && root.contains(flagImport)) {
         if (!flagImport.disabled) this.confirmFlagImport(flagImport.dataset.storyFlagImport ?? '');
+        return;
+      }
+      const flowFlag = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-flow-flag]') : null;
+      if (flowFlag && root.contains(flowFlag)) {
+        const nodeId = flowFlag.closest<HTMLElement>('[data-editor-node]')?.dataset.editorNode;
+        const name = flowFlag.dataset.storyFlagName;
+        if (nodeId && name && this.state.target?.kind === 'story') {
+          this.rememberInspectorScroll();
+          this.state.inspectorView = 'story';
+          this.state.storyInspectorTab = 'flags';
+          this.restoreInspectorScroll();
+          this.pendingFlagReveal = { storyId: this.state.target.id, nodeId, name, role: flowFlag.dataset.storyFlowFlag === 'write' ? 'providers' : 'readers' };
+          this.requestRefresh();
+        }
         return;
       }
       const storyLink = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-story-target]') : null;
@@ -883,7 +1025,50 @@ export class StoryEditorController {
       }
       const directoryTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-directory]') : null;
       if (directoryTrigger && root.contains(directoryTrigger)) {
-        if (!directoryTrigger.disabled) this.editStoryDirectory(directoryTrigger);
+        if (!directoryTrigger.disabled) {
+          const { editorDirectory, directoryInitId, directoryFolderId, directoryOwner } = directoryTrigger.dataset;
+          this.editStoryDirectory(editorDirectory, directoryInitId === undefined ? undefined : { initId: directoryInitId, directoryId: directoryFolderId ?? '' }, directoryOwner);
+        }
+        return;
+      }
+      const directoryRef = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-directory-reference-kind]') : null;
+      if (directoryRef && root.contains(directoryRef) && this.state.directoryManagement) {
+        const { directoryReferenceSource: source, directoryReferenceKind: kind, directoryReferenceId: id, directoryReferenceInit: initId } = directoryRef.dataset;
+        if (!id || !kind) return;
+        if (source && source !== this.state.sourceSelection) {
+          this.selectSource(source);
+          if (source !== this.state.sourceSelection) return;
+        }
+        if (kind === 'directory') this.editStoryDirectory('folder', { initId: initId ?? '', directoryId: id }, this.registry.storyDirectories.get(id)?.modName);
+        else if (kind === 'story' || kind === 'entry') this.browseTarget({ kind, id });
+        this.requestRefresh();
+        return;
+      }
+      const directoryAction = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-directory-create], [data-directory-action], [data-column-action^="directory-tab:"], [data-editor-action="directory-back"]') : null;
+      if (directoryAction && root.contains(directoryAction) && this.state.directoryManagement) {
+        if (directoryAction.disabled) return;
+        const creation = directoryAction.dataset.directoryCreate;
+        if (creation) {
+          const management = this.state.directoryManagement;
+          const owner = directoryAction.dataset.directoryCreateOwner;
+          this.closeEditorDialog();
+          this.editorDialog = openActiveEditingPackPicker(this.ctrl.modal, {
+            catalog: this.packQuery, escapeHtml: createUIContext(this.editorGame).escapeHtml,
+            trigger: directoryAction,
+            accept: pack => !owner || pack.modName === owner,
+            onClose: () => { this.editorDialog = undefined; },
+            onSelect: packId => {
+              if (this.state.directoryManagement !== management) return;
+              this.editStoryDirectory('folder', management.location(), undefined, packId);
+              this.state.directoryManagement?.action(creation, root);
+              this.requestRefresh();
+            },
+          });
+          return;
+        }
+        if (directoryAction.dataset.editorAction === 'directory-back'
+          || this.state.directoryManagement.action(directoryAction.dataset.directoryAction ?? directoryAction.dataset.columnAction?.slice('directory-'.length) ?? '', root)) this.closeDirectoryManagement();
+        this.requestRefresh();
         return;
       }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
@@ -935,7 +1120,19 @@ export class StoryEditorController {
             }
           }
         }
-      } else if (sidebarTab === 'stories' || sidebarTab === 'entries' || sidebarTab === 'senders') this.state.sidebarMode = sidebarTab;
+      } else if (sidebarTab === 'stories' || sidebarTab === 'entries' || sidebarTab === 'all') {
+        this.state.sidebarMode = this.state.sidebarDirectoryMode = sidebarTab;
+        this.state.sidebarReveal = undefined; this.state.sidebarSearchFolders = undefined;
+        this.refreshSidebar();
+        return;
+      } else if (sidebarTab === 'directory' || sidebarTab === 'senders') {
+        const menu = root.querySelector<HTMLElement>('#story-editor-sidebar-modes');
+        menu?.hidePopover?.();
+        if (menu?.contains(element)) root.querySelector<HTMLElement>('[popovertarget="story-editor-sidebar-modes"]')?.focus({ preventScroll: true });
+        this.state.sidebarMode = sidebarTab === 'senders' ? 'senders' : this.state.sidebarDirectoryMode ?? 'all';
+        this.refreshSidebar(true);
+        return;
+      }
       else if (sender) {
         const draft = currentDraft(this.state);
         if (draft && storySenders(createUIContext(this.editorGame)).some(item => item.id === sender)) composer(this.state).sender = sender;
@@ -945,13 +1142,40 @@ export class StoryEditorController {
         this.browseStory(source);
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
       else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
-      else this.action(element.dataset.editorAction ?? '', element);
+      else {
+        element.closest('details.story-editor-sidebar-ops')?.removeAttribute('open');
+        this.action(element.dataset.editorAction ?? '', element);
+      }
       this.requestRefresh();
     };
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
+      if (target.hasAttribute('data-directory-field')) {
+        const directory = this.state.directoryManagement;
+        const update = directory?.input(target);
+        if (update === 'region') this.requestRefresh();
+        if (directory && update === 'preview') {
+          const preview = root.querySelector<HTMLElement>('[data-directory-preview]');
+          if (preview) {
+            const next = preview.cloneNode(false) as HTMLElement;
+            next.innerHTML = directory.renderPreview();
+            patchEditorDOM(preview, next, removed => this.ctrl.popovers.dismissBeforeRootMutation(removed));
+          }
+        }
+        return;
+      }
       if (target.hasAttribute('data-editor-source')) { this.selectSource(target.value); return; }
+      if (target.hasAttribute('data-sidebar-search') || target.hasAttribute('data-editor-story-init-filter') || target.hasAttribute('data-editor-sender-search')) {
+        if (target.hasAttribute('data-editor-story-init-filter') && event.type !== 'change') return;
+        if (target.hasAttribute('data-editor-story-init-filter')) this.state.storyInitFilter = target.value;
+        else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
+        else if (this.state.sidebarMode === 'entries') this.state.entrySearch = target.value;
+        else this.state.search = target.value;
+        this.state.sidebarReveal = undefined; this.state.sidebarSearchFolders = undefined;
+        this.refreshSidebar();
+        return;
+      }
       if (target.dataset.previewDecision !== undefined) {
         const view = this.state.preview;
         const id = target.closest<HTMLElement>('[data-preview-check]')?.dataset.previewCheck;
@@ -973,7 +1197,7 @@ export class StoryEditorController {
         else if(target.dataset.themeContentKind==='number'&&target.value.trim()&&/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(target.value)&&Number.isFinite(Number(target.value)))value=Number(target.value);
         writeThemeContentValue(edit.draft,path,value);edit.error=undefined;this.requestRefresh();return;
       }
-      if (this.writeBlocked && !target.matches('[data-editor-search], [data-editor-story-init-filter], [data-editor-entry-search], [data-editor-sender-search]')) return;
+      if (this.writeBlocked) return;
       const draft = currentDraft(this.state); const node = currentNode(this.state);
       if (this.authoringInput(target, event.type)) { this.requestRefresh(); return; }
       if (draft && target.hasAttribute('data-story-body-node')) {
@@ -982,11 +1206,7 @@ export class StoryEditorController {
         this.requestRefresh(); return;
       }
       const senders = storySenders(createUIContext(this.editorGame));
-      if (target.hasAttribute('data-editor-search')) this.state.search = target.value;
-      else if (target.hasAttribute('data-editor-story-init-filter') && event.type === 'change') this.state.storyInitFilter = target.value;
-      else if (target.hasAttribute('data-editor-entry-search')) this.state.entrySearch = target.value;
-      else if (target.hasAttribute('data-editor-sender-search')) this.state.senderSearch = target.value;
-      else if (target.hasAttribute('data-editor-composer-text')) composer(this.state).text = target.value;
+      if (target.hasAttribute('data-editor-composer-text')) composer(this.state).text = target.value;
       else if (target.dataset.editorField === 'name') renameStory(this.state, target.value);
       else if (draft && target.dataset.editorField === 'story-context-type' && event.type === 'change') {
         const previous = draft.document.startContext;
@@ -1047,58 +1267,67 @@ export class StoryEditorController {
       const draft = currentDraft(this.state);
       if (!target || !draft || this.writeBlocked || !root.contains(target) || !event.dataTransfer) { event.preventDefault(); return; }
       const nodeId = target.dataset.editorNode ?? '';
-      if (!nodeId || !draft.document.nodes.some(node => node.id === nodeId)) { event.preventDefault(); return; }
-      const item: StoryEditorDragItem = { version: 1, kind: 'story-node', draftId: draft.draftId, nodeId };
-      this.draggingNodeId = nodeId;
+      const node = draft.document.nodes.find(node => node.id === nodeId);
+      if (!node) { event.preventDefault(); return; }
+      const flag = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-reader"]') : null;
+      const flagName = flag?.dataset.storyFlagName;
+      const optionId = flag?.closest<HTMLElement>('[data-story-option-id]')?.dataset.storyOptionId;
+      const origin = { version: 1 as const, draftId: draft.draftId, nodeId };
+      if (flagName && !hasFlowFlag(node, flagName, optionId)) { event.preventDefault(); return; }
+      const item: StoryEditorDragItem = flagName
+        ? { ...origin, kind: 'story-flag', flagName, optionId }
+        : { ...origin, kind: 'story-node' };
+      this.draggingItem = item;
       event.dataTransfer.setData(STORY_EDITOR_DRAG_TYPE, JSON.stringify(item));
-      event.dataTransfer.effectAllowed = 'move';
-      target.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'copyMove';
+      (flag ?? target).classList.add('is-dragging');
     };
     const dragOver = (event: DragEvent): void => {
       const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
       if (flagRow && root.contains(flagRow)) {
-        const draft = currentDraft(this.state), nodeId = this.draggingNodeId;
-        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || !nodeId || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
+        const draft = currentDraft(this.state), item = this.draggingItem;
+        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || item?.kind !== 'story-node' || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
         for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
-        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,nodeId) : {ok:false};
+        const plan = flagRow.dataset.storyFlagKind === 'local' ? canBindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false};
         flagRow.classList.toggle('is-drop-target',plan.ok); flagRow.classList.toggle('is-drop-invalid',!plan.ok);
         event.preventDefault(); event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none'; return;
       }
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
-      const nodeId = this.draggingNodeId;
-      if (!flow || !draft || this.writeBlocked || !nodeId || !draft.document.nodes.some(node => node.id === nodeId)
+      const item = this.draggingItem;
+      if (!flow || !draft || this.writeBlocked || !item || draft.draftId !== item.draftId
         || !event.dataTransfer?.types.includes(STORY_EDITOR_DRAG_TYPE)) return;
       clearStoryFlagDropStates(flow);
-      const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
-      if (readerFlag) {
-        const plan = canBindStoryNodeToFlagReader(draft, readerFlag, nodeId);
-        const record = (event.target as Element).closest<HTMLElement>('[data-story-drop-target="story-flag-reader"]');
+      const element = event.target instanceof Element ? event.target : null;
+      const binding = storyFlagBindingDrop(element, item);
+      if (binding) {
+        const plan = canBindStoryNodeToFlagReader(draft, binding.flagName, binding.nodeId);
         highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
-        record?.classList.toggle('is-drop-target', plan.ok && plan.changed);
-        record?.classList.toggle('is-drop-invalid', !plan.ok);
+        binding.element.dataset.storyFlagDropStatus = plan.ok ? plan.changed ? '可绑定' : '已绑定' : '不可绑定';
         event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = plan.ok && plan.changed ? 'move' : plan.ok ? 'copy' : 'none';
+        event.dataTransfer.dropEffect = plan.ok ? 'copy' : 'none';
         return;
       }
-      const choiceTarget = choiceFlagDropTarget(event.target instanceof Element ? event.target : null);
-      if (choiceTarget) {
-        const plan = canBindStoryNodeToChoiceOption(draft, choiceTarget.choiceNodeId, choiceTarget.optionIndex, choiceTarget.optionId, nodeId);
-        const card = (event.target as Element).closest<HTMLElement>('[data-story-drop-target="choice-flag"]');
+      if (item.kind !== 'story-node') return;
+      const choiceTarget = choiceFlagDropTarget(element);
+      const option = element?.closest<HTMLElement>('[data-story-drop-target="choice-flag"]');
+      if (choiceTarget && option) {
+        const plan = canBindStoryNodeToChoiceOption(draft, choiceTarget.choiceNodeId, choiceTarget.optionIndex, choiceTarget.optionId, item.nodeId);
         highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
-        card?.classList.toggle('is-drop-target', plan.ok);
-        card?.classList.toggle('is-drop-invalid', !plan.ok);
+        option.dataset.storyFlagDropStatus = plan.ok ? plan.created ? '可绑定' : '已绑定' : '不可绑定';
         event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = plan.ok ? 'move' : 'none';
+        event.dataTransfer.dropEffect = plan.ok ? 'copy' : 'none';
         return;
       }
-      const anchor = storyDropAnchor(event.target instanceof Element ? event.target : null, event.clientY, draft);
-      if (anchor === undefined || anchor === nodeId) return;
+      const anchor = storyDropAnchor(element, event.clientY, draft);
+      if (anchor === undefined || anchor === item.nodeId) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
       highlightStoryDropAnchor(flow, anchor);
     };
     const dragLeave = (event: DragEvent): void => {
+      const binding = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-flag-drop-status]') : null;
+      if (binding && !(event.relatedTarget instanceof Node && binding.contains(event.relatedTarget))) delete binding.dataset.storyFlagDropStatus;
       const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
       if (flagRow && !(event.relatedTarget instanceof Node && flagRow.contains(event.relatedTarget))) flagRow.classList.remove('is-drop-target','is-drop-invalid');
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
@@ -1110,7 +1339,7 @@ export class StoryEditorController {
       const flagRow = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-drop-target="story-flag-table"]') : null;
       if (flagRow && root.contains(flagRow)) {
         const draft = currentDraft(this.state), item = readStoryDragItem(event);
-        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || !item || item.draftId !== draft.draftId) return;
+        if (!draft || this.state.target?.kind !== 'story' || this.writeBlocked || item?.kind !== 'story-node' || item.draftId !== draft.draftId) return;
         event.preventDefault();
         const result = flagRow.dataset.storyFlagKind === 'local' ? bindFlagTableNode(draft,currentRelatedFlagCatalog(createUIContext(this.editorGame),this.state),flagRow.dataset.storyFlagName!,flagRow.dataset.storyFlagScope!,item.nodeId) : {ok:false,reason:'全局标记不能作为节点的局部执行条件。'};
         this.state.error = result.ok ? null : result.reason;
@@ -1121,11 +1350,14 @@ export class StoryEditorController {
       const flow = event.target instanceof Element ? event.target.closest<HTMLElement>('.story-editor-flow') : null;
       const draft = currentDraft(this.state);
       const item = readStoryDragItem(event);
-      if (!flow || !draft || this.writeBlocked || !item || item.draftId !== draft.draftId || !draft.document.nodes.some(node => node.id === item.nodeId)) return;
-      const readerFlag = storyFlagReaderDropTarget(event.target instanceof Element ? event.target : null);
-      if (readerFlag) {
+      if (!flow || !draft || this.writeBlocked || !item || item.draftId !== draft.draftId) return;
+      const source = draft.document.nodes.find(node => node.id === item.nodeId);
+      if (!source || item.kind === 'story-flag' && !hasFlowFlag(source, item.flagName, item.optionId)) return;
+      const element = event.target instanceof Element ? event.target : null;
+      const binding = storyFlagBindingDrop(element, item);
+      if (binding) {
         event.preventDefault();
-        const result = bindStoryNodeToFlagReader(this.state, readerFlag, item.nodeId);
+        const result = bindStoryNodeToFlagReader(this.state, binding.flagName, binding.nodeId);
         if (!result.ok) this.state.error = result.reason;
         else this.state.error = null;
         this.requestRefresh();
@@ -1133,7 +1365,8 @@ export class StoryEditorController {
         highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
         return;
       }
-      const choiceTarget = choiceFlagDropTarget(event.target instanceof Element ? event.target : null);
+      if (item.kind !== 'story-node') return;
+      const choiceTarget = choiceFlagDropTarget(element);
       if (choiceTarget) {
         event.preventDefault();
         const result = bindStoryNodeToChoiceOption(this.state, choiceTarget.choiceNodeId, choiceTarget.optionIndex, choiceTarget.optionId, item.nodeId);
@@ -1155,12 +1388,11 @@ export class StoryEditorController {
       if (moveNodeToInsertionPoint(this.state, item.nodeId, anchor)) this.requestRefresh();
       highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId);
     };
-    const dragEnd = (event: DragEvent): void => {
+    const dragEnd = (): void => {
       for (const row of root.querySelectorAll('[data-story-drop-target="story-flag-table"]')) row.classList.remove('is-drop-target','is-drop-invalid');
-      const target = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-node]') : null;
-      target?.classList.remove('is-dragging');
-      this.draggingNodeId = null;
-      const flow = target?.closest<HTMLElement>('.story-editor-flow');
+      this.draggingItem = null;
+      const flow = root.matches('.story-editor-flow') ? root : root.querySelector<HTMLElement>('.story-editor-flow');
+      for (const target of flow?.querySelectorAll('.is-dragging') ?? []) target.classList.remove('is-dragging');
       if (flow) { clearStoryFlagDropStates(flow); highlightStoryDropAnchor(flow, this.state.insertionBeforeNodeId); }
     };
     const overlayPointerDown = (event: PointerEvent): void => {
@@ -1340,6 +1572,22 @@ export class StoryEditorController {
       } });
     document.querySelector<HTMLInputElement>('.app-modal [data-story-generated-node-id]')?.focus();
   }
+  private revealInspectorFlag(): void {
+    const flag = this.pendingFlagReveal;
+    this.pendingFlagReveal = undefined;
+    if (!flag || this.state.target?.kind !== 'story' || this.state.target.id !== flag.storyId) return;
+    const body = this.editorScrollHost('right');
+    if (!body) return;
+    const rows = [...body.querySelectorAll<HTMLDetailsElement>('[data-story-flag-kind="local"]')].filter(row =>
+      row.dataset.storyFlagName === flag.name && [...row.querySelectorAll<HTMLElement>(`[data-story-flag-role="${flag.role}"] [data-story-flag-node]`)]
+        .some(source => source.dataset.editorStoryTarget === flag.storyId && source.dataset.storyFlagNode === flag.nodeId));
+    for (const row of rows) row.open = true;
+    const summary = rows[0]?.querySelector('summary');
+    if (!summary) return;
+    const bounds = body.getBoundingClientRect(), heading = summary.getBoundingClientRect();
+    if (heading.top < bounds.top || heading.bottom > bounds.bottom) body.scrollTop += heading.top - bounds.top;
+  }
+
   private openChoiceOptionIdPrompt(button: HTMLElement): void {
     const draft = currentDraft(this.state);
     const nodeId = button.dataset.storyNodeId;
@@ -1518,7 +1766,16 @@ export class StoryEditorController {
     }
     const scope = target.dataset.valueScope; const path = this.parsePropertyPath(target.dataset.valuePath);
     if (scope === undefined || !path) return false;
-    if (target.hasAttribute('data-value-type')) {
+    if (target.hasAttribute('data-public-description')) {
+      const text = target.value;
+      const key = structuredKey(draft, scope, path);
+      if (text.trim()) editStructuredValue(draft, scope, path, 'string', text);
+      else {
+        writeStructuredValue(draft, scope, path, undefined, true);
+        draft.structuredInputs ??= {};
+        draft.structuredInputs[key] = { text };
+      }
+    } else if (target.hasAttribute('data-value-type')) {
       if (eventType === 'change') constructStructuredValue(draft,scope,path,target.value);
     } else if (target.hasAttribute('data-entry-replay-policy') && target.value === '') {
       if (eventType === 'change') writeStructuredValue(draft, scope, path, undefined, true);
@@ -1695,7 +1952,7 @@ export class StoryEditorController {
           }
         }
       }
-      const hasDirectoryPlacement = compiled.patch.stories.some(story => story.directoryId)
+      const hasDirectoryPlacement = compiled.patch.stories.some(story => story.directoryId || story.hierarchyString)
         || [...compiled.patch.activeStories, ...compiled.patch.passiveStories].some(entry => entry.directoryPlacements?.length);
       const result = kind === 'check' ? this.ctrl.commands.validateStoryAuthoring(compiled.patch, this.state.sourceOptions || hasDirectoryPlacement ? ownerPackId : undefined)
         : kind === 'apply' ? this.ctrl.commands.applyStoryAuthoring(compiled.patch, ownerPackId)
@@ -1883,6 +2140,7 @@ export class StoryEditorController {
           this.rememberVisit();this.closeAuthoringPreview();this.closeThemeContentEdit();
           const draft = newStory(this.state,record.manifest.modName,known,id);this.state.targetPackId=id;
           if (this.state.sourceOptions) draft.packSource = this.packSource(id);
+          this.state.sidebarReveal = this.state.target ?? undefined; this.pendingSidebarReveal = true;
           this.state.inspectorView=undefined;this.state.storyInspectorTab='overview';this.pushVisit();
           this.ctrl.modal.close();this.requestRefresh();
         } catch (error) {
@@ -1944,8 +2202,50 @@ export class StoryEditorController {
     this.editorDialog = undefined;
   }
 
-  private editStoryDirectory(trigger: HTMLElement): void {
-    const mode = trigger.dataset.editorDirectory;
+  private closeDirectoryManagement(): void {
+    if (!this.state.directoryManagement) return;
+    this.state.directoryManagement = undefined;
+    this.pendingVisit = this.directoryReturn;
+    this.directoryReturn = undefined;
+    this.directoryPlacement = undefined;
+  }
+
+  private directoryReferences(packId: string, id: string, automatic: boolean) {
+    const own = this.packSource(packId)?.modName;
+    const refs = new Map<string, StoryDirectoryReference & { source?: string; sourceLabel?: string }>();
+    const add = (rows: readonly StoryDirectoryReference[], source?: string, sourceLabel?: string) => {
+      for (const row of rows) {
+        const key = JSON.stringify([row.kind, row.id, source ?? this.state.sourceSelection ?? '']);
+        if (!refs.has(key)) refs.set(key, { ...row, source, sourceLabel });
+      }
+    };
+    for (const draft of [...this.state.drafts, ...(this.state.parkedDrafts ?? [])]) {
+      if (automatic && (draft.packSource?.modName ?? draft.document.id.split(':')[0]) === own) continue;
+      const parked = !this.state.drafts.includes(draft);
+      add(storyDirectoryReferences(id, {
+        stories: draft.entryOnly ? [] : [draft.document], activeStories: draft.authoring?.activeStories ?? [], passiveStories: draft.authoring?.passiveStories ?? [],
+      }), parked ? `draft:${draft.draftId}` : undefined, '草稿');
+    }
+    for (const entry of this.packQuery.getPackCatalog?.().entries ?? []) {
+      const recordId = entry.packRecordId ?? entry.id;
+      if (recordId === packId ? automatic : entry.modName === own) continue;
+      const record = this.packQuery.getPackRecord?.(recordId);
+      if (record) add(storyDirectoryReferences(id, record.datapack), `pack:${recordId}`, `${entry.name} · ${entry.version}`);
+    }
+    const registry = this.registry;
+    add(storyDirectoryReferences(id, {
+      storyDirectories: [...registry.storyDirectories.values()].filter(row => row.modName !== own).map(row => row.definition),
+      stories: [...registry.stories.values()].filter(row => registry.storyDirectoryContentOwner(row.id, 'story') !== own),
+      activeStories: [...registry.activeStories.values()].filter(row => registry.storyDirectoryContentOwner(row.id) !== own),
+      passiveStories: [...registry.passiveStories.values()].filter(row => registry.storyDirectoryContentOwner(row.id) !== own),
+    }));
+    return [...refs.values()];
+  }
+
+  private editStoryDirectory(requested?: string, location?: { initId: string; directoryId: string }, directoryOwner?: string, creationPack?: string): void {
+    const mode = requested === 'folder' ? this.directoryPlacement ?? requested : requested;
+    const current = this.state.directoryManagement?.location();
+    if (!creationPack && current && location && current.initId === location.initId && current.directoryId === location.directoryId) return;
     const draft = mode === 'entry' ? currentAuthoringDraft(this.state) : mode === 'story' ? currentDraft(this.state) : undefined;
     const registry = this.registry;
     const entries = storyEntries(this.state, registry.storyEntries);
@@ -1961,35 +2261,54 @@ export class StoryEditorController {
     const modName = id ? registry.storyDirectoryContentOwner(id, entry ? 'entry' : 'story') : undefined;
     const selection = this.state.sourceSelection;
     const selectedId = selection?.startsWith('pack:') ? selection.slice(5) : undefined;
-    const editPack = this.state.sourceOptions ? (draft && this.writeBlocked ? null : draft?.targetPackId ?? selectedId ?? null) : undefined;
-    let expected = editPack ? this.packSource(editPack)?.digest : undefined;
-    this.closeEditorDialog();
-    this.editorDialog = openStoryDirectoryDialog(this.ctrl.modal, createUIContext(this.editorGame), trigger, {
+    const runningOwner = !selection && !draft && location ? directoryOwner : undefined;
+    const runningPack = runningOwner ? this.packQuery.getRunningStoryPackId?.(runningOwner) : undefined;
+    const editPack = creationPack ?? (this.state.sourceOptions ? (draft && this.writeBlocked ? null : draft?.targetPackId ?? selectedId ?? runningPack ?? null) : undefined);
+    const packSource = editPack ? this.packSource(editPack) : undefined;
+    let expected = packSource?.digest;
+    const ctx = createUIContext(this.editorGame);
+    if (!this.state.directoryManagement) this.directoryReturn = this.captureVisit();
+    this.inlineText.finish();
+    this.closeEditorDialog(); this.closeSelectionNavi(); this.requiredFlagDropdown.close(); this.nodeMenu.close(); this.closeThemeContentEdit();
+    this.directoryPlacement = mode === 'story' || mode === 'entry' ? mode : undefined;
+    if (this.state.sidebarMode === 'senders') this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
+    this.state.directoryManagement = createStoryDirectoryManagement(ctx, {
       stories, entries, target: id ? { story, entry, packId: draft?.targetPackId, modName } : undefined,
-      packId: editPack,
+      appliedCatalog: () => this.ctrl.game.registry,
+      sourceMod: this.state.sourceMod,
+      location, initIds: sidebarInitIds(ctx, this.state), contentOwner: editorDirectoryContentOwner(ctx, this.state), packId: editPack,
+      navigation: creationPack ? this.state.directoryManagement?.navigation() : undefined,
+      sourceLabel: packSource
+        ? `${packSource.label}${creationPack || !selection ? ' · 目录资料保存后需应用到当前游戏' : ''}`
+        : this.state.sourceOptions?.find(source => source.value === selection)?.label ?? '当前游戏',
+      references: (packId, node) => this.directoryReferences(packId, node.id, node.source === 'AutoCreated'),
       save: this.ctrl.commands.saveStoryDirectoryToPack && ((packId, directory, remove) => {
-        if (this.state.sourceOptions && (editPack !== packId || this.packSource(packId)?.digest !== expected || this.writeBlocked)) {
-          return { ok: false, message: '编辑态 Mod 已变化，请重新打开目录。' };
+        if (creationPack && (!packSource || !isActiveEditingPack(this.packQuery, packId, packSource.modName))) {
+          return { ok: false, message: '该包已不在当前活跃的编辑态中。当前修改已保留。' };
         }
+        if (this.state.sourceOptions && (editPack !== packId || this.packSource(packId)?.digest !== expected
+          || this.state.sourceSelection !== selection || (runningOwner && this.packQuery.getRunningStoryPackId?.(runningOwner) !== packId)
+          || (!creationPack && mode !== 'folder' && this.writeBlocked))) {
+          return { ok: false, message: '编辑态 Mod 已变化。当前修改已保留，请核对原包和最新版本后重试。' };
+        }
+        const previous = this.packQuery.getPackRecord?.(packId)?.datapack.storyDirectories ?? [];
+        const updates = 'id' in directory ? [directory] : directory;
+        const relocate = remove || updates.some(update => {
+          const original = previous.find(row => row.id === update.id);
+          return original ? original.parentId !== update.parentId || original.hierarchyString !== update.hierarchyString : !update.characterId;
+        });
         const result = this.ctrl.commands.saveStoryDirectoryToPack!(packId, directory, remove);
         if (result.ok && this.state.sourceOptions) {
           this.refreshPackSource(packId, expected);
           expected = this.packSource(packId)?.digest;
-          this.requestRefresh();
         }
+        if (result.ok && relocate) this.pendingDirectoryReveal = true;
         return result;
       }),
-      beforeRemove: element => this.ctrl.popovers.dismissBeforeRootMutation(element),
-      onClose: () => { this.editorDialog = undefined; },
-      open: (kind, targetId) => {
-        this.closeEditorDialog();
-        this.browseTarget({ kind, id: targetId });
-        this.requestRefresh();
-      },
-      place: (initId, directoryId, order, packId) => {
+      place: (initId, placement, packId) => {
         if (!draft || !id || this.writeBlocked || !this.state.drafts.includes(draft)) return '当前编辑目标已失效。';
         if (draft.targetPackId && draft.targetPackId !== packId) return '请使用草稿已绑定的编辑态 Mod。';
-        if (order !== undefined && !Number.isFinite(order)) return '请填写有效的顺序。';
+        if (placement?.order !== undefined && !Number.isFinite(placement.order)) return '请填写有效的顺序。';
         try {
           const { record } = storyEditingMod(this.ctrl.game, packId);
           const owner = record.manifest.modName;
@@ -1998,23 +2317,28 @@ export class StoryEditorController {
           if (entry) {
             if (entry.availableInits.length && !entry.availableInits.includes(initId)) return '此入口不适用于该世界线。';
             const placements = (entry.directoryPlacements ?? []).filter(row => row.initId !== initId);
-            if (directoryId) placements.push({ initId, directoryId, order });
+            if (placement) placements.push({ initId, ...placement });
             if (placements.length) entry.directoryPlacements = placements;
             else delete entry.directoryPlacements;
           } else if (story) {
-            const { directoryId: previousDirectory, ...document } = draft.document;
-            draft.document = directoryId ? { ...document, initId, directoryId } : document;
+            const { directoryId: previousDirectory, hierarchyString: previousHierarchy, ...document } = draft.document;
+            if (!placement) draft.document = document;
+            else {
+              const { initId: previousInit, ...storyFields } = document;
+              const { order, ...position } = placement;
+              draft.document = { ...storyFields, ...(initId ? { initId } : {}), ...position };
+            }
           }
           draft.targetPackId = packId;
           draft.dirty = true;
           this.state.error = null;
           this.state.notice = '目录位置已更新到当前草稿。';
-          this.requestRefresh();
         } catch (error) {
           return error instanceof Error ? error.message : String(error);
         }
       },
     });
+    this.requestRefresh();
   }
 
   private editEntryCatalog(trigger: HTMLElement, draft: StoryDraft): void {

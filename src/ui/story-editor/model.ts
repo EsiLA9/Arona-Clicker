@@ -88,7 +88,14 @@ export interface StoryEditorState {
   storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
   /** Transient gap anchor before a node; null means the end of the current Story. */
   insertionBeforeNodeId: string | null;
-  sidebarMode: 'stories' | 'entries' | 'senders';
+  sidebarMode: 'all' | 'stories' | 'entries' | 'senders';
+  sidebarDirectoryMode?: 'all' | 'stories' | 'entries';
+  sidebarFiltersOpen?: boolean;
+  sidebarRuntimeScope?: string;
+  sidebarFolders?: Map<string, boolean>;
+  sidebarSearchFolders?: Map<string, boolean>;
+  sidebarReveal?: StoryEditorTarget;
+  directoryManagement?: ReturnType<typeof import('./directory-management').createStoryDirectoryManagement>;
   search: string;
   storyInitFilter?: string;
   entrySearch: string;
@@ -124,7 +131,7 @@ export const cloneStory = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const identity = (prefix: string): string => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 export function createStoryEditorState(): StoryEditorState {
-  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, storyInspectorTab: 'overview', insertionBeforeNodeId: null, sidebarMode: 'stories', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
+  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, storyInspectorTab: 'overview', insertionBeforeNodeId: null, sidebarMode: 'all', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;

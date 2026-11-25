@@ -243,7 +243,7 @@ function renderChoiceCard(
   align: NonNullable<StoryView['page']['align']>,
   token?: string,
   preview = false,
-  optionAddon?: (choice: { id: string; text: string }, index: number) => string,
+  optionAddon?: StoryClickPreviewOptions['choiceOptionAddon'],
   selectedOptionId?: string,
   authoring = false,
 ): string {
@@ -263,9 +263,8 @@ function renderChoiceCard(
         <span class="choice-option-text">${ctx.escapeHtml(choice.text)}</span>
         ${indicator}
       </${tag}>`;
-      return optionAddon && preview
-        ? `<div class="choice-option-row">${optionAddon({ id: choice.id ?? String(index), text: choice.text }, index)}${button}</div>`
-        : button;
+      const addon = preview ? optionAddon?.({ id: choice.id ?? String(index), text: choice.text }, index) : undefined;
+      return addon ? `<div class="choice-option-row" ${addon.attributes}>${addon.before ?? ''}${button}${addon.content}</div>` : button;
     })
     .join('');
   return `
@@ -277,7 +276,7 @@ function renderChoiceCard(
 
 export interface StoryClickPreviewOptions {
   /** Editor-only decoration placed beside each Choice option; Runtime rendering does not use it. */
-  readonly choiceOptionAddon?: (option: { id: string; text: string }, index: number) => string;
+  readonly choiceOptionAddon?: (option: { id: string; text: string }, index: number) => { attributes: string; before?: string; content: string };
 }
 
 /** Author preview; navigation decorations belong to the editor node. */

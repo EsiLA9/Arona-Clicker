@@ -13,13 +13,16 @@ function makePack(extra: Record<string, string> = {}) {
 
 describe('parsePack', () => {
   test('解析 manifest、分片与图片资源', async () => {
-    const pack = await parsePack(makePack({ 'images/icon.svg': '<svg></svg>', 'notes.txt': 'ignored' }));
+    const progress: number[][] = [];
+    const pack = await parsePack(makePack({ 'images/icon.svg': '<svg></svg>', 'notes.txt': 'ignored' }),
+      (completed, total) => progress.push([completed, total]));
     expect(pack.manifest.modName).toBe('demo');
     expect(pack.datapack.modName).toBe('demo');
     expect(pack.datapack.name).toBe('Demo');
     expect(pack.jsonFileCount).toBe(1);
     expect(pack.images[0].url).toMatch(/^data:image\/svg\+xml;base64,/);
     expect(pack.ignoredCount).toBe(1);
+    expect(progress).toEqual([[0, 4], [1, 4], [2, 4], [3, 4], [4, 4]]);
   });
 
   test('缺少 manifest 时拒绝', async () => {

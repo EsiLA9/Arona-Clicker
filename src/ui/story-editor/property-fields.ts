@@ -4,7 +4,7 @@ import { currentStoryFlagCatalog, renderStoryFlagSuggestions } from './flag-cata
 import { storyFlagNames } from './flag-catalog';
 import { renderStoryTransfer } from './transfer-view';
 import { structuredKey } from './authoring-model';
-import { currentDraft } from './model';
+import { choiceOptionFlagBindings, currentDraft } from './model';
 import { renderStructuredValue } from './structured-value';
 import type { UIContext } from '../runtime/context';
 import { renderTabs } from '../components/shared/tabs';
@@ -454,12 +454,16 @@ function choiceMarkList(ctx:UIContext,state:StoryEditorState,path:Path,opt:Obj|n
   const marksPath=[...path,'marks']; const raw=val(opt,'marks');
   if(raw!==undefined&&!Array.isArray(raw)) return legacyChoiceField(ctx,state,'选择标记结构无效',marksPath,raw);
   const marks=array(raw);
+  const optionIndex = Number(path.at(-1)), optionId = String(val(opt, 'id') ?? '');
+  const bindings = choiceOptionFlagBindings(draft, nodeId, optionIndex, optionId);
   const rows=marks.map((name,index)=>{
     const rowId=rowIdAt(draft,nodeId,marksPath,index)??String(index);
     const editor=typeof name==='string'
       ? scalar(ctx,'选择标记',[...marksPath,index],name,state,'text',undefined,undefined,'local')
       : `<p class="story-editor-error">选择标记结构无效：<code>${esc(ctx,JSON.stringify(name))}</code></p>`;
-    return `<div class="story-editor-property-row" data-editor-key="choice-mark:${esc(ctx,rowId)}">${editor}<div class="story-editor-actions"><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(marksPath))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除标记</button></div></div>`;
+    const readers = marks.indexOf(name) === index ? bindings.find(binding => binding.flagName === name)?.nodeIds ?? [] : [];
+    const unbind = readers.map(reader => `<button type="button" class="mini-action" data-editor-key="unbind:${esc(ctx,reader)}" data-story-choice-flag-unbind data-story-choice-node="${esc(ctx,nodeId)}" data-story-option-index="${optionIndex}" data-story-option-id="${esc(ctx,optionId)}" data-story-flag-name="${esc(ctx,name)}" data-story-node-id="${esc(ctx,reader)}" title="解除这个节点的标记条件。共用该标记的选项也将失去对该节点的控制。"${disabled(state)}>解绑 ${esc(ctx,reader)}</button>`).join('');
+    return `<div class="story-editor-property-row" data-editor-key="choice-mark:${esc(ctx,rowId)}">${editor}<div class="story-editor-actions"><button type="button" class="mini-action mini-action--danger" data-story-row-action="remove" data-story-row-path="${esc(ctx,pathText(marksPath))}" data-story-row-id="${esc(ctx,rowId)}"${disabled(state)}>移除标记</button>${unbind}</div></div>`;
   }).join('');
   return `<div class="story-editor-list-block" data-editor-key="choice-marks:${esc(ctx,pathText(path))}"><div class="story-editor-list-heading"><strong>选择标记</strong><button type="button" class="mini-action" data-story-row-action="add" data-story-row-path="${esc(ctx,pathText(marksPath))}"${disabled(state)}>添加标记</button></div>${rows}</div>`;
 }

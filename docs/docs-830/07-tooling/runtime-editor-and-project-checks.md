@@ -46,7 +46,9 @@ Story 属性右栏提供直接「调用表」与「被调用表」；Entry 右�
 
 中栏顶部提供故事浏览的后退 / 前进，左栏选故事、新建及 Transfer 目标跳转共用一份最多 50 步的会话内历史。返回恢复节点选择、插入空位和中 / 右栏滚动；未发送正文仍按草稿保留。后退后打开另一故事会截断前进记录，删除后已不存在的目标在回溯时跳过。切换前保存失败则留在当前故事。历史不进入草稿持久化、StoryDef 或玩家存档。独立 Transfer 及右栏转移属性显示 goto / insert、目标名称和 ID；节点流中的转移主体只选择 StoryNode 并查看属性，只有右侧独立目标小卡片打开作者文档，优先使用本地草稿。缺失目标保留 ID 并禁用跳转，目标小卡片与 Entry 导航共用稳定深色样式。Click 的 StoryEntry 卡片导航见下文。入口为 `transfer-view.ts`、`controller.ts`，行为见 `tests/ui/story/story-editor-workspace.test.ts`。
 
-游戏顶栏右侧的“Story 编辑器”打开独立 `story-editor` Workspace，大厅未进入 Init 时也可用。左栏可按名称或 ID 查询 Story、Entry，并在当前游戏、本地包库和保留草稿之间选择来源。中栏按 `nodes` 顺序呈现作者节点并在固定底部输入。右栏显示当前节点或 Story 的属性。三栏沿用共享顶部和独立滚动。
+游戏顶栏右侧的“Story 编辑器”打开独立 `story-editor` Workspace，大厅未进入 Init 时也可用。左栏在当前游戏、本地包库和保留草稿之间选择来源，并沿 Init 和已有目录并列显示 Story 与 Entry。搜索与筛选默认折叠，支持名称、完整 ID、世界线和内容类型。跨世界线适用且没有明确位置的 Entry 在默认视图中集中显示一次，具体世界线筛选继续按适用范围查询。中栏按 `nodes` 顺序呈现作者节点并在固定底部输入。右栏显示当前节点或 Story 的属性。三栏沿用共享顶部和独立滚动。
+
+编辑器按每个 Init 下的「角色故事」和已载入角色建立自动目录，目录暂时为空也保留。左栏的目录行提供「管理」，中栏展示子目录、正文和入口，右栏展示目录资料与归档操作。资料保存写入所属编辑态 Mod，归档确认写入当前内容草稿。玩家目录仍按既有公开与阅读进度规则展示。
 
 作者可以追加角色、老师或旁白正文，显式追加单按钮 Click，以及暂未配置的 Operation/Transfer。正文与旁白复用纯 `renderChatEntry`，不绑定游戏 `ChatStream`、发送 token 或剧情推进；老师是右侧 talklet。节点点击/右键均为选择，Click 在编辑器里不会执行剧情；entryCard 右侧独立目标小卡片显示 Entry 名称与 ID，点击只打开目标 Entry 编辑页，主体预览只选择节点。兼容 kizunaCard 在关联目标唯一时同样支持右侧目标跳转。目标缺失或未配置时保留提示并禁用小卡片，外围节点仍可选择；areaContinue 不跳转到其他 Entry。编辑器不提供播放、导出或包发布；显式写入当前 Registry 的原型入口见下文。
 
@@ -95,7 +97,9 @@ StoryEntry 的「详细门控」从摘要打开触发条件树。新建 Entry �
 
 编辑器不提供 Entry 的 kizuna 关联字段或 Click 的 kizunaCard 创建入口；已有 Entry.kizuna / kizunaCard 内容仍由底层兼容机制投影、校验与播放。新编写的跨 Entry 内容使用剧情入口卡选择目标 StoryEntry。`areaContinue` 仍编辑同一游标的续播地点。
 
-Story Editor 的 Story 与 Entry 列表都可打开「目录」。弹窗按当前来源和 Init 浏览、搜索和定位正文及入口。选择编辑态 Mod 后可以创建目录、调整父级和顺序、编辑公开资料，角色自动目录由角色所属 Mod 编辑。目录资料直接保存到所选编辑态包。通过正文或入口属性设置的目录位置随作者内容一同提交。玩家看到已应用的目录版本。
+Story 编辑器在左栏「管理」打开目录工作区。中栏列出当前层级的子目录、正文和入口，右栏编辑资料和目录归属。新建子目录继承当前上级，保存后定位新目录。移动时按名称、路径或 ID 搜索候选，显示新旧完整路径。候选限定在同一 Init 和同一 Mod，排除自身与后代，整个分支沿用原目录 ID。同级排序在中栏预览，仅调整本 Mod 的手动子目录，确认后将一组顺序一次保存。移除手动目录前检查子目录、正文、Entry、编辑器草稿和已安装包中的引用；已有引用时提供定位入口。系统层级固定，角色所属 Mod 可编辑角色目录资料或恢复默认，并可添加自己的子目录。保存核对绑定的编辑态包版本，失败时保留当前表单或排序预览。目录资料写入编辑态包，正文或入口的归档位置随作者草稿提交。玩家看到已应用的目录版本。
+
+手动目录和角色目录共享公开资料的预览和只读样式。录入标题、简介、封面或提前公开状态时仅协调右栏预览；普通资料保存协调有变化的区域，不主动展开左栏。Story「概述」和 StoryEntry「基本信息」分别编辑公开简介，随既有草稿和包保存。玩家目录的简介及回退规则见 [[story-and-effects]]。目录移动或移除后，玩家展示按稳定目录 ID 寻找可见路径；无法定位时回退至最近可见上级。
 
 既有 `StoryEntry.catalog` 继续保留分类、篇章、章节、顺序及旧编排工具，供旧 Mod 编辑和兼容展示；新的按 Init 位置优先。旧 `extra.v.storyCatalog` 导入时仍转为 `catalog`。运行时将各来源合入同一目录投影，见 [[story-and-effects]]。
 
@@ -158,4 +162,4 @@ Vite 配置把 `/game` 与 `/editor` 分别路由到游戏 UI 和独立 Editor H
 
 Entry 中栏分别编辑激活方式、故事目录位置与普通公共字段。激活方式明确选择主动接取、随机抽取或好感／角色阶段；地区兜底、权重／重复／冷却、等级／前置 Story 只在适用分支出现。好感入口新建时要求选择有效角色。切换配置先展示当前与目标含义，取消或候选草稿保存失败保留原分支；池仍关联该 Entry、错误输入尚未修正或配置在确认期间变化时拒绝切换。身份和 ModId 不随分类变更。
 
-故事目录位置在「基本信息」显示路径摘要，通过目录弹窗编辑。来源聚合内置层级、已载入 Entry 与当前草稿；左侧树和全目录搜索支持定位，右侧显示同级条目、可用 Init 和顺序。Init 筛选包含所选 Init 与全 Init 条目，只影响浏览。弹窗可新建分类、篇章或章节。仅编辑态 Mod 所属条目可改位置或顺序，其他条目为只读参照。顺序留空时按原始同级次序每隔 100 生成自动值，可用有限数字覆写。无 Init 筛选时可拖动插入，按相邻顺序值给被移动条目计算新值，其他条目保留原值。确认后将改动写入各自的 Story 草稿，按所属 Mod 分别发布；更改位置或排序均不改 `availableInits`。重开优先显示当前路径，未设置位置时可恢复本次编辑器会话最近一次确认的路径；取消不保存临时目录。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。
+故事目录位置在「基本信息」显示路径摘要，通过工作区的目录管理修改。旧编排入口仍打开原有目录弹窗。来源聚合内置层级、已载入 Entry 与当前草稿；左侧树和全目录搜索支持定位，右侧显示同级条目、可用 Init 和顺序。Init 筛选包含所选 Init 与全 Init 条目，只影响浏览。弹窗可新建分类、篇章或章节。仅编辑态 Mod 所属条目可改位置或顺序，其他条目为只读参照。顺序留空时按原始同级次序每隔 100 生成自动值，可用有限数字覆写。无 Init 筛选时可拖动插入，按相邻顺序值给被移动条目计算新值，其他条目保留原值。确认后将改动写入各自的 Story 草稿，按所属 Mod 分别发布；更改位置或排序均不改 `availableInits`。重开优先显示当前路径，未设置位置时可恢复本次编辑器会话最近一次确认的路径；取消不保存临时目录。抽取池以当前 Entry 的反查关系展示，点开才编辑唯一 children；本次列出的关联池解除关联后仍留到离开 Entry，避免编辑中途丢失控件。常用内容引用沿用 Navi，关系与 Flag 导航保留。旧顶层 type／权重／好感字段在 Story 本地草稿恢复、数据包分片读取及包库快照恢复时，通过 story-entry-migration.ts 转成 activation；旧 Extra.storyCatalog 转成 catalog。新旧字段混用、等级与前置 Story 同时配置或旧配置无效时，保留原文并明确报错，不推测或清空。草稿迁移在完整验证后，先将原始字符串备份到 acprogram_story_editor_drafts_before_entry_activation，再写入迁移结果；备份／写入失败保持原草稿并禁写。包库 JSON／IndexedDB 恢复也先保存带 _before_entry_activation 后缀的原始字符串备份，原键直到正常保存才更新；IndexedDB 写入等待事务提交。备份只创建一次，不覆盖已有备份。未完成的权重／冷却等输入路径随字段迁移，不能确定对应关系的旧输入拒绝迁移。运行时 Registry 与发布校验继续只接受新结构。入口为 story-editor/entry-activation.ts、authoring-view.ts、controller.ts；回归见 tests/ui/story/story-editor-entry-activation.test.ts 和 story-editor-authoring.test.ts。

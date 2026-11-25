@@ -32,6 +32,37 @@ export class ToastService {
     setTimeout(() => this.dismiss(toast.id), DISMISS_MS);
   }
 
+  showProgress(text: string) {
+    this.ensureContainer();
+    const id = ++this.seq;
+    const el = document.createElement('div');
+    el.className = 'toast-message toast-info toast-progress';
+    el.dataset.toastId = String(id);
+    const label = document.createElement('span');
+    label.textContent = text;
+    label.setAttribute('role', 'status');
+    const progress = document.createElement('progress');
+    progress.setAttribute('aria-label', text);
+    el.append(label, progress);
+    this.stack!.appendChild(el);
+    this.updateCollapseButton();
+    return {
+      update(completed: number, total: number): void {
+        progress.max = total;
+        progress.value = completed;
+      },
+      finish: (message: string, level: ToastLevel): void => {
+        if (!progress.isConnected) return;
+        progress.remove();
+        label.textContent = message;
+        el.className = `toast-message toast-${level} toast-progress-result`;
+        this.clamp();
+        this.updateCollapseButton();
+        setTimeout(() => this.dismiss(id), DISMISS_MS);
+      },
+    };
+  }
+
   showAction(key: string, text: string, label: string, action: () => void): void {
     this.ensureContainer();
     const selector = `[data-toast-action-key="${CSS.escape(key)}"]`;
@@ -109,7 +140,7 @@ export class ToastService {
   /** 超过可见上限则移除最旧的 toast。 */
   private clamp(): void {
     if (!this.container) return;
-    const items = this.stack?.querySelectorAll('.toast-message:not(.toast-fade)') ?? [];
+    const items = this.stack?.querySelectorAll('.toast-message:not(.toast-fade, .toast-progress)') ?? [];
     if (items.length <= MAX_VISIBLE) return;
     for (let i = 0; i < items.length - MAX_VISIBLE; i++) {
       (items[i] as HTMLElement).remove();

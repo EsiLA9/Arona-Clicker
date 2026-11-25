@@ -6,6 +6,7 @@
 
 import type { SendResult, StoryAdvanceResult, StoryStartResult } from '../../arona-clicker/contracts/runtime/results';
 import { storyErrorText } from '../components/story/story';
+import { storyDirectoryTrail } from '../columns/story-navigation';
 import type { UIController } from './controller';
 
 /** 剧情操作失败 → devLog 记录（结果带 error 时；SendResult 见 completed.advance / idle.error）。 */
@@ -154,6 +155,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     const workspace = ctrl.panelState.workspace;
     if (workspace?.type !== 'story') return;
     workspace.navPath = path;
+    workspace.directoryEntryId = undefined;
     workspace.subroute = 'overview';
     if (workspace.mode === 'overview' && workspace.selectedEntryId !== null) {
       workspace.selectedEntryId = null;
@@ -161,7 +163,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       ctrl.panelState.conversationVariantId = null;
       ctrl.panelState.storyGate = null;
     }
-    ctrl.refreshPanels(['left', 'center']);
+    ctrl.refreshPanels(['left', 'center', 'right']);
   }
   // 故事层级导航：逐层下钻，目录 ID 可以包含冒号。
   scope.querySelectorAll<HTMLButtonElement>('[data-story-nav]').forEach(button => {
@@ -175,7 +177,22 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
     button.addEventListener('click', () => {
       const depth = Number(button.dataset.storyBack ?? 0);
       const workspace = ctrl.panelState.workspace;
-      browseDirectory(workspace?.type === 'story' ? workspace.navPath.slice(0, depth) : []);
+      const trail = workspace?.type === 'story' ? storyDirectoryTrail(ctrl.game.story.getStoryDirectory(), workspace.navPath) : [];
+      browseDirectory(trail.slice(0, depth).map(node => node.id));
+    });
+  });
+  scope.querySelectorAll<HTMLButtonElement>('[data-story-directory-entry]').forEach(button => {
+    button.addEventListener('click', () => {
+      const workspace = ctrl.panelState.workspace;
+      if (workspace?.type !== 'story' || workspace.subroute !== 'overview') return;
+      const current = storyDirectoryTrail(ctrl.game.story.getStoryDirectory(), workspace.navPath).at(-1);
+      const selected = current?.entries.find(entry => entry.id === button.dataset.storyDirectoryEntry);
+      if (!selected) return;
+      workspace.directoryEntryId = selected.id;
+      for (const row of scope.querySelectorAll<HTMLButtonElement>('[data-story-directory-entry]')) {
+        row.setAttribute('aria-pressed', String(row.dataset.storyDirectoryEntry === selected.id));
+      }
+      ctrl.refreshPanels(['right']);
     });
   });
   // 故事"档案"入口：进入 StoryWorkspace 的显式子路由
@@ -185,6 +202,7 @@ export function bindStoryActions(ctrl: UIController, scope: ParentNode = ctrl.ro
       const workspace = ctrl.panelState.workspace;
       if (workspace?.type !== 'story') return;
       workspace.subroute = 'archive';
+      workspace.directoryEntryId = undefined;
       workspace.selectedEntryId = null;
       workspace.conversationOwner = null;
       workspace.mode = 'overview';

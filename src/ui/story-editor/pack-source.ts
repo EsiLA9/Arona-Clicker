@@ -64,6 +64,7 @@ export function storyPackCatalog(packs: readonly Datapack[]): ContentCatalogQuer
     operationEvents: index(pack => pack.operationEvents, id),
     studentOperationProfiles: index(pack => pack.studentOperationProfiles, id),
     colorGroups: index(pack => pack.colorGroups, id),
+    themeDesigns: index(pack => pack.themeDesigns, id),
     colorEquipments: index(pack => pack.colorEquipments, id),
     resourceDisplays: index(pack => pack.resourceDisplays, row => row.resourceId),
   };

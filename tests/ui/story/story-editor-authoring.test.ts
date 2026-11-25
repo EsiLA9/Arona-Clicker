@@ -17,7 +17,7 @@ describe('Story authoring UI and draft API', () => {
   const draft = () => currentAuthoringDraft(ctrl.storyEditor.state)!;
   const q = <T extends HTMLElement = HTMLElement>(selector: string): T => { const item = root.querySelector<T>(selector); expect(item,selector).not.toBeNull(); return item!; };
   const click = (selector: string) => { if(selector==='[data-editor-action="new"]') createStoryForTest(game,ctrl); else q<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
-  const change = (element: HTMLInputElement | HTMLSelectElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
+  const change = (element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: string) => { element.value=value; element.dispatchEvent(new Event(element instanceof HTMLSelectElement?'change':'input',{bubbles:true})); ctrl.flushUIUpdates(); };
   const conditionControl = <T extends HTMLElement = HTMLButtonElement>(selector: string): T => {
     const item = document.querySelector<T>(`.story-condition-dialog ${selector}`);
     expect(item, selector).not.toBeNull();
@@ -50,6 +50,9 @@ describe('Story authoring UI and draft API', () => {
   });
   afterEach(()=>{ctrl.destroy();game.storyService.dispose();game.stop();localStorage.clear();});
   it('creates and edits an Entry, checks/applies it, and retains it after draft reload', () => {
+    const storyDescription = q<HTMLTextAreaElement>('[data-public-description][data-value-scope="$document"]');
+    change(storyDescription, '正文公开简介\n保留换行');
+    expect(draft().document.publicDescription).toBe(storyDescription.value);
     click('[data-authoring-add="activeStories"]');
     const entry=draft().authoring!.activeStories[0]; const scope='$authoring';
     expect(root.querySelector('[data-authoring-field="activeStories"]')).toBeNull();
@@ -72,8 +75,10 @@ describe('Story authoring UI and draft API', () => {
     click('[data-authoring-action="apply"]'); expect(ctrl.storyEditor.state.error).toBeNull();
     expect(game.registry.activeStories.get(entry.id)?.storyId).toBe(draft().document.id);
     const id=draft().document.id;
+    expect(game.registry.stories.get(id)?.publicDescription).toBe('正文公开简介\n保留换行');
     ctrl.destroy(); ctrl=new UIController(game,root); ctrl.storyEditor.open();
     expect(draft().document.id).toBe(id); expect(draft().authoring!.activeStories[0].id).toBe(entry.id);
+    expect(draft().document.publicDescription).toBe('正文公开简介\n保留换行');
   });
   it('supports the default and explicit Entry replay policies without converting the default to a boolean', () => {
     click('[data-authoring-add="activeStories"]');
@@ -772,7 +777,19 @@ describe('Story authoring UI and draft API', () => {
     first.document.nodes = first.document.nodes.filter(node=>node.id!=='missing');
     ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
     expect(root.querySelector('.story-editor-relations [data-editor-story-target="test:story:missing"]')).toBeNull();
-    click(`.story-editor-relations [data-editor-entry-target="${firstEntry.id}"]`);
+    click(`.story-editor-relations [data-editor-story-target="${second.document.id}"]`);
+    const pack = q<HTMLDetailsElement>('.story-editor-story-pack');
+    expect(pack.open).toBe(false);
+    expect(pack.querySelector('summary')?.textContent).toBe('剧情包 · 2 个入口');
+    const packRows = [...pack.querySelectorAll<HTMLButtonElement>('[data-editor-entry-target]')];
+    expect(packRows.map(row => row.dataset.editorEntryTarget)).toEqual([secondEntry.id, firstEntry.id]);
+    expect(packRows[0].textContent).toContain('直接起始');
+    expect(packRows[1].textContent).toContain('经剧情转移 · 起始于 关系测试');
+    pack.open = true;
+    ctrl.storyEditor.requestRefresh(); ctrl.flushUIUpdates();
+    expect(q('.story-editor-story-pack')).toBe(pack);
+    expect(pack.open).toBe(true);
+    click(`.story-editor-story-pack [data-editor-entry-target="${firstEntry.id}"]`);
     const potential = q('.story-editor-right .story-editor-relations');
     expect(potential.textContent).toContain('潜在调用集');
     expect(potential.querySelector(`[data-editor-story-target="${first.document.id}"]`)).not.toBeNull();

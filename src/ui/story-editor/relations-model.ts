@@ -65,6 +65,28 @@ export function buildStoryRelations(state: StoryEditorState, sourceStories: Read
   return { stories, entries, calls };
 }
 
+/** Entry requests start separate sessions. Only Story transfers connect a Story's Entry contexts. */
+export function storyTransferContext(relations: StoryRelations, storyId: string, direction: 'incoming' | 'both' = 'incoming') {
+  const neighbors = new Map<string, string[]>();
+  const add = (fromId: string, toId: string) => {
+    const ids = neighbors.get(fromId);
+    if (ids) ids.push(toId);
+    else neighbors.set(fromId, [toId]);
+  };
+  for (const { from, to } of relations.calls) {
+    if (from.kind !== 'story' || to.kind !== 'story') continue;
+    add(to.id, from.id);
+    if (direction === 'both') add(from.id, to.id);
+  }
+
+  const storyIds = new Set([storyId]);
+  for (const id of storyIds) {
+    for (const neighbor of neighbors.get(id) ?? []) storyIds.add(neighbor);
+  }
+  const entries = [...relations.entries.values()].filter(entry => storyIds.has(entry.storyId));
+  return { storyIds, entries };
+}
+
 /** All declared branches are possible; the visited set bounds cycles and deduplicates targets. */
 export function potentialStoryCalls(relations: StoryRelations, start: StoryEditorTarget): readonly StoryCall[] {
   const outgoing = new Map<string, StoryCall[]>();

@@ -19,6 +19,8 @@ export interface ParsedPack {
   ignoredCount: number;
 }
 
+type PackProgressReporter = (completed: number, total: number) => void;
+
 export class PackParseError extends Error {
   readonly path?: string;
   constructor(message: string, path?: string) {
@@ -50,32 +52,43 @@ async function readJson(entry: { path: string; read(): Promise<Uint8Array> }): P
   }
 }
 
-export async function parsePack(source: PackSource): Promise<ParsedPack> {
+export async function parsePack(source: PackSource, onProgress?: PackProgressReporter): Promise<ParsedPack> {
   const entries = await source.list();
   const manifestEntry = entries.find(entry => entry.path === 'datapack.json');
   if (!manifestEntry) throw new PackParseError('缺少根目录 datapack.json。', 'datapack.json');
-  const manifest = parsePackManifest(await readJson(manifestEntry), manifestEntry.path);
   const jsonEntries = entries.filter(entry => entry.path !== 'datapack.json' && /\.json$/i.test(entry.path));
   const imageEntries = entries.filter(entry => IMAGE_EXT_RE.test(entry.path));
+  const total = jsonEntries.length + imageEntries.length + 2;
+  let completed = 0;
+  const advance = () => onProgress?.(++completed, total);
+  onProgress?.(completed, total);
+  const manifest = parsePackManifest(await readJson(manifestEntry), manifestEntry.path);
+  advance();
   const ignoredCount = entries.length - 1 - jsonEntries.length - imageEntries.length;
   if (jsonEntries.length === 0) throw new PackParseError('除 manifest 外未找到任何 .json 分片。');
-  const fragments = await Promise.all(jsonEntries.map(async entry => parseFragment(entry.path, new TextDecoder().decode(await entry.read()))));
-  const images = await Promise.all(imageEntries.map(async entry => ({
-    path: entry.path,
-    url: 'data:' + mimeOfPath(entry.path) + ';base64,' + base64Of(await entry.read()),
-  })));
+  const fragments = await Promise.all(jsonEntries.map(async entry => {
+    const fragment = parseFragment(entry.path, new TextDecoder().decode(await entry.read()));
+    advance();
+    return fragment;
+  }));
+  const images = await Promise.all(imageEntries.map(async entry => {
+    const url = 'data:' + mimeOfPath(entry.path) + ';base64,' + base64Of(await entry.read());
+    advance();
+    return { path: entry.path, url };
+  }));
   const datapack = { ...mergeFragments(fragments), modName: manifest.modName };
   if (datapack.name !== manifest.name || datapack.version !== manifest.version) {
     throw new PackParseError('manifest 与 Datapack 分片的 name/version 不一致。', manifestEntry.path);
   }
+  advance();
   return { manifest, datapack, images, jsonFileCount: jsonEntries.length, ignoredCount };
 }
 
-export async function parsePackFromZipBuffer(input: ArrayBuffer | Uint8Array | Blob): Promise<ParsedPack> {
+export async function parsePackFromZipBuffer(input: ArrayBuffer | Uint8Array | Blob, onProgress?: PackProgressReporter): Promise<ParsedPack> {
   const { default: JSZip } = await import('jszip');
-  return parsePack(new ZipPackSource(await JSZip.loadAsync(input)));
+  return parsePack(new ZipPackSource(await JSZip.loadAsync(input)), onProgress);
 }
 
-export async function parsePackFromZipFile(file: File | Blob): Promise<ParsedPack> {
-  return parsePackFromZipBuffer(file);
+export async function parsePackFromZipFile(file: File | Blob, onProgress?: PackProgressReporter): Promise<ParsedPack> {
+  return parsePackFromZipBuffer(file, onProgress);
 }

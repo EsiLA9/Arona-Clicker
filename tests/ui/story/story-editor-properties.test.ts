@@ -323,6 +323,10 @@ describe('Story Editor property panel', () => {
     expect(choice.interaction.options).toHaveLength(2);
     expect(choice.interaction).not.toHaveProperty('sharedActions');
     expect(choice.interaction.options.every(option=>option.marks?.length)).toBe(true);
+    const flag = choice.interaction.options[0].marks![0];
+    editProperty(draft, choice.id, ['interaction', 'options', 0, 'requiresFlag'], 'choice-visibility');
+    editProperty(draft, choice.id, ['interaction', 'options', 0, 'marks'], [flag, flag, 'unused-flag']);
+    draft.document.nodes.push({ id: 'second-flag-reader', type: 'operation', requiresFlag: flag });
     const flowNode=q<HTMLElement>('[data-editor-node="p6-choice"]');flowNode.click();ctrl.flushUIUpdates();
     const fields=q<HTMLElement>('[data-story-node-properties="p6-choice"]');
     expect(fields.textContent).not.toContain('局部标记（按顺序）');
@@ -332,16 +336,61 @@ describe('Story Editor property panel', () => {
     const mark=property<HTMLInputElement>(['interaction','options',0,'marks',0]);
     expect(mark.value).toBe(choice.interaction.options[0].marks![0]);
     expect(mark.closest('.story-editor-flag-control')?.querySelector('[data-local-flag-navi]')).toBeTruthy();
-    expect(root.querySelectorAll('[data-story-choice-flag-unbind]').length).toBeGreaterThan(0);
-    expect(root.querySelector('[data-story-choice-flag-unbind]')?.getAttribute('aria-label')).toContain('此节点将不再受这些选项控制');
+    const choiceRow = q('[data-story-drop-target="choice-flag"][data-story-choice-node="p6-choice"][data-story-option-index="0"]');
+    const [need, markFlags] = [choiceRow.firstElementChild, choiceRow.lastElementChild];
+    expect(need?.textContent).toBe('choice-visibility');
+    expect(need?.nextElementSibling?.classList.contains('choice-option')).toBe(true);
+    const marks = [...markFlags!.querySelectorAll<HTMLButtonElement>('.story-editor-flow-flag')];
+    expect(marks.map(button => [button.textContent, button.title])).toEqual([[flag, flag], ['unused-flag', 'unused-flag']]);
+    const center = q('.story-editor-center .workspace-column__body'); center.scrollTop = 80;
+    const flagRow = () => q<HTMLDetailsElement>(`.story-editor-flag-item[data-story-flag-name="${flag}"]`);
+    marks[0].click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.storyInspectorTab).toBe('flags');
+    expect(ctrl.storyEditor.state.selectedNodeId).toBe('p6-choice');
+    expect(flagRow().open).toBe(true);
+    expect(center.scrollTop).toBe(80);
+    flowNode.click(); ctrl.flushUIUpdates();
+    const unbind = q<HTMLButtonElement>('[data-story-choice-flag-unbind][data-story-node-id="second-flag-reader"]');
+    expect(unbind.title).toContain('共用该标记');
     const optionText=property<HTMLTextAreaElement>(['interaction','options',0,'text']);
     const optionRow=root.querySelector<HTMLElement>('[data-editor-key^="choice:"]');
     optionText.focus();optionText.value=`${optionText.value}!`;optionText.dispatchEvent(new Event('input',{bubbles:true}));ctrl.flushUIUpdates();
     expect(property(['interaction','options',0,'text'])).toBe(optionText);
     expect(root.querySelector('[data-editor-key^="choice:"]')).toBe(optionRow);
     expect(root.querySelector('[data-editor-node="p6-choice"]')).toBe(flowNode);
+    unbind.click(); ctrl.flushUIUpdates();
+    expect(draft.document.nodes.find(item=>item.id==='second-flag-reader')?.requiresFlag).toBeUndefined();
     const branchNode=draft.document.nodes.find(item=>item.id==='p6-option1-op');
     expect(branchNode?.requiresFlag).toBe(choice.interaction.options[0].marks![0]);
+
+    const record = q<HTMLButtonElement>('[data-editor-node="p6-option1-op"] .story-editor-flag-reader-record');
+    const reader = q('[data-editor-node="second-flag-reader"]');
+    expect(record.textContent).toBe(flag);
+    expect(record.title).toBe(flag);
+    expect(record.classList.contains('story-editor-target-card')).toBe(true);
+    record.click(); ctrl.flushUIUpdates();
+    expect(flagRow().open).toBe(true);
+    expect(center.scrollTop).toBe(80);
+    const drag = (source: HTMLElement, target: HTMLElement, status: string, commit: boolean) => {
+      const values = new Map<string, string>();
+      const data = { setData: (key: string, value: string) => values.set(key, value), getData: (key: string) => values.get(key), get types() { return [...values.keys()]; } };
+      const dispatch = (element: HTMLElement, type: string) => {
+        const event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'dataTransfer', { value: data });
+        element.dispatchEvent(event);
+      };
+      dispatch(source, 'dragstart');
+      dispatch(target, 'dragover');
+      expect(target.dataset.storyFlagDropStatus).toBe(status);
+      if (commit) dispatch(target, 'drop');
+      dispatch(source, 'dragend');
+      ctrl.flushUIUpdates();
+      expect(target.dataset.storyFlagDropStatus).toBeUndefined();
+    };
+    drag(marks[0], reader, '可绑定', true);
+    expect(draft.document.nodes.find(item=>item.id==='second-flag-reader')?.requiresFlag).toBe(flag);
+    drag(reader, record, '已绑定', false);
+    drag(record, q('[data-editor-node="p6-option2-op"]'), '不可绑定', false);
   });
 
   it('edits state effects, coerces numeric text, reorders rows by identity and keeps travel fields separate', () => {

@@ -3,6 +3,7 @@ import type { ConditionGroup } from '../../engine/types/expression';
 import type { InitId, StoryId } from '../../engine/types/ids';
 import type { StoryAction, StoryEntryCard, StoryTransfer } from './story-node-actions';
 import type { AreaId } from '../../engine/types/ids';
+import type { HierachyString } from './story-directory';
 import type { VariantId } from '../../engine/types/character';
 import type { ChatTextStyle, StoryNodeLayout, StoryNodeTemplate } from '../../engine/contracts/chat-presentation';
 
@@ -32,8 +33,12 @@ export interface StoryNodeDocument {
   readonly id: StoryId;
   /** 作者可读名称。 */
   readonly name: string;
+  /** 玩家可见入口的同 Mod 正文简介回退。支持多行纯文本。 */
+  readonly publicDescription?: string;
   /** 作者目录归属。省略时归入「其他」，不限制入口、播放或重读。 */
   readonly initId?: InitId;
+  /** Folder path under initId. Missing initId uses the editor's Other root. */
+  readonly hierarchyString?: HierachyString;
   /** Authoring location within initId. Affects directory placement only. */
   readonly directoryId?: string;
   /** 起始对话空间由故事本体声明，不从 Active/Passive Entry 推断。 */
