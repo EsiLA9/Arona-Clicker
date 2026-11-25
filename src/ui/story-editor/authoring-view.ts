@@ -257,8 +257,16 @@ export function renderStoryAuthoringEntryRelations(ctx: UIContext, state: StoryE
     })).join('')}`).join('');
   return `<section class="story-editor-authoring" data-editor-key="story-authoring-relations:${e(draft.draftId)}"><h3>关联 Entry</h3><p class="story-editor-hint">创建 Entry，或选择现有 Entry 继续编辑。</p>${rows}</section>`;
 }
+export function renderStoryPreviewEntrySelect(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
+  const e = ctx.escapeHtml;
+  const { entries, entryId } = storyPreviewEntries(state, draft, ctx.game.registry.storyEntries);
+  if (!entries.length) return '';
+  return `<label class="story-editor-property">试播入口<select data-editor-key="preview-entry:${e(draft.draftId)}" data-authoring-preview-entry><option value=""${entryId === '' ? ' selected' : ''}>直接试播正文</option>${entries.map(entry => `<option value="${e(entry.id)}"${entry.id === entryId ? ' selected' : ''}>${e(entry.openingTitle || draft.document.name || entry.id)}</option>`).join('')}</select></label>`;
+}
+
 export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
   const e = ctx.escapeHtml; const locked = (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : '';
+  const advanced = state.workspace?.preferences.mode === 'advanced';
   const value = authoringValueRenderer(ctx,state,draft);
   const catalog = (ctx.game as typeof ctx.game & Partial<PackCatalogReadModel>).getPackCatalog?.();
   const targets = (catalog?.entries ?? []).filter(x => x.editingMode === 'editing');
@@ -266,27 +274,28 @@ export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorStat
   const { entries, entryId } = storyPreviewEntries(state, draft, ctx.game.registry.storyEntries);
   const previewEntry = entries.find(entry => entry.id === entryId);
   return `<section class="story-editor-authoring" data-editor-key="story-authoring:${e(draft.draftId)}">
-    <section class="story-editor-tool-section">
+    ${advanced ? '' : `<section class="story-editor-tool-section">
       <h3>试播</h3>
       <div class="story-editor-actions story-editor-actions--tools">
-        ${entries.length ? `<label class="story-editor-property">试播入口<select data-editor-key="preview-entry:${e(draft.draftId)}" data-authoring-preview-entry><option value=""${entryId === '' ? ' selected' : ''}>直接试播正文</option>${entries.map(entry => `<option value="${e(entry.id)}"${entry.id === entryId ? ' selected' : ''}>${e(entry.openingTitle || draft.document.name || entry.id)}</option>`).join('')}</select></label>` : ''}
+        ${renderStoryPreviewEntrySelect(ctx, state, draft)}
         <button type="button" class="mini-action" data-authoring-action="preview" data-editor-key="tools-preview">试播</button>
       </div>
       ${previewEntry ? renderStoryIdentityInline(ctx, 'entry', previewEntry.openingTitle || draft.document.name || previewEntry.id, previewEntry.id) : ''}
       <p class="story-editor-hint">${entryId ? '使用所选入口试播，会检查入口资格与重读分支条件。' : '从当前正文开始。'} 试播决定只在本次播放中生效。</p>
-    </section>
+    </section>`}
     <section class="story-editor-tool-section">
       <h3>检查与应用</h3>
       <div class="story-editor-actions story-editor-actions--tools">
-        <button type="button" class="mini-action" data-authoring-action="check"${locked}>检查内容</button>
+        ${advanced ? '' : `<button type="button" class="mini-action" data-authoring-action="check"${locked}>检查内容</button>`}
         <button type="button" class="mini-action" data-authoring-action="apply"${locked || (state.canApplySource === false ? ' disabled' : '')}>应用正文与关联内容</button>
+        ${advanced ? `<button type="button" class="mini-action mini-action--danger" data-editor-action="restore-source"${locked || (state.canApplySource === false ? ' disabled' : '')}>还原来源版本</button>` : ''}
       </div>
     </section>
     <section class="story-editor-tool-section">
       <h3>数据包</h3>
       <div class="story-editor-actions story-editor-actions--tools">
         ${state.sourceOptions ? `<p class="story-editor-hint">${e(draft.packSource?.label ?? '请打开内容所属的编辑态包。')}</p>` : `<label class="story-editor-property">目标数据包<select data-authoring-target${locked}><option value="">${targets.length ? '选择编辑态数据包' : '请先在包管理创建编辑副本'}</option>${targets.map(target=>`<option value="${e(target.packRecordId ?? target.id)}"${(target.packRecordId ?? target.id)===targetPackId?' selected':''}>${e(target.name)} · ${e(target.modName)}</option>`).join('')}</select></label>`}
-        <button type="button" class="mini-action" data-authoring-action="pack"${locked}>保存到编辑态包</button>
+        ${advanced && state.sourceOptions ? '' : `<button type="button" class="mini-action" data-authoring-action="pack"${locked}>保存到编辑态包</button>`}
       </div>
       <p class="story-editor-hint">修改在重新载入目标包后生效。新内容 ID 使用目标包命名空间。</p>
     </section>

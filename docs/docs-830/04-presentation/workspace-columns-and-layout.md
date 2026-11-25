@@ -69,7 +69,7 @@ columns.mountColumn(container, ctx, 'editor/preview', column, {
 columns.dispose();
 ```
 
-该示例展示运行态聊天栏的嵌入。Story Editor E0 使用纯气泡投影展示作者 nodes，不直接挂载上述带运行态语义的聊天栏；编辑会话与草稿保存见 [[runtime-editor-and-project-checks]]。播放预览 Runtime 仍未实现。
+该示例展示运行态聊天栏的嵌入。Story 编辑器使用气泡投影展示作者节点，隔离试播使用自己的 Frame 列配置。编辑会话与草稿保存见 [[runtime-editor-and-project-checks]]。
 
 ## 导航与 DOM 生命周期
 
@@ -90,6 +90,12 @@ columns.dispose();
 设施、强化与区域导航的消费者来自已挂载且仍连接的语义实例，原 Game 页签和当前路由只决定默认装配，不屏蔽其他位置的消费者。App 重绘只释放其替换范围内的栏，外部容器中仍连接的栏继续登记；Controller 销毁时再释放全部实例。
 
 `updates: 'external'` 标识专用 keyed 更新路径：Shop、Map、Map Entry、Area Map、Operation 继续由其交易/地图/行动协调器更新内部区域。Story Editor E0 同样声明此模式，以作者节点身份局部协调三栏，固定输入使用共享 footer；普通编辑不替换整栏。它们的专用业务编排没有被替换成通用栏调度。未来将复杂栏嵌入新宿主时，仍需为其具体业务动作和协调器设计绑定，不能只复制 HTML。
+
+### 编辑器模式与浏览实例
+
+Story／StoryEntry 通过 `editor-workspace.ts` 在游戏页面内装配可切换的编辑器外壳。经典模式显示游戏顶栏和底栏。高级模式占满视口，使用按场景装配的工具组、独立的实例条、工作类型栏和状态栏。正文节点插入在两种模式下均位于中栏输入器。试播和目录管理在高级模式顶部提供该场景的操作，经典模式使用对应栏内入口。Frame 始终是独立宿主的直接子项，外壳更新走 Story 编辑区域的局部协调，拖宽直接更新网格轨道。高级模式按工作类型记忆栏宽和模式偏好，浏览视图跟随实例。
+
+`story-editor/workspace-session.ts` 保存有序实例与当前项。只有当前实例挂载三栏，后台实例保存来源、对象、历史、选择、各栏模式与滚动位置。Story／Entry 草稿由原编辑器共享处理，激活实例时仍经数据包读取器核对来源。切回经典模式时保留当前实例及其历史，后台列表在回到高级模式时重新可用。目录管理与试播临时显示原三栏布局，完成后回到发起实例。
 
 聊天显示各自有滚动 key；同一个业务 stream 可以展示两份，阅读位置互不覆盖。Story 的送达指纹、门控和自动推进仍由共享 ChatStream 按业务流去重。发送和选择从实际窗格的 owner 取目标，不从物理中栏或 Controller 当前选中项推断。
 

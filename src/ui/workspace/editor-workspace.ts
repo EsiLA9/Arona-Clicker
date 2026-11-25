@@ -1,0 +1,242 @@
+import type { UIContext } from '../runtime/context';
+import { LocalStorageAdapter } from '../../data-services/persistence/storage-adapter';
+
+export type EditorWorkspaceMode = 'classic' | 'advanced';
+export type EditorWorkspaceView = 'three' | 'browse' | 'focus';
+export type EditorWorkspaceEdge = 'left' | 'right';
+type EditorRibbonDensity = 'compact' | 'expanded';
+
+const preferencesKey = 'acprogram.editor-workspace.v1';
+const storage = new LocalStorageAdapter();
+const workspaceViews = { three: '三栏', browse: '双栏查阅', focus: '专注正文' } as const;
+export const editorDefaultWidths = { left: 300, right: 320 };
+export const editorWidth = (width: number): number => Math.max(150, Math.min(720, Math.round(width)));
+
+export interface EditorWorkspacePreferences {
+  mode: EditorWorkspaceMode;
+  ribbon: EditorRibbonDensity;
+  widths: Record<EditorWorkspaceEdge, number>;
+}
+
+export function loadEditorWorkspacePreferences(workType: string): EditorWorkspacePreferences {
+  const prefs: EditorWorkspacePreferences = { mode: 'classic', ribbon: 'expanded', widths: { ...editorDefaultWidths } };
+  try {
+    const saved = JSON.parse(storage.get(`${preferencesKey}.${workType}`) ?? 'null');
+    if (saved?.mode === 'advanced') prefs.mode = 'advanced';
+    if (saved?.ribbon === 'compact') prefs.ribbon = 'compact';
+    for (const edge of ['left', 'right'] as const) {
+      if (typeof saved?.widths?.[edge] === 'number') prefs.widths[edge] = editorWidth(saved.widths[edge]);
+    }
+  } catch { /* A missing or invalid UI preference falls back to the defaults. */ }
+  return prefs;
+}
+
+export function saveEditorWorkspacePreferences(workType: string, preferences: EditorWorkspacePreferences): void {
+  try { storage.set(`${preferencesKey}.${workType}`, JSON.stringify(preferences)); }
+  catch { /* Layout remains usable with session-only preferences. */ }
+}
+
+export interface EditorWorkspaceChrome {
+  preferences: EditorWorkspacePreferences;
+  view: EditorWorkspaceView;
+  temporaryView: boolean;
+  workTypes: readonly { id: string; name: string; icon: string; active: boolean }[];
+  instances: readonly { id: number; title: string; label?: string; active: boolean }[];
+  canDuplicate: boolean;
+  commands: string;
+  status: string;
+}
+
+const toolPaths = {
+  open: 'M2.5 7V5h7l2 2h8v3M2.5 7v12h16l3-9H7l-3 9',
+  new: 'M13 3H5v18h14V9l-6-6v6h6M8 14h8m-4-4v8',
+  save: 'M4 3h13l3 3v15H4zM7 3v6h9V3M8 21v-8h8v8',
+  play: 'M8 4v16l13-8z',
+  check: 'M14 3H5v18h14V8l-5-5v5h5M8 14l2.5 2.5L16 11',
+  pack: 'M3 8l9-5 9 5v9l-9 5-9-5zM3 8l9 5 9-5M12 13v9m-5-16 9 5',
+  apply: 'M12 3v12m-4-4 4 4 4-4M4 15v6h16v-6',
+  layout: 'M3 4h18v16H3zM8 4v16m8-16v16',
+  mode: 'M4 4h16v12H4zM8 20h8m-4-4v4',
+  back: 'm10 5-7 7 7 7M3 12h17',
+  exit: 'M10 20H4V4h6m-1 8h12m-5-5 5 5-5 5',
+  restart: 'M4 11a8 8 0 1 1 2 7M4 5v6h6',
+  stop: 'M6 6h12v12H6z',
+} as const;
+
+export function editorToolIcon(icon: keyof typeof toolPaths): string {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="${toolPaths[icon]}"/></svg>`;
+}
+
+export function renderEditorTool(ctx: UIContext, icon: keyof typeof toolPaths, label: string, action: string,
+  options: { kind?: 'editor' | 'authoring' | 'workspace'; large?: boolean; reason?: string; key?: string } = {}): string {
+  const e = ctx.escapeHtml;
+  return `<button type="button" class="editor-workspace__tool${options.large ? ' editor-workspace__tool--large' : ''}"
+    data-${options.kind === 'authoring' ? 'authoring' : options.kind === 'editor' ? 'editor' : 'editor-workspace'}-action="${e(action)}"
+    data-editor-key="${e(options.key ?? `ribbon:${action}`)}"${options.reason ? ` disabled title="${e(options.reason)}"` : ''}>${editorToolIcon(icon)}<span>${e(label)}</span></button>`;
+}
+
+export function renderEditorToolGroup(label: string, tools: string): string {
+  return `<div class="editor-workspace__group" role="group" aria-label="${label}" data-editor-key="ribbon-group:${label}">
+    <div class="editor-workspace__group-body">${tools}</div><span class="editor-workspace__group-label" aria-hidden="true">${label}</span>
+  </div>`;
+}
+
+export function editorWorkspaceViewAttributes(spec: EditorWorkspaceChrome) {
+  return {
+    'data-editor-workspace-mode': spec.preferences.mode,
+    'data-editor-workspace-view': spec.temporaryView ? 'three' : spec.view,
+    'data-editor-workspace-temporary': String(spec.temporaryView),
+  };
+}
+
+export function applyEditorWorkspaceWidths(shell: HTMLElement, widths: EditorWorkspacePreferences['widths']): void {
+  shell.style.setProperty('--editor-left-width', `${widths.left}px`);
+  shell.style.setProperty('--editor-right-width', `${widths.right}px`);
+}
+
+export function bindEditorWorkspaceResize(root: HTMLElement, workType: string, preferences: EditorWorkspacePreferences, signal: AbortSignal): void {
+  bindRibbonResize(root, preferences, () => saveEditorWorkspacePreferences(workType, preferences), signal);
+  const options = { signal };
+  let drag: { shell: HTMLElement; handle: HTMLElement; pointerId: number; edge: EditorWorkspaceEdge; start: number; width: number; max: number; original: number } | undefined;
+  const splitter = (event: Event) => event.target instanceof Element
+    ? event.target.closest<HTMLElement>('[data-editor-workspace-edge]') : null;
+  const advancedShell = (handle: HTMLElement | null) => handle?.closest<HTMLElement>(
+    '[data-editor-workspace-mode="advanced"][data-editor-workspace-temporary="false"]',
+  );
+  root.addEventListener('pointerdown', event => {
+    const handle = splitter(event);
+    const shell = advancedShell(handle);
+    if (!shell || !handle || event.button !== 0 || drag) return;
+    const edge = handle.dataset.editorWorkspaceEdge as EditorWorkspaceEdge;
+    const stage = handle.parentElement!;
+    const width = stage.querySelector<HTMLElement>(`.workspace-column--${edge}`)?.getBoundingClientRect().width;
+    const max = (stage.clientWidth - 340) / (shell.dataset.editorWorkspaceView === 'browse' ? 1 : 2);
+    if (!width || max < 150) return;
+    handle.setPointerCapture?.(event.pointerId);
+    handle.dataset.dragging = '';
+    drag = { shell, handle, pointerId: event.pointerId, edge, max, width, start: event.clientX, original: preferences.widths[edge] };
+    event.preventDefault();
+  }, options);
+  root.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.pointerId || !drag.handle.isConnected) return;
+    const delta = (event.clientX - drag.start) * (drag.edge === 'left' ? 1 : -1);
+    preferences.widths[drag.edge] = editorWidth(Math.min(drag.max, drag.width + delta));
+    applyEditorWorkspaceWidths(drag.shell, preferences.widths);
+  }, options);
+  const end = (event: PointerEvent): void => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    delete drag.handle.dataset.dragging;
+    if (event.type === 'pointercancel') {
+      preferences.widths[drag.edge] = drag.original;
+      applyEditorWorkspaceWidths(drag.shell, preferences.widths);
+    } else saveEditorWorkspacePreferences(workType, preferences);
+    drag = undefined;
+  };
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) root.addEventListener(type, end, options);
+  root.addEventListener('dblclick', event => {
+    const handle = splitter(event);
+    const shell = advancedShell(handle);
+    if (!shell || !handle) return;
+    const edge = handle.dataset.editorWorkspaceEdge as EditorWorkspaceEdge;
+    preferences.widths[edge] = editorDefaultWidths[edge];
+    applyEditorWorkspaceWidths(shell, preferences.widths);
+    saveEditorWorkspacePreferences(workType, preferences);
+  }, options);
+}
+
+function ribbonGripValue(ribbon: EditorRibbonDensity) {
+  return ribbon === 'expanded' ? { value: '1', label: '展开' } : { value: '0', label: '紧凑' };
+}
+
+function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePreferences, save: () => void, signal: AbortSignal): void {
+  const options = { signal };
+  const gripFor = (event: Event) => event.target instanceof Element
+    ? event.target.closest<HTMLElement>('[data-editor-workspace-ribbon-grip]') : null;
+  let drag: { grip: HTMLElement; pointerId: number; start: number; original: EditorRibbonDensity } | undefined;
+  const set = (grip: HTMLElement, ribbon: EditorRibbonDensity): void => {
+    preferences.ribbon = ribbon;
+    grip.closest<HTMLElement>('[data-editor-workspace-header]')?.setAttribute('data-editor-workspace-ribbon', ribbon);
+    const { value, label } = ribbonGripValue(ribbon);
+    grip.setAttribute('aria-valuenow', value);
+    grip.setAttribute('aria-valuetext', label);
+  };
+  root.addEventListener('pointerdown', event => {
+    const grip = gripFor(event);
+    if (!grip || event.button !== 0 || drag) return;
+    grip.setPointerCapture?.(event.pointerId);
+    grip.dataset.dragging = '';
+    drag = { grip, pointerId: event.pointerId, start: event.clientY, original: preferences.ribbon };
+    event.preventDefault();
+  }, options);
+  root.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.pointerId || !drag.grip.isConnected) return;
+    const delta = event.clientY - drag.start;
+    const ribbon = delta >= 20 ? 'expanded' : delta <= -20 ? 'compact' : drag.original;
+    if (ribbon !== preferences.ribbon) set(drag.grip, ribbon);
+  }, options);
+  const end = (event: PointerEvent): void => {
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    delete drag.grip.dataset.dragging;
+    if (event.type === 'pointercancel') set(drag.grip, drag.original);
+    else if (preferences.ribbon !== drag.original) save();
+    drag = undefined;
+  };
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) root.addEventListener(type, end, options);
+  root.addEventListener('keydown', event => {
+    const grip = gripFor(event);
+    if (!grip || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    event.preventDefault();
+    set(grip, event.key === 'ArrowUp' ? 'compact' : 'expanded');
+    save();
+  }, options);
+}
+
+export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspaceChrome) {
+  const e = ctx.escapeHtml;
+  const advanced = spec.preferences.mode === 'advanced';
+  const view = spec.temporaryView ? '' : `<label class="editor-workspace__tool editor-workspace__view">
+    ${editorToolIcon('layout')}<select data-editor-workspace-view-select aria-label="浏览视图">${Object.entries(workspaceViews).map(([value, label]) => `<option value="${value}"${value === spec.view ? ' selected' : ''}>${label}</option>`).join('')}</select></label>`;
+  const mode = renderEditorTool(ctx, 'mode', '经典模式', 'mode', { key: 'editor-workspace-mode' });
+  const exit = spec.temporaryView ? '' : renderEditorTool(ctx, 'exit', '退出编辑器', 'back');
+  const ribbon = spec.preferences.ribbon;
+  const grip = ribbonGripValue(ribbon);
+  return {
+    header: `<header class="editor-workspace__header" data-editor-workspace-header${advanced ? ` data-editor-workspace-ribbon="${ribbon}"` : ''}>
+      ${advanced ? `<div class="editor-workspace__ribbon" data-editor-key="ribbon-tools">${spec.commands}${renderEditorToolGroup('工作区', `<div class="editor-workspace__tool-stack">${view}${mode}${exit}</div>`)}</div>
+        <div class="editor-workspace__ribbon-grip" data-editor-workspace-ribbon-grip data-editor-key="ribbon-grip"
+          role="separator" tabindex="0" aria-orientation="horizontal" aria-label="工具栏高度" aria-valuemin="0" aria-valuemax="1"
+          aria-valuenow="${grip.value}" aria-valuetext="${grip.label}" title="向下拖动展开，向上拖动收起"></div>`
+        : '<button type="button" class="mini-action editor-workspace__mode" data-editor-workspace-action="mode" data-editor-key="editor-workspace-mode">高级模式</button>'}
+    </header>`,
+    documents: `<nav class="editor-workspace__documents" data-editor-workspace-documents aria-label="浏览实例"${advanced && !spec.temporaryView ? '' : ' hidden'}>
+        ${advanced && !spec.temporaryView ? `
+          ${spec.instances.map(item => `<div class="editor-workspace__document" data-editor-key="browse-instance:${item.id}" data-current="${item.active}">
+            <button type="button" class="mini-action" data-editor-workspace-action="activate" data-editor-instance="${item.id}" aria-pressed="${item.active}" title="${e(item.label ?? item.title)}">${e(item.title)}</button>
+            <button type="button" class="mini-action" data-editor-workspace-action="close" data-editor-instance="${item.id}" aria-label="关闭 ${e(item.title)}" title="关闭">×</button>
+          </div>`).join('')}
+          <button type="button" class="mini-action" data-editor-workspace-action="duplicate"${spec.canDuplicate ? '' : ' disabled'} title="在新实例中打开当前内容">＋ 新建实例</button>` : ''}
+    </nav>`,
+    rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced ? '' : ' hidden'}>${spec.workTypes.map(type => `
+      <button type="button" class="editor-workspace__work-type" data-editor-workspace-action="work-type" data-editor-work-type="${e(type.id)}" title="${e(type.name)}" aria-label="${e(type.name)}" aria-pressed="${type.active}">${type.icon}</button>`).join('')}</nav>`,
+    status: `<footer class="editor-workspace__status" data-editor-workspace-status${advanced ? '' : ' hidden'}>${spec.status}</footer>`,
+  };
+}
+
+export function renderEditorWorkspace(ctx: UIContext, spec: EditorWorkspaceChrome, frame: string): string {
+  const { header, documents, rail, status } = renderEditorWorkspaceRegions(ctx, spec);
+  const attributes = Object.entries(editorWorkspaceViewAttributes(spec)).map(([key, value]) => `${key}="${value}"`).join(' ');
+  return `<section class="editor-workspace" data-editor-workspace ${attributes}
+    style="--editor-left-width:${spec.preferences.widths.left}px;--editor-right-width:${spec.preferences.widths.right}px">
+    ${header}
+    ${documents}
+    <div class="editor-workspace__body">
+      ${rail}
+      <div class="editor-workspace__stage">
+        <div class="editor-workspace__frame" data-editor-workspace-frame-host>${frame}</div>
+        <div class="editor-workspace__splitter" data-editor-workspace-edge="left" role="separator" aria-orientation="vertical" aria-label="调整导航栏宽度" title="拖动调整导航栏宽度，双击复位"></div>
+        <div class="editor-workspace__splitter" data-editor-workspace-edge="right" role="separator" aria-orientation="vertical" aria-label="调整属性栏宽度" title="拖动调整属性栏宽度，双击复位"></div>
+      </div>
+    </div>
+    ${status}
+  </section>`;
+}

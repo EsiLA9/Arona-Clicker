@@ -66,6 +66,7 @@ export interface StoryEditorVisit {
   rightScroll: number;
 }
 export interface StoryEditorState {
+  workspace?: import('./workspace-session').StoryWorkspaceSession;
   sourceSelection?: string;
   sourceRegistry?: import('../../arona-clicker/contracts/runtime/content-catalog').ContentCatalogQueryPort;
   sourcePics?: import('../../arona-clicker/contracts/runtime/runtime').GameReadModel['pics'];

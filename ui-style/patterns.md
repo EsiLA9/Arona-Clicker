@@ -6,7 +6,7 @@
 
 Story 编辑器的单按钮 Click 属性只编辑正文与按击次数，不嵌套结果动作或转移表单。行为通过后续独立节点编辑；旧 result 仅展示原始值诊断和显式移除入口，不提供编辑或发布。入口为 `story-editor/property-fields.ts`，行为由 `tests/ui/story/story-editor-properties.test.ts` 核验。
 
-Story 编辑器的左侧目录栏通过 `view.ts` 的 `baseColumn` 固定为 300px，为 Story / Entry 名称、目录与发出方列表留出空间；中栏继续占用剩余宽度，右栏沿用共享属性栏宽度。列宽由既有 WorkspaceColumnSpec 交给共享 Frame，不新增布局容器或改变滚动宿主。适用于 Story 与 Entry 两种查看目标；复验入口为 `tests/ui/story/story-editor-workspace.test.ts`，未做浏览器视觉验收。
+Story／StoryEntry 编辑器在经典模式使用原 Workspace 布局。高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换，选择跟随界面偏好保存。工作类型栏以边缘选中线和悬停名称提示。正文底部的插入工具沿用 `.mini-action`，布局分隔线显示 1px、拖动命中区为 8px，双击恢复侧栏默认宽度。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts`。
 
 Story / Entry 中栏的历史按钮与 workspace-heading 共用一行，按钮组位于左侧且不收缩，标题占余下宽度。仅 `story-editor.css` 对中栏 titlebar-layout 进行横排与历史组排序，不增加 DOM 包装，不改变其他工作区标题栏或刷新范围。
 
@@ -173,4 +173,4 @@ Map 的单位关系检查使用 `src/ui/workspace/map-relation-presentation.ts` 
 
 超级图鉴的中文分类与类型标签由 `src/ui/runtime-editor/codex/content-labels.ts` 提供；名称、说明、关系与可靠来源来自只读内容查询。主路径为资料／被引用，完整出向关系、字段树和 JSON 进入技术详情；未知字段仍可展开。`tests/ui/workspace/workspace-frame.test.ts` 验证内容工具 Frame 的直接子项、`pane-switch`、无游戏主题 Host，以及有操作内容时才输出 footer。更新边界与来源限制见 [[ui-refresh-focus-scroll]]、[[read-model-and-ui]]。此为已采用的工具特例，不改变游戏工作区默认主题规则。
 
-StoryEntry 中栏复用列头和底栏，「基本信息／奖励信息／详细门控」固定在列头第二行，试播、保存、检查和应用固定在底栏。表单使用原来的单一滚动宿主，切页只更换正文表单并更新页签激活态，每页独立恢复原滚动。基本信息以命名文字框编辑入口身份和开幕标题，关联剧情复用原有选择器，剧情重读显示「允许重读／不开放重读」。标签和扩展数据收在折叠区，删除入口位于页末。重读机制见 [[story-and-effects]]。奖励页的首次、重复和条件效果各有独立区域，条件奖励操作跟随对应列表或条目。详细门控将触发与限制、关联抽取池分区，抽取池沿用稳定结构行 key 的 details。两列字段与奖励区域由 `.story-editor-entry-grid` 按中栏可用宽度排布，较长的按钮组可换行。结构值、字段焦点和弹窗生命周期沿用 Story 编辑器现有更新入口。源码见 `view.ts`、`authoring-view.ts` 与 `story-editor.css`，回归见 `tests/ui/story/story-editor-authoring.test.ts` 与 `tests/ui/story/story-editor-entry-activation.test.ts`。
+StoryEntry 中栏复用列头和底栏，「基本信息／奖励信息／详细门控」固定在列头第二行。试播、保存、检查和应用在经典模式位于列底栏，在高级模式集中到顶部快捷操作与管理命令。表单使用原来的单一滚动宿主，切页只更换正文表单并更新页签激活态，每页独立恢复原滚动。基本信息以命名文字框编辑入口身份和开幕标题，关联剧情复用原有选择器，剧情重读显示「允许重读／不开放重读」。标签和扩展数据收在折叠区，删除入口位于页末。重读机制见 [[story-and-effects]]。奖励页的首次、重复和条件效果各有独立区域，条件奖励操作跟随对应列表或条目。详细门控将触发与限制、关联抽取池分区，抽取池沿用稳定结构行 key 的 details。两列字段与奖励区域由 `.story-editor-entry-grid` 按中栏可用宽度排布，较长的按钮组可换行。结构值、字段焦点和弹窗生命周期沿用 Story 编辑器现有更新入口。源码见 `view.ts`、`authoring-view.ts` 与 `story-editor.css`，回归见 `tests/ui/story/story-editor-authoring.test.ts` 与 `tests/ui/story/story-editor-entry-activation.test.ts`。

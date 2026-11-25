@@ -120,6 +120,24 @@ it('browses and previews only the loaded slot, then preserves a draft when the s
     expect(ctrl.storyEditor.state.sourceSelection).toBe(`pack:${edit}`);
     expect(ctrl.storyEditor.save(true, false)).toBe(true);
     expect(game.registry.stories.get(storyId)?.name).toBe('编辑副本');
+
+    click('[data-editor-workspace-action="mode"]');
+    const original = root.querySelector<HTMLElement>('[data-editor-workspace-action="activate"][aria-pressed="true"]')!.dataset.editorInstance;
+    click('[data-editor-workspace-action="duplicate"]');
+    expect(root.querySelectorAll('[data-editor-workspace-action="activate"]')).toHaveLength(2);
+    game.setPackSelection(paneKey, 'fixed');
+    expect(game.applyPackSelection().ok).toBe(true);
+    ctrl.storyEditor.refresh(createUIContext(game));
+    click(`[data-editor-workspace-action="activate"][data-editor-instance="${original}"]`);
+    expect(state.sourceSelection).toBe(`draft:${draft.draftId}`);
+    expect(state.target?.id).toBe(storyId);
+    expect(root.querySelector('[data-editor-workspace-status]')?.textContent).toContain('只读');
+    expect(root.querySelector<HTMLButtonElement>('[data-editor-action="save"]')?.disabled).toBe(true);
+    const unavailablePreview = root.querySelector<HTMLButtonElement>('[data-editor-key="quick-preview"]')!;
+    expect(unavailablePreview.disabled).toBe(true);
+    expect(unavailablePreview.title).toContain('未载入');
+    unavailablePreview.click();
+    expect(root.querySelector('[aria-label="试播正文"]')).toBeNull();
   } finally {
     ctrl.destroy();
     game.storyService.dispose();

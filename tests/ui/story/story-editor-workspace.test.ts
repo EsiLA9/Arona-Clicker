@@ -120,6 +120,210 @@ describe('Story Editor workspace prototype', () => {
     expect(render).not.toHaveBeenCalled();
   });
 
+  it('preserves the mounted editor and parked browse instances across advanced and classic layouts', () => {
+    open(); click('new'); click('click');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const node = currentNode(state)!;
+    const frame = find('[data-workspace-frame="story-editor"]');
+    const center = find('.story-editor-center .workspace-column__body');
+    const right = find('.story-editor-right .workspace-column__body');
+    const action = (name: string) => {
+      find<HTMLButtonElement>(`[data-editor-workspace-action="${name}"]`).click();
+      ctrl.flushUIUpdates();
+    };
+    const view = (value: string) => {
+      const select = find<HTMLSelectElement>('[data-editor-workspace-view-select]');
+      select.value = value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      ctrl.flushUIUpdates();
+    };
+    const activeId = () => find('[data-editor-workspace-action="activate"][aria-pressed="true"]').dataset.editorInstance;
+    const activate = (id: string) => {
+      find<HTMLButtonElement>(`[data-editor-workspace-action="activate"][data-editor-instance="${id}"]`).click();
+      ctrl.flushUIUpdates();
+    };
+    input('[data-editor-composer-text]', '两处共用的正文输入');
+    center.scrollTop = 123;
+    right.scrollTop = 46;
+    action('mode');
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceMode).toBe('advanced');
+    expect(find('[data-workspace-frame="story-editor"]')).toBe(frame);
+    expect(find('.story-editor-center .workspace-column__body')).toBe(center);
+    const first = activeId()!;
+    view('focus');
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('focus');
+    right.scrollTop = 0; // A hidden body can report zero in a browser.
+    action('open');
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('browse');
+    expect(document.activeElement).toBe(find('[data-sidebar-search]'));
+    view('three');
+    expect(right.scrollTop).toBe(46);
+    action('duplicate');
+    const second = activeId()!;
+    expect(second).not.toBe(first);
+    expect(currentDraft(state)).toBe(draft);
+    expect(currentNode(state)).toBeUndefined();
+    expect(center.scrollTop).toBe(0);
+    input('[data-editor-composer-text]', '从第二个实例修改');
+    center.scrollTop = 34;
+    view('browse');
+    activate(first);
+    expect(currentNode(state)?.id).toBe(node.id);
+    expect(center.scrollTop).toBe(123);
+    expect(composer(state).text).toBe('从第二个实例修改');
+    activate(second);
+    expect(center.scrollTop).toBe(34);
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('browse');
+
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click();
+    ctrl.flushUIUpdates();
+    const entry = [...game.registry.activeStories.values()][0];
+    find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click();
+    ctrl.flushUIUpdates();
+    const third = activeId()!;
+    expect(third).not.toBe(second);
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    find<HTMLButtonElement>('[data-column-action="story-editor-entry-tab:rewards"]').click();
+    ctrl.flushUIUpdates();
+    action('mode');
+    expect(root.querySelector('[data-editor-workspace-action="activate"]')).toBeNull();
+    expect(state.entryEditorTab).toBe('rewards');
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:stories"]').click();
+    ctrl.flushUIUpdates();
+    const source = [...game.registry.stories.values()][0];
+    find<HTMLButtonElement>(`[data-editor-story="source:${source.id}"]`).click();
+    ctrl.flushUIUpdates();
+    action('mode');
+    expect(activeId()).toBe(third);
+    expect(state.target).toEqual({ kind: 'story', id: source.id });
+    expect(root.querySelectorAll('[data-editor-workspace-action="activate"]')).toHaveLength(3);
+    click('history-back');
+    expect(state.target).toEqual({ kind: 'entry', id: entry.id });
+    expect(state.entryEditorTab).toBe('rewards');
+    activate(first);
+    expect(currentNode(state)?.id).toBe(node.id);
+    expect(center.scrollTop).toBe(123);
+    find<HTMLButtonElement>(`[data-editor-workspace-action="close"][data-editor-instance="${first}"]`).click();
+    ctrl.flushUIUpdates();
+    expect(activeId()).toBe(second);
+    expect(currentDraft(state)).toBe(draft);
+    expect(composer(state).text).toBe('从第二个实例修改');
+  });
+
+  it('keeps node insertion in the composer and shows commands for the current ribbon scene', () => {
+    open(); click('new');
+    input('[data-editor-composer-text]', '工具区测试正文');
+    click('send');
+    const state = ctrl.storyEditor.state;
+    const draft = currentDraft(state)!;
+    const firstNode = draft.document.nodes[0].id;
+    find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click();
+    ctrl.flushUIUpdates();
+    const ribbon = find('[data-editor-workspace-header]');
+    const groups = () => [...ribbon.querySelectorAll('[role="group"]')].map(group => group.getAttribute('aria-label'));
+    expect(groups()).toEqual(['文档', '试播', '管理', '工作区']);
+    expect(ribbon.querySelector('strong, [data-editor-workspace-documents], [data-editor-workspace-page]')).toBeNull();
+    expect(find('[data-editor-workspace-rail] button').classList.contains('mini-action')).toBe(false);
+    const selectors = ['click', 'operation', 'transfer', 'moveToArea', 'moveToCharaspace'].map(action => `[data-editor-action="${action}"]`);
+    for (const selector of selectors) {
+      expect(ribbon.querySelector(selector)).toBeNull();
+      expect(find('.story-editor-composer [aria-label="添加节点"]').querySelector(selector)).not.toBeNull();
+    }
+    const original = find('[data-editor-workspace-action="activate"][aria-pressed="true"]').dataset.editorInstance;
+    find<HTMLButtonElement>('[data-editor-key="quick-preview"]').click();
+    ctrl.flushUIUpdates();
+    expect(state.preview, state.error ?? '试播应已开启').toBeTruthy();
+    expect(groups()).toEqual(['试播', '工作区']);
+    expect(ribbon.querySelector('[data-editor-workspace-view-select]')).toBeNull();
+    expect(root.querySelector('.story-editor-composer')).toBeNull();
+    expect(root.querySelectorAll('[data-authoring-action="restart-preview"]')).toHaveLength(1);
+    const close = ribbon.querySelector<HTMLButtonElement>('[data-authoring-action="close-preview"]')!;
+    close.click();
+    ctrl.flushUIUpdates();
+    expect(state.preview).toBeUndefined();
+    expect(document.activeElement).toBe(find('[data-editor-key="quick-preview"]'));
+    expect(find('[data-editor-workspace-action="activate"][aria-pressed="true"]').dataset.editorInstance).toBe(original);
+    find<HTMLButtonElement>(`[data-story-insertion-before="${firstNode}"]`).click();
+    ctrl.flushUIUpdates();
+    click('click');
+    expect(draft.document.nodes.map(node => node.type)).toEqual(['click', 'talklet']);
+
+    find<HTMLButtonElement>('.story-editor-left [data-directory-folder-id]').click();
+    ctrl.flushUIUpdates();
+    expect(groups()).toEqual(['目录管理', '工作区']);
+    expect(ribbon.querySelector('[data-editor-action="directory-back"]')).not.toBeNull();
+    click('directory-back');
+    expect(groups()).toEqual(['文档', '试播', '管理', '工作区']);
+
+    find<HTMLButtonElement>('[data-column-action="story-editor-sidebar:entries"]').click();
+    ctrl.flushUIUpdates();
+    const entry = [...game.registry.activeStories.values()][0];
+    find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click();
+    ctrl.flushUIUpdates();
+    expect(ribbon.querySelector('[data-authoring-action="apply"]')).not.toBeNull();
+    expect(ribbon.querySelector('[data-editor-action="save-to-runtime"], [data-authoring-preview-entry]')).toBeNull();
+    expect(root.querySelector('.story-editor-composer')).toBeNull();
+  });
+
+  it('drags the ribbon between expanded and compact without replacing commands or the frame', () => {
+    open();
+    const toggle = () => {
+      find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click();
+      ctrl.flushUIUpdates();
+    };
+    toggle();
+    const header = find('[data-editor-workspace-header]');
+    const frame = find('[data-workspace-frame="story-editor"]');
+    const command = find('[data-editor-workspace-action="open"]');
+    const grip = find('[data-editor-workspace-ribbon-grip]');
+    const pointer = (type: string, y: number) => grip.dispatchEvent(new PointerEvent(type,
+      { bubbles: true, button: 0, pointerId: 1, clientY: y }));
+    expect(header.dataset.editorWorkspaceRibbon).toBe('expanded');
+    pointer('pointerdown', 90);
+    pointer('pointermove', 50);
+    expect(header.dataset.editorWorkspaceRibbon).toBe('compact');
+    pointer('pointercancel', 50);
+    expect(header.dataset.editorWorkspaceRibbon).toBe('expanded');
+    pointer('pointerdown', 90);
+    pointer('pointermove', 50);
+    pointer('pointerup', 50);
+    expect(grip.getAttribute('aria-valuetext')).toBe('紧凑');
+    expect(find('[data-editor-workspace-action="open"]')).toBe(command);
+    expect(find('[data-workspace-frame="story-editor"]')).toBe(frame);
+    toggle();
+    toggle();
+    expect(header.dataset.editorWorkspaceRibbon).toBe('compact');
+    expect(JSON.parse(localStorage.getItem('acprogram.editor-workspace.v1.story')!).ribbon).toBe('compact');
+    const restoredGrip = find('[data-editor-workspace-ribbon-grip]');
+    restoredGrip.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }));
+    expect(header.dataset.editorWorkspaceRibbon).toBe('expanded');
+  });
+
+  it('resizes both advanced edges in place and restores defaults on double-click', () => {
+    open();
+    find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click();
+    ctrl.flushUIUpdates();
+    const shell = find('[data-editor-workspace]');
+    const stage = find('.editor-workspace__stage');
+    vi.spyOn(stage, 'clientWidth', 'get').mockReturnValue(1240);
+    const frame = find('[data-workspace-frame="story-editor"]');
+    for (const [edge, delta, initial] of [['left', 60, 300], ['right', -55, 320]] as const) {
+      const panel = find(`.story-editor-${edge}`);
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, initial, 500));
+      const handle = find(`[data-editor-workspace-edge="${edge}"]`);
+      const pointer = (type: string, x: number) => handle.dispatchEvent(new PointerEvent(type,
+        { bubbles: true, button: 0, pointerId: 1, clientX: x }));
+      pointer('pointerdown', 500);
+      pointer('pointermove', 500 + delta);
+      pointer('pointerup', 500 + delta);
+      expect(shell.style.getPropertyValue(`--editor-${edge}-width`)).toBe(`${initial + Math.abs(delta)}px`);
+      expect(find('[data-workspace-frame="story-editor"]')).toBe(frame);
+      handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      expect(shell.style.getPropertyValue(`--editor-${edge}-width`)).toBe(`${initial}px`);
+    }
+  });
+
   it('lists Active and Passive Entries with draft precedence, independent search and unpublished targets', () => {
     open(); click('new');
     const state = ctrl.storyEditor.state;

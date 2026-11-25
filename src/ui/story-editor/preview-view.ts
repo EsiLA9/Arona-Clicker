@@ -90,6 +90,7 @@ const phaseLabels = {
 };
 
 export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState): WorkspaceFrameSpec {
+  const advanced = state.workspace?.preferences.mode === 'advanced';
   const preview = state.preview!;
   const { playback, story, projection, decisions, send } = preview;
   const pending = decisions.pending;
@@ -138,7 +139,7 @@ export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState)
     key: `story-editor-preview-${slot}`, slot, workspaceOwner: 'story-editor', themeScope: `${slot}.story-editor`,
     hostId: `${slot}Panel.story-editor-preview`, width: slot === 'left' ? '300px' : `var(--workspace-${slot}-width)`,
     surface: 'panel', scroll: slot === 'center' ? 'none' : 'auto', className: `story-preview-column story-preview-${slot}`,
-    header: renderWorkspaceTitlebar(ctx, slot, title, slot === 'left' ? 'data-column-back' : undefined), content,
+    header: renderWorkspaceTitlebar(ctx, slot, title, slot === 'left' && !advanced ? 'data-column-back' : undefined), content,
   });
   const notice = preview.error || decisions.message || playback?.error;
   const history = decisions.history;
@@ -146,7 +147,7 @@ export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState)
     {
       ...column('left', '试播路线', `<div class="story-preview-side"><div class="story-preview-entry">${renderStoryIdentityInline(ctx, decisions.directStory ? 'story' : 'entry', decisions.entryTitle, decisions.directStory ? route[0]?.storyId : decisions.entryId)}${decisions.directStory ? '<small>直接试播正文</small>' : ''}</div>
         <ol class="story-preview-route">${route.map((item, index) => `<li data-editor-key="route:${index}"${item === current ? ' aria-current="step"' : ''}><small>${routeLabels[item.kind]}</small>${renderStoryIdentityInline(ctx, 'story', item.title, item.storyId)}</li>`).join('')}</ol></div>`),
-      footer: '<div class="story-editor-actions story-editor-actions--tools story-preview-route-actions" role="group" aria-label="试播操作"><button type="button" class="mini-action" data-authoring-action="restart-preview">从头试播</button><button type="button" class="mini-action" data-authoring-action="close-preview">关闭试播</button></div>',
+      footer: advanced ? undefined : '<div class="story-editor-actions story-editor-actions--tools story-preview-route-actions" role="group" aria-label="试播操作"><button type="button" class="mini-action" data-authoring-action="restart-preview">从头试播</button><button type="button" class="mini-action" data-authoring-action="close-preview">关闭试播</button></div>',
     },
     { ...column('center', sceneName || '试播正文', visual), footer: `<div class="story-preview-footer"><p role="status">${e(notice || (pending ? '等待条件决定' : playback ? phaseLabels[playback.phase] : '等待开播'))}</p>${controls}</div>` },
     column('right', '条件记录', `<div class="story-preview-side">
