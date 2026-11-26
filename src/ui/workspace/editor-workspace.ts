@@ -8,38 +8,98 @@ export type EditorWorkspaceEdge = 'left' | 'right';
 type EditorRibbonDensity = 'compact' | 'expanded';
 
 const preferencesKey = 'acprogram.editor-workspace.v1';
+const layoutKey = 'acprogram.editor-layout.v1';
 const storage = new LocalStorageAdapter();
 const workspaceViews = { three: '三栏', browse: '双栏查阅', focus: '专注正文' } as const;
 export const editorDefaultWidths = { left: 300, right: 320 };
 export const editorWidth = (width: number): number => Math.max(150, Math.min(720, Math.round(width)));
 
-export interface EditorWorkspacePreferences {
+export interface EditorLayoutState {
   mode: EditorWorkspaceMode;
   ribbon: EditorRibbonDensity;
+  view: EditorWorkspaceView;
   widths: Record<EditorWorkspaceEdge, number>;
 }
 
-export function loadEditorWorkspacePreferences(workType: string): EditorWorkspacePreferences {
-  const prefs: EditorWorkspacePreferences = { mode: 'classic', ribbon: 'expanded', widths: { ...editorDefaultWidths } };
+const defaults = (): EditorLayoutState => ({ mode: 'classic', ribbon: 'expanded', view: 'three', widths: { ...editorDefaultWidths } });
+
+function preferenceRecord(key: string): Record<string, unknown> | undefined {
   try {
-    const saved = JSON.parse(storage.get(`${preferencesKey}.${workType}`) ?? 'null');
-    if (saved?.mode === 'advanced') prefs.mode = 'advanced';
-    if (saved?.ribbon === 'compact') prefs.ribbon = 'compact';
-    for (const edge of ['left', 'right'] as const) {
-      if (typeof saved?.widths?.[edge] === 'number') prefs.widths[edge] = editorWidth(saved.widths[edge]);
-    }
-  } catch { /* A missing or invalid UI preference falls back to the defaults. */ }
-  return prefs;
+    const value: unknown = JSON.parse(storage.get(key) ?? 'null');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  } catch { return undefined; }
 }
 
-export function saveEditorWorkspacePreferences(workType: string, preferences: EditorWorkspacePreferences): void {
-  try { storage.set(`${preferencesKey}.${workType}`, JSON.stringify(preferences)); }
+function applyRecord(state: EditorLayoutState, record: Record<string, unknown> | undefined): void {
+  if (!record) return;
+  if (record.mode === 'advanced' || record.mode === 'classic') state.mode = record.mode;
+  if (record.ribbon === 'compact' || record.ribbon === 'expanded') state.ribbon = record.ribbon;
+  if (record.view === 'three' || record.view === 'browse' || record.view === 'focus') state.view = record.view;
+  const widths = record.widths && typeof record.widths === 'object' ? record.widths as Record<string, unknown> : {};
+  for (const edge of ['left', 'right'] as const) {
+    if (typeof widths[edge] === 'number' && Number.isFinite(widths[edge])) state.widths[edge] = editorWidth(widths[edge]);
+  }
+}
+
+function persistLayout(state: EditorLayoutState): void {
+  try { storage.set(layoutKey, JSON.stringify(state)); }
   catch { /* Layout remains usable with session-only preferences. */ }
 }
 
+export class EditorLayoutService {
+  private value = defaults();
+
+  constructor() {
+    const current = preferenceRecord(layoutKey);
+    if (current) applyRecord(this.value, current);
+    else {
+      // Deterministic one-time migration: Story wins field by field; World fills its gaps.
+      applyRecord(this.value, preferenceRecord(`${preferencesKey}.world`));
+      applyRecord(this.value, preferenceRecord(`${preferencesKey}.story`));
+      persistLayout(this.value);
+    }
+    for (const workType of ['story', 'world']) {
+      try { storage.remove(`${preferencesKey}.${workType}`); } catch { /* Ignore unavailable storage. */ }
+    }
+  }
+
+  get state(): Readonly<EditorLayoutState> {
+    return { ...this.value, widths: { ...this.value.widths } };
+  }
+
+  setMode(mode: EditorWorkspaceMode): void { this.value.mode = mode; persistLayout(this.value); }
+  setView(view: EditorWorkspaceView): void { this.value.view = view; persistLayout(this.value); }
+  revealLeft(): void {
+    if (this.value.view === 'focus') this.setView('browse');
+  }
+  setRibbon(ribbon: EditorRibbonDensity, persist = true): void {
+    this.value.ribbon = ribbon;
+    if (persist) persistLayout(this.value);
+  }
+  setWidth(edge: EditorWorkspaceEdge, width: number, persist = true): void {
+    this.value.widths[edge] = editorWidth(width);
+    if (persist) persistLayout(this.value);
+  }
+}
+
+export const editorLayout = new EditorLayoutService();
+
+const editorCenterMinWidth = 340;
+const editorPaneInsetTotal = 12;
+
+export function actualEditorWidths(stageWidth: number, widths: EditorLayoutState['widths'], view: EditorWorkspaceView): EditorLayoutState['widths'] {
+  if (view === 'focus') return { left: 0, right: 0 };
+  const available = Math.max(0, stageWidth - editorCenterMinWidth - editorPaneInsetTotal);
+  if (view === 'browse') return { left: Math.min(widths.left, available), right: 0 };
+  const total = widths.left + widths.right;
+  if (total <= available || total === 0) return { ...widths };
+  const scale = available / total;
+  return { left: widths.left * scale, right: widths.right * scale };
+}
+
 export interface EditorWorkspaceChrome {
-  preferences: EditorWorkspacePreferences;
-  view: EditorWorkspaceView;
+  layout: Readonly<EditorLayoutState>;
+  viewOverride?: EditorWorkspaceView;
   temporaryView: boolean;
   instancesVisible?: boolean;
   edges: readonly EditorWorkspaceEdge[];
@@ -105,20 +165,48 @@ export function editorWorkspaceView(edges: readonly EditorWorkspaceEdge[], view:
 }
 
 export function editorWorkspaceViewAttributes(spec: EditorWorkspaceChrome) {
+  const view = editorWorkspaceView(spec.edges, spec.viewOverride ?? spec.layout.view);
   return {
-    'data-editor-workspace-mode': spec.preferences.mode,
-    'data-editor-workspace-view': editorWorkspaceView(spec.edges, spec.temporaryView ? 'three' : spec.view),
+    'data-editor-workspace-mode': spec.layout.mode,
+    'data-editor-workspace-view': view,
     'data-editor-workspace-temporary': String(spec.temporaryView),
   };
 }
 
-export function applyEditorWorkspaceWidths(shell: HTMLElement, widths: EditorWorkspacePreferences['widths']): void {
-  shell.style.setProperty('--editor-left-width', `${widths.left}px`);
-  shell.style.setProperty('--editor-right-width', `${widths.right}px`);
+export function applyEditorWorkspaceWidths(shell: HTMLElement, layout = editorLayout.state, view?: EditorWorkspaceView): void {
+  const stage = shell.querySelector<HTMLElement>('.editor-workspace__stage');
+  const effective = editorWorkspaceView(['left', 'right'], view ?? layout.view);
+  const widths = actualEditorWidths(stage?.clientWidth ?? 0, layout.widths, effective);
+  shell.style.setProperty('--editor-left-width', `${layout.widths.left}px`);
+  shell.style.setProperty('--editor-right-width', `${layout.widths.right}px`);
+  shell.style.setProperty('--editor-track-left', `${widths.left}px`);
+  shell.style.setProperty('--editor-track-right', `${widths.right}px`);
 }
 
-export function bindEditorWorkspaceResize(root: HTMLElement, workType: string, preferences: EditorWorkspacePreferences, signal: AbortSignal): void {
-  bindRibbonResize(root, preferences, () => saveEditorWorkspacePreferences(workType, preferences), signal);
+export function bindEditorWorkspaceResize(root: HTMLElement, signal: AbortSignal): void {
+  const shellFor = () => root.matches('[data-editor-workspace]') ? root : root.querySelector<HTMLElement>('[data-editor-workspace]');
+  const view = (shell: HTMLElement) => editorWorkspaceView(['left', 'right'], shell.dataset.editorWorkspaceView as EditorWorkspaceView);
+  let observedStage: HTMLElement | undefined;
+  const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => {
+    const shell = shellFor();
+    if (shell) applyEditorWorkspaceWidths(shell, editorLayout.state, view(shell));
+  });
+  const observeShell = (): void => {
+    const shell = shellFor();
+    if (!shell) return;
+    applyEditorWorkspaceWidths(shell, editorLayout.state, view(shell));
+    const stage = shell.querySelector<HTMLElement>('.editor-workspace__stage');
+    if (stage && stage !== observedStage) {
+      if (observedStage) resizeObserver?.unobserve(observedStage);
+      observedStage = stage;
+      resizeObserver?.observe(stage);
+    }
+  };
+  const mutationObserver = typeof MutationObserver === 'undefined' ? undefined : new MutationObserver(observeShell);
+  mutationObserver?.observe(root, { childList: true, subtree: true });
+  observeShell();
+  signal.addEventListener('abort', () => { mutationObserver?.disconnect(); resizeObserver?.disconnect(); }, { once: true });
+  bindRibbonResize(root, signal);
   const options = { signal };
   let drag: { shell: HTMLElement; handle: HTMLElement; pointerId: number; edge: EditorWorkspaceEdge; start: number; width: number; max: number; original: number } | undefined;
   const splitter = (event: Event) => event.target instanceof Element
@@ -134,32 +222,33 @@ export function bindEditorWorkspaceResize(root: HTMLElement, workType: string, p
     const stage = handle.parentElement!;
     const column = stage.querySelector<HTMLElement>(`.workspace-column--${edge}`);
     if (!column) return;
-    const style = getComputedStyle(column);
-    const inset = parseFloat(edge === 'left' ? style.marginInlineEnd : style.marginInlineStart) || 0;
     const visibleEdges = [...stage.querySelectorAll<HTMLElement>('[data-editor-workspace-edge]')]
       .filter(splitter => getComputedStyle(splitter).display !== 'none').length;
     if (!visibleEdges || getComputedStyle(handle).display === 'none') return;
-    const width = column.getBoundingClientRect().width + inset;
-    const max = (stage.clientWidth - 340) / visibleEdges - inset;
+    const actual = actualEditorWidths(stage.clientWidth, editorLayout.state.widths, view(shell));
+    const width = actual[edge];
+    const available = Math.max(150, stage.clientWidth - editorCenterMinWidth - editorPaneInsetTotal);
+    const other: EditorWorkspaceEdge = edge === 'left' ? 'right' : 'left';
+    const max = Math.min(720, available - actual[other]);
     if (!width || max < 150) return;
     handle.setPointerCapture?.(event.pointerId);
     handle.dataset.dragging = '';
-    drag = { shell, handle, pointerId: event.pointerId, edge, max, width, start: event.clientX, original: preferences.widths[edge] };
+    drag = { shell, handle, pointerId: event.pointerId, edge, max, width, start: event.clientX, original: editorLayout.state.widths[edge] };
     event.preventDefault();
   }, options);
   root.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId || !drag.handle.isConnected) return;
     const delta = (event.clientX - drag.start) * (drag.edge === 'left' ? 1 : -1);
-    preferences.widths[drag.edge] = editorWidth(Math.min(drag.max, drag.width + delta));
-    applyEditorWorkspaceWidths(drag.shell, preferences.widths);
+    editorLayout.setWidth(drag.edge, Math.min(drag.max, drag.width + delta), false);
+    applyEditorWorkspaceWidths(drag.shell, editorLayout.state, view(drag.shell));
   }, options);
   const end = (event: PointerEvent): void => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     delete drag.handle.dataset.dragging;
     if (event.type === 'pointercancel') {
-      preferences.widths[drag.edge] = drag.original;
-      applyEditorWorkspaceWidths(drag.shell, preferences.widths);
-    } else saveEditorWorkspacePreferences(workType, preferences);
+      editorLayout.setWidth(drag.edge, drag.original, false);
+      applyEditorWorkspaceWidths(drag.shell, editorLayout.state, view(drag.shell));
+    } else persistLayout(editorLayout.state as EditorLayoutState);
     drag = undefined;
   };
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) root.addEventListener(type, end, options);
@@ -168,9 +257,8 @@ export function bindEditorWorkspaceResize(root: HTMLElement, workType: string, p
     const shell = advancedShell(handle);
     if (!shell || !handle) return;
     const edge = handle.dataset.editorWorkspaceEdge as EditorWorkspaceEdge;
-    preferences.widths[edge] = editorDefaultWidths[edge];
-    applyEditorWorkspaceWidths(shell, preferences.widths);
-    saveEditorWorkspacePreferences(workType, preferences);
+    editorLayout.setWidth(edge, editorDefaultWidths[edge]);
+    applyEditorWorkspaceWidths(shell, editorLayout.state, view(shell));
   }, options);
 }
 
@@ -178,13 +266,13 @@ function ribbonGripValue(ribbon: EditorRibbonDensity) {
   return ribbon === 'expanded' ? { value: '1', label: '展开' } : { value: '0', label: '紧凑' };
 }
 
-function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePreferences, save: () => void, signal: AbortSignal): void {
+function bindRibbonResize(root: HTMLElement, signal: AbortSignal): void {
   const options = { signal };
   const gripFor = (event: Event) => event.target instanceof Element
     ? event.target.closest<HTMLElement>('[data-editor-workspace-ribbon-grip]') : null;
   let drag: { grip: HTMLElement; pointerId: number; start: number; original: EditorRibbonDensity } | undefined;
   const set = (grip: HTMLElement, ribbon: EditorRibbonDensity): void => {
-    preferences.ribbon = ribbon;
+    editorLayout.setRibbon(ribbon, false);
     grip.closest('[data-editor-workspace-header]')?.setAttribute('data-editor-workspace-ribbon', ribbon);
     const { value, label } = ribbonGripValue(ribbon);
     grip.setAttribute('aria-valuenow', value);
@@ -194,19 +282,19 @@ function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePrefere
     const grip = gripFor(event);
     if (!grip || event.button !== 0 || drag) return;
     grip.setPointerCapture?.(event.pointerId);
-    drag = { grip, pointerId: event.pointerId, start: event.clientY, original: preferences.ribbon };
+    drag = { grip, pointerId: event.pointerId, start: event.clientY, original: editorLayout.state.ribbon };
     event.preventDefault();
   }, options);
   root.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId || !drag.grip.isConnected) return;
     const delta = event.clientY - drag.start;
     const ribbon = delta >= 20 ? 'expanded' : delta <= -20 ? 'compact' : drag.original;
-    if (ribbon !== preferences.ribbon) set(drag.grip, ribbon);
+    if (ribbon !== editorLayout.state.ribbon) set(drag.grip, ribbon);
   }, options);
   const end = (event: PointerEvent): void => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (event.type === 'pointercancel') set(drag.grip, drag.original);
-    else if (preferences.ribbon !== drag.original) save();
+    else if (editorLayout.state.ribbon !== drag.original) persistLayout(editorLayout.state as EditorLayoutState);
     drag = undefined;
   };
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) root.addEventListener(type, end, options);
@@ -215,18 +303,18 @@ function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePrefere
     if (!grip || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
     event.preventDefault();
     set(grip, event.key === 'ArrowUp' ? 'compact' : 'expanded');
-    save();
+    persistLayout(editorLayout.state as EditorLayoutState);
   }, options);
 }
 
 export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspaceChrome) {
   const e = ctx.escapeHtml;
-  const advanced = spec.preferences.mode === 'advanced';
+  const advanced = spec.layout.mode === 'advanced';
   const view = spec.temporaryView ? '' : `<label class="editor-workspace__tool editor-workspace__view">
-    ${editorToolIcon('layout')}<select data-editor-workspace-view-select aria-label="浏览视图">${editorWorkspaceViews(spec.edges).map(value => `<option value="${value}"${value === editorWorkspaceView(spec.edges, spec.view) ? ' selected' : ''}>${workspaceViews[value]}</option>`).join('')}</select></label>`;
+    ${editorToolIcon('layout')}<select data-editor-workspace-view-select aria-label="浏览视图">${editorWorkspaceViews(spec.edges).map(value => `<option value="${value}"${value === editorWorkspaceView(spec.edges, spec.viewOverride ?? spec.layout.view) ? ' selected' : ''}>${workspaceViews[value]}</option>`).join('')}</select></label>`;
   const mode = renderEditorTool(ctx, 'mode', '经典模式', 'mode', { key: 'editor-workspace-mode' });
   const exit = spec.temporaryView ? '' : renderEditorTool(ctx, 'exit', '退出编辑器', 'back');
-  const ribbon = spec.preferences.ribbon;
+  const ribbon = spec.layout.ribbon;
   const grip = ribbonGripValue(ribbon);
   return {
     header: `<header class="editor-workspace__header" data-editor-workspace-header${advanced ? ` data-editor-workspace-ribbon="${ribbon}"` : ''}>
@@ -247,7 +335,7 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
           }).join('')}
           ${spec.temporaryView ? '' : `<button type="button" class="mini-action" data-editor-workspace-action="duplicate"${spec.canDuplicate ? '' : ' disabled'} title="在新实例中打开当前内容">＋ 新建实例</button>`}` : ''}
     </nav>`,
-    rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced && (spec.temporaryView || editorWorkspaceView(spec.edges, spec.view) !== 'focus') ? '' : ' hidden'}>${spec.workTypes.map(type => `
+    rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced && (spec.temporaryView || editorWorkspaceView(spec.edges, spec.viewOverride ?? spec.layout.view) !== 'focus') ? '' : ' hidden'}>${spec.workTypes.map(type => `
       <button type="button" class="editor-workspace__work-type" data-editor-workspace-action="work-type" data-editor-work-type="${e(type.id)}" title="${e(type.name)}" aria-label="${e(type.name)}" aria-pressed="${type.active}">${type.icon}</button>`).join('')}</nav>`,
     status: `<footer class="editor-workspace__status" data-editor-workspace-status${advanced ? '' : ' hidden'}>${spec.status}</footer>`,
   };
@@ -257,7 +345,7 @@ export function renderEditorWorkspace(ctx: UIContext, spec: EditorWorkspaceChrom
   const { header, documents, rail, status } = renderEditorWorkspaceRegions(ctx, spec);
   const attributes = Object.entries(editorWorkspaceViewAttributes(spec)).map(([key, value]) => `${key}="${value}"`).join(' ');
   return `<section class="editor-workspace" data-editor-workspace ${attributes}
-    style="--editor-left-width:${spec.preferences.widths.left}px;--editor-right-width:${spec.preferences.widths.right}px">
+    style="--editor-left-width:${spec.layout.widths.left}px;--editor-right-width:${spec.layout.widths.right}px;--editor-track-left:${spec.layout.widths.left}px;--editor-track-right:${spec.layout.widths.right}px;--editor-track-center:minmax(0,1fr)">
     <div class="editor-workspace__top">${header}${documents}</div>
     <div class="editor-workspace__body">
       ${rail}

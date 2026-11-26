@@ -3,6 +3,7 @@ import type { GameReadModel, PackCatalogEntry, PackCatalogReadModel } from '../.
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
+import { editorLayout } from '../workspace/editor-workspace';
 import { displayName } from '../../engine/core/display-name';
 import type { StoryDraft, StoryEditorState } from './model';
 
@@ -35,7 +36,7 @@ export function storySourceContext(ctx: UIContext, state: StoryEditorState): UIC
 }
 
 export function storySidebarState(state: StoryEditorState): StoryEditorState {
-  if (state.workspace?.preferences.mode !== 'advanced' || !state.sidebarSource) return state;
+  if (editorLayout.state.mode !== 'advanced' || !state.sidebarSource) return state;
   const sourceSelection = state.sidebarSourceSelection;
   return { ...state, ...state.sidebarSource, sourceSelection,
     target: (state.sourceSelection ?? '') === (sourceSelection ?? '') ? state.target : null };

@@ -26,7 +26,7 @@ Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡
 
 Story、StoryEntry 与世界使用 `editor-workspace-frame.ts` 的面板、标题与轨道。高级模式从已有栏位派生可用视图，世界默认双栏，可切三栏或专注，三栏右侧预留便捷信息。左栏目录通过共享的行、折叠与滚动组件呈现。只读审阅区复用区块和标签／值行。折叠保留已挂载栏位与滚动宿主，专注时侧栏轨道为零；分隔线只在可见侧栏的栏缝显示。
 
-编辑器会话从外部采样有效主题，工作类型切换沿用已提交主题，真正退出交还给目的页面。工具栏折叠偏好按工作类型保留。颜色缺项沿用 `theme-tree.ts` 的浅色角色；主题解析或投影失败时切到浅色纯色画布，移除旧背景及表现宿主图层。入口见 `editor-workspace-appearance.ts` 与 `controller-theme.ts`。
+编辑器会话从外部采样有效主题，工作类型切换沿用已提交主题，真正退出交还给目的页面。高级编辑器布局由公共 `editorLayout` 跨工作类型共享；Ribbon 密度不是按工作类型隔离。颜色缺项沿用 `theme-tree.ts` 的浅色角色；主题解析或投影失败时切到浅色纯色画布，移除旧背景及表现宿主图层。入口见 `editor-workspace.ts`、`editor-workspace-appearance.ts` 与 `controller-theme.ts`。
 
 从星图顶栏进入设置、背包等功能页时，沿用 `SelectorPage.currentTheme()` 的完整聚焦投影，包括当前 Init / Area、背景与顶栏表现；同一功能区内切换页面继续沿用。返回游戏或在功能页明确激活其他主题时清除该 UI 临时来源。缺少可判定画布底色时回退到本地 `variables.css` 已有的浅色基础与深色正文，不再假定深色画布。入口为 `SelectorPage.currentTheme()`、`UIController.navigateToService()`、`controller-theme.ts`；未做浏览器视觉验收。
 

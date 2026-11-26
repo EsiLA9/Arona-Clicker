@@ -3,7 +3,7 @@ import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from 
 import { EditorWorkspaceTheme } from '../workspace/editor-workspace-appearance';
 import type { EditorWorkspaceView } from '../workspace/editor-workspace';
 import { buildDefaultWorldTree, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges } from '../runtime-editor/world-browser';
-import { bindEditorWorkspaceResize, editorWorkspaceView, editorWorkspaceViews, loadEditorWorkspacePreferences, saveEditorWorkspacePreferences } from '../workspace/editor-workspace';
+import { applyEditorWorkspaceWidths, bindEditorWorkspaceResize, editorLayout, editorWorkspaceViews } from '../workspace/editor-workspace';
 import { captureEditorReturn, discardEditorReturn, restoreEditorReturn, type EditorReturn } from '../workspace/editor-return';
 // ============================================================
 // ui/controller.ts — UI 控制器（集成层门面）
@@ -2223,12 +2223,9 @@ export class UIController {
     if (!this.enterEditorRoute('world-editor')) return;
     const session = this.panelState.worldBrowser ??= {
       id: this.nextWorldInstanceId++,
-      preferences: loadEditorWorkspacePreferences(worldWorkType),
-      view: 'browse',
       expanded: new Set(),
     };
-    if (advanced) session.preferences.mode = 'advanced';
-    session.view = editorWorkspaceView(worldEditorEdges, session.view);
+    if (advanced) editorLayout.setMode('advanced');
     const roots = buildDefaultWorldTree(this.game.registry);
     if (!session.selected || !worldTreePath(roots, session.selected).length) {
       session.selected = roots.find(node => node.ref?.id === this.game.state.activeInit)?.ref
@@ -2257,7 +2254,7 @@ export class UIController {
     if (!session || !shell || !this.isWorldBrowserOpen()) return;
     const binding = this.worldBinding = new AbortController();
     const options = { signal: binding.signal };
-    bindEditorWorkspaceResize(shell, worldWorkType, session.preferences, binding.signal);
+    bindEditorWorkspaceResize(shell, binding.signal);
     this.unbindWorldScroll = bindEditorDirectoryScrollbars(shell);
     const setExpanded = (key: string, open: boolean): void => {
       if (open) session.expanded.add(key);
@@ -2286,7 +2283,7 @@ export class UIController {
     };
     const viewSelect = shell.querySelector<HTMLSelectElement>('[data-editor-workspace-view-select]');
     const setView = (value: EditorWorkspaceView): void => {
-      session.view = value;
+      editorLayout.setView(value);
       const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
       if (scrollBody && shell.dataset.editorWorkspaceView !== 'focus') session.scrollTop = scrollBody.scrollTop;
       shell.dataset.editorWorkspaceView = value;
@@ -2294,6 +2291,7 @@ export class UIController {
       if (rail) rail.hidden = value === 'focus';
       if (scrollBody && value !== 'focus') scrollBody.scrollTop = session.scrollTop ?? 0;
       if (viewSelect) viewSelect.value = value;
+      applyEditorWorkspaceWidths(shell, editorLayout.state, value);
       refreshEditorDirectoryScrollbars(shell);
     };
     shell.addEventListener('click', event => {
@@ -2330,15 +2328,14 @@ export class UIController {
         }
       }
       if (action === 'work-type' && editorWorkType === 'story') this.openStoryEditor(true);
-      if (action === 'locate-world' || action === 'work-type' && editorWorkType === worldWorkType) {
-        if (session.view === 'focus') setView('browse');
-        if (action === 'locate-world' && session.selected) {
+      if (action === 'locate-world') {
+        if (editorLayout.state.view === 'focus') setView('browse');
+        if (session.selected) {
           locateWorld(session.selected, session.selectedNodeKey);
         }
       }
       if (action === 'mode') {
-        session.preferences.mode = session.preferences.mode === 'advanced' ? 'classic' : 'advanced';
-        saveEditorWorkspacePreferences(worldWorkType, session.preferences);
+        editorLayout.setMode(editorLayout.state.mode === 'advanced' ? 'classic' : 'advanced');
         this.render();
       }
       if (action === 'back' || action === 'close' || button.hasAttribute('data-world-editor-leave')) {

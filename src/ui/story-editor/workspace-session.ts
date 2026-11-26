@@ -1,5 +1,5 @@
-import { editorWorkspaceEdges, loadEditorWorkspacePreferences, type EditorWorkspaceView } from '../workspace/editor-workspace';
 import { createStoryBrowseViewState, type StoryBrowseViewState, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
+import { editorWorkspaceEdges } from '../workspace/editor-workspace';
 
 export const storyWorkType = 'story';
 export const editorPanels = ['left', 'center', 'right'] as const;
@@ -23,7 +23,6 @@ export function restoreStoryInstanceState(state: StoryEditorState, saved: StoryB
 
 export interface StoryBrowseInstance {
   id: number;
-  inspectorVisible: boolean;
   snapshot: StoryBrowseViewState;
   scroll: StoryInstanceScroll;
   document?: { target: StoryEditorTarget; packId?: string; draftId?: string; name: string };
@@ -35,32 +34,25 @@ export interface StoryBrowseInstance {
   entryTabs: Map<string, 'basic' | 'rewards' | 'gates'>;
 }
 
-export function createStoryBrowseInstance(id: number, inspectorVisible = true): StoryBrowseInstance {
-  return { id, inspectorVisible, snapshot: createStoryBrowseViewState(), scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
+export function createStoryBrowseInstance(id: number): StoryBrowseInstance {
+  return { id, snapshot: createStoryBrowseViewState(), scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
     entryTabScroll: new Map(), entryTabs: new Map() };
 }
 
 export interface StoryWorkspaceSession {
-  preferences: ReturnType<typeof loadEditorWorkspacePreferences>;
   instances: StoryBrowseInstance[];
   active: StoryBrowseInstance;
-  sidebarVisible: boolean;
   sidebarScroll: Map<string, number>;
   nextId: number;
 }
 
-export function storyWorkspaceView(workspace: StoryWorkspaceSession): EditorWorkspaceView {
-  return workspace.sidebarVisible ? workspace.active.inspectorVisible ? 'three' : 'browse' : 'focus';
-}
-
 export function createStoryWorkspaceSession(): StoryWorkspaceSession {
   const active = createStoryBrowseInstance(1);
-  return { preferences: loadEditorWorkspacePreferences(storyWorkType), instances: [active], active,
-    sidebarVisible: true, sidebarScroll: new Map(), nextId: 2 };
+  return { instances: [active], active, sidebarScroll: new Map(), nextId: 2 };
 }
 
 export function createEmptyStoryBrowseInstance(workspace: StoryWorkspaceSession, current: StoryBrowseViewState, source: string): StoryBrowseInstance {
-  const instance = createStoryBrowseInstance(workspace.nextId++, workspace.active.inspectorVisible);
+  const instance = createStoryBrowseInstance(workspace.nextId++);
   instance.snapshot.sourceSelection = source || undefined;
   instance.snapshot.targetPackId = source === (current.sourceSelection ?? '') ? current.targetPackId
     : source.startsWith('pack:') ? source.slice(5) : undefined;

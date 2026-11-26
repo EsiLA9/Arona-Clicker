@@ -43,7 +43,7 @@ import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { isLoadedStoryPack, storyPackCatalog, storyPackSource, storySidebarState, storySourceGame } from './pack-source';
 import { createStoryEditorFrame, createStoryEditorListColumn, storyEditorChrome, storyEditorDocumentName, storySenders } from './view';
-import { applyEditorWorkspaceWidths, bindEditorWorkspaceResize, editorWorkspaceViewAttributes, editorWorkspaceViews, type EditorWorkspaceView, renderEditorWorkspaceRegions, saveEditorWorkspacePreferences } from '../workspace/editor-workspace';
+import { applyEditorWorkspaceWidths, bindEditorWorkspaceResize, editorLayout, editorWorkspaceViewAttributes, editorWorkspaceViews, type EditorWorkspaceView, renderEditorWorkspaceRegions } from '../workspace/editor-workspace';
 import { captureStoryInstanceState, restoreStoryInstanceState, createEmptyStoryBrowseInstance, findStoryBrowseInstance, createStoryWorkspaceSession, editorPanels, storyEditorEdges, storyWorkType, type EditorScroll, type StoryBrowseInstance, type StoryInstanceScroll } from './workspace-session';
 import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch } from './sidebar-tree';
 import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
@@ -207,7 +207,7 @@ export class StoryEditorController {
   private get packQuery() { return this.ctrl.game as typeof this.ctrl.game & Partial<PackCatalogReadModel>; }
   private get registry() { return this.state.sourceRegistry ?? this.ctrl.game.registry; }
   private get editorGame() { return storySourceGame(this.ctrl.game, this.state); }
-  private get advanced() { return this.workspace.preferences.mode === 'advanced'; }
+  private get advanced() { return editorLayout.state.mode === 'advanced'; }
   private get writeBlocked() {
     const draft = currentAuthoringDraft(this.state);
     return this.state.storageBlocked || Boolean(draft && !this.draftSaveAllowed(draft));
@@ -679,7 +679,7 @@ export class StoryEditorController {
     return saved;
   }
   preferAdvancedWorkspace(): void {
-    this.workspace.preferences.mode = 'advanced';
+    editorLayout.setMode('advanced');
   }
 
   close(): void {
@@ -783,7 +783,6 @@ export class StoryEditorController {
 
   private requestBrowseDirectoryReveal(): void {
     if (!this.state.target) return;
-    this.workspace.sidebarVisible = true;
     this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
     this.state.sidebarSourceSelection = this.state.sourceSelection;
     this.state.sidebarReveal = { ...this.state.target };
@@ -856,13 +855,8 @@ export class StoryEditorController {
       const intent = element.dataset.editorWorkspaceAction;
       const action = element.dataset.editorAction;
       if (intent === 'mode') {
-        this.workspace.preferences.mode = this.workspace.preferences.mode === 'advanced' ? 'classic' : 'advanced';
-        if (this.advanced) {
-          this.state.sidebarReveal = undefined;
-          this.pendingSidebarReveal = false;
-        }
+        editorLayout.setMode(this.advanced ? 'classic' : 'advanced');
         this.focusWorkspaceMode = true;
-        saveEditorWorkspacePreferences(storyWorkType, this.workspace.preferences);
       } else if (intent === 'back') {
         this.close();
         return;
@@ -877,13 +871,13 @@ export class StoryEditorController {
           this.closeDirectoryManagement();
           this.requestBrowseDirectoryReveal();
         }
-      } else if (this.workspace.preferences.mode === 'advanced') {
+      } else if (editorLayout.state.mode === 'advanced') {
         if (intent === 'activate' || intent === 'close') {
           const instance = this.workspace.instances.find(item => String(item.id) === element.dataset.editorInstance);
           if (instance && intent === 'close') this.closeBrowseInstance(instance);
           if (instance && intent === 'activate') this.activateBrowseInstance(instance);
         } else if (intent === 'open') {
-          this.workspace.sidebarVisible = true;
+          editorLayout.revealLeft();
           if (this.state.sidebarMode === 'senders') this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
           this.state.sidebarFiltersOpen = true;
           this.focusSidebarSearch = true;
@@ -891,23 +885,20 @@ export class StoryEditorController {
           const draft = currentDraft(this.state);
           const issue = draft?.editorIssues?.find(item => item.nodeId);
           if (draft && issue) {
-            this.workspace.sidebarVisible = true;
-            this.workspace.active.inspectorVisible = true;
+            editorLayout.setView('three');
             this.locateIssue(draft, issue.path);
             this.revealNodeId = this.state.selectedNodeId;
           }
         } else if (intent === 'duplicate' && this.state.target) {
           this.openBrowseTarget(this.state.target, true);
         } else if (intent === 'locate' && this.state.target) {
-          this.workspace.sidebarVisible = true;
+          editorLayout.revealLeft();
           this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
           this.state.sidebarSourceSelection = this.state.sourceSelection;
           this.state.sidebarReveal = this.state.target;
           this.pendingSidebarReveal = true;
         } else if (intent === 'work-type') {
           if (element.dataset.editorWorkType === 'world') { this.ctrl.openWorldBrowser(true); return; }
-          this.workspace.sidebarVisible = true;
-          this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
         } else if (action === 'open-pack-manager') {
           if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
           return;
@@ -920,15 +911,14 @@ export class StoryEditorController {
       const field = event.target;
       if (!owner(event) || !(field instanceof HTMLSelectElement) || !field.closest('[data-editor-workspace-header]')) return;
       if (field.hasAttribute('data-editor-workspace-view-select') && editorWorkspaceViews(storyEditorEdges).includes(field.value as EditorWorkspaceView)) {
-        this.workspace.sidebarVisible = field.value !== 'focus';
-        this.workspace.active.inspectorVisible = field.value === 'three';
+        editorLayout.setView(field.value as EditorWorkspaceView);
       } else if (field.hasAttribute('data-authoring-preview-entry')) {
         const draft = currentDraft(this.state);
         if (draft) (this.state.previewEntryByDraft ??= new Map()).set(draft.draftId, field.value);
       }
       this.requestRefresh();
     }, options);
-    bindEditorWorkspaceResize(root, storyWorkType, this.workspace.preferences, abort.signal);
+    bindEditorWorkspaceResize(root, abort.signal);
     return () => abort.abort();
   }
 
@@ -1036,7 +1026,7 @@ export class StoryEditorController {
       if (active?.isConnected && document.activeElement !== active) active.focus({ preventScroll: true });
     }
     for (const [key, value] of Object.entries(attributes)) if (shell.getAttribute(key) !== value) shell.setAttribute(key, value);
-    applyEditorWorkspaceWidths(shell, chrome.preferences.widths);
+    applyEditorWorkspaceWidths(shell, chrome.layout, chrome.viewOverride);
     const chromeFocus = document.activeElement instanceof HTMLElement && !host.contains(document.activeElement)
       && shell.contains(document.activeElement) ? document.activeElement : null;
     const regions = renderEditorWorkspaceRegions(ctx, chrome);
@@ -3172,7 +3162,7 @@ export class StoryEditorController {
     } else if (action === 'rename-id') this.changeStoryId(trigger);
     else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') {
-      if (this.advanced) this.workspace.sidebarVisible = true;
+      if (this.advanced) editorLayout.revealLeft();
       this.state.sidebarMode = 'senders';
     }
     else if (action === 'info' || action === 'rename') {
@@ -3184,8 +3174,7 @@ export class StoryEditorController {
       if (action === 'rename') {
         this.state.storyInspectorTab = 'overview';
         if (this.advanced) {
-          this.workspace.sidebarVisible = true;
-          this.workspace.active.inspectorVisible = true;
+          editorLayout.setView('three');
         }
       }
       this.restoreInspectorScroll();

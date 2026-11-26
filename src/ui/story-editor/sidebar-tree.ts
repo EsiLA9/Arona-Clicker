@@ -2,6 +2,7 @@ import { renderEditorDirectoryList, renderEditorDirectoryRow, renderEditorDirect
 import { buildStoryDirectory, legacyStoryHierarchy, type StoryDirectoryCatalog, type StoryDirectoryNode } from '../../arona-clicker/content/story/story-directory';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
+import { editorLayout } from '../workspace/editor-workspace';
 import { storyEntries, storyList, type StoryEditorState, type StoryEditorTarget } from './model';
 import { directoryStatus, hierarchyDesignCounts, hierarchyDesignKey, mergeDirectoryDesigns } from './directory-status';
 
@@ -68,7 +69,7 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
   const query = sidebarSearch(state).trim().toLocaleLowerCase();
   const inSearch = (label: string, id: string) => !query || `${label}\n${id}`.toLocaleLowerCase().includes(query);
   const scope = state.sourceSelection ?? state.sidebarRuntimeScope ?? '';
-  const advanced = state.workspace?.preferences.mode === 'advanced';
+  const advanced = editorLayout.state.mode === 'advanced';
   const managed = state.directoryManagement?.location();
   const revealing = state.sidebarReveal;
   const entries = storyEntries(state, registry.storyEntries);

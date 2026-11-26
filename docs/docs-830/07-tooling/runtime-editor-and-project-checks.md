@@ -34,7 +34,7 @@ Talklet 的发出方选择写入 `content.characterId`，默认名称与头像�
 
 Talklet / Click 正文支持在编辑流中双击原位编辑。对话与旁白写入 content.text，Click 按钮、入口卡标题 / 按钮与接续按钮各写原字段；Choice 按选项的稳定属性 key 独立写入，不套用共用正文赋值。输入实时更新作者草稿，正文类字段复用 `editStoryNodeBody()`，属性表单随既有区域刷新同步；编辑文本子树由浏览器持有，避免刷新移动光标或打断组合输入。点击外部、保存与离开结束编辑，Esc 仅恢复本次目标字段及对应正文缓存，粘贴只写纯文本。切换目标、节点 / 分支失效或存储只读时不继续回填；活动会话不进入本地持久化、Story 定义或游戏状态。入口为 `story-editor/inline-text.ts`，回归为 `tests/ui/story/story-editor-inline-text.test.ts`。
 
-一次进入到退出由 UIController 持有同一主题与原返回点。从星图进入时取聚焦主题完整投影，从游戏和服务页进入时取当前有效主题。切换实体、实例或工作类型沿用已提交主题。退出由实际目的地的主题规则恢复，下一次进入重新采样。工具栏折叠偏好按工作类型持久化。
+一次进入到退出由 UIController 持有同一主题与原返回点。从星图进入时取聚焦主题完整投影，从游戏和服务页进入时取当前有效主题。切换实体、实例或工作类型沿用已提交主题。退出由实际目的地的主题规则恢复，下一次进入重新采样。高级编辑器的布局则由 `editorLayout` 单一持有并跨 Story、StoryEntry、World 共享；Classic/Advanced、三栏／双栏／专注、栏宽和 Ribbon 密度统一保存，不随工作类型或实例切换。旧分工作类型偏好迁移规则见 [[workspace-columns-and-layout]]。
 
 「需要局部标记」输入在 focus / click 时展开就地自定义下拉，保留独立 Navi 作为来源浏览入口，不触发原生 datalist。候选由 `required-flag-dropdown.ts` 沿反向 Story Transfer 查找调用上下文，再汇总同一 Entry / Story 转移链中实际写入或声明回传的名称；不列出全局标记、只读 / 仅移除名称或其他 Entry 的私有标记，循环去重。首次打开字段为空或已有文本时均视为全满足；继续输入后按名称不区分大小写筛选，满足项保持实色，未满足项稍浅且仍可选择，不隐藏或禁用。下拉行按名称 key 保留，筛选只改变样式；选择前重新核对候选，点击外部、失焦至范围外、切换文档或离开编辑器关闭。该清单仍是潜在调用范围，不保证某次运行已写入对应键。验证见 `tests/ui/story/story-editor-required-flag-dropdown.test.ts`。
 

@@ -1,4 +1,5 @@
 import type { UIContext } from '../runtime/context';
+import { editorLayout } from '../workspace/editor-workspace';
 import { currentStoryFlagCatalog } from './flag-catalog-view';
 import { storyFlagNames } from './flag-catalog';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts/runtime/runtime';
@@ -266,7 +267,7 @@ export function renderStoryPreviewEntrySelect(ctx: UIContext, state: StoryEditor
 
 export function renderStoryAuthoringTools(ctx: UIContext, state: StoryEditorState, draft: StoryDraft): string {
   const e = ctx.escapeHtml; const locked = (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : '';
-  const advanced = state.workspace?.preferences.mode === 'advanced';
+  const advanced = editorLayout.state.mode === 'advanced';
   const value = authoringValueRenderer(ctx,state,draft);
   const catalog = (ctx.game as typeof ctx.game & Partial<PackCatalogReadModel>).getPackCatalog?.();
   const targets = (catalog?.entries ?? []).filter(x => x.editingMode === 'editing');

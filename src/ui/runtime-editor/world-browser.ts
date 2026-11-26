@@ -4,8 +4,7 @@ import { renderEditorReviewFields, renderEditorReviewSection } from '../workspac
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import type { UIContext } from '../runtime/context';
 import { createEditorWorkspaceColumn, createEditorWorkspaceFrame, renderEditorWorkspaceFrame } from '../workspace/editor-workspace-frame';
-import { editorWorkspaceEdges, editorToolIcon, renderEditorWorkspace, renderEditorTool, renderEditorToolGroup,
-  type EditorWorkspacePreferences, type EditorWorkspaceView } from '../workspace/editor-workspace';
+import { editorLayout, editorWorkspaceEdges, editorToolIcon, renderEditorWorkspace, renderEditorTool, renderEditorToolGroup } from '../workspace/editor-workspace';
 
 export type WorldEntityRef = { kind: 'init' | 'area' | 'spot'; id: string };
 export interface WorldTreeNode {
@@ -21,8 +20,6 @@ export interface WorldBrowserSession {
   selected?: WorldEntityRef;
   selectedNodeKey?: string;
   expanded: Set<string>;
-  preferences: EditorWorkspacePreferences;
-  view: EditorWorkspaceView;
   scrollTop?: number;
 }
 
@@ -119,10 +116,10 @@ export function renderWorldBrowser(ctx: UIContext, session: WorldBrowserSession)
       workspaceOwner: 'world-editor', themeScope: 'center.world-editor',
       content: `<section data-world-detail>${renderWorldDetail(ctx, session.selected)}</section>` }),
     createEditorWorkspaceColumn(ctx, { ...worldColumns.review, bindingKey: 'world-review', hostId: 'world-review',
-      workspaceOwner: 'world-editor', themeScope: 'right.world-editor', visible: session.preferences.mode === 'advanced', content: '' }),
+      workspaceOwner: 'world-editor', themeScope: 'right.world-editor', visible: editorLayout.state.mode === 'advanced', content: '' }),
   ]));
   return renderEditorWorkspace(ctx, {
-    preferences: session.preferences, edges: worldEditorEdges, view: session.view, temporaryView: false, canDuplicate: false,
+    layout: editorLayout.state, edges: worldEditorEdges, temporaryView: false, canDuplicate: false,
     workTypes: [
       { id: 'story', name: '故事编辑', icon: editorToolIcon('open'), active: false },
       { id: worldWorkType, name: '世界编辑器', icon: worldWorkIcon, active: true },

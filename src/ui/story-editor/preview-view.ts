@@ -10,6 +10,7 @@ import { BANNER_ANIMATION_MS, renderOpeningBanner } from '../components/story/st
 import { buildBackgroundView, renderBackground } from '../presentation/background-service';
 import { describeConditionLeaf } from '../presentation/condition-presentation';
 import type { UIContext } from '../runtime/context';
+import { editorLayout } from '../workspace/editor-workspace';
 import type { StoryEditorState } from './model';
 import { renderStoryIdentityInline } from '../components/story/story-identity';
 
@@ -90,7 +91,7 @@ const phaseLabels = {
 };
 
 export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState): WorkspaceFrameSpec {
-  const advanced = state.workspace?.preferences.mode === 'advanced';
+  const advanced = editorLayout.state.mode === 'advanced';
   const preview = state.preview!;
   const { playback, story, projection, decisions, send } = preview;
   const pending = decisions.pending;

@@ -13,4 +13,5 @@
 
 ## 调查报告
 
+- [[ai/plan/report-advanced-editor-framework-roadmap-baseline|高级编辑器框架改造基线（Stage 00）]]，记录状态所有权、浏览器行为和后续拆分起点。
 - [[ai/plan/report-story-editor-ui-language|Story／StoryEntry 编辑器界面语言调查]]，供样式与文案统一升级讨论使用。
