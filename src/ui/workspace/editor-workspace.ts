@@ -41,9 +41,9 @@ function applyRecord(state: EditorLayoutState, record: Record<string, unknown> |
   }
 }
 
-function persistLayout(state: EditorLayoutState): void {
-  try { storage.set(layoutKey, JSON.stringify(state)); }
-  catch { /* Layout remains usable with session-only preferences. */ }
+function persistLayout(state: EditorLayoutState): boolean {
+  try { storage.set(layoutKey, JSON.stringify(state)); return true; }
+  catch { /* Layout remains usable with session-only preferences. */ return false; }
 }
 
 export class EditorLayoutService {
@@ -51,15 +51,18 @@ export class EditorLayoutService {
 
   constructor() {
     const current = preferenceRecord(layoutKey);
+    let canRemoveLegacy = Boolean(current);
     if (current) applyRecord(this.value, current);
     else {
       // Deterministic one-time migration: Story wins field by field; World fills its gaps.
       applyRecord(this.value, preferenceRecord(`${preferencesKey}.world`));
       applyRecord(this.value, preferenceRecord(`${preferencesKey}.story`));
-      persistLayout(this.value);
+      canRemoveLegacy = persistLayout(this.value);
     }
-    for (const workType of ['story', 'world']) {
-      try { storage.remove(`${preferencesKey}.${workType}`); } catch { /* Ignore unavailable storage. */ }
+    if (canRemoveLegacy) {
+      for (const workType of ['story', 'world']) {
+        try { storage.remove(`${preferencesKey}.${workType}`); } catch { /* Ignore unavailable storage. */ }
+      }
     }
   }
 
@@ -208,7 +211,17 @@ export function bindEditorWorkspaceResize(root: HTMLElement, signal: AbortSignal
   signal.addEventListener('abort', () => { mutationObserver?.disconnect(); resizeObserver?.disconnect(); }, { once: true });
   bindRibbonResize(root, signal);
   const options = { signal };
-  let drag: { shell: HTMLElement; handle: HTMLElement; pointerId: number; edge: EditorWorkspaceEdge; start: number; width: number; max: number; original: number } | undefined;
+  let drag: {
+    shell: HTMLElement;
+    handle: HTMLElement;
+    pointerId: number;
+    edge: EditorWorkspaceEdge;
+    start: number;
+    startWidth: number;
+    available: number;
+    max: number;
+    otherPreference: number;
+  } | undefined;
   const splitter = (event: Event) => event.target instanceof Element
     ? event.target.closest<HTMLElement>('[data-editor-workspace-edge]') : null;
   const advancedShell = (handle: HTMLElement | null) => handle?.closest<HTMLElement>(
@@ -227,28 +240,47 @@ export function bindEditorWorkspaceResize(root: HTMLElement, signal: AbortSignal
     if (!visibleEdges || getComputedStyle(handle).display === 'none') return;
     const actual = actualEditorWidths(stage.clientWidth, editorLayout.state.widths, view(shell));
     const width = actual[edge];
-    const available = Math.max(150, stage.clientWidth - editorCenterMinWidth - editorPaneInsetTotal);
+    const available = Math.max(0, stage.clientWidth - editorCenterMinWidth - editorPaneInsetTotal);
     const other: EditorWorkspaceEdge = edge === 'left' ? 'right' : 'left';
     const max = Math.min(720, available - actual[other]);
     if (!width || max < 150) return;
     handle.setPointerCapture?.(event.pointerId);
     handle.dataset.dragging = '';
-    drag = { shell, handle, pointerId: event.pointerId, edge, max, width, start: event.clientX, original: editorLayout.state.widths[edge] };
+    drag = {
+      shell, handle, pointerId: event.pointerId, edge, max, available,
+      start: event.clientX, startWidth: width,
+      otherPreference: editorLayout.state.widths[other],
+    };
     event.preventDefault();
   }, options);
   root.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.pointerId || !drag.handle.isConnected) return;
     const delta = (event.clientX - drag.start) * (drag.edge === 'left' ? 1 : -1);
-    editorLayout.setWidth(drag.edge, Math.min(drag.max, drag.width + delta), false);
-    applyEditorWorkspaceWidths(drag.shell, editorLayout.state, view(drag.shell));
+    const desired = Math.max(150, Math.min(drag.max, drag.startWidth + delta));
+    const preference = desired + drag.otherPreference > drag.available
+      ? desired * drag.otherPreference / (drag.available - desired)
+      : desired;
+    const preview: EditorLayoutState = {
+      ...editorLayout.state,
+      widths: { ...editorLayout.state.widths, [drag.edge]: editorWidth(preference) },
+    };
+    applyEditorWorkspaceWidths(drag.shell, preview, view(drag.shell));
   }, options);
   const end = (event: PointerEvent): void => {
     if (!drag || drag.pointerId !== event.pointerId) return;
     delete drag.handle.dataset.dragging;
-    if (event.type === 'pointercancel') {
-      editorLayout.setWidth(drag.edge, drag.original, false);
+    if (event.type === 'pointercancel' || event.type === 'lostpointercapture') {
       applyEditorWorkspaceWidths(drag.shell, editorLayout.state, view(drag.shell));
-    } else persistLayout(editorLayout.state as EditorLayoutState);
+    } else {
+      const delta = (event.clientX - drag.start) * (drag.edge === 'left' ? 1 : -1);
+      const desired = Math.max(150, Math.min(drag.max, drag.startWidth + delta));
+      const preference = desired + drag.otherPreference > drag.available
+        ? desired * drag.otherPreference / (drag.available - desired)
+        : desired;
+      editorLayout.setWidth(drag.edge, preference, false);
+      persistLayout(editorLayout.state as EditorLayoutState);
+      applyEditorWorkspaceWidths(drag.shell, editorLayout.state, view(drag.shell));
+    }
     drag = undefined;
   };
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) root.addEventListener(type, end, options);

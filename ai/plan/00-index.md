@@ -4,6 +4,7 @@
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0385-editor-workspace-host]] | 待处理 | 核对 Task 0383／0384 验收范围，建立不重复施工清单 |
 | [[ai/plan/task-0384-editor-directory-navigation]] | 待处理 | 规整共享目录行并接入浏览实例定位 |
 | [[ai/plan/task-0383-editor-session-and-review-tools]] | 进行中 | 等待用户浏览器验收 |
 | [[ai/plan/task-0374-arona-vite-watch-and-progressive-css]] | 进行中 | 监听及 CSS 分批装载已验证，等 Windows 自然重启复测 |
