@@ -23,6 +23,12 @@ DOM 事件 → Controller action → GameCommands → Runtime / 领域服务
 
 `runtime-commands.ts` 将 Controller 使用的命令委托给 `GameInstance` 或具体领域服务。组件负责呈现及收集用户输入；Controller 负责把输入转换成命令；领域层校验并执行后，下一次视图构建反映新状态。这使查询模型与写入命令保持分离。
 
+## UI 会话的释放
+
+`UIController.bindEvents()` 幂等登记该 Controller 的 EventBus 订阅，并持有 `controller-events.ts` 返回的取消函数；`mount()`、开发页面和测试都使用这个所有权入口。`destroy()` 先取消所属订阅，再停用排队渲染与更新调度器，随后释放栏和交互。不得用 `EventBus.clear()` 代替 UI 退订，否则会删除仍存活的领域服务和其他 UI 的订阅。订阅内已排队的微任务在释放后直接退出，不再刷新旧 DOM。
+
+生命周期回归见 `tests/ui/controller/controller-events.test.ts`；调度器释放边界见 [[update-dispatch-and-surface]]。
+
 ## 读写分工
 
 - 查询和展示读取 GameReadModel / UIContext 提供的数据。

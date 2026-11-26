@@ -6,7 +6,9 @@
 
 Story 编辑器的单按钮 Click 属性只编辑正文与按击次数，不嵌套结果动作或转移表单。行为通过后续独立节点编辑；旧 result 仅展示原始值诊断和显式移除入口，不提供编辑或发布。入口为 `story-editor/property-fields.ts`，行为由 `tests/ui/story/story-editor-properties.test.ts` 核验。
 
-Story／StoryEntry 编辑器在经典模式使用原 Workspace 布局。高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换，选择跟随界面偏好保存。工作类型栏以边缘选中线和悬停名称提示。正文底部的插入工具沿用 `.mini-action`，布局分隔线显示 1px、拖动命中区为 8px，双击恢复侧栏默认宽度。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts`。
+Story／StoryEntry 编辑器在经典模式使用原 Workspace 布局。高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换，选择跟随界面偏好保存。顶部工具组使用 panel-light 表面及对应文字角色，实例条以同一层半透明黑色覆盖未选中标签、间隙与两端留白，选中标签露出与三栏间隙相连的主题画布。实例条高 36px，Story 和 Entry 复用各自 SVG，关闭按钮独立占 24px。底部状态栏直接使用工作区底色。SVG 工作类型栏与导航栏共用左栏外框，三栏外框采用 5px 圆角。顶部与三栏之间保留 6px 空隙，工具栏下沿可直接拖动切换高度。两条 6px 栏缝以纵向三点提示拖宽，双击恢复侧栏默认宽度。正文底部的插入工具沿用 `.mini-action`。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts`。
+
+Story／StoryEntry 与世界浏览器共享 `workspace/editor-directory.ts` 的树行和展开控件。目录树行固定 28px 高度，子列表使用与父行 Chevron 对齐的连续纵向引导线；展开状态由描边 Chevron 旋转表达。Story／Entry 行使用独立文档 SVG，目录管理操作使用常显齿轮按钮。选中行使用主题混色背景，焦点保留清晰轮廓。Story 搜索、世界线筛选及各分支折叠仍由 Story 目录状态拥有；世界节点展开与选中仍由世界浏览会话拥有。目录定位仅滚动对应左栏宿主。源码入口：`workspace/editor-directory.ts`、`story-editor/sidebar-tree.ts`、`runtime-editor/world-browser.ts` 与 `story-editor.css`；相关 UI 自动化覆盖不替代宽屏手动验收。
 
 Story / Entry 中栏的历史按钮与 workspace-heading 共用一行，按钮组位于左侧且不收缩，标题占余下宽度。仅 `story-editor.css` 对中栏 titlebar-layout 进行横排与历史组排序，不增加 DOM 包装，不改变其他工作区标题栏或刷新范围。
 
@@ -22,7 +24,9 @@ Talklet 发出方姓名复用原 `.chat-name` 元素和 `StoryInlineTextEditor` 
 
 Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡文案可双击原位编辑，复用原文本元素与主题外观，不新增包裹层。活动文本仅添加细虚线轮廓并临时切为纯文本编辑；空正文保留最小命中面积。Click 编辑预览使用展示容器，正式播放仍使用原按钮。`StoryInlineTextEditor` 持有单个短暂编辑会话，按节点与稳定属性 key 同步草稿 / 右栏；`workspace.story-editor` 协调时保留活动文本子树、光标和组合输入，其余区域沿原 key 更新。点击外部、保存或离开提交，Esc 恢复原值，粘贴仅接收纯文本；Choice 行重排保留选项身份。入口为 `story-editor/inline-text.ts`、`dom.ts` 与 `controller.ts`，回归见 `tests/ui/story/story-editor-inline-text.test.ts`。
 
-从外部星图打开 Story 编辑器时，“打开时主题”沿用当前聚焦节点的完整投影（包含背景状态变体），重新进入时更新该默认来源；编辑器内已手动选择的色组、场景或自定义主题继续保留。未指定的背景和正文 token 沿用 `theme-tree.ts` 的浅色基础角色，不从色相额外派生深蓝底。主题通过既有变量、背景和表现宿主更新，不增加界面结构。入口为 `SelectorPage.currentTheme()` 与 `StoryEditorTheme.setInitial()`；验证见 `tests/ui/story/story-editor-theme.test.ts`，未做浏览器视觉验收。
+Story、StoryEntry 与世界使用 `editor-workspace-frame.ts` 的面板、标题与轨道。高级模式从已有栏位派生可用视图，世界默认双栏，可切三栏或专注，三栏右侧预留便捷信息。左栏目录通过共享的行、折叠与滚动组件呈现。只读审阅区复用区块和标签／值行。折叠保留已挂载栏位与滚动宿主，专注时侧栏轨道为零；分隔线只在可见侧栏的栏缝显示。
+
+编辑器会话从外部采样有效主题，工作类型切换沿用已提交主题，真正退出交还给目的页面。工具栏折叠偏好按工作类型保留。颜色缺项沿用 `theme-tree.ts` 的浅色角色；主题解析或投影失败时切到浅色纯色画布，移除旧背景及表现宿主图层。入口见 `editor-workspace-appearance.ts` 与 `controller-theme.ts`。
 
 从星图顶栏进入设置、背包等功能页时，沿用 `SelectorPage.currentTheme()` 的完整聚焦投影，包括当前 Init / Area、背景与顶栏表现；同一功能区内切换页面继续沿用。返回游戏或在功能页明确激活其他主题时清除该 UI 临时来源。缺少可判定画布底色时回退到本地 `variables.css` 已有的浅色基础与深色正文，不再假定深色画布。入口为 `SelectorPage.currentTheme()`、`UIController.navigateToService()`、`controller-theme.ts`；未做浏览器视觉验收。
 
@@ -32,7 +36,7 @@ Story 编辑流的 Talklet 正文、Click 按钮 / 各 Choice 选项 / 入口卡
 
 局部标记 Navi 沿用 ModalManager 的 body 级弹窗和滚动、现有 list-item / mini-action；字段旁只增加一个输入操作行与选择按钮。弹窗搜索过滤稳定行，选择与查看来源是独立动作；内部标记不可选择时显示禁用说明。关闭后恢复字段焦点，回填沿既有字段命令与区域协调保留原输入和滚动宿主。实现入口为 `story-editor/local-flag-navi.ts`，DOM / 选择 / 来源行为见 `tests/ui/story/story-editor-flag-navi.test.ts`；未做浏览器视觉验收。
 
-Story 编辑器的顶部主题浮窗沿用现有 `.theme-palette` / `.theme-swatches` / `.theme-editor-entry`，列出全部色组，标记当前编辑器主题，并复用用户主题表单编辑本会话自定义主题。Area / 通讯录场景卡片以 title 提示可双击应用目标完整主题；单击仍查看属性。选择色组、双击和颜色预览只更新主题变量、背景、表现宿主与浮窗选中属性，保留顶部按钮、浮窗、Workspace、输入焦点和滚动；组件位置修改沿用既有表单结构刷新。来源、隔离和会话边界见 [[runtime-editor-and-project-checks]]，实现为 `story-editor/theme.ts`、`controller-theme.ts` 与共享 header / theme actions；验证为 `tests/ui/story/story-editor-theme.test.ts`，未做浏览器人工验收。
+Story 编辑器的顶部主题浮窗沿用现有 `.theme-palette` / `.theme-swatches` / `.theme-editor-entry`，列出全部色组，标记当前编辑器主题，并复用用户主题表单编辑本会话自定义主题。Area / 通讯录场景卡片以 title 提示可双击应用目标完整主题；单击仍查看属性。选择色组、双击和颜色预览只更新主题变量、背景、表现宿主与浮窗选中属性，保留顶部按钮、浮窗、Workspace、输入焦点和滚动；组件位置修改沿用既有表单结构刷新。来源、隔离和会话边界见 [[runtime-editor-and-project-checks]]，实现为 `workspace/editor-workspace-appearance.ts`、`controller-theme.ts` 与共享 header / theme actions；验证为 `tests/ui/story/story-editor-theme.test.ts`，未做浏览器人工验收。
 
 StoryDef 属性沿现有 renderTabs 分为概述、关系、Flag表、其他工具包四个常驻面板；切换更新 hidden / 激活态并记忆原右栏滚动。节点属性提供自己的局部条件和 Navi，Entry 信息栏保留 Flag 表。Flag 标题行沿用流内 Flag 的稳定深色和 DM Mono，省略超长 ID，右侧按本篇／其他汇总提供／依赖／双向。展开后每篇 Story 只出现一张共用渐变卡，点击定位首个引用节点。左下角重命名胶囊在行内打开输入，提示外部引用风险后只修改本篇草稿。绑定判定只在拖拽经过标题行时显示。展开状态按当前内容与 Flag 作用域、类型和 ID 保留。入口为 `flag-catalog-view.ts`、`flag-table-binding.ts` 与 `controller.ts`；回归见 `tests/ui/story/story-editor-inspector-tabs.test.ts`。
 
@@ -136,7 +140,7 @@ Story 与 Entry 的目录管理右栏也可以直接填写层级路径。「层�
 
 单条条件的默认表单由 `condition-fields.ts` 按判断对象提供字段标题，专用交互由 `condition-leaf-editors.ts` 提供。实体引用共用 `condition-reference-navi.ts` 的候选，输入可直接键入 ID，候选显示名称和归属。搜索视图占用同一弹窗主体，以三个独立列呈现 Init 筛选、卡片及详情确认。原条件树保留挂载，返回恢复入口焦点，确认选择仅回填当前节点。区域的旧比较值可通过默认数值表单编辑。
 
-Story 与 StoryEntry 引用复用 `components/shared/condition-reference-picker.ts`，候选使用书本／场记板紧凑行，详情和已选目标使用共用的渐变卡。触发条件在原弹窗内切页，运行内容编辑器使用其子弹窗栈。世界线筛选按原有候选语义组织，编辑器草稿覆盖同 ID 的正式候选。确认回填原字段，取消保持原值，查看来源与前往采用工作区历史。只读字段仍可前往有效目标。试播路线、Flag 来源、目录及运行内容资料库复用身份图标、标题和间距。玩家目录与邀请沿用当前可见标题，不为身份展示增加数据 ID 或提前揭示名称。
+Story 与 StoryEntry 引用复用 `components/shared/condition-reference-picker.ts`，候选使用书本／场记板紧凑行，详情和已选目标使用共用的渐变卡。触发条件在原弹窗内切页，运行内容编辑器使用其子弹窗栈。世界线筛选按原有候选语义组织，编辑器草稿覆盖同 ID 的正式候选。确认回填原字段，取消保持原值。Story 编辑器属性区可直接点击目标卡片打开内容，包含只读字段，跳转纳入工作区历史。试播路线、Flag 来源、目录及运行内容资料库复用身份图标、标题和间距。玩家目录与邀请沿用当前可见标题，不为身份展示增加数据 ID 或提前揭示名称。
 
 MapRun 与 MapEntry 的 wrapper 仅保留业务身份并承接共享 `.workspace-page-content` 的尺寸；顶栏下间距统一在页面内容区产生，不由 wrapper 与 Frame 叠加。公共 `.topbar` 不参与收缩，保留底部分隔；MapEntry 的说明、队伍与资源分别在内容区滚动，主操作位于固定 footer。实现入口为共享 Frame、`layout.css` 与两页内容 CSS，回归见 `tests/ui/area-map/map-shell-layout.test.ts`；实际桌面几何和主题视觉仍待用户授权验收。
 

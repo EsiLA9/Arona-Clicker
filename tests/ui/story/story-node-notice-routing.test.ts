@@ -4,7 +4,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { legacyStoryDatapack as baseDatapack } from '../../engine/story/legacy-story-datapack';
 import type { PanelState } from '../../../src/ui/components/shared/app-shell';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 import { ChatStream } from '../../../src/ui/presentation/chat-stream';
 import { output, playbackReader, presentation } from './story-playback-fixtures';
 
@@ -21,7 +20,7 @@ describe('Story completion and travel notices follow their source owner', () => 
     game.inits.startNewGame(OFFICE);
     controller = new UIController(game, document.querySelector('#app')!);
     controller.started = true;
-    bindEvents(controller);
+    controller.bindEvents();
   });
 
   afterEach(() => {

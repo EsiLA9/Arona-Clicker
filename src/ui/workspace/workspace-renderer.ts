@@ -1,3 +1,4 @@
+import { renderWorldBrowser } from '../runtime-editor/world-browser';
 import type { UIContext } from '../runtime/context';
 import { renderHeader } from '../components/shared/header';
 import {
@@ -90,6 +91,7 @@ function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
 }
 
 function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: PanelState): { body: string; footerNote: string } {
+  if (route.kind === 'world-editor' && state.worldBrowser) return { body: renderWorldBrowser(ctx, state.worldBrowser), footerNote: '世界编辑器' };
   if (route.kind === 'story-editor' && state.storyEditor) return { body: renderStoryEditorWorkspace(ctx, state.storyEditor), footerNote: 'Story 编辑器 · 本地草稿' };
   if (route.kind === 'area-map' && state.areaMapSession?.sessionId === route.sessionId) {
     return { body: renderAreaMapWorkspace(ctx, state.areaMapSession, state), footerNote: '区域地图' };
@@ -122,11 +124,11 @@ function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: Panel
   return { body: renderGameWorkspace(ctx, state), footerNote: 'TS-HTML ENGINE · NO NETWORK' };
 }
 
-export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: PanelState): string {
+export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: PanelState, editorTheme?: import('./editor-workspace-appearance').EditorWorkspaceTheme): string {
   const rendered = renderWorkspaceBody(ctx, route, state);
   return `
     <main class="console-shell">
-      ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state), editorTheme: route.kind === 'story-editor' ? state.storyEditor?.uiTheme : undefined })}
+      ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state), editorTheme })}
       <div class="workspace-page-content">${rendered.body}</div>
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${rendered.footerNote}</span></footer>
     </main>`;

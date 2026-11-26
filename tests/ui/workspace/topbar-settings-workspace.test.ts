@@ -217,7 +217,7 @@ describe('顶栏与设置工作区', () => {
     game.stop();
   });
 
-  it('顶栏保留主题、Story 编辑器、编辑器、游戏、背包、设置一级入口', () => {
+  it('顶栏保留主题、Story 编辑器、世界编辑器、编辑器、游戏、背包、设置一级入口', () => {
     const game = new GameInstance();
     game.init([baseDatapack]);
     const wrapper = document.createElement('div');
@@ -226,8 +226,9 @@ describe('顶栏与设置工作区', () => {
     const topbar = wrapper.querySelector('.topbar')!;
     const nav = topbar.querySelector('.service-nav-actions')!;
     expect(topbar.querySelector('#theme-palette-btn')).not.toBeNull();
-    expect(nav.querySelectorAll(':scope > button')).toHaveLength(5);
+    expect(nav.querySelectorAll(':scope > button')).toHaveLength(6);
     expect(nav.querySelector('#story-editor-launch')).not.toBeNull();
+    expect(nav.querySelector('#world-editor-launch')).not.toBeNull();
     expect(nav.querySelector('#runtime-editor-launch')).not.toBeNull();
     expect(nav.querySelector('[data-service="game"]')).not.toBeNull();
     expect(nav.querySelector('[data-topbar-action="inventory"]')).not.toBeNull();

@@ -1,29 +1,31 @@
-import { loadEditorWorkspacePreferences, type EditorWorkspaceView } from '../workspace/editor-workspace';
-import type { StoryEditorState, StoryEditorTarget, StoryEditorVisit } from './model';
+import { editorWorkspaceEdges, loadEditorWorkspacePreferences, type EditorWorkspaceView } from '../workspace/editor-workspace';
+import { createStoryBrowseViewState, type StoryBrowseViewState, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 
 export const storyWorkType = 'story';
 export const editorPanels = ['left', 'center', 'right'] as const;
+export const storyEditorEdges = editorWorkspaceEdges(editorPanels);
 export type EditorPanel = (typeof editorPanels)[number];
 export type EditorScroll = Partial<Record<EditorPanel, number>>;
+export type StoryInstanceScroll = Pick<EditorScroll, 'center' | 'right'>;
 
-const viewFields = [
-  'sourceSelection', 'targetPackId', 'target', 'visits', 'visitIndex', 'selectedNodeId',
-  'insertionBeforeNodeId', 'inspectorView', 'nodeDesignerTab', 'storyInspectorTab', 'entryEditorTab',
-  'sidebarMode', 'sidebarDirectoryMode', 'sidebarFiltersOpen', 'sidebarFolders', 'sidebarSearchFolders',
-  'search', 'entrySearch', 'senderSearch', 'storyInitFilter', 'notice', 'error',
-] as const;
-type StoryInstanceState = Pick<StoryEditorState, (typeof viewFields)[number]>;
+export function captureStoryInstanceState(state: StoryBrowseViewState): StoryBrowseViewState {
+  const snapshot = createStoryBrowseViewState();
+  function copy<K extends keyof StoryBrowseViewState>(key: K): void { snapshot[key] = state[key]; }
+  (Object.keys(snapshot) as (keyof StoryBrowseViewState)[]).forEach(copy);
+  snapshot.target = state.target ? { ...state.target } : null;
+  snapshot.visits = state.visits.map(visit => ({ ...visit, target: { ...visit.target } }));
+  return snapshot;
+}
 
-export function captureStoryInstanceState(state: StoryEditorState): StoryInstanceState {
-  function field<K extends keyof StoryInstanceState>(key: K): [K, StoryInstanceState[K]] { return [key, state[key]]; }
-  return Object.fromEntries(viewFields.map(field)) as StoryInstanceState;
+export function restoreStoryInstanceState(state: StoryEditorState, saved: StoryBrowseViewState): void {
+  Object.assign(state, captureStoryInstanceState(saved));
 }
 
 export interface StoryBrowseInstance {
   id: number;
-  view: EditorWorkspaceView;
-  snapshot?: StoryInstanceState;
-  scroll: EditorScroll;
+  inspectorVisible: boolean;
+  snapshot: StoryBrowseViewState;
+  scroll: StoryInstanceScroll;
   document?: { target: StoryEditorTarget; packId?: string; draftId?: string; name: string };
   unavailable?: boolean;
   inspectorScroll: Map<string, number>;
@@ -31,22 +33,43 @@ export interface StoryBrowseInstance {
   sourceVisits: Map<string, { visits: StoryEditorVisit[]; index: number }>;
   entryTabScroll: Map<string, Partial<Record<'basic' | 'rewards' | 'gates', number>>>;
   entryTabs: Map<string, 'basic' | 'rewards' | 'gates'>;
-  sidebarModeScroll: Map<string, number>;
 }
 
-export function createStoryBrowseInstance(id: number, view: EditorWorkspaceView = 'three'): StoryBrowseInstance {
-  return { id, view, scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
-    entryTabScroll: new Map(), entryTabs: new Map(), sidebarModeScroll: new Map() };
+export function createStoryBrowseInstance(id: number, inspectorVisible = true): StoryBrowseInstance {
+  return { id, inspectorVisible, snapshot: createStoryBrowseViewState(), scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
+    entryTabScroll: new Map(), entryTabs: new Map() };
 }
 
 export interface StoryWorkspaceSession {
   preferences: ReturnType<typeof loadEditorWorkspacePreferences>;
   instances: StoryBrowseInstance[];
   active: StoryBrowseInstance;
+  sidebarVisible: boolean;
+  sidebarScroll: Map<string, number>;
   nextId: number;
+}
+
+export function storyWorkspaceView(workspace: StoryWorkspaceSession): EditorWorkspaceView {
+  return workspace.sidebarVisible ? workspace.active.inspectorVisible ? 'three' : 'browse' : 'focus';
 }
 
 export function createStoryWorkspaceSession(): StoryWorkspaceSession {
   const active = createStoryBrowseInstance(1);
-  return { preferences: loadEditorWorkspacePreferences(storyWorkType), instances: [active], active, nextId: 2 };
+  return { preferences: loadEditorWorkspacePreferences(storyWorkType), instances: [active], active,
+    sidebarVisible: true, sidebarScroll: new Map(), nextId: 2 };
+}
+
+export function createEmptyStoryBrowseInstance(workspace: StoryWorkspaceSession, current: StoryBrowseViewState, source: string): StoryBrowseInstance {
+  const instance = createStoryBrowseInstance(workspace.nextId++, workspace.active.inspectorVisible);
+  instance.snapshot.sourceSelection = source || undefined;
+  instance.snapshot.targetPackId = source === (current.sourceSelection ?? '') ? current.targetPackId
+    : source.startsWith('pack:') ? source.slice(5) : undefined;
+  instance.scroll = { center: 0, right: 0 };
+  return instance;
+}
+
+export function findStoryBrowseInstance(workspace: StoryWorkspaceSession, target: StoryEditorTarget, source: string, runningPackId?: string): StoryBrowseInstance | undefined {
+  return workspace.instances.find(instance => instance !== workspace.active
+    && instance.document?.target.kind === target.kind && instance.document.target.id === target.id
+    && (instance.snapshot.sourceSelection ?? '') === source && (Boolean(source) || instance.document.packId === runningPackId));
 }

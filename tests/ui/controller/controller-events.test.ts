@@ -4,7 +4,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { entityKeyOf } from '../../../src/arona-clicker/services/progression/color-system';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 describe('UI Controller Area 事件刷新', () => {
   let game: GameInstance;
@@ -17,12 +16,47 @@ describe('UI Controller Area 事件刷新', () => {
     game.inits.startNewGame('base:init:schale_office');
     controller = new UIController(game, document.querySelector('#app')!);
     controller.started = true;
-    bindEvents(controller);
+    controller.bindEvents();
   });
 
   afterEach(() => {
     controller.destroy();
     game.stop();
+  });
+
+  it('releases destroyed UI subscriptions while keeping the live UI and engine listeners', () => {
+    const root = document.createElement('div'); document.body.append(root);
+    const live = new UIController(game, root);
+    live.bindEvents();
+    live.bindEvents();
+    const oldRender = vi.spyOn(controller, 'scheduleRender').mockImplementation(() => undefined);
+    const oldLog = vi.spyOn(controller, 'refreshLogPanel').mockImplementation(() => undefined);
+    const liveRender = vi.spyOn(live, 'scheduleRender').mockImplementation(() => undefined);
+    const engineListener = vi.fn();
+    const off = game.eventBus.on('entityThemeChanged', engineListener);
+    try {
+      controller.destroy();
+      game.eventBus.emit({ type: 'entityThemeChanged', entityKey: 'area:test' });
+      expect(oldRender).not.toHaveBeenCalled(); expect(oldLog).not.toHaveBeenCalled();
+      expect(liveRender).toHaveBeenCalledTimes(1); expect(engineListener).toHaveBeenCalledTimes(1);
+    } finally { off(); live.destroy(); }
+  });
+
+  it('does not refresh a destroyed UI from an already queued playback callback', async () => {
+    const refresh = vi.spyOn(controller, 'refreshChatPanel').mockImplementation(() => undefined);
+    game.eventBus.emit({ type: 'storyPlaybackChanged', owner: null });
+    controller.destroy();
+    await Promise.resolve();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('cancels queued renders and dispatcher updates before they can bind a destroyed UI again', async () => {
+    const render = vi.spyOn(controller, 'render').mockImplementation(() => undefined);
+    controller.scheduleRender();
+    controller.requestUIUpdate({ type: 'structure', scope: 'app', reason: 'before-destroy' });
+    controller.destroy();
+    await Promise.resolve();
+    expect(render).not.toHaveBeenCalled();
   });
 
   it('当前 Area 拓扑变化时刷新左侧可前往区域', () => {

@@ -1,5 +1,6 @@
-import { LocalStorageAdapter } from '../../../src/data-services/persistence/storage-adapter';
 // @vitest-environment happy-dom
+import { setImmediate } from 'node:timers/promises';
+import { LocalStorageAdapter } from '../../../src/data-services/persistence/storage-adapter';
 import { createStoryForTest } from './story-editor-test-helpers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
@@ -48,7 +49,11 @@ describe('Story authoring UI and draft API', () => {
     ctrl.storyEditor.open(); click('[data-editor-action="new"]');
     change(q('[data-editor-field="story-context-area"]'),baseDatapack.areas[0].id);
   });
-  afterEach(()=>{ctrl.destroy();game.storyService.dispose();game.stop();localStorage.clear();});
+  afterEach(async () => {
+    ctrl.destroy(); game.storyService.dispose(); game.stop(); localStorage.clear();
+    // Happy DOM query caches use WeakRefs; let the next turn release detached trees.
+    await setImmediate();
+  });
   it('creates and edits an Entry, checks/applies it, and retains it after draft reload', () => {
     const storyDescription = q<HTMLTextAreaElement>('[data-public-description][data-value-scope="$document"]');
     change(storyDescription, '正文公开简介\n保留换行');

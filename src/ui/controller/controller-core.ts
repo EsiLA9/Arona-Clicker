@@ -142,6 +142,7 @@ export function destroy(ctrl: UIController): void {
 export function resetSessionPanel(ctrl: UIController): void {
   if (ctrl.panelState.storyReplay?.replayId) ctrl.commands.cancelReplayStory(ctrl.panelState.storyReplay.replayId);
   ctrl.areaMaps.release();
+  ctrl.endEditorSession();
   ctrl.panelState.workspaceNavigation = createWorkspaceNavigation();
   ctrl.panelState.leftTab = 'area';
   ctrl.panelState.centerTab = 'chat';

@@ -79,7 +79,10 @@ function navigateFromTopbar(ctrl: UIController, service: TopbarService, rightTab
 /** 绑定顶栏 / 全局工具条（render 后调用）；Workspace 栏动作由实例装配绑定。 */
 export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.root): void {
   scope.querySelector('#story-editor-launch')?.addEventListener('click', event => {
-    withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.storyEditor.open());
+    withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.openStoryEditor());
+  });
+  scope.querySelector('#world-editor-launch')?.addEventListener('click', event => {
+    withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.openWorldBrowser());
   });
   bindDatapackActions(ctrl, scope);
   bindRuntimeDatapackEditorActions(ctrl, scope);

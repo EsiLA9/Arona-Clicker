@@ -65,9 +65,24 @@ export interface StoryEditorVisit {
   centerScroll: number;
   rightScroll: number;
 }
-export interface StoryEditorState {
-  workspace?: import('./workspace-session').StoryWorkspaceSession;
+export interface StoryBrowseViewState {
   sourceSelection?: string;
+  targetPackId?: string;
+  target: StoryEditorTarget | null;
+  visits: StoryEditorVisit[];
+  visitIndex: number;
+  selectedNodeId: string | null;
+  /** Transient gap anchor before a node; null means the end of the current Story. */
+  insertionBeforeNodeId: string | null;
+  inspectorView?: 'story' | 'node';
+  nodeDesignerTab?: 'basic' | 'appearance' | 'performance';
+  storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
+  entryEditorTab?: 'basic' | 'rewards' | 'gates';
+  notice?: string | null;
+  error: string | null;
+}
+export interface StoryEditorState extends StoryBrowseViewState {
+  workspace?: import('./workspace-session').StoryWorkspaceSession;
   sourceRegistry?: import('../../arona-clicker/contracts/runtime/content-catalog').ContentCatalogQueryPort;
   sourcePics?: import('../../arona-clicker/contracts/runtime/runtime').GameReadModel['pics'];
   sourceOptions?: { value: string; label: string; group: 'packs' | 'drafts' }[];
@@ -76,23 +91,15 @@ export interface StoryEditorState {
   readOnlyReason?: string;
   canApplySource?: boolean;
   parkedDrafts?: StoryDraft[];
-  uiTheme?: import('./theme').StoryEditorTheme;
-  visits: StoryEditorVisit[];
-  visitIndex: number;
   drafts: StoryDraft[];
-  target: StoryEditorTarget | null;
-  selectedNodeId: string | null;
-  inspectorView?: 'story' | 'node';
-  nodeDesignerTab?: 'basic' | 'appearance' | 'performance';
   /** Session-only positioned previews, independently toggled per draft and node. */
   performanceEditing?: Record<string, string[]>;
-  storyInspectorTab: 'overview' | 'relations' | 'flags' | 'tools';
-  /** Transient gap anchor before a node; null means the end of the current Story. */
-  insertionBeforeNodeId: string | null;
   sidebarMode: 'all' | 'stories' | 'entries' | 'senders';
   sidebarDirectoryMode?: 'all' | 'stories' | 'entries';
   sidebarFiltersOpen?: boolean;
   sidebarRuntimeScope?: string;
+  sidebarSourceSelection?: string;
+  sidebarSource?: Pick<StoryEditorState, 'drafts' | 'sourceRegistry' | 'sourcePics' | 'sourceMod' | 'sourceWarning'>;
   sidebarFolders?: Map<string, boolean>;
   sidebarSearchFolders?: Map<string, boolean>;
   sidebarReveal?: StoryEditorTarget;
@@ -102,14 +109,10 @@ export interface StoryEditorState {
   entrySearch: string;
   senderSearch: string;
   composers: Record<string, StoryComposer>;
-  error: string | null;
-  notice?: string | null;
   storageBlocked: boolean;
-  targetPackId?: string;
   copyStoryId?: string;
   previewEntryByDraft?: Map<string, string>;
   entryPoolContext?: { entryId: string; poolKeys: string[] };
-  entryEditorTab?: 'basic' | 'rewards' | 'gates';
   preview?: {
     playback: import('../../arona-clicker/contracts/runtime/story-presentation').StoryPresentationView | null;
     story: import('../../arona-clicker/contracts/runtime/results').StoryView | null;
@@ -131,8 +134,14 @@ export type StoryFlagReaderBindResult = { ok: true; flagName: string; changed: b
 export const cloneStory = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const identity = (prefix: string): string => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
+export function createStoryBrowseViewState(): StoryBrowseViewState {
+  return { sourceSelection: undefined, targetPackId: undefined, target: null, visits: [], visitIndex: -1,
+    selectedNodeId: null, insertionBeforeNodeId: null, inspectorView: 'story', nodeDesignerTab: 'basic',
+    storyInspectorTab: 'overview', entryEditorTab: 'basic', notice: null, error: null };
+}
 export function createStoryEditorState(): StoryEditorState {
-  return { visits: [], visitIndex: -1, drafts: [], target: null, selectedNodeId: null, storyInspectorTab: 'overview', insertionBeforeNodeId: null, sidebarMode: 'all', search: '', entrySearch: '', senderSearch: '', composers: Object.create(null), error: null, storageBlocked: false };
+  return { ...createStoryBrowseViewState(), drafts: [], sidebarMode: 'all', search: '', entrySearch: '',
+    senderSearch: '', composers: Object.create(null), storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;

@@ -7,7 +7,6 @@ import { mergeFragments, parseFragment } from '../../../src/data-services/datapa
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 const PACK_DIR = 'datapack-dev/area-achievement-demo';
 const MOD = 'area-achievement-demo';
@@ -39,7 +38,7 @@ describe('area achievement demo Records integration', () => {
     expect(game.inits.startNewGame(INIT)).toBe(true);
     controller = new UIController(game, document.querySelector('#app')!);
     controller.started = true;
-    bindEvents(controller);
+    controller.bindEvents();
   });
 
   afterEach(() => {

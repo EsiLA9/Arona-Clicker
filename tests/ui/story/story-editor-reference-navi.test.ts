@@ -57,8 +57,9 @@ describe('Story content reference Navi', () => {
 
   it('searches by name or ID, selects a draft Story and preserves field, scroll, history and playback', () => {
     selectNode('transfer'); const field = property(['transfer','storyId']);
-    const jump = field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-jump]')!;
-    expect(jump.disabled).toBe(true);
+    const targetCard = () => find<HTMLButtonElement>('.story-editor-right [data-editor-story-target]');
+    expect(targetCard().disabled).toBe(true);
+    expect(field.closest('[data-reference-control]')!.querySelector('[data-reference-jump]')).toBeNull();
     const body = find('.story-editor-right .workspace-column__body'); body.scrollTop = 73;
     const history = ctrl.storyEditor.state.visitIndex, running = game.storyService.getCurrentStoryId();
     const full = vi.spyOn(ctrl, 'render'); open(field);
@@ -75,10 +76,13 @@ describe('Story content reference Navi', () => {
     expect(body.scrollTop).toBe(73); expect(ctrl.storyEditor.state.visitIndex).toBe(history);
     expect(game.storyService.getCurrentStoryId()).toBe(running); expect(full).not.toHaveBeenCalled();
     expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'local:story:navi' } });
-    expect(jump.disabled).toBe(false);
+    expect(targetCard().disabled).toBe(false);
     open(field); find<HTMLButtonElement>('.story-editor-reference-navi .modal-close').click();
     expect(document.activeElement === field).toBe(true);
     expect(draft.document.nodes[0]).toMatchObject({ transfer: { storyId: 'local:story:navi' } });
+    targetCard().click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target).toEqual({ kind: 'story', id: 'local:story:navi' });
+    expect(game.storyService.getCurrentStoryId()).toBe(running);
   });
 
   it('keeps source navigation separate from selection and closes on leaving', () => {
@@ -107,8 +111,11 @@ describe('Story content reference Navi', () => {
     choose(id);
     expect(draft.document.nodes.find(node => node.id === 'request')).toMatchObject({ action: { request: { entryId: id } } });
     expect(field.value).toBe(id);
-    expect(find(`.story-editor-right .story-identity-preview[data-story-target-id="${id}"] strong`).textContent).toBe('未应用的目标故事');
+    const card = find<HTMLButtonElement>(`.story-editor-right [data-editor-entry-target="${id}"]`);
+    expect(card.querySelector('strong')?.textContent).toBe('未应用的目标故事');
     expect(find(`[data-editor-node="request"] [data-editor-entry-target="${id}"] code`).textContent).toBe(id);
+    card.click(); ctrl.flushUIUpdates();
+    expect(ctrl.storyEditor.state.target).toEqual({ kind: 'entry', id });
   });
 
   it('updates draft grouping, filters the Story directory, and preserves the optional value through saves', () => {
@@ -188,7 +195,7 @@ describe('Story content reference Navi', () => {
     expect(state.drafts.find(row => row.draftId === 'navi-child')!.authoring!.activeStories[0].storyId).toBe(draft.document.id);
   });
 
-  it('jumps from the current linked Story field even when the Entry is read-only', () => {
+  it('opens the current linked Story card even when the Entry is read-only', () => {
     const state = ctrl.storyEditor.state;
     const entryId = 'local:activestory:navi';
     const entryDraft = state.drafts.find(row => row.draftId === 'navi-child')!;
@@ -196,19 +203,22 @@ describe('Story content reference Navi', () => {
     refresh();
     find<HTMLButtonElement>(`[data-editor-entry="${entryId}"]`).click(); ctrl.flushUIUpdates();
     const field = find<HTMLInputElement>('[data-value-scope="$authoring"][data-story-reference="story"]');
-    const jump = field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-jump]')!;
+    const property = field.closest('.story-editor-property')!;
+    const card = property.querySelector<HTMLButtonElement>('[data-editor-story-target]')!;
+    expect(property.querySelector('[data-reference-jump]')).toBeNull();
     for (const [value, disabled] of [['', true], ['missing:story:absent', true], [draft.document.id, false]] as const) {
       field.value = value;
       field.dispatchEvent(new Event('input', { bubbles: true })); ctrl.flushUIUpdates();
-      expect(jump.isConnected).toBe(true);
-      expect(jump.disabled).toBe(disabled);
+      expect(card.isConnected).toBe(true);
+      expect(card.dataset.editorStoryTarget).toBe(value);
+      expect(card.disabled).toBe(disabled);
     }
     state.readOnlyReason = '当前内容只读';
     refresh();
     expect(field.disabled).toBe(true);
     expect(field.closest('[data-reference-control]')!.querySelector<HTMLButtonElement>('[data-reference-navi]')!.disabled).toBe(true);
-    expect(jump.disabled).toBe(false);
-    jump.click(); ctrl.flushUIUpdates();
+    expect(card.disabled).toBe(false);
+    card.click(); ctrl.flushUIUpdates();
     expect(ctrl.modal.isOpen()).toBe(false);
     expect(state.target).toEqual({ kind: 'story', id: draft.document.id });
     expect(entryDraft.authoring!.activeStories[0].storyId).toBe(draft.document.id);

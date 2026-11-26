@@ -64,10 +64,18 @@ function priority(update: UIUpdate): number {
 export class UIUpdateDispatcher {
   private readonly pending = new Map<string, UIUpdate>();
   private flushScheduled = false;
+  private disposed = false;
 
   constructor(private readonly sink: UIUpdateSink) {}
 
+  dispose(): void {
+    this.disposed = true;
+    this.pending.clear();
+    this.flushScheduled = false;
+  }
+
   request(request: UIUpdateRequest): void {
+    if (this.disposed) return;
     const update = this.normalize(request);
     this.pending.set(updateIdentity(update), update);
     if (this.flushScheduled) return;
@@ -76,10 +84,12 @@ export class UIUpdateDispatcher {
   }
 
   applyNow(request: UIUpdateRequest): UIUpdateApplyResult {
+    if (this.disposed) return 'not-found';
     return this.dispatch(this.normalize(request));
   }
 
   flushNow(): void {
+    if (this.disposed) return;
     this.flushScheduled = false;
     if (this.pending.size === 0) return;
     const queued = [...this.pending.values()];

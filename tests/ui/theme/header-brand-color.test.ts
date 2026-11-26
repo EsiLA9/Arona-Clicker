@@ -27,7 +27,7 @@ describe('header brand background text color', () => {
       ['var(--missing-background)', '#ffffff', INK_ON_DARK],
       [undefined, '#ffffff', INK_ON_DARK],
     ] as const) {
-      ctrl.storyEditor.state.uiTheme!.selectDefinition({ tokens: { bg: semantic, bgAlt: semantic },
+      ctrl.activeEditorTheme()!.selectDefinition({ tokens: { bg: semantic, bgAlt: semantic },
         nodes: { bg: semantic }, systemColorLayerIgnored: true,
         background: background ? [{ kind: 'solid', value: background }] : [] }, '测试主题');
       ctrl.refreshTheme();

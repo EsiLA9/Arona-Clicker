@@ -2,7 +2,8 @@ import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
 import type { StoryEditorTarget } from './model';
 import { openStoryReferencePicker, type ConditionReferenceRow } from '../components/shared/condition-reference-picker';
-import { renderStoryIdentityPreview, type StoryIdentity } from '../components/story/story-identity';
+import type { StoryIdentity } from '../components/story/story-identity';
+import { renderStoryEditorTarget } from './target-view';
 
 export type ReferenceField = HTMLInputElement | HTMLSelectElement;
 
@@ -11,14 +12,9 @@ function referenceTargetKind(kind?: string): StoryEditorTarget['kind'] | undefin
   if (kind === 'entry' || kind === 'activeEntry' || kind === 'passiveEntry') return 'entry';
 }
 
-export function referenceTarget(field: ReferenceField): StoryEditorTarget | undefined {
-  const kind = referenceTargetKind(field.dataset.storyReference);
-  if (kind && field.value) return { kind, id: field.value };
-}
-
 /** Decorate the next render before keyed reconciliation, keeping the original field as the write entry. */
 export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: StoryEditorTarget) => boolean,
-  preview?: { ctx: UIContext; resolve(target: StoryEditorTarget): StoryIdentity | undefined }): void {
+  cards?: { ctx: UIContext; resolve(target: StoryEditorTarget): StoryIdentity | undefined }): void {
   for (const field of root.querySelectorAll<ReferenceField>('[data-story-reference]')) {
     if (field.closest('[data-reference-control]')) continue;
     const label = field.dataset.referenceLabel || field.closest('label')?.firstChild?.textContent?.trim() || '内容';
@@ -31,21 +27,14 @@ export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: Story
     const kind = referenceTargetKind(field.dataset.storyReference);
     if (kind) {
       if (!field.hasAttribute('aria-label') && !field.hasAttribute('aria-labelledby')) field.setAttribute('aria-label', label);
-      const value = field instanceof HTMLSelectElement ? field.querySelector<HTMLOptionElement>('option[selected]')?.value ?? field.value : field.value;
-      const target = value ? { kind, id: value } : undefined;
-      const jump = document.createElement('button');
-      jump.type = 'button'; jump.className = 'mini-action'; jump.dataset.referenceJump = '';
-      jump.textContent = '前往'; jump.setAttribute('aria-label', `前往${label}`);
-      jump.disabled = !target || !hasTarget(target);
-      jump.title = target ? jump.disabled ? `当前来源中找不到 ${target.id}` : `前往${label} · ${target.id}` : '尚未设置目标';
-      row.append(jump);
       // The Transfer inspector already renders the same target next to its fields.
-      if (target && preview && field.dataset.storyPropertyPath !== '["transfer","storyId"]') {
-        const identity = preview.resolve(target);
-        if (identity) {
-          row.insertAdjacentHTML('afterend', renderStoryIdentityPreview(preview.ctx, identity));
-          (row.nextElementSibling as HTMLElement).dataset.editorKey = `${row.dataset.editorKey}:preview`;
-        }
+      if (cards && field.dataset.storyPropertyPath !== '["transfer","storyId"]') {
+        const id = field instanceof HTMLSelectElement ? field.querySelector<HTMLOptionElement>('option[selected]')?.value ?? field.value : field.value;
+        const target = { kind, id };
+        const identity = cards.resolve(target);
+        row.insertAdjacentHTML('afterend', renderStoryEditorTarget(cards.ctx, kind, id, identity?.title ?? '',
+          Boolean(id) && hasTarget(target), { gradient: identity?.gradient }));
+        (row.nextElementSibling as HTMLElement).dataset.editorKey = `${row.dataset.editorKey}:target`;
       }
     }
   }

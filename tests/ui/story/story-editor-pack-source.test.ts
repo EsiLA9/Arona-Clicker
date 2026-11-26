@@ -110,9 +110,11 @@ it('browses and previews only the loaded slot, then preserves a draft when the s
     expect(reopened.storageBlocked).toBe(false);
     expect(reopened.drafts).toEqual([expect.objectContaining({ dirty: true, savedAt: saved.drafts[0].savedAt,
       document: expect.objectContaining({ name: '切换前的修改' }) })]);
-    click('[data-editor-key="quick-preview"]');
+    const classicUnavailablePreview = root.querySelector<HTMLButtonElement>('[data-editor-key="quick-preview"]')!;
+    expect(classicUnavailablePreview.disabled).toBe(true);
+    expect(classicUnavailablePreview.title).toContain('未载入');
+    classicUnavailablePreview.click();
     expect(root.querySelector('[aria-label="试播正文"]')).toBeNull();
-    expect(ctrl.storyEditor.state.error).toContain('未载入');
     game.setPackSelection(paneKey, 'editing');
     expect(game.applyPackSelection().ok).toBe(true);
     ctrl.storyEditor.refresh(createUIContext(game));
@@ -138,6 +140,70 @@ it('browses and previews only the loaded slot, then preserves a draft when the s
     expect(unavailablePreview.title).toContain('未载入');
     unavailablePreview.click();
     expect(root.querySelector('[aria-label="试播正文"]')).toBeNull();
+    game.setPackSelection(paneKey, 'editing');
+    expect(game.applyPackSelection().ok).toBe(true);
+    ctrl.storyEditor.refresh(createUIContext(game));
+    click(`[data-editor-workspace-action="activate"][data-editor-instance="${original}"]`);
+    expect(state.target?.id).toBe(storyId);
+    expect(state.drafts).toContain(draft);
+    expect(root.querySelector<HTMLButtonElement>('[data-editor-key="quick-preview"]')!.disabled).toBe(false);
+  } finally {
+    ctrl.destroy();
+    game.storyService.dispose();
+    game.stop();
+    localStorage.clear();
+  }
+});
+
+it('filters the advanced directory independently and opens a result in its selected pack scope', () => {
+  localStorage.clear();
+  const game = new AronaClickerRuntime();
+  game.init([baseDatapack]);
+  const packId = game.createEmptyEditingPack({ modId: 'sidebar-qa', versionId: '1.0.0' }).packRecordId!;
+  const baseStory = baseDatapack.stories[0];
+  const story = { id: 'sidebar-qa:story:scoped', name: '定向来源故事', startContext: baseStory.startContext, nodes: [], stages: {} };
+  expect(game.saveStoryAuthoringToPack(packId, { ...emptyStoryAuthoring(), stories: [story] }).ok).toBe(true);
+  game.packManager.setEnabled(packId, true);
+  game.applyEnabledPacks();
+  document.body.innerHTML = '<div id="app"></div>';
+  const root = document.querySelector<HTMLElement>('#app')!;
+  const ctrl = new UIController(game, root);
+  const button = (selector: string) => root.querySelector<HTMLButtonElement>(selector)!;
+  const click = (selector: string) => { button(selector).click(); ctrl.flushUIUpdates(); };
+  const chooseScope = (value: string) => {
+    const select = root.querySelector<HTMLSelectElement>('[data-editor-source]')!;
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    ctrl.flushUIUpdates();
+    expect(select.value).toBe(value);
+  };
+  const activeTab = () => button('[data-editor-workspace-action="activate"][aria-pressed="true"]').dataset.editorInstance;
+  const state = ctrl.storyEditor.state;
+  try {
+    ctrl.storyEditor.open();
+    click('[data-editor-workspace-action="mode"]');
+    click(`[data-sidebar-story-id="${baseStory.id}"]`);
+    const baseTab = activeTab();
+    chooseScope(`pack:${packId}`);
+    expect(state.target?.id).toBe(baseStory.id);
+    expect(state.sourceSelection).toBeUndefined();
+    expect(root.querySelector(`[data-sidebar-story-id="${baseStory.id}"]`)).toBeNull();
+    expect(activeTab()).toBe(baseTab);
+    click(`[data-sidebar-story-id="${story.id}"]`);
+    const packTab = activeTab();
+    expect(state.target?.id).toBe(story.id);
+    expect(state.sourceSelection).toBe(`pack:${packId}`);
+    expect(button('[data-editor-workspace-header] [data-editor-action="save"]').disabled).toBe(false);
+    click(`[data-editor-workspace-action="activate"][data-editor-instance="${baseTab}"]`);
+    expect(state.target?.id).toBe(baseStory.id);
+    expect(button(`[data-sidebar-story-id="${baseStory.id}"]`).dataset.sidebarOpenSource).toBe('');
+    chooseScope(`pack:${packId}`);
+    click(`[data-sidebar-story-id="${story.id}"]`);
+    expect(activeTab()).toBe(packTab);
+    chooseScope('');
+    expect(state.sourceSelection).toBe(`pack:${packId}`);
+    expect(state.target?.id).toBe(story.id);
+    expect(button(`[data-sidebar-story-id="${baseStory.id}"]`).dataset.sidebarOpenSource).toBe('');
   } finally {
     ctrl.destroy();
     game.storyService.dispose();

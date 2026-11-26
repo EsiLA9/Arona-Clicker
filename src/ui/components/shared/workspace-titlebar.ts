@@ -5,6 +5,7 @@ export type WorkspaceTitlebarLeaveAction =
   | 'data-column-back'
   | 'data-contacts-workspace-leave'
   | 'data-story-workspace-leave'
+  | 'data-world-editor-leave'
   | 'data-area-workspace-leave'
   | 'data-map-entry-leave';
 
@@ -23,11 +24,12 @@ export function renderWorkspaceTitlebar(
   accessory?: string,
   titleActions?: string,
 ): string {
-  const leaveLabel = leaveAction === 'data-area-workspace-leave' ? '返回经典界面'
+  const leaveLabel = leaveAction === 'data-world-editor-leave' ? '关闭世界编辑器'
+    : leaveAction === 'data-area-workspace-leave' ? '返回经典界面'
     : leaveAction === 'data-map-entry-leave' ? '返回游戏'
       : '返回上一页';
   const leaveButton = leaveAction
-    ? `<button type="button" class="workspace-back conversation-back" ${leaveAction} data-workspace-back aria-label="${leaveLabel}" title="${leaveLabel}">${BACK_CHEVRON}</button>`
+    ? `<button type="button" class="workspace-back conversation-back" ${leaveAction}${leaveAction === 'data-world-editor-leave' ? '' : ' data-workspace-back'} aria-label="${leaveLabel}" title="${leaveLabel}">${BACK_CHEVRON}</button>`
     : '';
   const content = `
     <div class="workspace-heading">

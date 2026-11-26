@@ -6,6 +6,12 @@
 
 游戏内 Runtime Editor 位于 `src/ui/runtime-editor/`。它集成在当前游戏 Runtime 中，提供包目录、内容草稿、定义编辑、诊断与内容浏览等 UI；创建、替换或删除定义通过 Controller 命令交给 Runtime 内容协调器，由 Runtime 校验并写入对应编辑包。图鉴只读查询使用当前 Registry，不等于编辑草稿。
 
+### 世界编辑器：Init／Area／Spot 目录
+
+顶部服务按钮和高级编辑器的工作类型栏共用世界浏览入口。世界浏览用当前 Registry 的只读定义，沿 Area 的 Init 归属与 Spot 的 Area 归属建树。默认内容单独标记，缺少父项的定义仍可在目录中查看。摘要提供父子链接，跳转沿用同一个浏览实例。目录节点的 key 与实体引用各自独立，折叠和定位跟随目录路径，摘要按实体解析。
+
+世界浏览与 Story 共用 Editor Workspace 栏位、标题、面板表面、外壳和返回位置契约。世界高级模式提供三栏、双栏查阅和专注正文。新实例默认双栏；三栏的右侧为预留信息面板，专注以零宽轨道折叠已挂载侧栏。由 Story 切往世界前先保存草稿，保存失败保留当前工作区。跨工作类型切换保留世界实例的选中、展开和滚动，退出编辑器恢复最初的页面。世界浏览会话属于 UI，本页暂只提供目录和只读摘要。实现见 `src/ui/runtime-editor/world-browser.ts`，回归见 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
+
 ### AreaMap 与世界信息
 
 游戏内 Runtime Editor 可编辑 AreaMap 的名称、描述与收录方式，并以 JSON 集合维护节点、连线、`openCondition` 和 `reveal`；Area 也可编辑 `enterCondition`、`onVisitReveal` 与四面信息规则。每次应用仍经过内容策略、地图形状 / 引用校验与 Registry 热提交；相互引用的地图批量提交，失败会回滚。编辑地图只是作者操作，不会收录玩家地图或观察其隐藏信息。Schema 的复杂 AreaMap 与 Story 节点字段保留 JSON 编辑能力，完整约束仍由源契约和 Registry 校验。
@@ -28,13 +34,13 @@ Talklet 的发出方选择写入 `content.characterId`，默认名称与头像�
 
 Talklet / Click 正文支持在编辑流中双击原位编辑。对话与旁白写入 content.text，Click 按钮、入口卡标题 / 按钮与接续按钮各写原字段；Choice 按选项的稳定属性 key 独立写入，不套用共用正文赋值。输入实时更新作者草稿，正文类字段复用 `editStoryNodeBody()`，属性表单随既有区域刷新同步；编辑文本子树由浏览器持有，避免刷新移动光标或打断组合输入。点击外部、保存与离开结束编辑，Esc 仅恢复本次目标字段及对应正文缓存，粘贴只写纯文本。切换目标、节点 / 分支失效或存储只读时不继续回填；活动会话不进入本地持久化、Story 定义或游戏状态。入口为 `story-editor/inline-text.ts`，回归为 `tests/ui/story/story-editor-inline-text.test.ts`。
 
-从外部星图进入时，编辑器通过 `SelectorPage.currentTheme()` 读取当前聚焦主题的完整投影，保留背景状态变体、节点颜色和表现配置，不读取与星图分离的游戏运行主题。每次进入更新“打开时主题”的来源，已手动选择的编辑器主题继续保留；未指定背景和正文 token 时使用共享主题树的浅色基础角色。完整投影保留背景定义中的图片引用，由既有背景服务解析，不从已渲染样式反推作者定义。
+一次进入到退出由 UIController 持有同一主题与原返回点。从星图进入时取聚焦主题完整投影，从游戏和服务页进入时取当前有效主题。切换实体、实例或工作类型沿用已提交主题。退出由实际目的地的主题规则恢复，下一次进入重新采样。工具栏折叠偏好按工作类型持久化。
 
 「需要局部标记」输入在 focus / click 时展开就地自定义下拉，保留独立 Navi 作为来源浏览入口，不触发原生 datalist。候选由 `required-flag-dropdown.ts` 沿反向 Story Transfer 查找调用上下文，再汇总同一 Entry / Story 转移链中实际写入或声明回传的名称；不列出全局标记、只读 / 仅移除名称或其他 Entry 的私有标记，循环去重。首次打开字段为空或已有文本时均视为全满足；继续输入后按名称不区分大小写筛选，满足项保持实色，未满足项稍浅且仍可选择，不隐藏或禁用。下拉行按名称 key 保留，筛选只改变样式；选择前重新核对候选，点击外部、失焦至范围外、切换文档或离开编辑器关闭。该清单仍是潜在调用范围，不保证某次运行已写入对应键。验证见 `tests/ui/story/story-editor-required-flag-dropdown.test.ts`。
 
 局部标记字段旁提供独立 Navi 选择入口，覆盖 requiresFlag、Operation / Button / Choice 的局部标记名称，以及结构化 localFlag.name / returnFlags 项。`local-flag-navi.ts` 复用 ModalManager，按名称、来源 ID、节点 ID 与用途搜索；搜索只隐藏 / 显示已挂载候选，选择只填回原字段，查看来源单独进入既有 Story / Entry 导航。非回传字段禁止选择其他 Entry 内部标记，returnFlags 允许从已获取信息中挑选内部名称。取消恢复原字段焦点，字段失效时拒绝回填；切换故事或离开编辑器清理 Navi。选择写入动作的名称仅赋值，不触发手写名称时的级联重命名。名称分配、可绑定提供方与级联改名只访问合同中的局部标记字段及精确的休眠分支缓存；普通 localFlag.value / Extra JSON 不参与，Overlay EntryCard 的显式 returnFlags 则按真实回传声明处理。参考独立 Editor Navi 的候选 / 来源分离职责，不依赖其 EditorModel、表索引或事件总线。行为见 `tests/ui/story/story-editor-flag-navi.test.ts`。
 
-Story 编辑器具有独立的界面主题会话 `uiTheme`：顶部主题浮窗提供全部 Registry 色组与无解锁条件的编辑器自定义主题，色组切换和自定义预览均由本地 `StoryEditorTheme` / `RuntimeThemeManager` 解析，经既有主题变量、背景与表现宿主刷新接线显示；不调用玩家主题激活或用户主题存档命令。双击移动到 Area、移动到通讯录或顶部起始场景卡片，会应用目标内容定义的完整主题；单击仍只查看相应属性，缺失目标不切换。自定义表单复用原有颜色 / 图层 / 宿主 / 组件编辑器及校验，支持实时预览、取消和「应用到编辑器」。主题只在当前 UIController 会话内保留，关闭后游戏仍使用自己的主题，重新打开编辑器可继续该会话主题；刷新应用后不保留这份界面主题，也不写 Story 草稿、定义或玩家状态。原有主题内容编辑预览另行保留，退出成功后清理对应预览。源码为 `story-editor/theme.ts`、`scene-view.ts`、`controller-theme.ts`、`controller-actions-theme.ts` 与 `controller-modals.ts`；行为见 `tests/ui/story/story-editor-theme.test.ts`。
+顶部主题浮窗沿用 Registry 色组与编辑器自定义表单。Story 场景卡片双击、应用色组或确认自定义主题统一提交外观意图。单击场景卡片或世界目录只浏览内容。临时预览结束恢复已提交主题。变量、背景和表现宿主原位更新，主题只保留于当前 UIController。必需颜色缺项用浅色基础角色补齐；解析或投影失败时整份应用浅色纯色默认主题、清理旧背景并提示一次，直到下次显式应用成功。实现见 `workspace/editor-workspace-appearance.ts`、`controller-theme.ts`、`controller-actions-theme.ts` 和 `controller-modals.ts`；回归见 `tests/ui/story/story-editor-theme.test.ts` 与 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
 
 StoryDef 的 Flag 页与 Entry 信息栏提供派生的 Flag 表，区分 Entry 局部标记与持久全局标记，逐项列出读 / 写 / 移除 / 回传声明、所属作用域与来源路径；Story 来源可定位作者节点。Story 自动沿 goto / insert 和结果转移收集所有潜在分支；跨 Entry 的信息需通过「获取 Entry flag 信息」确认，可拒绝或重新选择。确认以调用位置、目标 Entry 及稳定节点 / 动作行身份保存在草稿侧 `flagImports`，换序与重载保留，不进入 StoryDef / Registry。Entry 清单完整遍历潜在调用集，不受某个 Story 的获取选择影响。内部子 Entry 局部名称单列，不作为父 Story 的局部候选；父侧只提供本链名称与明确的 returnFlags 声明。局部 / 全局输入提供自由输入的名称候选，修改不改变运行时作用域或白名单。Extra 值与休眠编辑分支不参与收集，循环去重、缺失目标显式提示；清单不保证到达节点时标记已存在。实现为 `flag-catalog.ts` / `flag-catalog-view.ts`，测试见 `tests/ui/story/story-editor-flag-catalog.test.ts` 与 workspace 用例。
 
@@ -78,6 +84,8 @@ Choice 属性只围绕选项文案、出现条件、选择标记与后续节点�
 不完整草稿允许保存：草稿信封只校验已填字段的基本形状，缺省 text/options/card 等载荷仍是合法草稿。保存失败保留内存内容并阻止切换/离开，重试成功才标记已保存。加载发现损坏/不支持的版本时保留原存储，暂时只读浏览，避免覆盖作者资料。
 
 `StoryEditorController` 持有独立 UI 会话，普通更新由既有 dispatcher 的 `workspace.story-editor` region 合并，按节点 key 协调 DOM；编辑输入、滚动容器和未改节点保留。主题背景与内容包装有不同身份，主题插入背景不应替换正在输入的内容。Frame 缺失时先恢复页面内容区域，shell 缺失才恢复当前页面。返回保留进入前的 Workspace 和导航，已失效的目标回到游戏。提交失败时先选中出错节点，再由同一次 refresh 在补丁完成的 DOM 中聚焦对应字段，不假设微任务时序。
+
+经典操作区与高级工具栏共用 `story-editor/document-actions.ts` 的 `storyDocumentActions()`。它只接收编辑器状态与 Entry 存在性／编辑态 Mod 可用性，不访问 DOM 或 Runtime；view 查询事实并分别渲染按钮。只读内容仍可试播，来源缺失时两种模式均禁用试播并说明原因；保存、应用和删除分别保留存储、权限与草稿条件。该计算用于呈现，Controller 与 Runtime 的执行校验仍是写入边界。浏览契约、快照转换和切换门控见 [[workspace-columns-and-layout]]；纯状态回归入口为 `tests/ui/story/story-editor-workspace-session.test.ts`、`story-editor-document-actions.test.ts`。
 
 源码入口：`src/ui/story-editor/model.ts`、`property-model.ts`、`property-fields.ts`、`property-options.ts`、`persistence.ts`、`view.ts`、`dom.ts`、`controller.ts`；接线位于 `src/ui/controller/controller.ts`、`controller-actions-topbar.ts` 和 `src/ui/workspace/workspace-renderer.ts`。行为、属性表单与 DOM 连续性见 `tests/ui/story/story-editor-model.test.ts`、`story-editor-workspace.test.ts`、`story-editor-properties.test.ts`、`story-editor-properties-model.test.ts`。按用户要求只做代码与自动化验证，未做浏览器验收。
 

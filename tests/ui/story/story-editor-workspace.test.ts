@@ -120,6 +120,119 @@ describe('Story Editor workspace prototype', () => {
     expect(render).not.toHaveBeenCalled();
   });
 
+  it('keeps the advanced search and folds when an existing result activates its document and ribbon', () => {
+    open();
+    const entry = [...game.registry.activeStories.values()][0];
+    const story = [...game.registry.stories.values()].find(item => item.id !== entry.storyId)!;
+    const press = (selector: string) => { find<HTMLButtonElement>(selector).click(); ctrl.flushUIUpdates(); };
+    const tab = (intent: string, id?: string) => `[data-editor-workspace-action="${intent}"]${id ? `[data-editor-instance="${id}"]` : ''}`;
+    const activeId = () => find(`${tab('activate')}[aria-pressed="true"]`).dataset.editorInstance!;
+    const result = `[data-editor-entry="${entry.id}"]`;
+    const query = '[data-sidebar-search]';
+    const header = find('[data-editor-workspace-header]');
+
+    press(tab('mode'));
+    press(tab('open'));
+    input(query, story.id);
+    press(`[data-editor-story="source:${story.id}"]`);
+    const storyInstance = activeId();
+    input(query, entry.id);
+    press(result);
+    const entryInstance = activeId();
+    expect(entryInstance).not.toBe(storyInstance);
+    input(query, '无匹配项');
+    press(tab('activate', storyInstance));
+    expect(find<HTMLInputElement>(query).value).toBe('无匹配项');
+    expect(root.querySelector(result)).toBeNull();
+    expect(header.querySelector('[data-editor-action="save-to-runtime"]')).not.toBeNull();
+
+    input(query, entry.id);
+    const row = find<HTMLButtonElement>(result);
+    const list = find('[data-scroll-key="stories"]');
+    const folder = row.closest('ul')!.previousElementSibling!.querySelector<HTMLButtonElement>('[data-sidebar-folder]')!;
+    const view = find<HTMLSelectElement>('[data-editor-workspace-view-select]');
+    view.value = 'focus';
+    view.dispatchEvent(new Event('change', { bubbles: true }));
+    ctrl.flushUIUpdates();
+    press(tab('activate', entryInstance));
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('three');
+    press(tab('open'));
+    press(tab('activate', storyInstance));
+    expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('browse');
+    expect(find(result)).toBe(row);
+
+    list.scrollTop = 52;
+    press(result);
+    expect(activeId()).toBe(entryInstance);
+    expect(find<HTMLInputElement>(query).value).toBe(entry.id);
+    expect(find(result)).toBe(row);
+    expect(row.getAttribute('aria-pressed')).toBe('true');
+    expect(list.scrollTop).toBe(52);
+    expect(root.querySelector('.story-editor-center [data-editor-entry-page]')).not.toBeNull();
+    expect(root.querySelector('.story-editor-right [data-editor-entry-page]')).not.toBeNull();
+    expect(header.querySelector('[data-authoring-action="apply"]')).not.toBeNull();
+    expect(header.querySelector('[data-editor-action="save-to-runtime"]')).toBeNull();
+    folder.click();
+    ctrl.flushUIUpdates();
+    press(tab('close', entryInstance));
+    expect(activeId()).toBe(storyInstance);
+    expect(find('[data-sidebar-folder]').getAttribute('aria-expanded')).toBe('true');
+    expect(find<HTMLInputElement>(query).value).toBe(entry.id);
+    expect(root.querySelector(`[data-sidebar-story-id="${story.id}"]`)).not.toBeNull();
+    press(tab('locate'));
+    expect(find(`[data-sidebar-story-id="${story.id}"]`).closest('ul')?.hidden).toBe(false);
+  });
+
+  it('saves once per instance transition and leaves active/list unchanged when saving fails', () => {
+    open(); click('new');
+    find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click(); ctrl.flushUIUpdates();
+    const editor = ctrl.storyEditor;
+    const workspace = editor.state.workspace!;
+    const first = workspace.active;
+    const drafts = editor.state.drafts;
+    const save = vi.spyOn(editor, 'save');
+    const press = (action: string, id?: number) => {
+      find<HTMLButtonElement>(`[data-editor-workspace-action="${action}"]${id ? `[data-editor-instance="${id}"]` : ''}`).click();
+      ctrl.flushUIUpdates();
+    };
+    press('duplicate');
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(workspace.instances).toHaveLength(2);
+    expect(editor.state.drafts).toBe(drafts);
+    const second = workspace.active;
+    save.mockClear(); press('activate', first.id);
+    expect(save).toHaveBeenCalledTimes(1); expect(workspace.active).toBe(first);
+    save.mockClear(); press('activate', first.id);
+    expect(save).not.toHaveBeenCalled();
+    save.mockReturnValue(false);
+    press('activate', second.id); press('duplicate'); press('close', first.id);
+    expect(workspace.active).toBe(first); expect(workspace.instances).toEqual([first, second]);
+    save.mockClear(); press('close', second.id);
+    expect(save).not.toHaveBeenCalled(); expect(workspace.instances).toEqual([first]);
+    save.mockReset().mockReturnValue(true); press('close', first.id);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(workspace.active).not.toBe(first); expect(workspace.instances).toEqual([workspace.active]);
+    expect(editor.state.target).toBeNull(); expect(editor.state.visits).toEqual([]);
+  });
+
+  it('rolls back an unregistered candidate when its target disappears after the save gate', () => {
+    open(); click('new');
+    find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click(); ctrl.flushUIUpdates();
+    const editor = ctrl.storyEditor;
+    const workspace = editor.state.workspace!;
+    const first = workspace.active;
+    const target = editor.state.target;
+    const save = editor.save.bind(editor);
+    // Invalidate only the post-switch lookup to model a source changing during save.
+    const hasTarget = vi.spyOn(editor as unknown as { hasTarget: () => boolean }, 'hasTarget')
+      .mockReturnValueOnce(true).mockReturnValueOnce(false);
+    const saving = vi.spyOn(editor, 'save').mockImplementation((manual, refresh) => save(manual, refresh));
+    find<HTMLButtonElement>('[data-editor-workspace-action="duplicate"]').click(); ctrl.flushUIUpdates();
+    expect(saving).toHaveBeenCalledTimes(1); expect(hasTarget).toHaveBeenCalled();
+    expect(workspace.active).toBe(first); expect(workspace.instances).toEqual([first]);
+    expect(editor.state.target).toEqual(target);
+  });
+
   it('preserves the mounted editor and parked browse instances across advanced and classic layouts', () => {
     open(); click('new'); click('click');
     const state = ctrl.storyEditor.state;
@@ -148,14 +261,20 @@ describe('Story Editor workspace prototype', () => {
     right.scrollTop = 46;
     action('mode');
     expect(find('[data-editor-workspace]').dataset.editorWorkspaceMode).toBe('advanced');
+    expect([...find<HTMLSelectElement>('[data-editor-workspace-view-select]').options].map(option => option.value)).toEqual(['three', 'browse', 'focus']);
+    expect([...root.querySelectorAll<HTMLElement>('[data-editor-workspace-edge]')].map(handle => handle.dataset.editorWorkspaceEdge)).toEqual(['left', 'right']);
+    expect(frame.style.gridTemplateColumns).toContain('var(--editor-track-left, 300px)');
+    expect(frame.style.gridTemplateColumns).toContain('var(--editor-track-right, var(--workspace-right-width))');
     expect(find('[data-workspace-frame="story-editor"]')).toBe(frame);
     expect(find('.story-editor-center .workspace-column__body')).toBe(center);
     const first = activeId()!;
     view('focus');
     expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('focus');
+    expect(find('[data-editor-workspace-rail]').hidden).toBe(true);
     right.scrollTop = 0; // A hidden body can report zero in a browser.
     action('open');
     expect(find('[data-editor-workspace]').dataset.editorWorkspaceView).toBe('browse');
+    expect(find('[data-editor-workspace-rail]').hidden).toBe(false);
     expect(document.activeElement).toBe(find('[data-sidebar-search]'));
     view('three');
     expect(right.scrollTop).toBe(46);
@@ -230,7 +349,11 @@ describe('Story Editor workspace prototype', () => {
       expect(ribbon.querySelector(selector)).toBeNull();
       expect(find('.story-editor-composer [aria-label="添加节点"]').querySelector(selector)).not.toBeNull();
     }
-    const original = find('[data-editor-workspace-action="activate"][aria-pressed="true"]').dataset.editorInstance;
+    const storyTab = find('[data-editor-workspace-action="activate"][aria-pressed="true"]');
+    const original = storyTab.dataset.editorInstance;
+    expect(storyTab.textContent).toBe(draft.document.name);
+    expect(storyTab.getAttribute('aria-label')).toContain('Story ·');
+    expect(storyTab.querySelector('[aria-hidden="true"].editor-document-icon path')).not.toBeNull();
     find<HTMLButtonElement>('[data-editor-key="quick-preview"]').click();
     ctrl.flushUIUpdates();
     expect(state.preview, state.error ?? '试播应已开启').toBeTruthy();
@@ -261,6 +384,10 @@ describe('Story Editor workspace prototype', () => {
     const entry = [...game.registry.activeStories.values()][0];
     find<HTMLButtonElement>(`[data-editor-entry="${entry.id}"]`).click();
     ctrl.flushUIUpdates();
+    const entryTab = find('[data-editor-workspace-action="activate"][aria-pressed="true"]');
+    expect(entryTab.textContent).not.toContain('Entry ·');
+    expect(entryTab.getAttribute('aria-label')).toContain('Entry ·');
+    expect(entryTab.querySelector('[aria-hidden="true"].editor-document-icon path')).not.toBeNull();
     expect(ribbon.querySelector('[data-authoring-action="apply"]')).not.toBeNull();
     expect(ribbon.querySelector('[data-editor-action="save-to-runtime"], [data-authoring-preview-entry]')).toBeNull();
     expect(root.querySelector('.story-editor-composer')).toBeNull();
@@ -277,6 +404,8 @@ describe('Story Editor workspace prototype', () => {
     const frame = find('[data-workspace-frame="story-editor"]');
     const command = find('[data-editor-workspace-action="open"]');
     const grip = find('[data-editor-workspace-ribbon-grip]');
+    expect(grip.parentElement).toBe(header);
+    expect(header.nextElementSibling).toBe(find('[data-editor-workspace-documents]'));
     const pointer = (type: string, y: number) => grip.dispatchEvent(new PointerEvent(type,
       { bubbles: true, button: 0, pointerId: 1, clientY: y }));
     expect(header.dataset.editorWorkspaceRibbon).toBe('expanded');
@@ -1160,10 +1289,42 @@ describe('Story Editor workspace prototype', () => {
       expect(getComputedStyle(body).overflow).toBe('auto');
       expect(getComputedStyle(footer).flexShrink).toBe('0');
       expect(getComputedStyle(find('.story-editor-list')).overflowY).toBe('auto');
+      expect(getComputedStyle(find('.story-editor-list')).getPropertyValue('scrollbar-width')).toBe('none');
+      expect(getComputedStyle(find('[data-editor-directory-thumb]')).visibility).toBe('hidden');
       expect(body.contains(footer)).toBe(false);
       const stream = find('.story-editor-flow');
       expect(getComputedStyle(stream).overflowY).not.toBe('auto');
     } finally { style.remove(); }
+  });
+
+  it('tracks overflow and drags the sidebar thumb through the native list', () => {
+    open();
+    const list = find('[data-scroll-key="stories"]');
+    const thumb = find('[data-editor-key="scroll:stories"] [data-editor-directory-thumb]');
+    let contents = 400;
+    Object.defineProperties(list, {
+      clientHeight: { get: () => 100 },
+      scrollHeight: { get: () => contents },
+    });
+    Object.defineProperty(thumb, 'setPointerCapture', { value: vi.fn() });
+    const update = () => list.dispatchEvent(new Event('scroll'));
+    const pointer = (name: string, y: number) => thumb.dispatchEvent(new PointerEvent(name, { pointerId: 1, clientY: y }));
+    update();
+    expect(thumb.hasAttribute('data-overflow')).toBe(true);
+    expect(thumb.style.height).toBe('25px');
+    expect(thumb.style.transform).toBe('translateY(0px)');
+    list.scrollTop = 150;
+    update();
+    expect(thumb.style.transform).toBe('translateY(37.5px)');
+    pointer('pointerdown', 5);
+    pointer('pointermove', 30);
+    expect(list.scrollTop).toBe(250);
+    pointer('pointerup', 30);
+    pointer('pointermove', 5);
+    expect(list.scrollTop).toBe(250);
+    contents = 100;
+    update();
+    expect(thumb.hasAttribute('data-overflow')).toBe(false);
   });
 
   it('explicitly saves a new StoryDef into Registry and keeps one source/draft list row', () => {

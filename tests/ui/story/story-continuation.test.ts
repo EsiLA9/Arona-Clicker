@@ -4,7 +4,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { makePack } from '../../engine/story/story-test-fixtures';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 const parent = 'test:passivestory:ui_parent', child = 'test:activestory:ui_child';
 const area = 'base:area:schale_rooftop';
@@ -32,7 +31,7 @@ function setup(invitation = false, travelChild = false) {
   document.body.innerHTML = '<div id="app"></div>';
   ctrl = new UIController(game, document.querySelector('#app')!);
   ctrl.started = true;
-  bindEvents(ctrl);
+  ctrl.bindEvents();
   if (travelChild) expect(game.travelToArea(area).success).toBe(true);
   game.story.startStory(parent, 'passive', 'Hoshino');
   ctrl.openContactsWorkspace('Hoshino');

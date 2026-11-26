@@ -4,7 +4,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { makePack } from '../../engine/story/story-test-fixtures';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 const parent = 'test:passivestory:route_parent', child = 'test:activestory:route_child';
 const plain = 'test:activestory:route_plain', passive = 'test:passivestory:route_plain';
@@ -29,7 +28,7 @@ function setup(atArea = false, charaScene = false) {
   game = new GameInstance(); game.init([baseDatapack, pack]); game.story.clearAllCurrentStories();
   game.mutations.acquireCharacter('Hoshino', 'story');
   document.body.innerHTML = '<div id="app"></div>';
-  ctrl = new UIController(game, document.querySelector('#app')!); ctrl.started = true; bindEvents(ctrl);
+  ctrl = new UIController(game, document.querySelector('#app')!); ctrl.started = true; ctrl.bindEvents();
 }
 function finishChannel(channel: string) {
   expect(game.story.continueReplayStory(channel, game.story.getReplayPlaybackView(channel)!.token!).success).toBe(true);

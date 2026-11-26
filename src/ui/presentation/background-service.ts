@@ -85,6 +85,7 @@ export function buildBackgroundView(
   palette: readonly string[] = [],
   /** 该渲染作用域实际写入 DOM 的变量表；缺省时合成色服务不解析 var() 图层。 */
   vars?: VarLookup,
+  solidFallback = false,
 ): BackgroundView {
   const fallback = 'linear-gradient(135deg, ' + (tokens['bg'] ?? 'var(--canvas)') + ' 0%, ' + (tokens['bgAlt'] ?? 'var(--panel-light)') + ' 100%)';
   const resolved = (layers ?? []).flatMap(layer => {
@@ -106,7 +107,7 @@ export function buildBackgroundView(
     }];
   });
   const viewLayers: BackgroundViewLayer[] = resolved.length > 0 ? resolved : [{
-    kind: 'gradient', value: fallback, opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0,
+    kind: solidFallback ? 'solid' : 'gradient', value: solidFallback ? tokens.bg ?? 'var(--canvas)' : fallback, opacity: 1, position: 'center', size: 'cover', repeat: 'no-repeat', blendMode: 'normal', attachment: 'fixed', scale: 1, rotation: 0,
   }];
   // 只有拿到「作用域真实变量表」才暴露 lookup：token 反推只对 :root 且无节点覆盖时成立，
   // 拿它去判别的 var() 图层会得出与渲染相反的文字色（选择页顶栏深底深字即此因）。

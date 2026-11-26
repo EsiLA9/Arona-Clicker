@@ -34,6 +34,13 @@ export function storySourceContext(ctx: UIContext, state: StoryEditorState): UIC
   return { ...ctx, game, nameOf: (type, id) => displayName(game.registry, type, id) };
 }
 
+export function storySidebarState(state: StoryEditorState): StoryEditorState {
+  if (state.workspace?.preferences.mode !== 'advanced' || !state.sidebarSource) return state;
+  const sourceSelection = state.sidebarSourceSelection;
+  return { ...state, ...state.sidebarSource, sourceSelection,
+    target: (state.sourceSelection ?? '') === (sourceSelection ?? '') ? state.target : null };
+}
+
 /** Index the runtime's loaded source and dependencies for a scoped editor view. */
 export function storyPackCatalog(packs: readonly Datapack[]): ContentCatalogQueryPort {
   const index = <T>(rows: (pack: Datapack) => readonly T[] | undefined, key: (row: T) => string) =>

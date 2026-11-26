@@ -14,8 +14,9 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLButtonElement>('[data-activate-group]').forEach(button => {
     button.addEventListener('click', () => {
       const groupId = button.dataset.activateGroup || null;
-      if (ctrl.storyEditor.isOpen()) {
-        if (ctrl.storyEditor.state.uiTheme?.selectGroup(groupId)) ctrl.refreshTheme();
+      const editor = ctrl.activeEditorTheme();
+      if (editor) {
+        if (editor.applyEditorTheme({ kind: 'color-group', groupId })) ctrl.refreshTheme();
         return;
       }
       if (!ctrl.commands.activateTheme(groupId)) {
@@ -30,8 +31,9 @@ export function bindThemeActions(ctrl: UIController, scope: ParentNode = ctrl.ro
   scope.querySelectorAll<HTMLButtonElement>('[data-activate-custom-theme]').forEach(button => {
     button.addEventListener('click', () => {
       const customThemeId = button.dataset.activateCustomTheme;
-      if (ctrl.storyEditor.isOpen()) {
-        if (ctrl.storyEditor.state.uiTheme?.selectCustom()) ctrl.refreshTheme();
+      const editor = ctrl.activeEditorTheme();
+      if (editor) {
+        if (editor.applyEditorTheme({ kind: 'custom' })) ctrl.refreshTheme();
         return;
       }
       if (!customThemeId || !ctrl.commands.activateCustomTheme(customThemeId)) {

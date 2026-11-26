@@ -5,7 +5,6 @@ import { ShopSession } from '../../../src/arona-clicker/services/economy/shop-se
 import { legacyStoryDatapack as baseDatapack } from '../../engine/story/legacy-story-datapack';
 import { createUIContext } from '../../../src/ui/runtime/context';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 import { renderShopWorkspace } from '../../../src/ui/components/inventory/shop';
 import { createInventoryWorkspaceState } from '../../../src/ui/utilities/inventory-view';
 import { finishStory, finishWelcome } from '../../engine/story/story-test-fixtures';
@@ -361,7 +360,7 @@ describe('Workspace 页面生命周期', () => {
     expect(game.story.getAreaStoryDeliveries(areaId).filter(delivery => entryIds.includes(delivery.entryId))).toHaveLength(6);
 
     expect(document.querySelectorAll('[data-area-story-quick-enter]')).toHaveLength(0);
-    bindEvents(controller);
+    controller.bindEvents();
     game.eventBus.emit({ type: 'areaEntered', areaId, fromAreaId: areaId });
     await Promise.resolve();
     const quickButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-area-story-quick-enter]')];

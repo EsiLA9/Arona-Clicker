@@ -1,3 +1,4 @@
+import type { WorkspaceSlot } from '../components/shared/workspace-frame';
 import type { UIContext } from '../runtime/context';
 import { LocalStorageAdapter } from '../../data-services/persistence/storage-adapter';
 
@@ -40,8 +41,10 @@ export interface EditorWorkspaceChrome {
   preferences: EditorWorkspacePreferences;
   view: EditorWorkspaceView;
   temporaryView: boolean;
+  instancesVisible?: boolean;
+  edges: readonly EditorWorkspaceEdge[];
   workTypes: readonly { id: string; name: string; icon: string; active: boolean }[];
-  instances: readonly { id: number; title: string; label?: string; active: boolean }[];
+  instances: readonly { id: number; title: string; typeLabel?: string; label?: string; icon?: string; active: boolean }[];
   canDuplicate: boolean;
   commands: string;
   status: string;
@@ -57,6 +60,9 @@ const toolPaths = {
   apply: 'M12 3v12m-4-4 4 4 4-4M4 15v6h16v-6',
   layout: 'M3 4h18v16H3zM8 4v16m8-16v16',
   mode: 'M4 4h16v12H4zM8 20h8m-4-4v4',
+  locate: 'M12 3v4m0 10v4M3 12h4m10 0h4M17 12a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z',
+  edit: 'm4 20 1-5L16 4l4 4L9 19l-5 1M14 6l4 4',
+  trash: 'M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7',
   back: 'm10 5-7 7 7 7M3 12h17',
   exit: 'M10 20H4V4h6m-1 8h12m-5-5 5 5-5 5',
   restart: 'M4 11a8 8 0 1 1 2 7M4 5v6h6',
@@ -81,10 +87,27 @@ export function renderEditorToolGroup(label: string, tools: string): string {
   </div>`;
 }
 
+export function editorWorkspaceEdges(slots: readonly WorkspaceSlot[]): EditorWorkspaceEdge[] {
+  return slots.filter((slot): slot is EditorWorkspaceEdge => slot !== 'center');
+}
+
+export function editorWorkspaceViews(edges: readonly EditorWorkspaceEdge[]): EditorWorkspaceView[] {
+  const views: EditorWorkspaceView[] = [];
+  if (edges.includes('right')) views.push('three');
+  if (edges.includes('left')) views.push('browse');
+  views.push('focus');
+  return views;
+}
+
+export function editorWorkspaceView(edges: readonly EditorWorkspaceEdge[], view: EditorWorkspaceView): EditorWorkspaceView {
+  const views = editorWorkspaceViews(edges);
+  return views.includes(view) ? view : views[0];
+}
+
 export function editorWorkspaceViewAttributes(spec: EditorWorkspaceChrome) {
   return {
     'data-editor-workspace-mode': spec.preferences.mode,
-    'data-editor-workspace-view': spec.temporaryView ? 'three' : spec.view,
+    'data-editor-workspace-view': editorWorkspaceView(spec.edges, spec.temporaryView ? 'three' : spec.view),
     'data-editor-workspace-temporary': String(spec.temporaryView),
   };
 }
@@ -109,8 +132,15 @@ export function bindEditorWorkspaceResize(root: HTMLElement, workType: string, p
     if (!shell || !handle || event.button !== 0 || drag) return;
     const edge = handle.dataset.editorWorkspaceEdge as EditorWorkspaceEdge;
     const stage = handle.parentElement!;
-    const width = stage.querySelector<HTMLElement>(`.workspace-column--${edge}`)?.getBoundingClientRect().width;
-    const max = (stage.clientWidth - 340) / (shell.dataset.editorWorkspaceView === 'browse' ? 1 : 2);
+    const column = stage.querySelector<HTMLElement>(`.workspace-column--${edge}`);
+    if (!column) return;
+    const style = getComputedStyle(column);
+    const inset = parseFloat(edge === 'left' ? style.marginInlineEnd : style.marginInlineStart) || 0;
+    const visibleEdges = [...stage.querySelectorAll<HTMLElement>('[data-editor-workspace-edge]')]
+      .filter(splitter => getComputedStyle(splitter).display !== 'none').length;
+    if (!visibleEdges || getComputedStyle(handle).display === 'none') return;
+    const width = column.getBoundingClientRect().width + inset;
+    const max = (stage.clientWidth - 340) / visibleEdges - inset;
     if (!width || max < 150) return;
     handle.setPointerCapture?.(event.pointerId);
     handle.dataset.dragging = '';
@@ -155,7 +185,7 @@ function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePrefere
   let drag: { grip: HTMLElement; pointerId: number; start: number; original: EditorRibbonDensity } | undefined;
   const set = (grip: HTMLElement, ribbon: EditorRibbonDensity): void => {
     preferences.ribbon = ribbon;
-    grip.closest<HTMLElement>('[data-editor-workspace-header]')?.setAttribute('data-editor-workspace-ribbon', ribbon);
+    grip.closest('[data-editor-workspace-header]')?.setAttribute('data-editor-workspace-ribbon', ribbon);
     const { value, label } = ribbonGripValue(ribbon);
     grip.setAttribute('aria-valuenow', value);
     grip.setAttribute('aria-valuetext', label);
@@ -164,7 +194,6 @@ function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePrefere
     const grip = gripFor(event);
     if (!grip || event.button !== 0 || drag) return;
     grip.setPointerCapture?.(event.pointerId);
-    grip.dataset.dragging = '';
     drag = { grip, pointerId: event.pointerId, start: event.clientY, original: preferences.ribbon };
     event.preventDefault();
   }, options);
@@ -176,7 +205,6 @@ function bindRibbonResize(root: HTMLElement, preferences: EditorWorkspacePrefere
   }, options);
   const end = (event: PointerEvent): void => {
     if (!drag || drag.pointerId !== event.pointerId) return;
-    delete drag.grip.dataset.dragging;
     if (event.type === 'pointercancel') set(drag.grip, drag.original);
     else if (preferences.ribbon !== drag.original) save();
     drag = undefined;
@@ -195,7 +223,7 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
   const e = ctx.escapeHtml;
   const advanced = spec.preferences.mode === 'advanced';
   const view = spec.temporaryView ? '' : `<label class="editor-workspace__tool editor-workspace__view">
-    ${editorToolIcon('layout')}<select data-editor-workspace-view-select aria-label="浏览视图">${Object.entries(workspaceViews).map(([value, label]) => `<option value="${value}"${value === spec.view ? ' selected' : ''}>${label}</option>`).join('')}</select></label>`;
+    ${editorToolIcon('layout')}<select data-editor-workspace-view-select aria-label="浏览视图">${editorWorkspaceViews(spec.edges).map(value => `<option value="${value}"${value === editorWorkspaceView(spec.edges, spec.view) ? ' selected' : ''}>${workspaceViews[value]}</option>`).join('')}</select></label>`;
   const mode = renderEditorTool(ctx, 'mode', '经典模式', 'mode', { key: 'editor-workspace-mode' });
   const exit = spec.temporaryView ? '' : renderEditorTool(ctx, 'exit', '退出编辑器', 'back');
   const ribbon = spec.preferences.ribbon;
@@ -208,15 +236,18 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
           aria-valuenow="${grip.value}" aria-valuetext="${grip.label}" title="向下拖动展开，向上拖动收起"></div>`
         : '<button type="button" class="mini-action editor-workspace__mode" data-editor-workspace-action="mode" data-editor-key="editor-workspace-mode">高级模式</button>'}
     </header>`,
-    documents: `<nav class="editor-workspace__documents" data-editor-workspace-documents aria-label="浏览实例"${advanced && !spec.temporaryView ? '' : ' hidden'}>
-        ${advanced && !spec.temporaryView ? `
-          ${spec.instances.map(item => `<div class="editor-workspace__document" data-editor-key="browse-instance:${item.id}" data-current="${item.active}">
-            <button type="button" class="mini-action" data-editor-workspace-action="activate" data-editor-instance="${item.id}" aria-pressed="${item.active}" title="${e(item.label ?? item.title)}">${e(item.title)}</button>
-            <button type="button" class="mini-action" data-editor-workspace-action="close" data-editor-instance="${item.id}" aria-label="关闭 ${e(item.title)}" title="关闭">×</button>
-          </div>`).join('')}
-          <button type="button" class="mini-action" data-editor-workspace-action="duplicate"${spec.canDuplicate ? '' : ' disabled'} title="在新实例中打开当前内容">＋ 新建实例</button>` : ''}
+    documents: `<nav class="editor-workspace__documents" data-editor-workspace-documents aria-label="浏览实例"${advanced && (!spec.temporaryView || spec.instancesVisible) ? '' : ' hidden'}>
+        ${advanced && (!spec.temporaryView || spec.instancesVisible) ? `
+          ${spec.instances.map(item => {
+            const name = e(item.typeLabel ? `${item.typeLabel} · ${item.title}` : item.title);
+            return `<div class="editor-workspace__document" data-editor-key="browse-instance:${item.id}" data-current="${item.active}">
+              <button type="button" class="mini-action" data-editor-workspace-action="activate" data-editor-instance="${item.id}" aria-label="${name}" aria-pressed="${item.active}" title="${e(item.label ?? item.title)}">${item.icon ?? ''}<span class="editor-workspace__document-title">${e(item.title)}</span></button>
+              <button type="button" class="mini-action" data-editor-workspace-action="close" data-editor-instance="${item.id}" aria-label="关闭 ${name}" title="关闭实例">×</button>
+            </div>`;
+          }).join('')}
+          ${spec.temporaryView ? '' : `<button type="button" class="mini-action" data-editor-workspace-action="duplicate"${spec.canDuplicate ? '' : ' disabled'} title="在新实例中打开当前内容">＋ 新建实例</button>`}` : ''}
     </nav>`,
-    rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced ? '' : ' hidden'}>${spec.workTypes.map(type => `
+    rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced && (spec.temporaryView || editorWorkspaceView(spec.edges, spec.view) !== 'focus') ? '' : ' hidden'}>${spec.workTypes.map(type => `
       <button type="button" class="editor-workspace__work-type" data-editor-workspace-action="work-type" data-editor-work-type="${e(type.id)}" title="${e(type.name)}" aria-label="${e(type.name)}" aria-pressed="${type.active}">${type.icon}</button>`).join('')}</nav>`,
     status: `<footer class="editor-workspace__status" data-editor-workspace-status${advanced ? '' : ' hidden'}>${spec.status}</footer>`,
   };
@@ -227,14 +258,12 @@ export function renderEditorWorkspace(ctx: UIContext, spec: EditorWorkspaceChrom
   const attributes = Object.entries(editorWorkspaceViewAttributes(spec)).map(([key, value]) => `${key}="${value}"`).join(' ');
   return `<section class="editor-workspace" data-editor-workspace ${attributes}
     style="--editor-left-width:${spec.preferences.widths.left}px;--editor-right-width:${spec.preferences.widths.right}px">
-    ${header}
-    ${documents}
+    <div class="editor-workspace__top">${header}${documents}</div>
     <div class="editor-workspace__body">
       ${rail}
       <div class="editor-workspace__stage">
         <div class="editor-workspace__frame" data-editor-workspace-frame-host>${frame}</div>
-        <div class="editor-workspace__splitter" data-editor-workspace-edge="left" role="separator" aria-orientation="vertical" aria-label="调整导航栏宽度" title="拖动调整导航栏宽度，双击复位"></div>
-        <div class="editor-workspace__splitter" data-editor-workspace-edge="right" role="separator" aria-orientation="vertical" aria-label="调整属性栏宽度" title="拖动调整属性栏宽度，双击复位"></div>
+        ${spec.edges.map(edge => `<div class="editor-workspace__splitter" data-editor-workspace-edge="${edge}" role="separator" aria-orientation="vertical" aria-label="调整${edge === 'left' ? '导航' : '属性'}栏宽度" title="拖动调整栏宽度，双击复位"></div>`).join('')}
       </div>
     </div>
     ${status}

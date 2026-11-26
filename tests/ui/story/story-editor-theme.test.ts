@@ -5,9 +5,9 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
 import { currentDraft, currentNode } from '../../../src/ui/story-editor/model';
-import { uiTheme } from '../../../src/ui/controller/controller-theme';
+import { backgroundView, uiTheme } from '../../../src/ui/controller/controller-theme';
 import { STORY_EDITOR_STORAGE_KEY } from '../../../src/ui/story-editor/persistence';
-import { StoryEditorTheme } from '../../../src/ui/story-editor/theme';
+import { EditorWorkspaceTheme } from '../../../src/ui/workspace/editor-workspace-appearance';
 import { INK_ON_LIGHT, readableOnColor } from '../../../src/engine/core/color';
 import '../../../src/ui/runtime/service-definitions';
 
@@ -61,9 +61,62 @@ describe('Story editor session theme', () => {
   });
 
   it('uses a light default background when no opening theme is supplied', () => {
-    const theme = new StoryEditorTheme(game).resolve();
+    const theme = new EditorWorkspaceTheme(game).resolve();
     expect(readableOnColor(theme.tokens.bg)).toBe(INK_ON_LIGHT);
     expect(readableOnColor(theme.tokens.bgAlt)).toBe(INK_ON_LIGHT);
+  });
+
+  it.each(['classic', 'advanced'] as const)('restores a complete flat fallback after %s resolution fails', mode => {
+    open();
+    if (mode === 'advanced') find<HTMLButtonElement>('[data-editor-workspace-action="mode"]').click();
+    const editor = ctrl.activeEditorTheme()!;
+    const initialFrame = find('[data-workspace-frame="story-editor"]');
+    editor.applyEditorTheme({ kind: 'scene', label: '场景', theme: {
+      tokens: { primary: '#543276', bg: '#141414' }, systemColorLayerIgnored: true,
+      background: [{ id: 'previous-editor-layer', kind: 'solid', value: '#101010' }],
+    } });
+    ctrl.refreshTheme();
+    expect(document.querySelector('#ui-background-layer')?.innerHTML).toContain('#101010');
+    const toast = vi.spyOn(ctrl.toast, 'show');
+    const resolver = vi.spyOn(game.colorSystem, 'themeFromThemeDef').mockImplementation(() => { throw new Error('theme unavailable'); });
+    editor.applyEditorTheme({ kind: 'color-group', groupId });
+    ctrl.refreshTheme();
+    ctrl.refreshTheme();
+    expect(resolver).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith('编辑器主题加载失败，已切换到默认主题', 'error');
+    expect(uiTheme(ctrl).background).toEqual([]);
+    expect(backgroundView(ctrl).layers).toMatchObject([{ kind: 'solid', value: uiTheme(ctrl).tokens.bg }]);
+    expect(document.querySelector('#ui-background-layer')?.innerHTML).not.toContain('#101010');
+    expect(readableOnColor(uiTheme(ctrl).tokens.bg)).toBe(INK_ON_LIGHT);
+    expect(find('[data-workspace-frame="story-editor"]')).toBe(initialFrame);
+    resolver.mockRestore();
+    editor.applyEditorTheme({ kind: 'color-group', groupId });
+    ctrl.refreshTheme();
+    expect(uiTheme(ctrl).tokens.primary).toBe('#234567');
+    expect(uiTheme(ctrl).tokens.text).toBeTruthy();
+    expect(toast).toHaveBeenCalledTimes(1);
+    editor.applyEditorTheme({ kind: 'color-group', groupId: 'missing' });
+    expect(toast).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles later presentation projection failures without retrying the broken theme', () => {
+    open();
+    const theme = ctrl.activeEditorTheme()!;
+    theme.applyEditorTheme({ kind: 'scene', label: '条件场景', theme: {
+      tokens: { primary: '#345678' },
+      presentation: { components: [{ id: 'conditional', parent: 'canvas', anchor: 'center',
+        visibleWhen: { target: 'alwaysTrue', key: '', comparator: '==', value: 1 } }] },
+    } });
+    ctrl.refreshTheme();
+    expect(uiTheme(ctrl).tokens.primary).toBe('#345678');
+    const evaluate = vi.spyOn(game.conditionSystem, 'evaluateExpr').mockImplementation(() => { throw new Error('presentation unavailable'); });
+    const toast = vi.spyOn(ctrl.toast, 'show');
+    ctrl.refreshTheme();
+    ctrl.refreshTheme();
+    expect(evaluate).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(backgroundView(ctrl).layers[0].kind).toBe('solid');
   });
 
   it('selects locked groups from the topbar without changing game state or rebuilding the workspace', () => {
@@ -91,7 +144,7 @@ describe('Story editor session theme', () => {
     find<HTMLButtonElement>('.story-editor-left [data-column-back]').click(); ctrl.flushUIUpdates();
     expect(ctrl.storyEditor.isOpen()).toBe(false); expect(game.colorSystem.runtimeTheme()).toEqual(initial);
     find<HTMLButtonElement>('#story-editor-launch').click(); ctrl.flushUIUpdates();
-    expect(uiTheme(ctrl).tokens.primary).toBe('#234567');
+    expect(uiTheme(ctrl).tokens.primary).toBe(initial.tokens.primary);
   });
 
   it.each(['area', 'chara', 'start'] as const)('applies the %s scene theme on double click while single click only selects properties', kind => {
@@ -105,7 +158,7 @@ describe('Story editor session theme', () => {
     const gameplayArea = game.state.currentAreaId; const story = game.storyService.getCurrentStoryId();
     const card = find<HTMLElement>(kind === 'start' ? '[data-editor-start-context]' : '[data-editor-node] .story-editor-scene-card');
     const full = vi.spyOn(ctrl, 'render');
-    card.click(); ctrl.flushUIUpdates(); expect(state.uiTheme?.selection).toBe('initial');
+    card.click(); ctrl.flushUIUpdates(); expect(ctrl.activeEditorTheme()?.selection).toBe('initial');
     card.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); ctrl.flushUIUpdates();
     expect(uiTheme(ctrl).tokens.primary).toBe(kind === 'chara' ? '#b72f81' : '#256789');
     expect(currentNode(state)?.id).toBe(kind === 'start' ? undefined : node.id);
@@ -141,7 +194,7 @@ describe('Story editor session theme', () => {
     expect(localStorage.getItem(STORY_EDITOR_STORAGE_KEY)).not.toContain('uiTheme');
     expect(game.state.userTheme).toEqual(userTheme); expect(game.state.customThemes).toEqual(customThemes);
     expect(game.colorSystem.runtimeTheme()).toEqual(gameplay);
-    expect(ctrl.storyEditor.state.uiTheme!.apply({ version: 1, tokens: { primary: '<invalid>' } }).length).toBeGreaterThan(0);
+    expect(ctrl.activeEditorTheme()!.apply({ version: 1, tokens: { primary: '<invalid>' } }).length).toBeGreaterThan(0);
     expect(uiTheme(ctrl).tokens.primary).toBe('#1a2b3c');
     const field = edit();
     ctrl.navigateToService('settings'); ctrl.render();

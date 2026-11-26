@@ -399,7 +399,7 @@
   min-width: 0;
   gap: 2px;
   padding: 5px 7px;
-  border: 1px solid transparent;
+  border: 0px solid transparent;
   border-radius: 6px 6px 12px 6px;
   background: linear-gradient(var(--story-card-scrim), var(--story-card-scrim)),
     linear-gradient(105deg, var(--story-card-default-start), var(--story-card-default-end));

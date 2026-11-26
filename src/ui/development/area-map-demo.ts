@@ -2,7 +2,6 @@ import { GameInstance } from '../../arona-clicker/runtime/runtime-game-instance'
 import { SaveSystem } from '../../data-services/persistence/storage';
 import { UIController } from '../controller/controller';
 import { loadSurfaceStyles } from '../utilities/surface-styles';
-import { bindEvents } from '../controller/controller-events';
 import { loadAreaMapDemoPack } from './area-map-demo-pack';
 import '../css/game.css';
 
@@ -19,7 +18,7 @@ export async function mountAreaMapDemo(root: HTMLElement): Promise<void> {
   const game = new GameInstance(); game.init([parsed.datapack]);
   const controller = new UIController(game, root, loadSurfaceStyles);
   controller.started = true;
-  bindEvents(controller); controller.render();
+  controller.bindEvents(); controller.render();
   game.start();
   const timer = setInterval(() => controller.refreshLight(), 500);
   // Keep the in-memory storage adapter for this document, including browser back-cache restores.

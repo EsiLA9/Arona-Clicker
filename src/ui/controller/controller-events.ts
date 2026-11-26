@@ -29,8 +29,15 @@ function storyContextLabel(ctrl: UIController, context: StoryStartContext): stri
     : `通讯录 · ${ctrl.game.rosterSystem.getVariant(context.characterId)?.displayName ?? context.characterId}`;
 }
 
-/** 绑定引擎 EventBus 事件 → UI 响应（mount 时调用一次）。 */
-export function bindEvents(ctrl: UIController): void {
+/** EventBus 订阅实现；经 UIController.bindEvents() 持有对应释放函数。 */
+export function bindEvents(ctrl: UIController): () => void {
+  let disposed = false;
+  const subscriptions: (() => void)[] = [];
+  const on: typeof ctrl.game.eventBus.on = (type, handler) => {
+    const unsubscribe = ctrl.game.eventBus.on(type, handler);
+    subscriptions.push(unsubscribe);
+    return unsubscribe;
+  };
   let achievementRefreshQueued = false;
   let storyMovementRefreshQueued = false;
   let areaStoryQuickRefreshQueued = false;
@@ -42,6 +49,7 @@ export function bindEvents(ctrl: UIController): void {
     if (areaStoryQuickRefreshQueued) return;
     areaStoryQuickRefreshQueued = true;
     queueMicrotask(() => {
+      if (disposed) return;
       areaStoryQuickRefreshQueued = false;
       const route = ctrl.panelState.workspaceNavigation?.current;
       const areaId = ctrl.game.getView().currentAreaId;
@@ -60,6 +68,7 @@ export function bindEvents(ctrl: UIController): void {
     if (!ctrl.started || ctrl.panelState.service !== 'records' || achievementRefreshQueued) return;
     achievementRefreshQueued = true;
     queueMicrotask(() => {
+      if (disposed) return;
       achievementRefreshQueued = false;
       refreshAchievementRows(ctrl);
     });
@@ -70,6 +79,7 @@ export function bindEvents(ctrl: UIController): void {
     if (storyMovementRefreshQueued) return;
     storyMovementRefreshQueued = true;
     queueMicrotask(() => {
+      if (disposed) return;
       storyMovementRefreshQueued = false;
       const next = ctrl.game.story.isBlockingMovement();
       if (next === storyMovementBlocked) return;
@@ -77,8 +87,8 @@ export function bindEvents(ctrl: UIController): void {
       if (ctrl.started) ctrl.refreshPanels(['left']);
     });
   };
-  ctrl.game.eventBus.on('storyTriggered', event => { if (event.type === 'storyTriggered' && !event.replayId) scheduleStoryMovementRefresh(); });
-  ctrl.game.eventBus.on('storyTriggered', event => {
+  on('storyTriggered', event => { if (event.type === 'storyTriggered' && !event.replayId) scheduleStoryMovementRefresh(); });
+  on('storyTriggered', event => {
     if (event.type !== 'storyTriggered') return;
     if (!event.replayId && ctrl.panelState.storyReplay?.completed) {
       if (ctrl.panelState.storyReplay.replayId) ctrl.commands.cancelReplayStory(ctrl.panelState.storyReplay.replayId);
@@ -105,7 +115,7 @@ export function bindEvents(ctrl: UIController): void {
       ctrl.scheduleRender();
     }
   });
-  ctrl.game.eventBus.on('storyContextMoved', event => {
+  on('storyContextMoved', event => {
     if (event.type !== 'storyContextMoved') return;
     if (event.replayId) {
       const replay = ctrl.panelState.storyReplay;
@@ -118,7 +128,7 @@ export function bindEvents(ctrl: UIController): void {
     if (event.replayId && ctrl.panelState.storyReplay?.isReplay !== false) ctrl.chat.push(ctrl.panelState, { kind: 'system', text: `演出移动：${storyContextLabel(ctrl, event.context)}` });
     ctrl.scheduleRender();
   });
-  ctrl.game.eventBus.on('storyRunEnded', event => {
+  on('storyRunEnded', event => {
     if (event.type !== 'storyRunEnded') return;
     const replay = ctrl.panelState.storyReplay;
     if (event.replayId && replay?.replayId === event.replayId && replay.runId === event.runId) {
@@ -146,13 +156,14 @@ export function bindEvents(ctrl: UIController): void {
     } else ctrl.panelState.storyReplay = undefined;
     ctrl.scheduleRender();
   });
-  ctrl.game.eventBus.on('storyPlaybackChanged', event => {
+  on('storyPlaybackChanged', event => {
     if (event.type !== 'storyPlaybackChanged') return;
     if (event.replayId) playbackReplays.add(event.replayId);
     else playbackOwners.add(event.owner);
     if (playbackRefreshQueued) return;
     playbackRefreshQueued = true;
     queueMicrotask(() => {
+      if (disposed) return;
       playbackRefreshQueued = false;
       for (const owner of playbackOwners) ctrl.chat.syncCurrentStory({ ...ctrl.panelState, conversationVariantId: owner }, ctrl.game);
       playbackOwners.clear();
@@ -167,7 +178,7 @@ export function bindEvents(ctrl: UIController): void {
   });
 
   // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
-  ctrl.game.eventBus.onAny(event => {
+  const unsubscribeAny = ctrl.game.eventBus.onAny(event => {
     if (event.type === 'storyPlaybackChanged') return;
     if (event.type === 'areaEntered' && ctrl.returnFromAreaWorkspace(event.areaId)) {
       ctrl.scheduleRender();
@@ -197,22 +208,22 @@ export function bindEvents(ctrl: UIController): void {
     if (event.type === 'areaEntered' || event.type === 'storyCompleted') scheduleAreaStoryQuickRefresh();
     ctrl.refreshLogPanel(false);
   });
-  ctrl.game.eventBus.on('themeChanged', () => ctrl.scheduleRender());
-  ctrl.game.eventBus.on('entityThemeChanged', () => ctrl.scheduleRender());
-  ctrl.game.eventBus.on('entityPresentationChanged', event => {
+  on('themeChanged', () => ctrl.scheduleRender());
+  on('entityThemeChanged', () => ctrl.scheduleRender());
+  on('entityPresentationChanged', event => {
     if (event.type !== 'entityPresentationChanged') return;
     ctrl.refreshEntityPresentation(event.entityKey);
   });
-  ctrl.game.eventBus.on('userThemeChanged', () => ctrl.scheduleRender());
+  on('userThemeChanged', () => ctrl.scheduleRender());
   // 当前 Area 的拓扑热更新后，左侧「可前往区域」必须立即重新读取最新邻接关系。
   // 其它 Area 的定义变化不影响当前导航，避免无关变更触发面板刷新。
-  ctrl.game.eventBus.on('areaDefinitionChanged', event => {
+  on('areaDefinitionChanged', event => {
     if (event.type !== 'areaDefinitionChanged' || !ctrl.started) return;
     if (ctrl.isContentRefreshBatchActive()) return;
     if (ctrl.game.getView().currentAreaId !== event.areaId) return;
     ctrl.refreshPanels(['left']);
   });
-  ctrl.game.eventBus.on('areaTopologyChanged', event => {
+  on('areaTopologyChanged', event => {
     if (event.type !== 'areaTopologyChanged' || !ctrl.started) return;
     if (ctrl.isContentRefreshBatchActive()) return;
     if (!event.areaIds.includes(ctrl.game.getView().currentAreaId ?? '')) return;
@@ -220,7 +231,7 @@ export function bindEvents(ctrl: UIController): void {
   });
   // 剧情完结奖励结算 → 排队（不立即渲染）：等点击处理器处理完推进、
   // render 内同步完最后一页台词后，再统一落账，保证聊天流顺序正确
-  ctrl.game.eventBus.on('storyRewarded', event => {
+  on('storyRewarded', event => {
     if (event.type !== 'storyRewarded' || event.runId) return;
     const ctx = createUIContext(ctrl.game);
     const summary = event.effects.map(effect => {
@@ -238,21 +249,21 @@ export function bindEvents(ctrl: UIController): void {
     ctrl.pendingRewardChats.push(event.owner === undefined ? text : { text, owner: event.owner });
   });
   // 池 gate 解锁 → 奖励样式通知（如「日程表攻防」开启深夜闲聊）
-  ctrl.game.eventBus.on('poolGateChanged', event => {
+  on('poolGateChanged', event => {
     if (event.type !== 'poolGateChanged' || !event.available) return;
     const ctx = createUIContext(ctrl.game);
     ctrl.pendingRewardChats.push(`解锁闲聊池 · ${ctx.nameOf('pool', event.poolId)}`);
   });
   // Story 的 travelToArea effect 移动（notice=true）→ 「移动到了 XX」迷你条目
   //（REWARD 风格、无小字符）。进 travel 队列：render 时先于剧情内容入流
-  ctrl.game.eventBus.on('storyAreaTraveled', event => {
+  on('storyAreaTraveled', event => {
     if (event.type !== 'storyAreaTraveled' || event.runId) return;
     const ctx = createUIContext(ctrl.game);
     const text = `移动到了 ${ctx.nameOf('area', event.areaId)}`;
     ctrl.pendingTravelChats.push({ text, owner: event.owner === undefined ? ctrl.panelState.conversationVariantId : event.owner, timestamp: Date.now() });
   });
   // 好感跨级 → 该角色对话空间聊天流 reward 风格提示行（第一迭代唯一升级播报）
-  ctrl.game.eventBus.on('characterProgressChanged', event => {
+  on('characterProgressChanged', event => {
     if (event.type !== 'characterProgressChanged') return;
     refreshCultivation(ctrl, event.variantId);
     if (event.domain !== 'affection') return;
@@ -265,7 +276,7 @@ export function bindEvents(ctrl: UIController): void {
     if (ctrl.started && ctrl.panelState.conversationVariantId === event.variantId) ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：清理全部聊天内容
-  ctrl.game.eventBus.on('chatFlowCleared', event => {
+  on('chatFlowCleared', event => {
     if (event.type !== 'chatFlowCleared') return;
     const replay = ctrl.panelState.storyReplay;
     if (event.replayId && replay?.replayId === event.replayId) {
@@ -274,7 +285,7 @@ export function bindEvents(ctrl: UIController): void {
     } else if (!event.replayId) ctrl.chat.clearAll(ctrl.panelState, event.owner ?? null);
   });
   // 聊天流演出服务（Talklet）：删除全部可变位置的演出文本（保留聊天历史）
-  ctrl.game.eventBus.on('chatTextClearedAll', event => {
+  on('chatTextClearedAll', event => {
     if (event.type === 'chatTextClearedAll') {
       if (event.replayId) ctrl.chat.activeChatTexts(ctrl.panelState, event.owner, event.replayId).length = 0;
       else ctrl.chat.clearAllTexts(ctrl.panelState, event.owner);
@@ -283,7 +294,7 @@ export function bindEvents(ctrl: UIController): void {
   // Story 开始前默认清理：避免中途进入（如羁绊卡片 startCardStory）时残留上一场的演出文本
   // 开幕标题横幅（showOpeningTitle 效果呼出）：挂到当前活跃流；标题优先级
   // effect.value → entry.openingTitle → StoryDef.name。发起方管线随后必 render，此处只写状态
-  ctrl.game.eventBus.on('openingTitleShown', event => {
+  on('openingTitleShown', event => {
     if (event.type !== 'openingTitleShown' || event.runId) return;
     const convId = event.owner === undefined ? ctrl.panelState.conversationVariantId : event.owner;
     const view = convId ? ctrl.game.getStoryView(convId) : ctrl.game.getView().currentStory;
@@ -296,13 +307,13 @@ export function bindEvents(ctrl: UIController): void {
     ctrl.chat.showBanner(convId ?? '#global', title);
   });
   // Story 完结默认清理：结束后自动删除全部演出文本覆盖层（与 clearAllChatText 一致）
-  ctrl.game.eventBus.on('storyRunEnded', event => {
+  on('storyRunEnded', event => {
     if (event.type !== 'storyRunEnded') return;
     ctrl.chat.endRun(ctrl.panelState, event.owner, event.runId, event.replayId);
     scheduleStoryMovementRefresh();
   });
   // 聊天流演出服务（Talklet）：显示演出专用文本（临时 id + 百分比坐标，可嵌入标准 Talklet）
-  ctrl.game.eventBus.on('chatTextShown', event => {
+  on('chatTextShown', event => {
     if (event.type !== 'chatTextShown') return;
     ctrl.chat.pushChatText(ctrl.panelState, {
       id: event.id,
@@ -325,9 +336,17 @@ export function bindEvents(ctrl: UIController): void {
     if (!event.runId) ctrl.refreshChatPanel();
   });
   // 聊天流演出服务（Talklet）：按临时 id 擦除演出专用文本
-  ctrl.game.eventBus.on('chatTextCleared', event => {
+  on('chatTextCleared', event => {
     if (event.type !== 'chatTextCleared') return;
     ctrl.chat.clearChatText(ctrl.panelState, event.id, event.owner, event.replayId);
     if (!event.runId) ctrl.refreshChatPanel();
   });
+  subscriptions.push(unsubscribeAny);
+  return () => {
+    if (disposed) return;
+    disposed = true;
+    for (const unsubscribe of subscriptions) unsubscribe();
+    subscriptions.length = 0;
+    playbackOwners.clear(); playbackReplays.clear();
+  };
 }

@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 import { loadAreaMapDemoPack } from '../../../src/ui/development/area-map-demo-pack';
 import { mergeFragments } from '../../../src/data-services/datapack/fragment-parser';
 
@@ -21,7 +20,7 @@ beforeEach(async () => {
   document.body.innerHTML = '<div id="app"></div>'; localStorage.clear();
   root = document.querySelector('#app')!;
   game = new GameInstance(); game.init([(await loadAreaMapDemoPack()).datapack]);
-  ctrl = new UIController(game, root); ctrl.started = true; bindEvents(ctrl); ctrl.render();
+  ctrl = new UIController(game, root); ctrl.started = true; ctrl.bindEvents(); ctrl.render();
 });
 afterEach(() => { ctrl.destroy(); game.dispose(); vi.restoreAllMocks(); document.body.innerHTML = ''; localStorage.clear(); });
 

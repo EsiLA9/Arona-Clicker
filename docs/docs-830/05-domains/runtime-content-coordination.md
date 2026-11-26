@@ -16,11 +16,13 @@
 
 这类变更属于 Runtime 内容编辑生命周期；它和重新应用整组 Datapack 不同，也不等同于修改玩家存档。Datapack 包的读写与 Registry 装载见 [[datapack-and-registry]]。
 
-### StoryDef 的直接保存原型
+### StoryDef 的运行内容保存
 
-Story Editor 另有按用户要求开放的当前 Registry 保存入口：`GameCommands.saveStoryDefinition()` 经 GameInstance 调用 `Registry.saveStoryDefinition()`。它不借用 Spot/World 协调器，不要求编辑态 Mod，也不提交包内容。单份 Story 在深拷贝、基础载荷/阶段/引用检查通过后一次替换或新增；校验失败保留旧定义，保存不会执行节点或更新玩家状态。
+`GameCommands.saveStoryDefinition()` 经 GameInstance 调用 `Registry.saveStoryDefinition()`，不借用 Spot/World 协调器。基础 GameInstance 提供直接 Registry 保存能力：单份 Story 经深拷贝与基础载荷／阶段／引用检查后一次替换或新增，校验失败保留旧定义，不执行节点或更新玩家状态。基础能力本身不要求编辑态 Mod，也不提交包内容。
 
-当前播放会话持有独立文档副本，新内容从下一次 Story 启动起读取。此入口只覆盖当前运行内容，包重载会恢复包内定义；完整发布诊断、编辑态 Mod 门控与包持久化尚未接入。来源与本地草稿的关联、部分保存失败提示见 [[runtime-editor-and-project-checks]]。实现入口为 `src/data-services/registry/registry-story-mutation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`runtime-commands.ts`，回归见 `tests/engine/story/story-definition-save.test.ts`。
+产品 `AronaClickerRuntime` 覆写保存／还原入口，通过 `requireRunningStoryPack()` 要求目标包为当前运行的编辑态包，并检查 Mod 及内容归属。UI 按来源选择目标包，不能用基础 GameInstance 的能力推断产品可绕过这些限制。保存到包库由独立的 `saveStoryAuthoringToPack()` 入口处理。
+
+当前播放会话持有独立文档副本，新内容从下一次 Story 启动起读取。运行内容保存只覆盖当前 Registry，包重载会恢复包内定义。来源与本地草稿的关联、部分保存失败提示见 [[runtime-editor-and-project-checks]]。实现入口为 `src/data-services/registry/registry-story-mutation.ts`、`src/arona-clicker/runtime/runtime-game-instance.ts`、`runtime.ts`，基础保存回归见 `tests/engine/story/story-definition-save.test.ts`，产品来源门控见 `tests/ui/story/story-editor-pack-source.test.ts`。
 
 ## Runtime Effects 的事件桥接
 

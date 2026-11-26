@@ -4,6 +4,8 @@
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0384-editor-directory-navigation]] | 待处理 | 规整共享目录行并接入浏览实例定位 |
+| [[ai/plan/task-0383-editor-session-and-review-tools]] | 进行中 | 等待用户浏览器验收 |
 | [[ai/plan/task-0374-arona-vite-watch-and-progressive-css]] | 进行中 | 监听及 CSS 分批装载已验证，等 Windows 自然重启复测 |
 | [[ai/plan/task-0373-arona-dev-cold-start]] | 进行中 | 等 Windows 自然重启后复测首次进入大厅及刷新 |
 | [[ai/plan/task-0371-cross-init-state-affector-implementation]] | 待处理 | 固定错线发奖、钱包不一致及 Operation 越线提交的回归用例 |

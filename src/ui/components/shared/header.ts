@@ -158,7 +158,7 @@ function renderUserThemeSection(ctx: UIContext): string {
 }
 
 export interface HeaderRenderOptions {
-  editorTheme?: import('../../story-editor/theme').StoryEditorTheme;
+  editorTheme?: import('../../workspace/editor-workspace-appearance').EditorWorkspaceTheme;
   extraActions?: string;
   statusLabel?: string;
   statusSubline?: string;
@@ -232,7 +232,7 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
           <button class="theme-swatch group ${active}" data-activate-group="${ctx.escapeHtml(g.id)}" aria-pressed="${Boolean(active)}"
             title="${ctx.escapeHtml(g.name)}" style="--swatch:${primary}">${ctx.escapeHtml(g.name)}</button>`;
         }).join('')}
-        ${editor ? `<button class="theme-swatch custom ${editor.selection === 'custom' ? 'active' : ''}" data-activate-custom-theme="story-editor" aria-pressed="${editor.selection === 'custom'}"${editor.custom ? '' : ' disabled'} title="应用编辑器自定义主题">编辑器自定义</button>` : customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}`;
+        ${editor ? `<button class="theme-swatch custom ${editor.selection === 'custom' ? 'active' : ''}" data-activate-custom-theme="editor-workspace" aria-pressed="${editor.selection === 'custom'}"${editor.custom ? '' : ' disabled'} title="应用编辑器自定义主题">编辑器自定义</button>` : customTheme ? `<button class="theme-swatch custom ${activeTheme.kind === 'custom' && activeTheme.id === customId ? 'active' : ''}" data-activate-custom-theme="${ctx.escapeHtml(customId!)}" aria-pressed="${activeTheme.kind === 'custom' && activeTheme.id === customId}" title="应用用户自定义主题" style="--swatch:${customSwatch}">自定义 · ${ctx.escapeHtml(customTheme.name)}</button>` : ''}`;
   const className = ['topbar', options.className ?? ''].filter(Boolean).join(' ');
   const themeStyle = options.themeStyle ? ` style="${ctx.escapeHtml(options.themeStyle)}"` : '';
   const themeKey = options.themeKey ? ` data-selector-header-theme-key="${ctx.escapeHtml(options.themeKey)}"` : '';
@@ -260,6 +260,7 @@ export function renderHeader(ctx: UIContext, options: HeaderRenderOptions = {}):
         </div>
         <div class="save-actions service-nav-actions">
           ${renderHeaderButton(ctx, { id: 'story-editor-launch', title: '打开 Story 编辑器', content: 'Story 编辑器' })}
+          ${renderHeaderButton(ctx, { id: 'world-editor-launch', title: '打开世界编辑器', content: '世界编辑器' })}
           ${renderHeaderButton(ctx, { id: 'runtime-editor-launch', title: '打开 Runtime Editor', content: '编辑器 <span>✎</span>', ariaExpanded: false })}
           ${renderHeaderButton(ctx, { service: 'game', title: '返回游戏', content: '游戏 <span>⌂</span>' })}
           ${renderHeaderButton(ctx, {

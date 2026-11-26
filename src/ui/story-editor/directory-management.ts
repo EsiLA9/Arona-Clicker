@@ -1,3 +1,4 @@
+import { renderEditorReviewFields } from '../workspace/editor-review';
 import { buildStoryDirectory, storyHierarchyNodeId, type StoryDirectoryCatalog, type StoryDirectoryDocument, type StoryDirectoryNode } from '../../arona-clicker/content/story/story-directory';
 import type { StoryAuthoringResult } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
@@ -303,15 +304,17 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
       <p class="story-hierarchy-path" title="层级位置">${e(pathNode ? `${initTitle} / ${node.hierarchyString.split('/').join(' / ')}` : path(selectedId))}</p>
       ${node?.modName && !pathNode ? `<p class="story-editor-hint">所属 Mod ${e(node.modName)}</p>` : ''}
       ${options.sourceLabel ? `<p class="story-editor-hint">${e(options.sourceLabel)}</p>` : ''}
-      ${details ? `<dl class="story-hierarchy-status" aria-label="层级状态">
-        <div><dt>构建来源</dt><dd>${e(details.origin)}</dd></div>
-        <div><dt>手动资料</dt><dd>${details.designs ? `${details.designs} 份` : '无'}</dd></div>
-        <div><dt>直接归属</dt><dd>${details.stories} 条 Story · ${details.entries} 条 Entry</dd></div>
-      </dl>` : ''}
-      ${pathNode ? `<dl class="story-hierarchy-status" aria-label="资料生效状态"><div><dt>当前生效</dt><dd>${e(appliedLabel(applied))}</dd></div>
-        ${JSON.stringify(next?.definition) !== JSON.stringify(applied?.definition)
-          ? `<div><dt>应用后</dt><dd>${e(next?.definition.id === applied?.definition.id && appliedLabel(next) === appliedLabel(applied)
-            ? '资料有更新' : appliedLabel(next))}</dd></div>` : ''}</dl>
+      ${details ? renderEditorReviewFields(ctx, '层级状态', [
+        { label: '构建来源', content: e(details.origin) },
+        { label: '手动资料', content: details.designs ? `${details.designs} 份` : '无' },
+        { label: '直接归属', content: `${details.stories} 条 Story · ${details.entries} 条 Entry` },
+      ]) : ''}
+      ${pathNode ? `${renderEditorReviewFields(ctx, '资料生效状态', [
+        { label: '当前生效', content: e(appliedLabel(applied)) },
+        ...(JSON.stringify(next?.definition) !== JSON.stringify(applied?.definition)
+          ? [{ label: '应用后', content: e(next?.definition.id === applied?.definition.id && appliedLabel(next) === appliedLabel(applied)
+            ? '资料有更新' : appliedLabel(next)) }] : []),
+      ])}
         <p class="story-editor-hint">选择已有资料后可预览。</p>
         <ul class="story-editor-tree" aria-label="选择已有手动资料">
           <li><button type="button" class="story-editor-tree-row" data-directory-action="candidate:" aria-pressed="${!create && !selected}">路径默认显示</button></li>

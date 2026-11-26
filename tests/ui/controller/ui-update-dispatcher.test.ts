@@ -21,6 +21,22 @@ function panelState(): PanelState {
 }
 
 describe('UI Surface token and update dispatcher', () => {
+  it('releases pending work and rejects future updates after disposal', async () => {
+    const applied: UIUpdate[] = [];
+    const dispatcher = new UIUpdateDispatcher({
+      getCurrentSurfaceToken: () => ({ key: 'game', generation: 0 }),
+      isSurfaceCurrent: () => true,
+      apply: update => { applied.push(update); return 'applied'; },
+    });
+    dispatcher.request({ type: 'structure', scope: 'app' });
+    dispatcher.dispose();
+    dispatcher.request({ type: 'structure', scope: 'workspace' });
+    expect(dispatcher.applyNow({ type: 'structure', scope: 'app' })).toBe('not-found');
+    await Promise.resolve();
+    dispatcher.flushNow();
+    expect(applied).toEqual([]);
+  });
+
   it('invalidates map and map-entry surfaces when their business instance changes', () => {
     const state = panelState();
     state.workspaceNavigation = { current: { kind: 'map', runId: 'first' } };

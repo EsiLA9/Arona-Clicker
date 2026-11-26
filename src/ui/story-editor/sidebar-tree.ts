@@ -1,3 +1,4 @@
+import { renderEditorDirectoryList, renderEditorDirectoryRow, renderEditorDirectoryToggle, renderEditorGear, renderStoryDocumentIcon } from '../workspace/editor-directory';
 import { buildStoryDirectory, legacyStoryHierarchy, type StoryDirectoryCatalog, type StoryDirectoryNode } from '../../arona-clicker/content/story/story-directory';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
@@ -67,6 +68,7 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
   const query = sidebarSearch(state).trim().toLocaleLowerCase();
   const inSearch = (label: string, id: string) => !query || `${label}\n${id}`.toLocaleLowerCase().includes(query);
   const scope = state.sourceSelection ?? state.sidebarRuntimeScope ?? '';
+  const advanced = state.workspace?.preferences.mode === 'advanced';
   const managed = state.directoryManagement?.location();
   const revealing = state.sidebarReveal;
   const entries = storyEntries(state, registry.storyEntries);
@@ -99,7 +101,8 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
   const activeInit = ctx.game.state.activeInit;
   const { trees, preferred } = buildEditorStoryDirectories(catalog, initIds, activeInit);
   const fold = sidebarFolderChoices(state);
-  const targetEntry = state.target?.kind === 'entry' ? visibleEntries.get(state.target.id) : undefined;
+  const located = advanced ? revealing : state.target;
+  const targetEntry = located?.kind === 'entry' ? visibleEntries.get(located.id) : undefined;
   const targetEntryInits = targetEntry?.availableInits.length ? targetEntry.availableInits
     : targetEntry?.directoryPlacements?.length ? targetEntry.directoryPlacements.map(place => place.initId)
       : targetEntry ? [preferred.get(targetEntry.id) ?? other] : [];
@@ -107,11 +110,13 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
     : [initFilter, activeInit].find(id => id && targetEntryInits.includes(id)) ?? targetEntryInits[0];
   const leaf = (kind: StoryEditorTarget['kind'], id: string, path: string, name: string, hint: string, label: string, storyKey?: string, initId?: string) => {
     const selected = matches(state.target, kind, id);
+    const locatedHere = matches(located, kind, id) && (kind === 'story' || initId === preferredEntryInit);
     const data = kind === 'story' ? `data-editor-story="${e(storyKey!)}"` : `data-editor-entry="${e(id)}"`;
-    return { selected: selected && (kind === 'story' || initId === preferredEntryInit), html: `<li data-editor-key="${e(JSON.stringify([path, kind, id]))}">
-      <button type="button" class="story-editor-tree-row story-editor-tree-item" data-story-target-kind="${kind}" ${data} aria-pressed="${selected}" title="${e(hint)}">
-        <span class="story-editor-tree-name">${e(name)}</span>${label ? `<small>${e(label)}</small>` : ''}
-      </button></li>` };
+    const opensFrom = advanced ? ` data-sidebar-open-source="${e(state.sourceSelection ?? '')}"${kind === 'story' ? ` data-sidebar-story-id="${e(id)}"` : ''}` : '';
+    const control = `<button type="button" class="editor-directory-row story-editor-tree-item" data-story-target-kind="${kind}" ${data}${opensFrom} aria-pressed="${locatedHere}" title="${e(hint)}">
+      ${renderStoryDocumentIcon(kind)}<span class="editor-directory-name">${e(name)}</span>${label ? `<small>${e(label)}</small>` : ''}</button>`;
+    return { selected: matches(located, kind, id) && (kind === 'story' || initId === preferredEntryInit),
+      html: renderEditorDirectoryRow(ctx, { key: JSON.stringify([path, kind, id]), control }) };
   };
   type Row = ReturnType<typeof leaf> & { emptyFolder?: boolean };
   const storyRow = (id: string, path: string): Row => {
@@ -142,15 +147,13 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
       references > 1 ? `内容×${references}` : '',
     ].filter(Boolean).join(' · ');
     const hint = details ? `${title} · ${details.origin} · 手动资料 ${details.designs} 份 · Story ${details.stories} / Entry ${details.entries}` : title;
-    return { selected, emptyFolder: !rows.length, html: `<li data-editor-key="${e(path)}">
-      <div class="story-editor-tree-heading">
-        <button type="button" class="story-editor-tree-row story-editor-tree-branch" data-sidebar-folder="${e(path)}"${deferred ? ' data-sidebar-deferred' : ''}${rows.length ? ` aria-expanded="${open}"` : ' disabled'} title="${e(hint)}">
-          <span class="story-editor-tree-arrow" aria-hidden="true">${rows.length ? open ? '▾' : '▸' : ''}</span><span class="story-editor-tree-name">${e(title)}</span>
-          ${details && note ? `<small class="story-editor-tree-note" data-directory-origin="${e(details.short)}">${e(note)}</small>` : ''}
-        </button>
-        <button type="button" class="mini-action" ${directoryManagementAttrs(e, initId, node)} aria-pressed="${active}" aria-label="管理${e(title)}" title="管理${e(title)}">管理</button>
-      </div>
-      ${rows.length ? `<ul${open ? '' : ' hidden'}>${children.map(row => row.html).join('')}</ul>` : ''}</li>` };
+    const control = renderEditorDirectoryToggle(rows.length ? open : undefined,
+      `data-sidebar-folder="${e(path)}"${deferred ? ' data-sidebar-deferred' : ''} title="${e(hint)}"`,
+      `<span class="editor-directory-name">${e(title)}</span>${details && note ? `<small class="story-editor-tree-note" data-directory-origin="${e(details.short)}">${e(note)}</small>` : ''}`,
+      'editor-directory-row editor-directory-branch');
+    const actions = `<button type="button" class="mini-action editor-directory-manage" ${directoryManagementAttrs(e, initId, node)} aria-pressed="${active}" aria-label="管理${e(title)}" title="管理${e(title)}">${renderEditorGear()}</button>`;
+    return { selected, emptyFolder: !rows.length, html: renderEditorDirectoryRow(ctx, { key: path, control, actions,
+      children: rows.length ? renderEditorDirectoryList(children.map(row => row.html).join(''), open ? '' : 'hidden') : undefined }) };
   };
   const directoryRows = (nodes: readonly StoryDirectoryNode[], initId: string, included: boolean): Row[] => nodes.flatMap(node => {
     const path = JSON.stringify([scope, initId, node.id]);
@@ -183,6 +186,6 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
       initId === activeInit || Boolean(initFilter && included));
     return result ? [result.html] : [];
   });
-  return rows.length ? `<ul class="story-editor-tree" aria-label="故事目录">${rows.join('')}</ul>`
+  return rows.length ? renderEditorDirectoryList(rows.join(''), 'aria-label="故事目录"')
     : '<p class="story-editor-empty">没有匹配的 Story 或 Entry。</p>';
 }

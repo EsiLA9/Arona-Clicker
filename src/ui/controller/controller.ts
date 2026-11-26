@@ -1,3 +1,10 @@
+import { setEditorDirectoryExpanded } from '../workspace/editor-directory';
+import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
+import { EditorWorkspaceTheme } from '../workspace/editor-workspace-appearance';
+import type { EditorWorkspaceView } from '../workspace/editor-workspace';
+import { buildDefaultWorldTree, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges } from '../runtime-editor/world-browser';
+import { bindEditorWorkspaceResize, editorWorkspaceView, editorWorkspaceViews, loadEditorWorkspacePreferences, saveEditorWorkspacePreferences } from '../workspace/editor-workspace';
+import { captureEditorReturn, discardEditorReturn, restoreEditorReturn, type EditorReturn } from '../workspace/editor-return';
 // ============================================================
 // ui/controller.ts — UI 控制器（集成层门面）
 // 疏散后作为门面：核心渲染/刷新/事件编排保留于此，
@@ -63,7 +70,7 @@ import {
   showBackToGame as showBackToGameImpl,
 } from './controller-panels';
 import { bindEvents, routeToStoryContext } from './controller-events';
-import { applyTheme as applyThemeImpl, backgroundView as backgroundViewImpl, presentationView as presentationViewImpl, restoreThemeFloat as restoreThemeFloatImpl, selectorBaseBackgroundView, selectorBasePresentationView, syncRuntimeTheme as syncRuntimeThemeImpl } from './controller-theme';
+import { applyTheme as applyThemeImpl, createThemedUIContext, restoreThemeFloat as restoreThemeFloatImpl, selectorBaseBackgroundView, selectorBasePresentationView, syncRuntimeTheme as syncRuntimeThemeImpl, uiTheme } from './controller-theme';
 import { bindSaveActions } from './controller-save';
 import { bindTopBarActions } from './controller-actions-topbar';
 import { bindContactsActions } from './controller-actions-contacts';
@@ -512,9 +519,16 @@ export class UIController {
     });
   }
 
+  private unbindEvents?: () => void;
+
+  /** 统一持有事件订阅，包括不使用 mount() 的开发／测试会话。 */
+  bindEvents(): void {
+    this.unbindEvents ??= bindEvents(this);
+  }
+
   mount(): void {
     // EventBus 广播 → 揭示条件判断 → 变化则反射到 UI（无需玩家交互才刷新）
-    bindEvents(this);
+    this.bindEvents();
     restoreRuntimeEditorDraft(this);
     if (!this.runtimeEditorPersistenceBound) {
       window.addEventListener('pagehide', this.runtimeEditorPageHideHandler);
@@ -549,8 +563,16 @@ export class UIController {
   }
 
   destroy(): void {
+    this.unbindEvents?.();
+    this.unbindEvents = undefined;
+    this.renderScheduled = false;
+    this.updates.dispose();
     document.removeEventListener('keydown', this.onDebugShortcut);
+    this.worldBinding?.abort();
+    this.unbindWorldScroll?.();
+    this.unbindWorldScroll = undefined;
     this.storyEditor.dispose();
+    this.endEditorSession();
     this.selectorPage.dispose();
     this.popovers.dispose();
     this.modal.dispose();
@@ -684,7 +706,7 @@ export class UIController {
       || route?.kind !== 'map' || route.runId !== runId) return false;
     const view = this.game.mapRun.getWorkspaceView(runId);
     if (!view || view.kind !== 'active') return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const flow = this.ensureMapFlow(runId, context);
     flow.sync(view);
     flow.toggleMapOverview(view);
@@ -720,7 +742,7 @@ export class UIController {
     if (!edge || !from || !to) return reject('该地点已不在当前可达路线中，请重新选择。');
     if (edge.condition && !edge.condition.satisfied) return reject('当前路线条件未满足，该地点无法到达。');
 
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const flow = this.ensureMapFlow(ref.runId, context);
     flow.sync(view);
     try {
@@ -773,7 +795,7 @@ export class UIController {
     if (!source || source.mapId !== mapId) return false;
     const spot = this.game.world.spots.get(source.spotId);
     if (!spot || spot.areaId !== this.game.getView().currentAreaId) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     if (!getSpotReveal(context, spot).utilityKnown) return false;
     const functionality = this.game.spotFunctionalitySystem.functionalitiesOf(spot, this.game.state)
       .find(fn => fn.id === source.functionalityId && fn.kind === 'mapEntry' && fn.mapId === mapId);
@@ -834,7 +856,7 @@ export class UIController {
   refreshCharacterColumns(variantId: string): boolean {
     const entries = this.visibleColumnEntries('character').filter(({ root }) =>
       root.dataset.columnBinding === variantId && Boolean(root.querySelector('[data-character-owner]')));
-    return entries.length > 0 && this.refreshSemanticColumns(entries, createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)));
+    return entries.length > 0 && this.refreshSemanticColumns(entries, createThemedUIContext(this));
   }
 
   /** Resolve the owning mounted column for an interaction before requesting its content refresh. */
@@ -850,7 +872,7 @@ export class UIController {
     if (!currentAreaId) return false;
     const columns = this.visibleColumnEntries('facilities');
     if (!columns.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
     if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
     const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentAreaId);
@@ -880,7 +902,7 @@ export class UIController {
     if (!currentAreaId || !this.game.world.areas.has(currentAreaId)) return false;
     const columns = this.visibleColumnEntries('area-navigation');
     if (!columns.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
     if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
     const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentAreaId);
@@ -906,7 +928,7 @@ export class UIController {
     const currentInit = this.game.getView().activeInit;
     const columns = this.visibleColumnEntries('enhancements');
     if (!columns.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const staleBindings = columns.filter(({ root }) => root.dataset.columnBinding !== currentInit);
     if (staleBindings.length && !this.refreshSemanticColumns(staleBindings, context)) return false;
     const liveColumns = columns.filter(({ root }) => root.dataset.columnBinding === currentInit);
@@ -948,7 +970,7 @@ export class UIController {
     if (kind === 'spot') {
       const currentAreaId = this.game.getView().currentAreaId;
       let applied = true;
-      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const context = createThemedUIContext(this);
       const facilities = this.visibleColumnEntries('facilities');
       const stale = facilities.filter(({ root }) => root.dataset.columnBinding !== currentAreaId);
       if (stale.length && !this.refreshSemanticColumns(stale, context)) return false;
@@ -963,7 +985,7 @@ export class UIController {
     if (kind === 'enhancement') {
       let applied = true;
       const currentInit = this.game.getView().activeInit;
-      const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const context = createThemedUIContext(this);
       const enhancements = this.visibleColumnEntries('enhancements');
       const stale = enhancements.filter(({ root }) => root.dataset.columnBinding !== currentInit);
       if (stale.length && !this.refreshSemanticColumns(stale, context)) return false;
@@ -977,7 +999,7 @@ export class UIController {
     if (kind === 'area') {
       if (this.game.getView().currentAreaId === id) {
         const navigationColumns = this.visibleColumnEntries('area-navigation');
-        if (navigationColumns.length) this.refreshSemanticColumns(navigationColumns, createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this)));
+        if (navigationColumns.length) this.refreshSemanticColumns(navigationColumns, createThemedUIContext(this));
         return true;
       }
       let applied = true;
@@ -1067,7 +1089,7 @@ export class UIController {
     }
     if (!chatRoots.length) return;
     this.scroll.captureChat(this.root);
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     for (const { root } of chatRoots) {
       const chatPane = root.querySelector<HTMLElement>('[data-chat-owner]');
       if (!chatPane) continue;
@@ -1118,7 +1140,7 @@ export class UIController {
     if (!logs.length) return;
     const newestLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     if (!force && newestLogEntryId === this.lastLogEntryId) return;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     for (const { root, log } of logs) {
       const focusSnapshot = captureFocusWithin(log);
       const scrollTop = log.querySelector<HTMLElement>('.log-list')?.scrollTop ?? 0;
@@ -1244,7 +1266,7 @@ export class UIController {
   private createPanelUIContext() {
     const context = isReplayPresentationActive(this.panelState) ? this.panelState.storyReplay?.context : undefined;
     const area = context?.type === 'area' ? this.game.registry.areas.get(context.areaId) : undefined;
-    return createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
+    return createThemedUIContext(this, undefined, {
       entriesFor: (runId, view, ctx) => this.syncMapFlow(runId, view, ctx),
     }, area ? { currentAreaId: area.id, activeInit: area.initId } : undefined);
   }
@@ -1252,7 +1274,7 @@ export class UIController {
   refreshColumnInstances(ids: readonly string[], expected?: ColumnToken): boolean {
     if (expected && this.columns.token(expected.instanceId)?.generation !== expected.generation) return false;
     if (this.storyEditor.isOpen() && ids.length > 0 && ids.every(id => id.startsWith('story-editor/'))) {
-      const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+      const ctx = createThemedUIContext(this);
       return this.storyEditor.refresh(ctx);
     }
     if (!this.started) return false;
@@ -1339,6 +1361,11 @@ export class UIController {
       this.returnFromMapEntry();
     }
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
+    const worldTreeBody = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+    if (worldTreeBody && this.panelState.worldBrowser
+      && !worldTreeBody.closest('[data-editor-workspace-mode="advanced"][data-editor-workspace-view="focus"]')) {
+      this.panelState.worldBrowser.scrollTop = worldTreeBody.scrollTop;
+    }
     this.scroll.capturePanel(this.root);
     this.scroll.captureWorkspace(this.root);
     this.popovers.dismissBeforeRootMutation();
@@ -1350,7 +1377,7 @@ export class UIController {
     this.ensureDatapackWorkspaceState();
     if (!this.storyEditor.isOpen()) this.ensureDebugEditingState();
     const context = this.createPanelUIContext();
-    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.storyEditor.isOpen()) {
+    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.storyEditor.isOpen() && !this.isWorldBrowserOpen()) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       this.columns.releaseWithin(this.root);
       renderInitSelectImpl(this);
@@ -1360,7 +1387,7 @@ export class UIController {
     }
     this.panelState.runtimeEditorPanelOpen = this.runtimeEditorPanelOpen;
     this.collectColumns(context);
-    const markup = renderAppShell(context, this.panelState);
+    const markup = renderAppShell(context, this.panelState, this.activeEditorTheme());
     this.columns.releaseWithin(this.root);
     this.root.innerHTML = markup;
     for (const frame of this.columnFrames.values()) this.columns.adopt(this.root, context, frame);
@@ -1378,6 +1405,8 @@ export class UIController {
     this.scroll.observeChatStream(this.root);
     this.scroll.restorePanel(this.root);
     this.scroll.restoreWorkspace(this.root);
+    const mountedWorldTree = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+    if (mountedWorldTree && this.panelState.worldBrowser) mountedWorldTree.scrollTop = this.panelState.worldBrowser.scrollTop ?? 0;
     const focusAfterRender = this.operationFocusAfterRender;
     this.operationFocusAfterRender = null;
     const operationFocus = focusAfterRender === 'commit'
@@ -1495,7 +1524,7 @@ export class UIController {
     }
     if (update.type === 'region') {
       if (update.hostId === STORY_EDITOR_REGION) {
-        const ctx = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+        const ctx = createThemedUIContext(this);
         let applied = this.storyEditor.refresh(ctx);
         const recovery = !applied && this.storyEditor.isOpen();
         if (recovery) { this.render(); applied = true; }
@@ -1657,7 +1686,7 @@ export class UIController {
     const currentCards = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-spot-card]')]
       .filter(node => node.dataset.uiSpotCard === spotId));
     if (!currentCards.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const html = renderSpotCard(context, spotId);
     if (!html) return false;
     for (const current of currentCards) {
@@ -1682,7 +1711,7 @@ export class UIController {
     const currentCards = roots.flatMap(root => [...root.querySelectorAll<HTMLElement>('[data-ui-enhancement-card]')]
       .filter(node => node.dataset.uiEnhancementCard === enhancementId));
     if (!currentCards.length) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const html = renderEnhancementCard(context, enhancementId);
     if (!html) return false;
     for (const current of currentCards) {
@@ -1735,7 +1764,7 @@ export class UIController {
     );
     if (uniqueHostIds.length === 0) return false;
 
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     this.collectColumns(context);
     const template = document.createElement('template');
     template.innerHTML = renderShopWorkspace(context, workspace).trim();
@@ -1776,7 +1805,7 @@ export class UIController {
     const current = this.root.querySelector<HTMLElement>('[data-workspace-frame="operation"]');
     if (!current) return false;
 
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const template = document.createElement('template');
     template.innerHTML = renderOperationWorkspace(context, pending.view, pending.notice).trim();
     const next = template.content.querySelector<HTMLElement>('[data-workspace-frame="operation"]');
@@ -1832,7 +1861,7 @@ export class UIController {
     const current = [...this.root.querySelectorAll<HTMLElement>('[data-map-entry-workspace]')]
       .find(region => region.dataset.mapId === mapId);
     if (!current) return false;
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this));
+    const context = createThemedUIContext(this);
     const view = this.game.mapRun.getEntryView(mapId);
     const template = document.createElement('template');
     template.innerHTML = renderMapEntryWorkspace(context, mapId, view, this.panelState).trim();
@@ -1879,7 +1908,7 @@ export class UIController {
     if (!current) return false;
 
     // One detached snapshot supplies all consumers across the three columns.
-    const context = createUIContext(this.game, backgroundViewImpl(this), presentationViewImpl(this), undefined, {
+    const context = createThemedUIContext(this, undefined, {
       entriesFor: (targetRunId, targetView, ctx) => this.syncMapFlow(targetRunId, targetView, ctx),
     });
     const view = this.game.mapRun.getWorkspaceView(runId);
@@ -2077,6 +2106,7 @@ export class UIController {
 
   /** #app 内全部 data-* 事件绑定（按域委托 controller-actions-*，render 后调用）。 */
   private bindActions(): void {
+    this.bindWorldBrowser();
     bindTopBarActions(this);
     bindContactsActions(this);
     bindThemeActions(this);
@@ -2124,7 +2154,7 @@ export class UIController {
 
   private currentWorkspaceRoute(): WorkspaceRoute {
     const savedRoute = this.panelState.workspaceNavigation?.current;
-    if (savedRoute?.kind === 'story-editor' || savedRoute?.kind === 'map' || savedRoute?.kind === 'area' || savedRoute?.kind === 'area-map' || savedRoute?.kind === 'map-entry') return savedRoute;
+    if (savedRoute?.kind === 'story-editor' || savedRoute?.kind === 'world-editor' || savedRoute?.kind === 'map' || savedRoute?.kind === 'area' || savedRoute?.kind === 'area-map' || savedRoute?.kind === 'map-entry') return savedRoute;
     return routeFromLegacyState({ service: this.panelState.service, workspace: this.workspaceRouteRef() });
   }
 
@@ -2139,6 +2169,189 @@ export class UIController {
     };
   }
 
+  private editorSession?: { theme: EditorWorkspaceTheme; returnTo: EditorReturn };
+
+  activeEditorTheme(): EditorWorkspaceTheme | undefined {
+    return this.editorSession?.theme;
+  }
+
+  enterEditorRoute(kind: 'story-editor' | 'world-editor'): boolean {
+    const route = { kind };
+    if (this.editorSession) {
+      if (!this.storyEditor.beforeLeave()) return false;
+      this.modal.close();
+      this.editorSession.theme.preview(null);
+      const navigation = this.panelState.workspaceNavigation!;
+      this.panelState.workspaceNavigation = replaceWorkspaceNavigation(navigation, route);
+    } else {
+      const returnTo = captureEditorReturn(this);
+      const theme = new EditorWorkspaceTheme(this.game, () => this.selectorPage.currentTheme() ?? uiTheme(this),
+        () => this.toast.show('编辑器主题加载失败，已切换到默认主题', 'error'));
+      this.enterWorkspaceRoute(route);
+      this.editorSession = { theme, returnTo };
+    }
+    this.panelState.workspace = undefined;
+    return true;
+  }
+
+  endEditorSession(restore = false): void {
+    const session = this.editorSession;
+    if (!session) return;
+    this.modal.close();
+    if (restore) restoreEditorReturn(this, session.returnTo);
+    else discardEditorReturn(this, session.returnTo);
+    this.editorSession = undefined;
+    this.panelState.worldBrowser = undefined;
+  }
+
+  closeEditorWorkspace(): void {
+    if (!this.editorSession || !this.storyEditor.beforeLeave()) return;
+    this.endEditorSession(true);
+    this.render();
+  }
+
+  private nextWorldInstanceId = 1;
+  private worldBinding?: AbortController;
+  private unbindWorldScroll?: () => void;
+
+  private isWorldBrowserOpen(): boolean {
+    return this.panelState.workspaceNavigation?.current.kind === 'world-editor';
+  }
+
+  openWorldBrowser(advanced = false): void {
+    if (this.isWorldBrowserOpen()) return;
+    if (!this.enterEditorRoute('world-editor')) return;
+    const session = this.panelState.worldBrowser ??= {
+      id: this.nextWorldInstanceId++,
+      preferences: loadEditorWorkspacePreferences(worldWorkType),
+      view: 'browse',
+      expanded: new Set(),
+    };
+    if (advanced) session.preferences.mode = 'advanced';
+    session.view = editorWorkspaceView(worldEditorEdges, session.view);
+    const roots = buildDefaultWorldTree(this.game.registry);
+    if (!session.selected || !worldTreePath(roots, session.selected).length) {
+      session.selected = roots.find(node => node.ref?.id === this.game.state.activeInit)?.ref
+        ?? roots.find(node => node.ref?.kind === 'init')?.ref;
+    }
+    if (session.selected) {
+      const preferred = worldTreePath(roots, session.selected, session.selectedNodeKey);
+      const path = preferred.length ? preferred : worldTreePath(roots, session.selected);
+      session.selectedNodeKey = path[path.length - 1]?.key;
+    } else session.selectedNodeKey = undefined;
+    this.render();
+  }
+
+  openStoryEditor(advanced = false): void {
+    if (advanced) this.storyEditor.preferAdvancedWorkspace();
+    this.storyEditor.open();
+  }
+
+  private bindWorldBrowser(): void {
+    this.worldBinding?.abort();
+    this.unbindWorldScroll?.();
+    this.unbindWorldScroll = undefined;
+    this.worldBinding = undefined;
+    const session = this.panelState.worldBrowser;
+    const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    if (!session || !shell || !this.isWorldBrowserOpen()) return;
+    const binding = this.worldBinding = new AbortController();
+    const options = { signal: binding.signal };
+    bindEditorWorkspaceResize(shell, worldWorkType, session.preferences, binding.signal);
+    this.unbindWorldScroll = bindEditorDirectoryScrollbars(shell);
+    const setExpanded = (key: string, open: boolean): void => {
+      if (open) session.expanded.add(key);
+      else session.expanded.delete(key);
+      const row = [...shell.querySelectorAll<HTMLElement>('[data-world-node]')].find(item => item.dataset.worldNode === key);
+      const button = row?.querySelector<HTMLButtonElement>(':scope > div > [data-world-expand]');
+      if (button) setEditorDirectoryExpanded(button, open);
+    };
+    const locateWorld = (ref: NonNullable<typeof session.selected>, preferredKey?: string): void => {
+      const path = worldTreePath(buildDefaultWorldTree(this.game.registry), ref, preferredKey);
+      if (!path.length) return;
+      session.selected = ref;
+      session.selectedNodeKey = path[path.length - 1].key;
+      path.slice(0, -1).forEach(node => setExpanded(node.key, true));
+      const selected = [...(shell.querySelectorAll<HTMLElement>('[data-world-tree] [data-world-select]'))]
+        .find(row => row.dataset.worldNodeKey === session.selectedNodeKey);
+      if (!selected) return;
+      const host = selected.closest<HTMLElement>('[data-scroll-key]');
+      if (host) {
+        const hostRect = host.getBoundingClientRect();
+        const rowRect = selected.getBoundingClientRect();
+        if (rowRect.top < hostRect.top) host.scrollTop -= hostRect.top - rowRect.top;
+        else if (rowRect.bottom > hostRect.bottom) host.scrollTop += rowRect.bottom - hostRect.bottom;
+      }
+      selected.focus({ preventScroll: true });
+    };
+    const viewSelect = shell.querySelector<HTMLSelectElement>('[data-editor-workspace-view-select]');
+    const setView = (value: EditorWorkspaceView): void => {
+      session.view = value;
+      const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+      if (scrollBody && shell.dataset.editorWorkspaceView !== 'focus') session.scrollTop = scrollBody.scrollTop;
+      shell.dataset.editorWorkspaceView = value;
+      const rail = shell.querySelector<HTMLElement>('[data-editor-workspace-rail]');
+      if (rail) rail.hidden = value === 'focus';
+      if (scrollBody && value !== 'focus') scrollBody.scrollTop = session.scrollTop ?? 0;
+      if (viewSelect) viewSelect.value = value;
+      refreshEditorDirectoryScrollbars(shell);
+    };
+    shell.addEventListener('click', event => {
+      const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : undefined;
+      if (!button || button.disabled) return;
+      const { worldExpand, worldSelect, worldId, editorWorkspaceAction: action, editorWorkType } = button.dataset;
+      if (worldExpand) setExpanded(worldExpand, !session.expanded.has(worldExpand));
+      if (worldSelect && worldId && (worldSelect === 'init' || worldSelect === 'area' || worldSelect === 'spot')) {
+        const ref = { kind: worldSelect, id: worldId } as const;
+        const tree = shell.querySelector('[data-world-tree]');
+        const fromTree = tree?.contains(button);
+        const path = worldTreePath(buildDefaultWorldTree(this.game.registry), ref, button.dataset.worldNodeKey);
+        if (!path.length) return;
+        session.selected = ref;
+        session.selectedNodeKey = path[path.length - 1].key;
+        path.slice(0, -1).forEach(node => setExpanded(node.key, true));
+        for (const row of tree?.querySelectorAll<HTMLButtonElement>('[data-world-select]') ?? []) {
+          const active = row.dataset.worldNodeKey === session.selectedNodeKey;
+          row.setAttribute('aria-pressed', String(active));
+          if (active && !fromTree) {
+            const host = row.closest<HTMLElement>('[data-scroll-key]');
+            if (host) {
+              const hostRect = host.getBoundingClientRect(); const rowRect = row.getBoundingClientRect();
+              if (rowRect.top < hostRect.top) host.scrollTop -= hostRect.top - rowRect.top;
+              else if (rowRect.bottom > hostRect.bottom) host.scrollTop += rowRect.bottom - hostRect.bottom;
+            }
+            row.focus({ preventScroll: true });
+          }
+        }
+        const detail = shell.querySelector('[data-world-detail]');
+        if (detail) {
+          this.popovers.dismissBeforeRootMutation(detail);
+          detail.innerHTML = renderWorldDetail(this.createPanelUIContext(), ref);
+        }
+      }
+      if (action === 'work-type' && editorWorkType === 'story') this.openStoryEditor(true);
+      if (action === 'locate-world' || action === 'work-type' && editorWorkType === worldWorkType) {
+        if (session.view === 'focus') setView('browse');
+        if (action === 'locate-world' && session.selected) {
+          locateWorld(session.selected, session.selectedNodeKey);
+        }
+      }
+      if (action === 'mode') {
+        session.preferences.mode = session.preferences.mode === 'advanced' ? 'classic' : 'advanced';
+        saveEditorWorkspacePreferences(worldWorkType, session.preferences);
+        this.render();
+      }
+      if (action === 'back' || action === 'close' || button.hasAttribute('data-world-editor-leave')) {
+        this.closeEditorWorkspace();
+      }
+    }, options);
+    viewSelect?.addEventListener('change', event => {
+      const value = (event.currentTarget as HTMLSelectElement).value as EditorWorkspaceView;
+      if (!editorWorkspaceViews(worldEditorEdges).includes(value)) return;
+      setView(value);
+    }, options);
+  }
+
   private setWorkspaceRouteMirror(route: WorkspaceRoute): void {
     this.panelState.service = route.kind === 'service' ? route.page : 'game';
     if (route.kind !== 'service') this.serviceThemeOverride = undefined;
@@ -2147,7 +2360,7 @@ export class UIController {
   /** 顶层服务路由切换：清除互斥 Workspace，避免 service + workspace 组合态残留。 */
   navigateToService(service: NonNullable<PanelState['service']>, activateStorySpace = true): void {
     if (!this.storyEditor.beforeLeave()) return;
-    if (this.storyEditor.isOpen()) this.storyEditor.abandonReturn();
+    this.endEditorSession();
     this.areaMaps.release();
     const route = routeFromLegacyState({ service, workspace: null });
     this.panelState.workspace = undefined;
@@ -2162,9 +2375,9 @@ export class UIController {
 
   /** 进入新的 Workspace，并记录一个可选的单层返回位置。 */
   enterWorkspaceRoute(route: WorkspaceRoute): void {
-    if (this.storyEditor.isOpen() && route.kind !== 'story-editor') {
+    if (route.kind !== 'story-editor' && route.kind !== 'world-editor') {
       if (!this.storyEditor.beforeLeave()) return;
-      this.storyEditor.abandonReturn();
+      this.endEditorSession();
     }
     if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
     const previousRoute = this.panelState.workspaceNavigation?.current;
@@ -2270,9 +2483,9 @@ export class UIController {
 
   /** 在当前 Workspace 内替换轻量定位，不新增返回层。 */
   replaceWorkspaceRoute(route: WorkspaceRoute): void {
-    if (this.storyEditor.isOpen() && route.kind !== 'story-editor') {
+    if (route.kind !== 'story-editor' && route.kind !== 'world-editor') {
       if (!this.storyEditor.beforeLeave()) return;
-      this.storyEditor.abandonReturn();
+      this.endEditorSession();
     }
     if (route.kind !== 'area-map' && this.panelState.areaMapSession) this.areaMaps.close(false);
     const previous = this.panelState.workspaceNavigation ?? createWorkspaceNavigation(this.currentWorkspaceRoute());

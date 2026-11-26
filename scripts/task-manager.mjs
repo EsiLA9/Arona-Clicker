@@ -14,7 +14,8 @@ const usage = `本地 Task 管理：
   npm run task -- newSubtask <task-id> <范围> <负责人>
   npm run task -- archive <task-id>
 
-Task 与 SubTask 内容保存在 ai/plan Markdown；归档复用 archive:docs。`;
+Task 与 SubTask 内容保存在 ai/plan Markdown；归档复用 archive:docs。
+newTask 只生成骨架；交付前按 ai/guide/task-workflow.md 补全当前依据与具体改动方案。`;
 
 function fail(message) {
   throw new Error(message);
@@ -79,10 +80,11 @@ async function newTask(args) {
 
   let index = fs.readFileSync(indexPath, 'utf8');
   const indexNewline = lineEnding(index);
-  index = addIndexRow(index, `| [[ai/plan/${id}-${slug}]] | 待处理 | 尚未开始 |`, indexNewline);
+  index = addIndexRow(index, `| [[ai/plan/${id}-${slug}]] | 待处理 | 补全当前依据与具体改动方案 |`, indexNewline);
   fs.writeFileSync(filePath, document, { flag: 'wx' });
   fs.writeFileSync(indexPath, index);
   console.log(`已创建 ${id}：ai/plan/${fileName}`);
+  console.log('已生成待补全骨架；交付前按 ai/guide/task-workflow.md 写明具体改动、调用衔接与验证，删除模板占位符。');
 }
 
 function ensureSubtasksSection(text, newline) {

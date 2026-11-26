@@ -4,7 +4,6 @@ import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-in
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { makePack } from '../../engine/story/story-test-fixtures';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 const parent = 'test:passivestory:history_parent', child = 'test:activestory:history_child';
 const area = 'base:area:schale_rooftop';
@@ -21,7 +20,7 @@ function setup(roundTrip = true) {
   ])]);
   game.story.clearAllCurrentStories(); game.mutations.acquireCharacter('Hoshino', 'story');
   document.body.innerHTML = '<div id="app"></div>';
-  ctrl = new UIController(game, document.querySelector('#app')!); ctrl.started = true; bindEvents(ctrl);
+  ctrl = new UIController(game, document.querySelector('#app')!); ctrl.started = true; ctrl.bindEvents();
   ctrl.chat.pushToVariant(ctrl.panelState, 'Hoshino', { kind: 'system', text: 'prior-contact' });
   ctrl.chat.pushToOwner(ctrl.panelState, null, { kind: 'system', text: 'prior-init' });
   expect(game.story.startStory(parent, 'passive', 'Hoshino').success).toBe(true); ctrl.openContactsWorkspace('Hoshino'); ctrl.render();

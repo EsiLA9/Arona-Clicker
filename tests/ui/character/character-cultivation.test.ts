@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameInstance } from '../../../src/arona-clicker/runtime/runtime-game-instance';
 import { baseDatapack } from '../../../src/data/test-datapack';
 import { UIController } from '../../../src/ui/controller/controller';
-import { bindEvents } from '../../../src/ui/controller/controller-events';
 
 describe('Contacts 简易培养', () => {
   let game: GameInstance;
@@ -19,7 +18,7 @@ describe('Contacts 简易培养', () => {
     game.inits.startNewGame('base:init:schale_office');
     controller = new UIController(game, root);
     controller.started = true;
-    bindEvents(controller);
+    controller.bindEvents();
   });
 
   afterEach(() => {

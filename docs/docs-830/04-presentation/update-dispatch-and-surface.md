@@ -30,6 +30,8 @@ request → 补充 Surface token 与 reason → 按身份合并 → 微任务 fl
 
 `applyNow()` 是另一条立即执行路径：它也检查 Surface 是否仍有效，但不进入上述批量合并流程。调度器返回或调用 sink 的结果为 `applied`、`not-found` 或 `unsupported`；要不要扩大刷新范围由具体调用方决定，不能假定调度器自动重建页面。
 
+Controller 销毁时调用调度器的 `dispose()` 清空待处理请求；已排队的微任务不再应用，后续 `request()` 被忽略，`applyNow()` 返回 `not-found`。这与 Surface token 的过期检查不同：UI 会话结束后，即使路由与 token 没变，也不能重新挂载旧 UI。
+
 ## 为什么要有 Surface token
 
 `UISurfaceToken` 由 Surface key 和 generation 组成。当 Surface key 改变，或者同一 Surface 再次挂载并调用 `markMounted()` 时，generation 会递增，旧 token 随之失效。排队期间如果 Surface 已更新，旧请求在应用前被丢弃；不能仅凭 key 判断旧 DOM 仍有效。
