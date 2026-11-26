@@ -95,6 +95,10 @@ columns.dispose();
 
 Story／StoryEntry 与 World 通过 `editor-workspace.ts` 在游戏页面内装配可切换的编辑器外壳。经典模式显示游戏顶栏和底栏；高级模式占满视口，使用场景工具组、实例条、工作类型栏和状态栏。正文节点插入仍位于 Story 中栏。试播和目录管理可以请求临时三栏布局，退出时恢复基础布局。Frame 始终是独立宿主的直接子项，外壳更新走对应编辑器的局部协调。
 
+公共交互由 `bindEditorWorkspace(root, signal, binding)` 一次装配：它内部绑定布局选择、Classic／Advanced、Ribbon 与栏宽拖动、退出命令和清理生命周期。业务传入可用边缘及 `onBeforeViewChange`、`onViewChange`、`onModeChange`、`onExit` 回调；回调只处理业务刷新、滚动恢复和退出门禁，不负责组织公共控件的绑定顺序。程序化布局命令走 `setEditorWorkspaceView()`，使公共布局状态、shell 属性、轨道宽度和业务滚动钩子保持同一顺序。
+
+公共框架表现位于 `src/ui/css/editor-workspace.css`，公共目录树与悬浮滚动条位于 `src/ui/css/editor-directory.css`，Review 字段基础样式与 Story／Runtime 共用条件引用选择器位于 `editor-shared.css`。共用条件引用项使用 `.editor-list-item`、`.editor-empty`、`.editor-actions`；Story 自身继续使用 Story 专有的行、空状态和操作类。`surface-styles.ts` 为 `world-editor` 只加载两份编辑器公共样式；`story` 先加载公共样式，再加载 `story-editor.css` 中的正文、节点、Entry、试播及属性编辑样式。公共目录 DOM 使用 `.editor-directory-*` 选择器，不依赖 Story 专有树类。样式迁移不改变栏内容更新策略：Story 保留 `patchEditorDOM()` 和 keyed 栏位协调，World 保留摘要区域的局部刷新。
+
 高级编辑器的唯一布局 owner 是 `editorLayout` (`EditorLayoutService`)。它统一持有 Classic/Advanced、三栏／双栏／专注、Ribbon 密度及左右栏期望宽度，并持久化到 `acprogram.editor-layout.v1`。没有有效记录时默认三栏，期望宽度为左 300px、右 320px。旧 `acprogram.editor-workspace.v1.story/world` 只在迁移时读取：Story 有效字段优先，缺项取 World，再缺项使用默认值；迁移后删除两个旧键。Story/World 和 Story 浏览实例不再保存布局副本。
 
 `EditorLayoutService` 保存用户期望宽度；布局服务按当前可用空间计算实际轨道。窗口变窄时左右轨道按比例压缩，为中栏预留 340px 和栏间距；ResizeObserver 只重算实际宽度，不改写持久期望值。拖动某一分隔线时，上限按另一侧当前实际宽度计算；用户松开后才保存该侧期望宽度。双击恢复该侧默认期望值，取消拖动恢复原值。三栏隐藏一侧后重新显示时重新使用其期望宽度。布局选择由全局 service 持有，切换工作类型、内容或实例不会自动改写；显式目录定位可从专注切换到双栏。

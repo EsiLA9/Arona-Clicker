@@ -1,7 +1,18 @@
 import type { ToastService } from '../components/shared/toast';
 
+async function loadEditorWorkspaceStyles(): Promise<void> {
+  await import('../css/editor-workspace.css');
+  await import('../css/editor-directory.css');
+}
+
+async function loadStoryEditorStyles(): Promise<void> {
+  await loadEditorWorkspaceStyles();
+  await import('../css/story-editor.css');
+}
+
 const surfaceStyles = {
-  story: () => import('../css/story-editor.css'),
+  story: loadStoryEditorStyles,
+  'world-editor': loadEditorWorkspaceStyles,
   runtime: () => import('../css/runtime-editor.css'),
   operation: () => import('../css/operation-workspace.css'),
   'map-entry': () => import('../css/map-entry-workspace.css'),

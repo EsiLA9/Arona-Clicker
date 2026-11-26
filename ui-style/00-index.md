@@ -1,23 +1,14 @@
-# UI 风格体系 — 项目本地入口
+# UI 风格指引
 
-> 本目录回答：ACProgram 游戏 UI 继承哪些视觉约定、复用哪些入口，以及当前核验状态。
+适用于 ACProgram 的桌面宽屏游戏界面与游戏内工具。先按目标界面选视觉语言，再从对应索引查组件。当前实现和运行时主题决定具体值。独立 Datapack Editor 的界面入口为 `tools/datapack-editor/ui/index.html` 和 `tools/datapack-editor/ui/styles.css`。
 
-## 按任务读取
+- [[ui-style/visual-languages/game-ui/profile|Game UI]] · Game、人物与服务、地图与战斗、剧情与通讯、星图。详见 [[ui-style/visual-languages/game-ui/patterns|工作区与叙事、地图与战斗、星图]]。
+- [[ui-style/visual-languages/authoring/profile|Authoring]] · Story、StoryEntry、世界浏览器。详见 [[ui-style/visual-languages/authoring/patterns|Workbench、Explorer、Inspector、引用、身份卡、节点、Flag、试播]]。
+- [[ui-style/visual-languages/content-tools/profile|Content Tools]] · 超级图鉴、Runtime 内容浏览器。详见 [[ui-style/visual-languages/content-tools/patterns|检索三栏、资料与 Draft 编辑]]。
 
-| 需要 | 页面 |
-| --- | --- |
-| 颜色、字体、间距、表面与状态的已有基础 | [[ui-style/foundations]] |
-| 工作区、顶栏、控件、卡片与内容来源的复用模式 | [[ui-style/patterns]] |
-| 通用设计、视觉方向确认与风格资料维护 | Agent 的 `frontend-design` skill |
-| 游戏 UI 数据边界、刷新与施工补充 | [[ai/guide/frontend-design-project-overlay]] |
-| 项目主题运行机制与 DOM 更新 | [[story-chat-and-theme-presentation]]、[[ui-refresh-focus-scroll]] |
+## 常用入口
 
-## 范围与状态
-
-- 范围：`src/ui/` 游戏 UI，包含游戏内编辑界面；独立 Datapack Editor 不默认套用本基线。
-- 状态：初始条目由当前 CSS、共享组件和相关测试核对，分别标明已有实现与复用约定。尚无逐页浏览器视觉验收，不表示所有旧页面已完全统一。
-- 权威：这里维护视觉角色与复用模式；具体值以源码和运行时主题为准。机制、架构、刷新正文由 `docs/docs-830/` 维护，通用施工与维护流程由 skill 维护，项目补充见覆盖协议。
-
-## 主要依据
-
-主要依据：`src/ui/css/variables.css`、`src/ui/css/layout.css`、`src/ui/css/cards.css`、`src/ui/components/shared/workspace-frame.ts`、`src/ui/components/shared/tabs.ts`。结构验证入口：`tests/ui/workspace/workspace-frame.test.ts`，它不证明视觉质量。
+- [[ui-style/foundations|共享视觉基础]] 与 [[ui-style/patterns|共享组件与装配]] 记录颜色、字体、状态、Frame、控件和浮层。
+- [[ai/guide/frontend-design-project-overlay]] 记录数据边界、刷新和施工要求。通用设计及视觉方向确认使用 `frontend-design` skill。
+- [[story-chat-and-theme-presentation]]、[[ui-refresh-focus-scroll]] 记录主题投影和 DOM 更新机制。记录中的「已观察」指出实现现状。结构测试用于核对 DOM 合同，桌面视觉仍以实际运行观察为准。
+- [[ai/plan/ui-visual-follow-ups|UI 视觉结构待处理清单]] 记录尚待评估的兼容与统一方向。

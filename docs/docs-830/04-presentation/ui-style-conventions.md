@@ -4,7 +4,7 @@
 
 ## UI Style 知识入口
 
-根目录 `ui-style/` 维护基础视觉角色、布局/组件模式和复用入口：`00-index.md` 负责导航，`foundations.md` 说明色彩、层级、排版等基础角色，`patterns.md` 记录工作区、面板、输入、状态与内容组件模式。文档用于定位和复用现有表现语言，具体运行行为仍以 `src/ui/` 当前组件和 CSS 为准。
+从 [[ui-style/00-index|UI 风格指引]] 按目标界面进入游戏、创作或检索工具的视觉语言。根目录的 `foundations.md` 与 `patterns.md` 维护共享视觉角色和复用入口。各语言记录适用的布局、控件与现有消费者，具体运行行为以 `src/ui/` 当前组件和 CSS 为准。
 
 新页面通常沿用已有的 App 框架、Workspace、共享面板、主题 Host 与只读查询入口；只有不同的交互语义或内容类型需要独立表现组件。主题 token、宿主层级及 `hostId` 查询见 [[story-chat-and-theme-presentation]]。
 
@@ -20,7 +20,7 @@
 
 组件接入仍遵守 [[workspace-navigation-and-rendering]] 的路由与渲染边界，以及 [[ui-refresh-focus-scroll]] 的增量更新约定。
 
-来源：`ui-style/00-index.md`、`ui-style/foundations.md`、`ui-style/patterns.md`、`src/ui/css/`、`src/ui/components/`。这是视觉复用入口，不替代交互行为和无障碍验收。
+源码依据见 `src/ui/css/` 与 `src/ui/components/`。交互行为和验收按 [[ai/guide/frontend-design-project-overlay]] 选择入口。
 
 ## 修改时如何定位
 

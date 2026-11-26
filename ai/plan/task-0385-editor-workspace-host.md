@@ -1,6 +1,6 @@
 # Task：Stage 02：Editor Workspace 公共表现、栏位宿主与框架交互规整
 
-状态：待处理
+状态：待验收
 
 ## 目标与验收
 
@@ -25,24 +25,39 @@
   - 更新 Story `bindWorkspace()` 与 World `bindWorldBrowser()`，移除两边重复的公共 view/mode/Ribbon/分隔线处理，接入公共回调；实例激活、关闭、复制、Work Type 切换继续调用现有业务函数。观察器、事件 listener 与订阅沿各自 AbortSignal／dispose 生命周期清理。
   - 定向测试覆盖 `tests/ui/story/story-editor-workspace.test.ts`、`tests/ui/runtime-editor/runtime-editor-world-browser.test.ts` 与 `tests/ui/workspace/workspace-columns.test.ts`：公共命令两业务共用、World 无需加载 Story CSS、布局偏好与压缩拖动无回归、局部更新不替换稳定栏根／滚动／焦点、释放时无重复绑定。
   - 实际浏览器分别从大厅独立打开 Story 与 World；检查三栏／双栏／专注、Classic／Advanced、Ribbon 与分隔线；切换两个主题，检查目录悬浮滚动条显隐不造成行位移；输入 Story 正文、修改 Entry 属性、切换 World 实体后确认没有无关区域重建；切换实例、目录管理、试播、退出并重复进入。以现有主题和 DOM 身份／scroll key 检查核对更新范围。
-- 待核实：Task 0383、0384 的待验收状态与本阶段部分目录／Review 样式工作有交叉；开工前对照它们的实际代码差异与验收结果，明确哪些工作已完成、哪些只需迁移样式归属，避免重复施工。
+- 核对结果：Task 0384 仍为待验收，现有目录 DOM／定位能力已复用，本 Task 只迁移共享表现；Task 0383 仍等待用户浏览器验收，本 Task 只迁移共享 Review 基础样式，不替前序 Task 更新验收状态。
+
+### 本轮施工约束
+
+- 公共绑定使用一个薄的组装入口，业务只传刷新、退出门禁和业务命令委托；不要求业务分别安排 Layout、Ribbon、Resize、Chrome helper 的绑定顺序，也不新增大型 Host Controller。
+- 统一 Workspace 栏位身份、公共外壳与生命周期，不强制统一栏位内部更新算法。保留 Story `patchEditorDOM()`、输入／焦点／弹窗锚点／试播更新，以及 World 的摘要局部刷新。
+- 已确认共享的目录树／行 CSS 使用稳定公共选择器，不继续给 Story 专有类追加共享规则；仅调整本阶段涉及且确认共享的组件，保留 Story 专属注记及其他业务表现类，不做全仓 class 改名。
+- Stage 01.1 的压缩拖动、迁移失败保护及临时试播布局只做回归核验，不重复施工。
 
 ## 工作项
 
-- [ ] 核对 Task 0383／0384 的实现与验收边界，形成不重复施工的公共职责清单。
-- [ ] 核对 Story／World surface CSS 加载顺序，迁移公共框架、目录和 Review 规则，保留 Story 业务样式并清理重复选择器。
-- [ ] 将布局视图、模式、Ribbon、分隔线命令收口到现有 Editor Workspace 绑定入口，Story／World 改为提供刷新、退出门禁及业务命令回调。
-- [ ] 沿用 `WorkspaceColumnSpec`、`WorkspaceFrameSpec` 与 `WorkspaceColumns`，规整公共宿主接入，不重建整套渲染系统；保留 Story 与 World 的局部更新边界。
-- [ ] 补充并运行相关定向测试、类型检查、架构／文档及差异检查。
-- [ ] 完成 Story、World、两种主题、滚动条、局部更新与退出路径的真实浏览器验证；更新相关公共接入文档，报告已迁移样式、统一命令、保留的旧实现及未覆盖项。
+- [x] 核对 Task 0383／0384 的实现与验收边界，形成不重复施工的公共职责清单。
+- [x] 核对 Story／World surface CSS 加载顺序，迁移公共框架、目录和 Review 规则，保留 Story 业务样式并清理重复选择器。
+- [x] 将布局视图、模式、Ribbon、分隔线命令收口到现有 Editor Workspace 绑定入口，Story／World 改为提供刷新、退出门禁及业务命令回调。
+- [x] 沿用 `WorkspaceColumnSpec`、`WorkspaceFrameSpec` 与 `WorkspaceColumns`，规整公共宿主接入，不重建整套渲染系统；保留 Story 与 World 的局部更新边界。
+- [x] 补充并运行相关定向测试、类型检查、架构／文档及差异检查。
+- [ ] 补完余下真实浏览器验收：Story 正文输入与 Entry 属性编辑、Story 与 World 分别检查两种主题、目录悬浮滚动条、目录管理和试播。公共 CSS 隔离、World 实体局部更新、布局切换、退出／重新进入已在本 Task 记录的独立浏览器会话中验证。
 
 ## 当前进展
 
-- 已完成：依据 Stage 02 Prompt 核对公共样式入口、Story／World 的框架绑定点、Workspace Columns 生命周期及直接相关 Task 0383／0384 的重叠范围；Stage 01.1 已在本对话完成并通过定向验证。
-- 正在进行：未开始施工，等待本 Task 后续启动及人工验收。
-- 下一步：开工时先比对 Task 0383／0384 的验收结果与当前差异，然后从 `story-editor.css` 的公共框架／目录规则和 `surface-styles.ts` 的独立加载路径建立迁移清单。
+- 已完成：核对 Task 0383／0384 的当前实现和范围，复用其目录渲染、Review 与定位能力；未重复实现目录或 Review 服务。Stage 01.1 只做压缩拖动、持久化迁移失败保护和试播布局的回归检查。
+- 已完成：迁移公共 Workspace Shell 规则至 `editor-workspace.css`；迁移目录树、行、Chevron、层级线和悬浮滚动条规则至 `editor-directory.css`；迁移 Review 字段基础样式至 `editor-shared.css`。Story 的正文、节点、Entry、试播和属性编辑规则留在 `story-editor.css`。公共目录选择器统一使用 `.editor-directory-*`。
+- 已完成：Story／Runtime 共用的 `condition-reference-picker` 改用 `.editor-list-item`、`.editor-empty`、`.editor-actions`；其公共基础规则不再依赖 Story 命名。剩余 Story 行、空态和操作基础规则移回 Story stylesheet。
+- 已完成：World 顶栏以 `world-editor` surface 加载公共工作区和目录 CSS；Story surface 先加载公共规则再加载 Story 专有 CSS。World 独立启动的实际 CSSOM 包含 `game.css`、`editor-workspace.css`、`editor-directory.css`，无 `.story-editor-node` 规则。
+- 已完成：新增 `bindEditorWorkspace()` 作为公共框架绑定入口，内部装配布局选择、Classic／Advanced、Ribbon、splitter 和退出命令；`setEditorWorkspaceView()` 供业务执行显式布局命令。Story／World 只传边缘能力、局部刷新、滚动恢复和退出回调。
+- 已完成：Story 继续使用 `patchEditorDOM()` 与现有 `WorkspaceColumns` keyed 生命周期；World 保留摘要局部更新。视图切换前后 Story 保存并恢复当前实例滚动位置，覆盖了回归测试发现的右栏恢复问题。
+- 已完成：更新 `docs/docs-830/04-presentation/workspace-columns-and-layout.md`，记录公共绑定、surface 样式所有权与差异化更新边界。
+- 正在进行：等待人工浏览器验收；Stage 03–07 不在本 Task 范围内。
 
 ## 结果与问题
 
-- 验证结果：待施工。
-- 发现问题：尚无 Stage 02 实施结果；Task 0383／0384 中公共目录与 Review 相关部分可能与 CSS／宿主整理重叠，需按其验收状态协调。
+- 验证：`npx tsc --noEmit` 通过；相关 UI 回归测试 4 个文件、88 项通过；`npm run check:architecture` 通过；`npm run check:docs` 扫描 105 份 Markdown、0 错误；`git diff --check` 通过。
+- 浏览器：在独立 Vite 实例（5174）分别验证 World 首次进入只载入公共 CSS、Story 进入后再载入 Story CSS；验证 Story Advanced 下切换至 World 保持三栏／高级状态、World Classic／Advanced、三栏／双栏／专注、显式显示目录、阿比多斯黄沙主题、实体变更后目录状态保持，以及退出并重新进入。
+- 浏览器限制：原 5173 dev server 的转换后顶栏模块仍返回旧的 `world-editor`→`story` 映射；当前源码及 5174 独立服务器均为 `world-editor`→公共加载器。手工验收前需刷新或重启原 5173 dev server，避免验收到旧模块。
+- 未覆盖：Story 正文输入与 Entry 属性编辑未在临时空白 origin 中写入真实内容；相关 Story patch 和栏位稳定性由现有定向回归测试验证，用户人工验收可继续检查内容编辑细节。
+- 保留范围：没有合并 Story／World 实例集合、拆分 Controller、大规模迁移 CSS、统一全部 Explorer 浏览状态；这些仍属于后续 Stage 03–07。

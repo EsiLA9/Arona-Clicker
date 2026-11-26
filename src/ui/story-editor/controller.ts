@@ -43,7 +43,7 @@ import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { isLoadedStoryPack, storyPackCatalog, storyPackSource, storySidebarState, storySourceGame } from './pack-source';
 import { createStoryEditorFrame, createStoryEditorListColumn, storyEditorChrome, storyEditorDocumentName, storySenders } from './view';
-import { applyEditorWorkspaceWidths, bindEditorWorkspaceResize, editorLayout, editorWorkspaceViewAttributes, editorWorkspaceViews, type EditorWorkspaceView, renderEditorWorkspaceRegions } from '../workspace/editor-workspace';
+import { applyEditorWorkspaceWidths, bindEditorWorkspace, editorLayout, editorWorkspaceViewAttributes, setEditorWorkspaceView, type EditorWorkspaceView, renderEditorWorkspaceRegions } from '../workspace/editor-workspace';
 import { captureStoryInstanceState, restoreStoryInstanceState, createEmptyStoryBrowseInstance, findStoryBrowseInstance, createStoryWorkspaceSession, editorPanels, storyEditorEdges, storyWorkType, type EditorScroll, type StoryBrowseInstance, type StoryInstanceScroll } from './workspace-session';
 import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch } from './sidebar-tree';
 import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
@@ -840,10 +840,37 @@ export class StoryEditorController {
     this.workspace.instances.splice(index, 1);
   }
 
+  private setWorkspaceView(view: EditorWorkspaceView): void {
+    const shell = this.ctrl.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    if (shell) setEditorWorkspaceView(shell, storyEditorEdges, view, this.workspaceViewBinding());
+    else editorLayout.setView(view);
+  }
+
+  private workspaceViewBinding() {
+    return {
+      onBeforeViewChange: (from: EditorWorkspaceView) => {
+        this.workspace.active.scroll = this.captureInstanceScroll();
+        if (from !== 'focus') {
+          const left = this.editorScrollHost('left');
+          if (left) this.workspace.sidebarScroll.set(this.sidebarScrollKey, left.scrollTop);
+        }
+      },
+      onViewChange: (view: EditorWorkspaceView) => {
+        if (view !== 'focus') this.setEditorScroll('left', this.workspace.sidebarScroll.get(this.sidebarScrollKey) ?? 0);
+        if (view === 'three') this.setEditorScroll('right', this.workspace.active.scroll.right ?? 0);
+      },
+    };
+  }
+
+  private revealWorkspaceLeft(): void {
+    if (editorLayout.state.view === 'focus') this.setWorkspaceView('browse');
+  }
+
   private bindWorkspace(): () => void {
     const root = this.ctrl.root;
     const abort = new AbortController();
     const options = { signal: abort.signal };
+    const viewBinding = this.workspaceViewBinding();
     const owner = (event: Event) => {
       if (this.isOpen() && event.target instanceof Element) return event.target.closest<HTMLElement>('[data-editor-workspace]');
     };
@@ -854,13 +881,8 @@ export class StoryEditorController {
       if (!shell || !element || element.disabled) return;
       const intent = element.dataset.editorWorkspaceAction;
       const action = element.dataset.editorAction;
-      if (intent === 'mode') {
-        editorLayout.setMode(this.advanced ? 'classic' : 'advanced');
-        this.focusWorkspaceMode = true;
-      } else if (intent === 'back') {
-        this.close();
-        return;
-      } else if (this.state.preview) {
+      if (intent === 'mode' || intent === 'back') return;
+      if (this.state.preview) {
         if (element.dataset.authoringAction === 'restart-preview' || element.dataset.authoringAction === 'close-preview') this.authoringClick(element);
       } else if (this.state.directoryManagement) {
         if (intent === 'activate' || intent === 'close') {
@@ -877,7 +899,7 @@ export class StoryEditorController {
           if (instance && intent === 'close') this.closeBrowseInstance(instance);
           if (instance && intent === 'activate') this.activateBrowseInstance(instance);
         } else if (intent === 'open') {
-          editorLayout.revealLeft();
+          this.revealWorkspaceLeft();
           if (this.state.sidebarMode === 'senders') this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
           this.state.sidebarFiltersOpen = true;
           this.focusSidebarSearch = true;
@@ -885,14 +907,14 @@ export class StoryEditorController {
           const draft = currentDraft(this.state);
           const issue = draft?.editorIssues?.find(item => item.nodeId);
           if (draft && issue) {
-            editorLayout.setView('three');
+            this.setWorkspaceView('three');
             this.locateIssue(draft, issue.path);
             this.revealNodeId = this.state.selectedNodeId;
           }
         } else if (intent === 'duplicate' && this.state.target) {
           this.openBrowseTarget(this.state.target, true);
         } else if (intent === 'locate' && this.state.target) {
-          editorLayout.revealLeft();
+          this.revealWorkspaceLeft();
           this.state.sidebarMode = this.state.sidebarDirectoryMode ?? 'all';
           this.state.sidebarSourceSelection = this.state.sourceSelection;
           this.state.sidebarReveal = this.state.target;
@@ -910,15 +932,20 @@ export class StoryEditorController {
     root.addEventListener('change', event => {
       const field = event.target;
       if (!owner(event) || !(field instanceof HTMLSelectElement) || !field.closest('[data-editor-workspace-header]')) return;
-      if (field.hasAttribute('data-editor-workspace-view-select') && editorWorkspaceViews(storyEditorEdges).includes(field.value as EditorWorkspaceView)) {
-        editorLayout.setView(field.value as EditorWorkspaceView);
-      } else if (field.hasAttribute('data-authoring-preview-entry')) {
+      if (field.hasAttribute('data-editor-workspace-view-select')) return;
+      if (field.hasAttribute('data-authoring-preview-entry')) {
         const draft = currentDraft(this.state);
         if (draft) (this.state.previewEntryByDraft ??= new Map()).set(draft.draftId, field.value);
       }
       this.requestRefresh();
     }, options);
-    bindEditorWorkspaceResize(root, abort.signal);
+    bindEditorWorkspace(root, abort.signal, {
+      edges: storyEditorEdges,
+      ...viewBinding,
+      onModeChange: () => { this.focusWorkspaceMode = true; this.requestRefresh(); },
+      onViewChange: view => { viewBinding.onViewChange(view); this.requestRefresh(); },
+      onExit: () => this.close(),
+    });
     return () => abort.abort();
   }
 
@@ -3162,7 +3189,7 @@ export class StoryEditorController {
     } else if (action === 'rename-id') this.changeStoryId(trigger);
     else if (action === 'save') this.save(true, false);
     else if (action === 'choose-sender') {
-      if (this.advanced) editorLayout.revealLeft();
+      if (this.advanced) this.revealWorkspaceLeft();
       this.state.sidebarMode = 'senders';
     }
     else if (action === 'info' || action === 'rename') {
@@ -3174,7 +3201,7 @@ export class StoryEditorController {
       if (action === 'rename') {
         this.state.storyInspectorTab = 'overview';
         if (this.advanced) {
-          editorLayout.setView('three');
+          this.setWorkspaceView('three');
         }
       }
       this.restoreInspectorScroll();

@@ -3,7 +3,7 @@ import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from 
 import { EditorWorkspaceTheme } from '../workspace/editor-workspace-appearance';
 import type { EditorWorkspaceView } from '../workspace/editor-workspace';
 import { buildDefaultWorldTree, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges } from '../runtime-editor/world-browser';
-import { applyEditorWorkspaceWidths, bindEditorWorkspaceResize, editorLayout, editorWorkspaceViews } from '../workspace/editor-workspace';
+import { bindEditorWorkspace, editorLayout, setEditorWorkspaceView } from '../workspace/editor-workspace';
 import { captureEditorReturn, discardEditorReturn, restoreEditorReturn, type EditorReturn } from '../workspace/editor-return';
 // ============================================================
 // ui/controller.ts — UI 控制器（集成层门面）
@@ -2254,7 +2254,23 @@ export class UIController {
     if (!session || !shell || !this.isWorldBrowserOpen()) return;
     const binding = this.worldBinding = new AbortController();
     const options = { signal: binding.signal };
-    bindEditorWorkspaceResize(shell, binding.signal);
+    const viewBinding = {
+      onBeforeViewChange: (from: EditorWorkspaceView) => {
+        const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+        if (scrollBody && from !== 'focus') session.scrollTop = scrollBody.scrollTop;
+      },
+      onViewChange: (value: EditorWorkspaceView) => {
+        const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+        if (scrollBody && value !== 'focus') scrollBody.scrollTop = session.scrollTop ?? 0;
+        refreshEditorDirectoryScrollbars(shell);
+      },
+    };
+    bindEditorWorkspace(shell, binding.signal, {
+      edges: worldEditorEdges,
+      ...viewBinding,
+      onModeChange: () => this.render(),
+      onExit: () => this.closeEditorWorkspace(),
+    });
     this.unbindWorldScroll = bindEditorDirectoryScrollbars(shell);
     const setExpanded = (key: string, open: boolean): void => {
       if (open) session.expanded.add(key);
@@ -2281,23 +2297,12 @@ export class UIController {
       }
       selected.focus({ preventScroll: true });
     };
-    const viewSelect = shell.querySelector<HTMLSelectElement>('[data-editor-workspace-view-select]');
-    const setView = (value: EditorWorkspaceView): void => {
-      editorLayout.setView(value);
-      const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
-      if (scrollBody && shell.dataset.editorWorkspaceView !== 'focus') session.scrollTop = scrollBody.scrollTop;
-      shell.dataset.editorWorkspaceView = value;
-      const rail = shell.querySelector<HTMLElement>('[data-editor-workspace-rail]');
-      if (rail) rail.hidden = value === 'focus';
-      if (scrollBody && value !== 'focus') scrollBody.scrollTop = session.scrollTop ?? 0;
-      if (viewSelect) viewSelect.value = value;
-      applyEditorWorkspaceWidths(shell, editorLayout.state, value);
-      refreshEditorDirectoryScrollbars(shell);
-    };
+    const setView = (value: EditorWorkspaceView): void => setEditorWorkspaceView(shell, worldEditorEdges, value, viewBinding);
     shell.addEventListener('click', event => {
       const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : undefined;
       if (!button || button.disabled) return;
       const { worldExpand, worldSelect, worldId, editorWorkspaceAction: action, editorWorkType } = button.dataset;
+      if (action === 'mode' || action === 'back') return;
       if (worldExpand) setExpanded(worldExpand, !session.expanded.has(worldExpand));
       if (worldSelect && worldId && (worldSelect === 'init' || worldSelect === 'area' || worldSelect === 'spot')) {
         const ref = { kind: worldSelect, id: worldId } as const;
@@ -2334,18 +2339,9 @@ export class UIController {
           locateWorld(session.selected, session.selectedNodeKey);
         }
       }
-      if (action === 'mode') {
-        editorLayout.setMode(editorLayout.state.mode === 'advanced' ? 'classic' : 'advanced');
-        this.render();
-      }
-      if (action === 'back' || action === 'close' || button.hasAttribute('data-world-editor-leave')) {
+      if (action === 'close' || button.hasAttribute('data-world-editor-leave')) {
         this.closeEditorWorkspace();
       }
-    }, options);
-    viewSelect?.addEventListener('change', event => {
-      const value = (event.currentTarget as HTMLSelectElement).value as EditorWorkspaceView;
-      if (!editorWorkspaceViews(worldEditorEdges).includes(value)) return;
-      setView(value);
     }, options);
   }
 

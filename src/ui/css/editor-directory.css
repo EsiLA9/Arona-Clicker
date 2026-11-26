@@ -1,0 +1,74 @@
+/* Shared directory tree and non-layout scrollbar presentation. */
+.editor-directory-scroll {
+  --editor-directory-thumb-gutter: 8px;
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  margin-inline-end: calc(-1 * var(--editor-directory-thumb-gutter));
+  padding-inline-end: var(--editor-directory-thumb-gutter);
+}
+.editor-directory-scroll > [data-scroll-key] { overflow-x: hidden; scrollbar-width: none; }
+.editor-directory-scroll > [data-scroll-key]::-webkit-scrollbar { display: none; }
+.editor-directory-thumb {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  width: 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink-on-panel) 38%, transparent);
+  visibility: hidden;
+  pointer-events: none;
+  touch-action: none;
+  cursor: default;
+}
+.editor-directory-scroll:hover > .editor-directory-thumb[data-overflow] {
+  visibility: visible;
+  pointer-events: auto;
+}
+.editor-directory-thumb:is(:hover, :active) { background: color-mix(in srgb, var(--ink-on-panel) 58%, transparent); }
+
+.editor-directory-tools { display: flex; flex: none; flex-wrap: wrap; gap: 6px; }
+.editor-directory-tools .mini-action { min-height: 26px; padding: 3px 7px; }
+.editor-directory-scroll-body { flex: 1; min-height: 0; overflow-y: auto; }
+.editor-directory-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-directory-tree ul[hidden] { display: none; }
+.editor-directory-tree,
+.editor-directory-tree ul { list-style: none; margin: 0; padding: 0; }
+.editor-directory-tree li > ul { position: relative; margin-inline-start: 11px; padding-inline-start: 9px; }
+.editor-directory-tree li > ul::before { position: absolute; inset-block: 0; inset-inline-start: 0; border-inline-start: 1px solid color-mix(in srgb, var(--muted-on-panel) 45%, transparent); content: ""; }
+.editor-directory-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 28px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.editor-directory-row:hover { background: color-mix(in srgb, var(--panel-light) 58%, transparent); }
+.editor-directory-row:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+.editor-directory-row[aria-pressed="true"] { background: color-mix(in srgb, var(--cyan) 18%, var(--panel-light)); }
+.editor-directory-row[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--cyan) 18%, var(--panel-light)); }
+.editor-directory-row small { margin-inline-start: auto; color: var(--muted-on-panel); }
+.editor-directory-heading { display: flex; align-items: center; gap: 4px; }
+.editor-directory-heading > .mini-action { flex: 0 0 26px; width: 26px; height: 26px; padding: 3px; border: 0; background: transparent; color: var(--muted-on-panel); opacity: .82; }
+.editor-directory-heading > .mini-action:hover { color: var(--ink-on-panel); opacity: 1; }
+.editor-directory-heading > .mini-action[aria-pressed="true"] { border-color: var(--cyan); }
+.editor-directory-branch { flex: 1; min-width: 0; font-weight: 600; }
+.editor-directory-branch:disabled { cursor: default; background: transparent; color: inherit; }
+.editor-directory-chevron { flex: 0 0 12px; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.5; transition: transform 120ms ease; }
+[aria-expanded="true"] > .editor-directory-chevron { transform: rotate(90deg); }
+.editor-directory-row[aria-expanded="true"] > .editor-directory-chevron { transform: rotate(90deg); }
+.editor-document-icon { display: block; flex: 0 0 16px; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.editor-directory-manage svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }

@@ -82,7 +82,7 @@ export function bindTopBarActions(ctrl: UIController, scope: ParentNode = ctrl.r
     withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.openStoryEditor());
   });
   scope.querySelector('#world-editor-launch')?.addEventListener('click', event => {
-    withSurfaceStyles(ctrl, 'story', event.currentTarget as Element, () => ctrl.openWorldBrowser());
+    withSurfaceStyles(ctrl, 'world-editor', event.currentTarget as Element, () => ctrl.openWorldBrowser());
   });
   bindDatapackActions(ctrl, scope);
   bindRuntimeDatapackEditorActions(ctrl, scope);

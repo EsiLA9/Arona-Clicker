@@ -53,14 +53,14 @@ export function createConditionReferencePicker(ctx: UIContext, label: string, ro
         </section>
         <section class="condition-reference-results" aria-label="搜索结果">
           <label>搜索${escape(label)}<input type="search" data-condition-subfield="search" value="${escape(query)}" placeholder="名称或 ID" autocomplete="off"></label>
-          <div class="condition-reference-cards">${results.map(row => `<button type="button" class="condition-reference-card story-editor-list-item" data-editor-key="reference:${escape(row.value)}" data-condition-picker-choice="${escape(row.value)}" aria-pressed="${choice === row}">${row.storyIdentity
+          <div class="condition-reference-cards">${results.map(row => `<button type="button" class="condition-reference-card editor-list-item" data-editor-key="reference:${escape(row.value)}" data-condition-picker-choice="${escape(row.value)}" aria-pressed="${choice === row}">${row.storyIdentity
             ? renderStoryIdentityInline(ctx, row.storyIdentity.kind, row.storyIdentity.title, row.value)
-            : `<strong>${escape(row.label)}</strong><code>${escape(row.value)}</code>`}<small>${escape(row.scope)}</small></button>`).join('') || '<p class="story-editor-empty">没有匹配的内容。</p>'}</div>
+            : `<strong>${escape(row.label)}</strong><code>${escape(row.value)}</code>`}<small>${escape(row.scope)}</small></button>`).join('') || '<p class="editor-empty">没有匹配的内容。</p>'}</div>
         </section>
         <section class="condition-reference-detail" aria-label="实体详情">
           <h3>实体详情</h3>
-          ${choice ? `${choice.storyIdentity ? renderStoryIdentityPreview(ctx, choice.storyIdentity) : `<strong>${escape(choice.label)}</strong><code>${escape(choice.value)}</code>`}<small>${escape(choice.scope)}</small>${choice.description ? `<p>${escape(choice.description)}</p>` : ''}` : '<p class="story-editor-empty">选择一张卡片查看详情。</p>'}
-          <div class="story-editor-actions"><button type="button" class="mini-action" data-condition-subeditor="back">${escape(options.cancelLabel ?? '返回')}</button>${options.navigate && choice ? '<button type="button" class="mini-action" data-condition-subeditor="source">查看来源</button>' : ''}<button type="button" class="primary-button" data-condition-subeditor="confirm"${choice ? '' : ' disabled'}>确认选择</button></div>
+          ${choice ? `${choice.storyIdentity ? renderStoryIdentityPreview(ctx, choice.storyIdentity) : `<strong>${escape(choice.label)}</strong><code>${escape(choice.value)}</code>`}<small>${escape(choice.scope)}</small>${choice.description ? `<p>${escape(choice.description)}</p>` : ''}` : '<p class="editor-empty">选择一张卡片查看详情。</p>'}
+          <div class="editor-actions"><button type="button" class="mini-action" data-condition-subeditor="back">${escape(options.cancelLabel ?? '返回')}</button>${options.navigate && choice ? '<button type="button" class="mini-action" data-condition-subeditor="source">查看来源</button>' : ''}<button type="button" class="primary-button" data-condition-subeditor="confirm"${choice ? '' : ' disabled'}>确认选择</button></div>
         </section>
       </div>`;
     },

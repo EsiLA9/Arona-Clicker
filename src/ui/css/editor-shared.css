@@ -6,7 +6,7 @@ button[aria-busy="true"] { cursor: wait; }
 }
 
 /* The Story and Runtime editors share the condition reference picker. */
-.story-editor-list-item {
+.editor-list-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -21,13 +21,13 @@ button[aria-busy="true"] { cursor: wait; }
   cursor: pointer;
   overflow-wrap: anywhere;
 }
-.story-editor-empty {
+.editor-empty {
   font-size: 12px;
   color: var(--muted-on-panel);
   padding: 20px 8px;
   text-align: center;
 }
-.story-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-shrink: 0; }
+.editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .condition-reference-picker {
    display: grid;
@@ -62,4 +62,10 @@ button[aria-busy="true"] { cursor: wait; }
    border-color: var(--cyan);
    background: color-mix(in srgb, var(--panel-light) 88%, var(--cyan));
 }
-.condition-reference-detail > .story-editor-actions { margin-top: auto; }
+.condition-reference-detail > .editor-actions { margin-top: auto; }
+
+.editor-review-fields { display: grid; gap: 4px; margin: 0; font-size: 12px; }
+.editor-review-fields dt { color: var(--muted-on-panel-light); }
+.editor-review-fields > div { display: grid; grid-template-columns: minmax(5em, max-content) minmax(0, 1fr); gap: 8px; }
+.editor-review-fields dd { margin: 0; overflow-wrap: anywhere; }
+.editor-review-empty { color: var(--muted-on-panel); }

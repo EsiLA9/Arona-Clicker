@@ -186,7 +186,67 @@ export function applyEditorWorkspaceWidths(shell: HTMLElement, layout = editorLa
   shell.style.setProperty('--editor-track-right', `${widths.right}px`);
 }
 
-export function bindEditorWorkspaceResize(root: HTMLElement, signal: AbortSignal): void {
+export interface EditorWorkspaceBinding {
+  edges: readonly EditorWorkspaceEdge[];
+  onBeforeViewChange?: (from: EditorWorkspaceView, to: EditorWorkspaceView) => void;
+  onViewChange?: (view: EditorWorkspaceView) => void;
+  onModeChange?: (mode: EditorWorkspaceMode) => void;
+  onExit?: () => void;
+}
+
+export function setEditorWorkspaceView(
+  shell: HTMLElement,
+  edges: readonly EditorWorkspaceEdge[],
+  view: EditorWorkspaceView,
+  binding: Pick<EditorWorkspaceBinding, 'onBeforeViewChange' | 'onViewChange'> = {},
+): void {
+  const next = editorWorkspaceView(edges, view);
+  const previous = editorWorkspaceView(edges, shell.dataset.editorWorkspaceView as EditorWorkspaceView);
+  if (next === previous) return;
+  binding.onBeforeViewChange?.(previous, next);
+  editorLayout.setView(next);
+  shell.dataset.editorWorkspaceView = next;
+  const rail = shell.querySelector<HTMLElement>('[data-editor-workspace-rail]');
+  if (rail) rail.hidden = next === 'focus';
+  const select = shell.querySelector<HTMLSelectElement>('[data-editor-workspace-view-select]');
+  if (select) select.value = next;
+  applyEditorWorkspaceWidths(shell, editorLayout.state, next);
+  binding.onViewChange?.(next);
+}
+
+export function bindEditorWorkspace(root: HTMLElement, signal: AbortSignal, binding: EditorWorkspaceBinding): void {
+  bindEditorWorkspaceResize(root, signal);
+  const options = { signal };
+  const shellFor = (target: EventTarget | null): HTMLElement | undefined => target instanceof Element
+    ? target.closest<HTMLElement>('[data-editor-workspace]') ?? undefined : undefined;
+  root.addEventListener('click', event => {
+    const shell = shellFor(event.target);
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLButtonElement>('[data-editor-workspace-action="mode"], [data-editor-workspace-action="back"]') : null;
+    if (!shell || !button || button.disabled) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (button.dataset.editorWorkspaceAction === 'back') {
+      binding.onExit?.();
+      return;
+    }
+    const mode = editorLayout.state.mode === 'advanced' ? 'classic' : 'advanced';
+    editorLayout.setMode(mode);
+    shell.dataset.editorWorkspaceMode = mode;
+    applyEditorWorkspaceWidths(shell, editorLayout.state);
+    binding.onModeChange?.(mode);
+  }, options);
+  root.addEventListener('change', event => {
+    const shell = shellFor(event.target);
+    const select = event.target instanceof HTMLSelectElement && event.target.hasAttribute('data-editor-workspace-view-select')
+      ? event.target : null;
+    if (!shell || !select || !editorWorkspaceViews(binding.edges).includes(select.value as EditorWorkspaceView)) return;
+    event.stopImmediatePropagation();
+    setEditorWorkspaceView(shell, binding.edges, select.value as EditorWorkspaceView, binding);
+  }, options);
+}
+
+function bindEditorWorkspaceResize(root: HTMLElement, signal: AbortSignal): void {
   const shellFor = () => root.matches('[data-editor-workspace]') ? root : root.querySelector<HTMLElement>('[data-editor-workspace]');
   const view = (shell: HTMLElement) => editorWorkspaceView(['left', 'right'], shell.dataset.editorWorkspaceView as EditorWorkspaceView);
   let observedStage: HTMLElement | undefined;
