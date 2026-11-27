@@ -19,6 +19,7 @@ declare global {
     __startupLog?: StartupLog;
     __game?: AronaClickerRuntime;
     __ui?: import('./controller/controller').UIController;
+    __devUI?: import('./development/dev-navigation').DevNavigationApi;
   }
 }
 
@@ -202,6 +203,16 @@ async function boot(): Promise<void> {
 
     window.__game = game;
     window.__ui = controller;
+    if (import.meta.env.DEV) {
+      const { createDevNavigation, devNavigationRequestFromSearch } = await import('./development/dev-navigation');
+      const devUI = window.__devUI = createDevNavigation(controller);
+      const request = devNavigationRequestFromSearch(window.location.search);
+      if (request !== undefined) {
+        await devUI.ready();
+        const result = await devUI.navigate(request);
+        if (!result.ok) console.warn('[DevNavigation] URL navigation failed:', result.code, result.message);
+      }
+    }
     await nextPaint();
     document.querySelector('#startup-shell')?.remove();
     window.__startupShell?.finish();

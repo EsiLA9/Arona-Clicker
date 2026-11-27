@@ -30,7 +30,7 @@ export function createEditorWorkspaceColumn(ctx: UIContext, spec: EditorColumnSp
 }
 
 export function createEditorWorkspaceFrame(id: string, columns: readonly WorkspaceColumnSpec[]) {
-  return { id, updates: 'external' as const, columns };
+  return { id, instanceId: 'editor-workbench', updates: 'external' as const, columns };
 }
 
 export { renderWorkspaceFrame as renderEditorWorkspaceFrame };

@@ -82,7 +82,6 @@ export interface StoryBrowseViewState {
   error: string | null;
 }
 export interface StoryEditorState extends StoryBrowseViewState {
-  workspace?: import('./workspace-session').StoryWorkspaceSession;
   sourceRegistry?: import('../../arona-clicker/contracts/runtime/content-catalog').ContentCatalogQueryPort;
   sourcePics?: import('../../arona-clicker/contracts/runtime/runtime').GameReadModel['pics'];
   sourceOptions?: { value: string; label: string; group: 'packs' | 'drafts' }[];
@@ -100,14 +99,8 @@ export interface StoryEditorState extends StoryBrowseViewState {
   sidebarRuntimeScope?: string;
   sidebarSourceSelection?: string;
   sidebarSource?: Pick<StoryEditorState, 'drafts' | 'sourceRegistry' | 'sourcePics' | 'sourceMod' | 'sourceWarning'>;
-  sidebarFolders?: Map<string, boolean>;
-  sidebarSearchFolders?: Map<string, boolean>;
-  sidebarReveal?: StoryEditorTarget;
   directoryManagement?: ReturnType<typeof import('./directory-management').createStoryDirectoryManagement>;
-  search: string;
   storyInitFilter?: string;
-  entrySearch: string;
-  senderSearch: string;
   composers: Record<string, StoryComposer>;
   storageBlocked: boolean;
   copyStoryId?: string;
@@ -140,8 +133,8 @@ export function createStoryBrowseViewState(): StoryBrowseViewState {
     storyInspectorTab: 'overview', entryEditorTab: 'basic', notice: null, error: null };
 }
 export function createStoryEditorState(): StoryEditorState {
-  return { ...createStoryBrowseViewState(), drafts: [], sidebarMode: 'all', search: '', entrySearch: '',
-    senderSearch: '', composers: Object.create(null), storageBlocked: false };
+  return { ...createStoryBrowseViewState(), drafts: [], sidebarMode: 'all',
+    composers: Object.create(null), storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
@@ -331,7 +324,7 @@ export function composer(state: StoryEditorState): StoryComposer {
   const draft = currentDraft(state);
   return draft ? state.composers[draft.draftId] ??= { sender: 'narrator', text: '' } : { sender: 'narrator', text: '' };
 }
-export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>): StoryListItem[] {
+export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>, query = ''): StoryListItem[] {
   const drafts = state.drafts.filter(draft => !draft.entryOnly);
   const entries = [...sources.values()].map(source => {
     const draft = drafts.find(item => item.sourceId === source.id || item.document.id === source.id);
@@ -341,7 +334,7 @@ export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, 
   for (const draft of drafts) {
     if (!entries.some(item=>item.draft===draft)) entries.push({ key: draft.draftId, name: draft.document.name, storyId: draft.document.id, initId: draft.document.initId, draft });
   }
-  const search = state.search.trim().toLocaleLowerCase();
+  const search = query.trim().toLocaleLowerCase();
   return entries.filter(item => !search || `${item.name}\n${item.storyId}`.toLocaleLowerCase().includes(search));
 }
 export function selectStory(state: StoryEditorState, key: string, sources: ReadonlyMap<string, StoryDef>): boolean {

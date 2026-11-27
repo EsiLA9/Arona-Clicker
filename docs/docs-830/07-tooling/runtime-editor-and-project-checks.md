@@ -10,7 +10,7 @@
 
 顶部服务按钮和高级编辑器的工作类型栏共用世界浏览入口。世界浏览用当前 Registry 的只读定义，沿 Area 的 Init 归属与 Spot 的 Area 归属建树。默认内容单独标记，缺少父项的定义仍可在目录中查看。摘要提供父子链接，跳转沿用同一个浏览实例。目录节点的 key 与实体引用各自独立，折叠和定位跟随目录路径，摘要按实体解析。
 
-世界浏览与 Story 共用 Editor Workspace 栏位、标题、面板表面、外壳和返回位置契约。世界高级模式提供三栏、双栏查阅和专注正文。新实例默认双栏；三栏的右侧为预留信息面板，专注以零宽轨道折叠已挂载侧栏。由 Story 切往世界前先保存草稿，保存失败保留当前工作区。跨工作类型切换保留世界实例的选中、展开和滚动，退出编辑器恢复最初的页面。世界浏览会话属于 UI，本页暂只提供目录和只读摘要。实现见 `src/ui/runtime-editor/world-browser.ts`，回归见 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
+世界浏览与 Story 共用 Editor Workspace 栏位、标题、面板表面、外壳和返回位置契约，并由公共 `EditorLayoutService` 持有布局偏好。三栏的右侧为预留信息面板，专注以零宽轨道折叠已挂载侧栏。由 Story 切往世界前先保存草稿，保存失败保留当前工作区。跨业务实例切换保留各自资源目标、Story 草稿、世界目录 placement、展开和滚动；退出编辑器恢复最初的页面，但不会隐式关闭 browse instances。World Provider 持有只读资源目标、身份与摘要投影，World browse record 与 Story records 共用 `BrowseInstanceManager`。实现见 `src/ui/runtime-editor/world-browser-provider.ts`、`src/ui/runtime-editor/world-browser.ts`、`src/ui/workspace/editor-browse-instances.ts`，回归见 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
 
 ### AreaMap 与世界信息
 
@@ -161,6 +161,24 @@ Vite 配置把 `/game` 与 `/editor` 分别路由到游戏 UI 和独立 Editor H
 源码入口：`vite.config.ts`、`index.html`、`src/ui/main.ts`、`tools/datapack-editor/ui/main.ts`、`scripts/gen-engine-schema.mjs`、`scripts/check-architecture-boundaries.mjs`、`scripts/check-docs.mjs`、`vitest.config.ts`。
 
 相关测试见 `tools/datapack-editor/schema/engine-schema.sync.test.ts` 与 `tests/ui/runtime-editor/runtime-editor-definition.test.ts`、`runtime-editor-pack-export.test.ts`、`runtime-editor-codex-integration.test.ts`。游戏界面的读写入口见 [[read-model-and-ui]]。
+
+### DEV 高级编辑器导航
+
+仅在 Vite 开发模式中，游戏 UI 启动后会注册 `window.__devUI`。`ready()` 等待 API 注册完成；API 注册发生在游戏数据装载、Controller 挂载和首帧之后。`current()` 读取实际 Workspace route、当前 Story/World 资源、有效布局 mode/view/Ribbon 与左右栏宽度，并报告当前是否正在导航。它不回显最后一次请求。导航必须等待返回结果 `ok: true`；这表示正式业务入口已完成、必要 surface 样式已加载、目标资源已激活或定位，且对应宿主可交互。
+
+脚本与 URL 共用同一导航协调器：
+
+```js
+await window.__devUI.ready();
+await window.__devUI.navigate({ page: 'story-editor', target: { kind: 'story', id: 'base:story:schale_welcome' } });
+window.__devUI.current();
+```
+
+`navigate()` 接受 `{ page: 'game' }`、`{ page: 'story-editor', target?, source? }`、`{ page: 'world-editor', target? }`。导航到 Game 是明确切换到普通游戏页；高级编辑器的“退出编辑器”则执行正式退出门禁并恢复进入编辑器前的返回位置。二者不共用新建历史栈。忙碌时新请求以 `busy` 拒绝，不并发切换。目标无效、样式准备失败、业务门禁拒绝或宿主未就绪时返回结构化失败码；协调器恢复此前路由，Story/World 目标自身失败时保留既有会话。已通过门禁完成的合法持久化写入不回滚。正常浏览导航不显式保存存档或草稿。
+
+URL 形式为 `/game?devPage=story-editor&kind=story&id=base%3Astory%3Aschale_welcome`，Entry 使用 `kind=entry`，World 使用 `devPage=world-editor&kind=init|area|spot&id=...`；`/game` 重定向保留 query。`devPage=game` 明确导航到普通游戏页面。重复、缺失或不匹配参数会作为无效请求处理。开发 Mode/View 覆盖当前返回 `unsupported-layout-override`，不写入 `EditorLayoutService` 的基础偏好；通过正式布局控件修改布局会按正常命令提交偏好。
+
+实现入口为 `src/ui/development/dev-navigation.ts` 与 `src/ui/main.ts`，路由 query 保留见 `vite.config.ts`，定向回归见本地 `tests/ui/development/dev-navigation.test.ts`。生产构建不注册该 API；本接口只服务本地开发导航，不是通用 RPC 或平行 Router。
 
 ## 选择正确的检查
 

@@ -4,15 +4,17 @@
 
 ## 共享目录树行、展开与定位
 
-Story／StoryEntry 与世界浏览器共享 `workspace/editor-directory.ts` 的树行和展开控件。目录树行使用 28px 最小行高，子列表使用与父行 Chevron 对齐的连续纵向引导线。展开状态由描边 Chevron 旋转表达。Story／Entry 行使用独立文档 SVG，目录管理操作使用常显齿轮按钮。选中行使用主题混色背景，焦点保留清晰轮廓。Story 搜索、世界线筛选及各分支折叠仍由 Story 目录状态拥有。世界节点展开与选中仍由世界浏览会话拥有。目录定位仅滚动对应左栏宿主。源码入口：`workspace/editor-directory.ts`、`story-editor/sidebar-tree.ts`、`runtime-editor/world-browser.ts` 、`src/ui/css/editor-directory.css` 与 `src/ui/workspace/editor-directory-scroll.ts`。
+Story／StoryEntry 与 World Explorer 共享 `workspace/editor-directory.ts` 的 `.editor-directory-tree`、`.editor-directory-row`、`.editor-directory-chevron` 和展开控件。公共行最小高度 28px；子列表以连续竖线表现层级，Chevron 随 `aria-expanded` 旋转。共享规则位于 `src/ui/css/editor-directory.css`，World 树不依赖 Story stylesheet。Story/Entry 行可附加文档 SVG，目录管理齿轮和 Story metadata 是真实业务变体。
+
+通用查询、普通/搜索折叠覆写、选中 placement、滚动 host、focus request 与 reveal 由 Workbench 的 `EditorExplorerService` 按 Explorer type 独立持有。`.editor-directory-row:hover` 只改变主题混色背景，不改变行盒；`[aria-pressed="true"]` 表示选中，`:focus-visible` 显示键盘焦点轮廓。公共服务负责展开、行选择、滚动捕获与显露祖先；Provider 仍生成真实资源树及 placement 身份。目录定位滚动对应左栏宿主，不接管中栏/右栏内容。
 
 ## 故事目录、发出方与浏览历史
 
-Story 编辑器左栏使用 `renderWorkspaceTitlebar` 的标题内操作位。主按钮显示当前视图并在「故事目录 / 发出方」之间循环，右侧箭头展开原生浮层以直接选择。切换只协调左栏并保留两种列表的滚动、目录搜索与筛选。目录按 Init 和现有目录路径组织 Story 与 Entry，并可筛选内容类型。行内只显示名称和必要标记，悬停显示完整名称、ID 与入口类型。点击箭头折叠分支，点击内容行切换中右两栏。Entry 中栏使用结构化字段和独立抽取池区块，右栏显示调用关系。Story 右栏显示关联入口。浏览历史共用中栏前进 / 后退控件，跳转后左栏定位目标。发出方列表使用圆形头像和名字，优先取角色差分色组或图片，无头像时显示名字首字。
+Story 编辑器左栏使用 `renderWorkspaceTitlebar` 的标题内操作位。主按钮显示当前视图并在「故事目录 / 发出方」之间循环，右侧箭头展开原生浮层以直接选择。切换只协调左栏并保留各自列表的滚动和查询 channel。目录按 Init 和现有目录路径组织 Story 与 Entry，并可筛选内容类型。行内只显示名称和必要标记，悬停显示完整名称、ID 与入口类型。点击箭头折叠分支，点击内容行由对应 Provider 打开/激活资源实例。Entry 中栏使用结构化字段和独立抽取池区块，右栏显示调用关系。Story 右栏显示关联入口。浏览历史共用中栏前进 / 后退控件，显式定位后左栏显露目标。发出方列表使用圆形头像和名字，优先取角色差分色组或图片，无头像时显示名字首字。
 
 ## 内容来源、搜索与筛选
 
-Story 编辑器左栏常驻一个来源选择框，Classic 标为「内容来源」，Advanced 标为「搜索来源」。选择框包含「当前游戏」，并分组列出「已载入数据包」与「保留草稿」。「搜索与筛选」默认折叠，收起后仍显示启用条件和清除按钮。普通展开状态随来源记忆，搜索暂时展开匹配路径，清空后恢复原折叠。Classic 将草稿操作收在工具行末尾，Advanced 由 Workbench 工具带承载。搜索只协调左栏原有滚动区域，折叠直接更新分支，保留中右两栏。来源切换沿既有区域更新机制协调三栏，当前 Mod、版本、槽位及只读原因仍在正文或入口的底栏。源码为 `story-editor/sidebar-tree.ts`、`view.ts` 和 `controller.ts`。行为见 `tests/ui/story/story-editor-workspace.test.ts` 与 `tests/ui/story/story-editor-pack-source.test.ts`。
+Story 编辑器左栏常驻一个来源选择框，Classic 标为「内容来源」，Advanced 标为「搜索来源」。选择框包含「当前游戏」，并分组列出「已载入数据包」与「保留草稿」。「搜索与筛选」默认折叠，收起后仍显示启用条件和清除按钮。`EditorExplorerService` 保存查询和普通折叠；搜索期间的临时展开覆写独立，清空查询后恢复普通折叠。Story Provider 负责解释 source/Init 筛选、内容类型和结果投影。搜索只协调左栏原有滚动区域，保留中右两栏。显式定位可保留 query/filter 并临时显露目标；它与普通 World 摘要实体链接区分，focus 模式里的普通链接不自动打开目录。Classic 将草稿操作收在工具行末尾，Advanced 由 Workbench 工具带承载。来源切换沿既有区域更新机制协调 Story 内容。源码为 `story-editor/sidebar-tree.ts`、`view.ts`、`controller.ts` 与 `workspace/editor-explorer-service.ts`。行为见 `tests/ui/story/story-editor-workspace.test.ts`、`tests/ui/story/story-editor-pack-source.test.ts`、`tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
 
 ## StoryEntry 目录浏览弹窗
 

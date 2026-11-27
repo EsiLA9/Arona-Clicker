@@ -107,7 +107,7 @@ export interface EditorWorkspaceChrome {
   instancesVisible?: boolean;
   edges: readonly EditorWorkspaceEdge[];
   workTypes: readonly { id: string; name: string; icon: string; active: boolean }[];
-  instances: readonly { id: number; title: string; typeLabel?: string; label?: string; icon?: string; active: boolean }[];
+  instances: readonly { id: string; title: string; typeLabel?: string; label?: string; icon?: string; active: boolean }[];
   canDuplicate: boolean;
   commands: string;
   status: string;

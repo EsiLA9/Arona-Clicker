@@ -5,8 +5,18 @@ import type { UIContext } from '../runtime/context';
 import { editorLayout } from '../workspace/editor-workspace';
 import { storyEntries, storyList, type StoryEditorState, type StoryEditorTarget } from './model';
 import { directoryStatus, hierarchyDesignCounts, hierarchyDesignKey, mergeDirectoryDesigns } from './directory-status';
+import { storyBrowseIdentity } from './workspace-session';
+import type { EditorExplorerStateSnapshot } from '../workspace/editor-explorer-service';
 
 const other = '';
+
+export function storyExplorerResourceIdentity(target: StoryEditorTarget, source: string, runningPackId?: string): string {
+  return storyBrowseIdentity(target, source, runningPackId).resourceKey;
+}
+
+export function storyExplorerPlacementIdentity(parentPlacement: string, target: StoryEditorTarget): string {
+  return JSON.stringify([parentPlacement, target.kind, target.id]);
+}
 
 export function directoryManagementAttrs(e: UIContext['escapeHtml'], initId: string, node: Pick<StoryDirectoryNode, 'id' | 'modName'>): string {
   return `data-editor-directory="folder" data-directory-init-id="${e(initId)}" data-directory-folder-id="${e(node.id)}"${node.modName ? ` data-directory-owner="${e(node.modName)}"` : ''}`;
@@ -49,12 +59,13 @@ export function sidebarInitIds(ctx: UIContext, state: StoryEditorState): string[
   ])].filter(Boolean);
 }
 
-export function sidebarSearch(state: StoryEditorState): string {
-  return state.sidebarMode === 'entries' ? state.entrySearch : state.search;
+export function sidebarSearch(state: StoryEditorState, explorer: EditorExplorerStateSnapshot): string {
+  const channel = state.sidebarMode === 'entries' ? 'entries' : state.sidebarMode === 'senders' ? 'senders' : 'stories';
+  return explorer.queries[channel] ?? '';
 }
 
-export function sidebarFolderChoices(state: StoryEditorState) {
-  return sidebarSearch(state).trim() ? state.sidebarSearchFolders : state.sidebarFolders;
+export function sidebarFolderChoices(state: StoryEditorState, explorer: EditorExplorerStateSnapshot): Readonly<Record<string, boolean>> {
+  return sidebarSearch(state, explorer).trim() ? explorer.searchExpandedOverrides : explorer.expandedOverrides;
 }
 
 function matches(target: StoryEditorTarget | null | undefined, kind: StoryEditorTarget['kind'], id: string): boolean {
@@ -62,29 +73,36 @@ function matches(target: StoryEditorTarget | null | undefined, kind: StoryEditor
 }
 
 export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initIds: readonly string[], initFilter: string,
-  appliedDirectories: StoryDirectoryCatalog['storyDirectories'],
+  appliedDirectories: StoryDirectoryCatalog['storyDirectories'], explorer: EditorExplorerStateSnapshot,
 ): string {
   const e = ctx.escapeHtml;
   const registry = ctx.game.registry;
-  const query = sidebarSearch(state).trim().toLocaleLowerCase();
+  const query = sidebarSearch(state, explorer).trim().toLocaleLowerCase();
   const inSearch = (label: string, id: string) => !query || `${label}\n${id}`.toLocaleLowerCase().includes(query);
   const scope = state.sourceSelection ?? state.sidebarRuntimeScope ?? '';
+  const resourceSource = state.sourceSelection ?? '';
+  const packCatalog = ctx.game as typeof ctx.game & Partial<import('../../arona-clicker/contracts/runtime/runtime').PackCatalogReadModel>;
+  const resourceIdentity = (target: StoryEditorTarget): string => {
+    const owner = registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
+    return storyExplorerResourceIdentity(target, resourceSource, !resourceSource ? packCatalog.getRunningStoryPackId?.(owner) : undefined);
+  };
   const advanced = editorLayout.state.mode === 'advanced';
   const managed = state.directoryManagement?.location();
-  const revealing = state.sidebarReveal;
+  const revealing = explorer.reveal;
+  const reveals = (target: StoryEditorTarget): boolean => Boolean(revealing && resourceIdentity(target) === revealing.resourceKey);
   const entries = storyEntries(state, registry.storyEntries);
   const drafts = new Map(state.drafts.filter(draft => !draft.entryOnly).map(draft => [draft.document.id, draft]));
-  const items = storyList({ ...state, search: '' }, registry.stories);
+  const items = storyList(state, registry.stories);
   const storyNames = new Map(items.map(item => [item.storyId, item.name]));
   const entryName = (entry: StoryEntryDef) => entry.openingTitle || storyNames.get(entry.storyId) || entry.id;
   const visibleStories = new Map(items.filter(item =>
     (!state.sourceMod || (item.draft?.packSource?.modName ?? registry.storyDirectoryContentOwner(item.storyId, 'story')) === state.sourceMod
-      || matches(revealing, 'story', item.storyId))
-    && (matches(revealing, 'story', item.storyId) || state.sidebarMode !== 'entries' && inSearch(item.name, item.storyId)))
+      || reveals({ kind: 'story', id: item.storyId }))
+    && (reveals({ kind: 'story', id: item.storyId }) || state.sidebarMode !== 'entries' && inSearch(item.name, item.storyId)))
     .map(item => [item.storyId, item]));
   const visibleEntries = new Map([...entries].filter(([id, entry]) =>
-    (!state.sourceMod || registry.storyDirectoryContentOwner(id) === state.sourceMod || !registry.storyEntries.has(id) || matches(revealing, 'entry', id))
-    && (matches(revealing, 'entry', id) || state.sidebarMode !== 'stories' && inSearch(entryName(entry), id))));
+    (!state.sourceMod || registry.storyDirectoryContentOwner(id) === state.sourceMod || !registry.storyEntries.has(id) || reveals({ kind: 'entry', id }))
+    && (reveals({ kind: 'entry', id }) || state.sidebarMode !== 'stories' && inSearch(entryName(entry), id))));
   const edited = state.directoryManagement?.editedDirectories();
   const storyDirectories = edited
     ? new Map([...registry.storyDirectories].filter(([, row]) => row.modName !== edited.modName))
@@ -101,23 +119,50 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
   };
   const activeInit = ctx.game.state.activeInit;
   const { trees, preferred } = buildEditorStoryDirectories(catalog, initIds, activeInit);
-  const fold = sidebarFolderChoices(state);
-  const located = advanced ? revealing : state.target;
-  const targetEntry = located?.kind === 'entry' ? visibleEntries.get(located.id) : undefined;
+  const fold = sidebarFolderChoices(state, explorer);
+  const located = advanced ? undefined : state.target;
+  const targetEntry = located?.kind === 'entry' ? visibleEntries.get(located.id)
+    : revealing ? [...visibleEntries].find(([id]) => resourceIdentity({ kind: 'entry', id }) === revealing.resourceKey)?.[1] : undefined;
   const targetEntryInits = targetEntry?.availableInits.length ? targetEntry.availableInits
     : targetEntry?.directoryPlacements?.length ? targetEntry.directoryPlacements.map(place => place.initId)
       : targetEntry ? [preferred.get(targetEntry.id) ?? other] : [];
-  const preferredEntryInit = initFilter && initFilter !== 'other' && targetEntry && !targetEntry.availableInits.length ? initFilter
-    : [initFilter, activeInit].find(id => id && targetEntryInits.includes(id)) ?? targetEntryInits[0];
+  const requestedInit = initFilter === 'other' ? other : initFilter;
+  const preferredEntryInit = [requestedInit, activeInit].find(id => id && targetEntryInits.includes(id)) ?? targetEntryInits[0];
+  const revealPlacementKey = (() => {
+    if (!revealing) return undefined;
+    if (revealing.placementKey) return revealing.placementKey;
+    const target = targetEntry ? { kind: 'entry' as const, id: targetEntry.id }
+      : [...visibleStories.keys()].map(id => ({ kind: 'story' as const, id }))
+        .find(candidate => resourceIdentity(candidate) === revealing.resourceKey);
+    if (!target) return undefined;
+    const candidates: { initId: string; key: string }[] = [];
+    for (const [initId, tree] of trees) {
+      const visit = (nodes: readonly StoryDirectoryNode[]): void => nodes.forEach(node => {
+        const path = JSON.stringify([scope, initId, node.id]);
+        if (target.kind === 'story' ? node.stories.some(item => item.id === target.id) : node.entries.some(item => item.id === target.id)) {
+          candidates.push({ initId, key: storyExplorerPlacementIdentity(path, target) });
+        }
+        visit(node.children);
+      });
+      visit(tree.roots);
+    }
+    const preferredInit = target.kind === 'entry' ? preferredEntryInit : activeInit;
+    return candidates.find(candidate => candidate.initId === preferredInit)?.key ?? candidates[0]?.key;
+  })();
   const leaf = (kind: StoryEditorTarget['kind'], id: string, path: string, name: string, hint: string, label: string, storyKey?: string, initId?: string) => {
-    const selected = matches(state.target, kind, id);
-    const locatedHere = matches(located, kind, id) && (kind === 'story' || initId === preferredEntryInit);
+    const target = { kind, id } as StoryEditorTarget;
+    const resourceKey = resourceIdentity(target);
+    const placementIdentity = storyExplorerPlacementIdentity(path, target);
+    const revealedHere = reveals(target) && (!revealPlacementKey || revealPlacementKey === placementIdentity);
+    const selected = revealedHere || (explorer.selectedPlacementKey ? explorer.selectedPlacementKey === placementIdentity : matches(state.target, kind, id));
+    const locatedHere = revealedHere || (explorer.selectedPlacementKey ? explorer.selectedPlacementKey === placementIdentity
+      : matches(located, kind, id) && (kind === 'story' || initId === preferredEntryInit));
     const data = kind === 'story' ? `data-editor-story="${e(storyKey!)}"` : `data-editor-entry="${e(id)}"`;
     const opensFrom = advanced ? ` data-sidebar-open-source="${e(state.sourceSelection ?? '')}"${kind === 'story' ? ` data-sidebar-story-id="${e(id)}"` : ''}` : '';
-    const control = `<button type="button" class="editor-directory-row story-editor-tree-item" data-story-target-kind="${kind}" ${data}${opensFrom} aria-pressed="${locatedHere}" title="${e(hint)}">
+    const control = `<button type="button" class="editor-directory-row story-editor-tree-item" data-story-target-kind="${kind}" data-editor-placement-select data-editor-resource-key="${e(resourceKey)}" data-editor-placement-key="${e(placementIdentity)}" ${data}${opensFrom} aria-pressed="${locatedHere}" title="${e(hint)}">
       ${renderStoryDocumentIcon(kind)}<span class="editor-directory-name">${e(name)}</span>${label ? `<small>${e(label)}</small>` : ''}</button>`;
-    return { selected: matches(located, kind, id) && (kind === 'story' || initId === preferredEntryInit),
-      html: renderEditorDirectoryRow(ctx, { key: JSON.stringify([path, kind, id]), control }) };
+    return { selected: locatedHere,
+      html: renderEditorDirectoryRow(ctx, { key: placementIdentity, control, attributes: `data-editor-placement-key="${e(placementIdentity)}"` }) };
   };
   type Row = ReturnType<typeof leaf> & { emptyFolder?: boolean };
   const storyRow = (id: string, path: string): Row => {
@@ -139,7 +184,7 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
     if (!rows.length && !keepEmpty && !active) return;
     const path = JSON.stringify([scope, initId, id || null]);
     const selected = active || rows.some(row => row.selected);
-    const open = fold?.get(path) ?? (Boolean(query) || selected || openByDefault);
+    const open = fold[path] ?? (Boolean(query) || selected || openByDefault);
     const deferred = id === '@characters' && rows.some(row => row.emptyFolder);
     const children = deferred && !open ? rows.filter(row => !row.emptyFolder || row.selected) : rows;
     const references = details ? details.stories + details.entries : 0;
@@ -149,11 +194,12 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
     ].filter(Boolean).join(' · ');
     const hint = details ? `${title} · ${details.origin} · 手动资料 ${details.designs} 份 · Story ${details.stories} / Entry ${details.entries}` : title;
     const control = renderEditorDirectoryToggle(rows.length ? open : undefined,
-      `data-sidebar-folder="${e(path)}"${deferred ? ' data-sidebar-deferred' : ''} title="${e(hint)}"`,
+      `data-sidebar-folder="${e(path)}" data-editor-expand data-editor-placement-key="${e(path)}"${deferred ? ' data-sidebar-deferred' : ''} title="${e(hint)}"`,
       `<span class="editor-directory-name">${e(title)}</span>${details && note ? `<small class="story-editor-tree-note" data-directory-origin="${e(details.short)}">${e(note)}</small>` : ''}`,
       'editor-directory-row editor-directory-branch');
     const actions = `<button type="button" class="mini-action editor-directory-manage" ${directoryManagementAttrs(e, initId, node)} aria-pressed="${active}" aria-label="管理${e(title)}" title="管理${e(title)}">${renderEditorGear()}</button>`;
     return { selected, emptyFolder: !rows.length, html: renderEditorDirectoryRow(ctx, { key: path, control, actions,
+      attributes: `data-editor-placement-key="${e(path)}"`,
       children: rows.length ? renderEditorDirectoryList(children.map(row => row.html).join(''), open ? '' : 'hidden') : undefined }) };
   };
   const directoryRows = (nodes: readonly StoryDirectoryNode[], initId: string, included: boolean): Row[] => nodes.flatMap(node => {
@@ -161,15 +207,16 @@ export function renderSidebarTree(ctx: UIContext, state: StoryEditorState, initI
     const rows = directoryRows(node.children, initId, included);
     const storyGroups = new Map<string, Row[]>();
     for (const { id } of node.stories) {
-      if (visibleStories.has(id) && (included || matches(revealing, 'story', id))) storyGroups.set(id, [storyRow(id, path)]);
+      if (visibleStories.has(id) && (included || reveals({ kind: 'story', id }))) storyGroups.set(id, [storyRow(id, path)]);
     }
     const trailingEntries: Row[] = [];
     for (const { id } of node.entries) {
       const entry = visibleEntries.get(id);
       if (!entry) continue;
       const location = initFilter && included || (preferred.has(id) ? preferred.get(id) === initId
-        : entry.availableInits.length || entry.directoryPlacements?.some(place => place.initId === initId));
-      if (location && (included || matches(revealing, 'entry', id))) {
+        : entry.availableInits.length ? entry.availableInits.includes(initId)
+          : entry.directoryPlacements?.some(place => place.initId === initId));
+      if (location && (included || reveals({ kind: 'entry', id }))) {
         (storyGroups.get(entry.storyId) ?? trailingEntries).push(entryRow(id, path, initId));
       }
     }

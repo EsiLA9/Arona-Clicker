@@ -137,7 +137,7 @@ export function createStoryPreviewFrame(ctx: UIContext, state: StoryEditorState)
     </div>
   </div>`;
   const column = (slot: 'left' | 'center' | 'right', title: string, content: string): WorkspaceColumnSpec => ({
-    key: `story-editor-preview-${slot}`, slot, workspaceOwner: 'story-editor', themeScope: `${slot}.story-editor`,
+    key: slot === 'left' ? 'editor-explorer' : slot === 'center' ? 'editor-content' : 'editor-inspector', slot, workspaceOwner: 'story-editor', themeScope: `${slot}.story-editor`,
     hostId: `${slot}Panel.story-editor-preview`, width: slot === 'left' ? '300px' : `var(--workspace-${slot}-width)`,
     surface: 'panel', scroll: slot === 'center' ? 'none' : 'auto', className: `story-preview-column story-preview-${slot}`,
     header: renderWorkspaceTitlebar(ctx, slot, title, slot === 'left' && !advanced ? 'data-column-back' : undefined), content,

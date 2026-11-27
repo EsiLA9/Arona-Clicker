@@ -195,7 +195,6 @@
 .story-editor-tree-note[data-directory-origin="自动"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--cyan)); }
 .story-editor-tree-note[data-directory-origin="手动"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--lime)); }
 .story-editor-tree-note[data-directory-origin="路径"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--orange)); }
-.story-editor-tree-item { padding-inline-start: 5px; }
 .story-editor-tree-item small { margin-inline-start: auto; color: var(--muted-on-panel); font-size: 11px; white-space: nowrap; }
 .story-hierarchy-inspector > p,
 .story-hierarchy-preview > p { margin: 0; }

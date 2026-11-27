@@ -4,11 +4,13 @@
 
 ## Classic／Advanced 外壳
 
-Story／StoryEntry 编辑器在 Classic 模式使用原 Workspace 布局。高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换，选择跟随界面偏好保存。顶部工具组使用 panel-light 表面及对应文字角色，实例条以同一层半透明黑色覆盖未选中标签、间隙与两端留白，选中标签露出与三栏间隙相连的主题画布。实例条高 36px，Story 和 Entry 复用各自 SVG，关闭按钮独立占 24px。底部状态栏直接使用工作区底色。SVG 工作类型栏与导航栏共用左栏外框，三栏外框采用 5px 圆角。顶部与三栏之间保留 6px 空隙，工具栏下沿可直接拖动切换高度。两条 6px 栏缝以纵向三点提示拖宽，双击恢复侧栏默认宽度。正文底部的插入工具沿用 `.mini-action`。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts`。
+Story／StoryEntry 与 World 共用 Advanced Workbench 外壳。工作类型 SVG 栏只选择左侧 Explorer；实例条的活动 Browse Instance 决定中栏、右栏和顶部业务工具，因此切换工作类型不会替换活动文档，激活实例也不会强迫切换 Explorer。实例条中的 Story、Entry、World 项来自同一共享集合。布局视图对整个 Workbench 生效，World 不会在进入时自动切到双栏；三栏可保留 World 右侧便捷信息预留栏。Classic/Advanced、三栏/双栏/专注及 Ribbon 具体表现仍按下文共享外壳规则读取。
+
+高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换。顶部工具组使用 panel-light 表面及对应文字角色，实例条以同一层半透明黑色覆盖未选中标签、间隙与两端留白，选中标签露出与三栏间隙相连的主题画布。实例条高 36px，关闭按钮独立占 24px。底部状态栏直接使用工作区底色。SVG 工作类型栏与导航栏共用左栏外框，三栏外框采用 5px 圆角。顶部与三栏之间保留 6px 空隙，工具栏下沿可直接拖动切换高度。两条 6px 栏缝以纵向三点提示拖宽，双击恢复侧栏默认宽度。正文底部的插入工具沿用 `.mini-action`。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts` 和 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
 
 ## 共享栏位、只读审阅与视图折叠
 
-Story、StoryEntry 与世界使用 `editor-workspace-frame.ts` 的面板、标题与轨道。高级模式从已有栏位派生可用视图，世界默认双栏，可切三栏或专注，三栏右侧预留便捷信息。左栏目录通过共享的行、折叠与滚动组件呈现。只读审阅区复用区块和标签／值行。折叠保留已挂载栏位与滚动宿主，专注时侧栏轨道为零。分隔线只在可见侧栏的栏缝显示。
+Story、StoryEntry 与世界使用 `editor-workspace-frame.ts` 的面板、标题与轨道。视图由全局 `EditorLayoutService` 偏好决定，并按当前可用栏位计算有效呈现；切换工作类型和活动实例沿用同一布局。三栏右侧可显示便捷信息预留栏；折叠保留已挂载栏位与滚动宿主，专注时侧栏轨道为零。分隔线只在可见侧栏的栏缝显示。共享目录使用 `.editor-directory-tree`、`.editor-directory-row`、`.editor-directory-chevron` 等公共 class；hover 不改变行尺寸，选中与 focus-visible 分别由 `aria-pressed` 和轮廓表达。共享样式在 `src/ui/css/editor-directory.css`，World 不依赖 Story 专属样式。
 
 ## 会话主题与共享布局偏好
 
@@ -26,4 +28,4 @@ Story 编辑器浏览历史复用中栏 `renderWorkspaceTitlebar` 的 accessory 
 
 ## 绑定、尺寸与生命周期
 
-`src/ui/workspace/editor-workspace.ts` 的 `renderEditorWorkspace()` 包装 Frame，`bindEditorWorkspace()` 绑定视图选择、退出、ResizeObserver 和拖拽。在挂载处传 `AbortSignal` 和工作类型回调，并在切换前后捕获、恢复所属实例滚动。当前侧栏预设 300／320px，可拖范围 150–720px，中栏保留 340px。公用外壳与目录样式分别在 `src/ui/css/editor-workspace.css`、`src/ui/css/editor-directory.css`，由 `src/ui/utilities/surface-styles.ts` 按表面加载。实例状态复用见 [[workspace-columns-and-layout]]。
+`src/ui/workspace/editor-workspace.ts` 的 `renderEditorWorkspace()` 包装 Frame，`bindEditorWorkspace()` 绑定公共布局选择、退出、ResizeObserver 和拖拽；业务只提供可用边缘和刷新/滚动/退出回调。`EditorLayoutService` 跨编辑器持有布局偏好。当前侧栏预设 300／320px，可拖范围 150–720px，中栏保留 340px。公用外壳与目录样式分别在 `src/ui/css/editor-workspace.css`、`src/ui/css/editor-directory.css`，由 `src/ui/utilities/surface-styles.ts` 按表面加载。实例状态复用见 [[workspace-columns-and-layout]]。

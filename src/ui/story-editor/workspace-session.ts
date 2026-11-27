@@ -1,3 +1,4 @@
+import type { BrowseInstance, BrowseInstanceSeed } from '../workspace/browse-instance-manager';
 import { createStoryBrowseViewState, type StoryBrowseViewState, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { editorWorkspaceEdges } from '../workspace/editor-workspace';
 
@@ -21,11 +22,10 @@ export function restoreStoryInstanceState(state: StoryEditorState, saved: StoryB
   Object.assign(state, captureStoryInstanceState(saved));
 }
 
-export interface StoryBrowseInstance {
-  id: number;
+export interface StoryBrowseInstanceState {
   snapshot: StoryBrowseViewState;
   scroll: StoryInstanceScroll;
-  document?: { target: StoryEditorTarget; packId?: string; draftId?: string; name: string };
+  document?: { target: StoryEditorTarget; draftId?: string; packId?: string; name: string };
   unavailable?: boolean;
   inspectorScroll: Map<string, number>;
   inspectorTabs: Map<string, StoryEditorState['storyInspectorTab']>;
@@ -34,34 +34,70 @@ export interface StoryBrowseInstance {
   entryTabs: Map<string, 'basic' | 'rewards' | 'gates'>;
 }
 
-export function createStoryBrowseInstance(id: number): StoryBrowseInstance {
-  return { id, snapshot: createStoryBrowseViewState(), scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
+export function captureStoryBrowseInstanceState(state: StoryBrowseInstanceState): StoryBrowseInstanceState {
+  return {
+    snapshot: captureStoryInstanceState(state.snapshot),
+    scroll: { ...state.scroll },
+    document: state.document ? { ...state.document, target: { ...state.document.target } } : undefined,
+    unavailable: state.unavailable,
+    inspectorScroll: new Map(state.inspectorScroll),
+    inspectorTabs: new Map(state.inspectorTabs),
+    sourceVisits: new Map([...state.sourceVisits].map(([key, value]) => [key, {
+      visits: value.visits.map(visit => ({ ...visit, target: { ...visit.target } })), index: value.index,
+    }])),
+    entryTabScroll: new Map([...state.entryTabScroll].map(([key, value]) => [key, { ...value }])),
+    entryTabs: new Map(state.entryTabs),
+  };
+}
+
+export function restoreStoryBrowseInstanceState(state: StoryBrowseInstanceState, saved: StoryBrowseInstanceState): void {
+  Object.assign(state, captureStoryBrowseInstanceState(saved));
+}
+
+export type StoryBrowseInstance = BrowseInstance<StoryBrowseInstanceState>;
+
+function storySeed(state: StoryBrowseInstanceState, resourceKey?: string, reuseKey?: string): BrowseInstanceSeed<StoryBrowseInstanceState> {
+  return { providerKey: storyWorkType, resourceKey, reuseKey, state,
+    presentation: { title: state.document?.name ?? '查阅故事', kind: state.document?.target.kind } };
+}
+
+export function createStoryBrowseInstance(): StoryBrowseInstanceState {
+  return { snapshot: createStoryBrowseViewState(), scroll: {}, inspectorScroll: new Map(), inspectorTabs: new Map(), sourceVisits: new Map(),
     entryTabScroll: new Map(), entryTabs: new Map() };
 }
 
-export interface StoryWorkspaceSession {
-  instances: StoryBrowseInstance[];
-  active: StoryBrowseInstance;
-  sidebarScroll: Map<string, number>;
-  nextId: number;
+export function createStoryBrowseInstanceSeed(): BrowseInstanceSeed<StoryBrowseInstanceState> {
+  return storySeed(createStoryBrowseInstance());
 }
 
-export function createStoryWorkspaceSession(): StoryWorkspaceSession {
-  const active = createStoryBrowseInstance(1);
-  return { instances: [active], active, sidebarScroll: new Map(), nextId: 2 };
-}
-
-export function createEmptyStoryBrowseInstance(workspace: StoryWorkspaceSession, current: StoryBrowseViewState, source: string): StoryBrowseInstance {
-  const instance = createStoryBrowseInstance(workspace.nextId++);
-  instance.snapshot.sourceSelection = source || undefined;
-  instance.snapshot.targetPackId = source === (current.sourceSelection ?? '') ? current.targetPackId
+export function createEmptyStoryBrowseInstance(current: StoryBrowseViewState, source: string): BrowseInstanceSeed<StoryBrowseInstanceState> {
+  const state = createStoryBrowseInstance();
+  state.snapshot.sourceSelection = source || undefined;
+  state.snapshot.targetPackId = source === (current.sourceSelection ?? '') ? current.targetPackId
     : source.startsWith('pack:') ? source.slice(5) : undefined;
-  instance.scroll = { center: 0, right: 0 };
-  return instance;
+  state.scroll = { center: 0, right: 0 };
+  return storySeed(state);
 }
 
-export function findStoryBrowseInstance(workspace: StoryWorkspaceSession, target: StoryEditorTarget, source: string, runningPackId?: string): StoryBrowseInstance | undefined {
-  return workspace.instances.find(instance => instance !== workspace.active
-    && instance.document?.target.kind === target.kind && instance.document.target.id === target.id
-    && (instance.snapshot.sourceSelection ?? '') === source && (Boolean(source) || instance.document.packId === runningPackId));
+export function storyBrowseIdentity(target: StoryEditorTarget, source: string, runningPackId?: string): { resourceKey: string; reuseKey: string } {
+  const scope = source || `registry:${runningPackId ?? 'unscoped'}`;
+  const key = JSON.stringify([target.kind, target.id, scope]);
+  return { resourceKey: key, reuseKey: key };
+}
+
+export function createStoryTargetBrowseSeed(
+  current: StoryBrowseViewState,
+  source: string,
+  target: StoryEditorTarget,
+  identity: { resourceKey: string; reuseKey: string },
+  metadata: { name: string; packId?: string; draftId?: string },
+): BrowseInstanceSeed<StoryBrowseInstanceState> {
+  const seed = createEmptyStoryBrowseInstance(current, source);
+  const state = seed.state;
+  const copiedTarget = { ...target };
+  state.snapshot.target = copiedTarget;
+  state.snapshot.visits = [{ target: { ...copiedTarget }, selectedNodeId: null, insertionBeforeNodeId: null, centerScroll: 0, rightScroll: 0 }];
+  state.snapshot.visitIndex = 0;
+  state.document = { target: copiedTarget, name: metadata.name, packId: metadata.packId, draftId: metadata.draftId };
+  return { ...seed, ...identity, presentation: { title: metadata.name, kind: target.kind } };
 }

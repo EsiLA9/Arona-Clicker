@@ -103,11 +103,30 @@ Story／StoryEntry 与 World 通过 `editor-workspace.ts` 在游戏页面内装�
 
 `EditorLayoutService` 保存用户期望宽度；布局服务按当前可用空间计算实际轨道。窗口变窄时左右轨道按比例压缩，为中栏预留 340px 和栏间距；ResizeObserver 只重算实际宽度，不改写持久期望值。拖动某一分隔线时，上限按另一侧当前实际宽度计算；用户松开后才保存该侧期望宽度。双击恢复该侧默认期望值，取消拖动恢复原值。三栏隐藏一侧后重新显示时重新使用其期望宽度。布局选择由全局 service 持有，切换工作类型、内容或实例不会自动改写；显式目录定位可从专注切换到双栏。
 
-`story-editor/workspace-session.ts` 保存有序实例与当前项。打开或激活实例会一起更新中右栏和顶部工具组。后台实例保存文档来源、对象、历史、选择、中右栏滚动和右栏偏好。高级模式的左栏查询、来源筛选、目录折叠与滚动独立于实例。结果携带对象与来源身份，显式「在目录中定位」可切换到当前对象的来源、展开目录并滚动。Story／Entry 草稿由原编辑器共享处理，激活实例时仍经数据包读取器核对来源。切回经典模式时保留当前实例及其历史，后台列表在回到高级模式时重新可用。目录管理与试播临时显示原三栏布局，完成后回到发起实例。
+#### Workbench 与 Browse Instance Provider
 
-浏览状态契约 `StoryBrowseViewState` 和完整默认值定义在 `story-editor/model.ts`；`workspace-session.ts` 只投影这些字段，捕获／恢复时复制目标和历史，不复制作者草稿、composer 或属性编辑缓存。新空实例从默认值创建；左栏状态由工作区保留，不参与实例恢复。Controller 的打开、激活和关闭入口统一先保存，内部 `restoreBrowseInstance`／`selectBrowseTarget` 处理已保存后的切换；新实例只有成功选中目标后才登记，失败回到原实例。中右栏实例滚动在 refresh 中最后恢复，优先于布局切换的滚动恢复。
+`UIController.workbench` 是单一高级编辑会话 owner：`EditorWorkbench` 持有 session/theme/return、`activeExplorerType`、共享 `BrowseInstanceManager` 与公共 `EditorExplorerService`。`activeExplorerType` 只决定左栏 Explorer；Manager 的 `activeBrowseInstanceId` 决定中右栏和业务工具。换 Explorer 不会激活实例，激活实例也不强制换 Explorer。游戏界面的装配/跨 Provider 路由入口是 [`UIController`](../../../src/ui/controller/controller.ts)；公共 owner 定义在 [`editor-workbench.ts`](../../../src/ui/workspace/editor-workbench.ts)。
 
-故事目录和发出方列表继续使用各自的原生滚动视口。浮动滑块位于列表边缘的侧栏内边距，列表内容溢出且鼠标位于对应列表或滑块时显示。滑块位置跟随原生滚动，拖动写回同一个视口，滚动条显示与隐藏均保持列表宽度。
+`BrowseInstanceManager<TState>` 只管理 opaque Provider record、顺序、激活、复用、复制、关闭和 active ID；它不导入 Story/World。Provider 在调用 Manager 前准备业务 state/seed，激活或关闭准备回调失败时 Manager 不提交活动 ID/集合变更。共享 Manager 由 Workbench 的 [`editor-browse-instances.ts`](../../../src/ui/workspace/editor-browse-instances.ts) 创建，核心实现见 [`browse-instance-manager.ts`](../../../src/ui/workspace/browse-instance-manager.ts)。业务 Provider 负责内容合法性、保存门禁及 capture/restore；合法完成的持久化保存不由 Manager 回滚。
+
+| Provider | 资源身份与初态 | 生命周期策略和业务边界 |
+| --- | --- | --- |
+| Story / StoryEntry | [`storyBrowseIdentity()`](../../../src/ui/story-editor/workspace-session.ts) 将 kind、resource ID、编辑来源（registry 使用运行包身份）组合成 resource/reuse key；seed 保存目标、初始 visit 和文档元数据。 | [`StoryEditorController`](../../../src/ui/story-editor/controller.ts) 校验资源/来源并执行 draft save gate；激活时恢复该 record 的 Story working state，离开时 capture。复制生成独立 visit/滚动等浏览状态，作者草稿仍由 Story Editor 共享。关闭非末实例可选其他 Provider；末实例关闭保留空 Workbench，退出另走 `closeEditorWorkspace()`。 |
+| World | [`prepareWorldBrowseSeed()`](../../../src/ui/runtime-editor/world-browser-provider.ts) 用 `kind:id` 作资源身份，target 与摘要由 World Provider 准备。 | `worldBrowseReuseKey` 固定为 `world-browser`，所以默认单实例复用是 Provider 策略：切换 Init/Area/Spot 更新同一个 Manager record 的 target；它没有独立 World instance ID/集合。关闭走 UIController 的公共 close 入口，末实例留空 Workbench；“退出编辑器”仍独立。 |
+
+Story 的 `StoryEditorController.state` 是活动 Provider 的工作集；Manager 中每条 Story record 的 snapshot 在成功离开/激活边界 capture/restore。Story 草稿和属性编辑缓存不复制到每个 Browse Instance；非活动实例保留自己的目标、访问历史、滚动、右栏页签和来源 visit。不要在新 Provider 中另造一个实例集合或第二个 active ID，也不要把 Provider 内容语义塞进通用 Manager。
+
+#### Explorer Provider 与公共浏览服务
+
+[`EditorExplorerService`](../../../src/ui/workspace/editor-explorer-service.ts) 按 Explorer type 独立持有 query channel、普通/搜索折叠、选中 placement、各滚动 host、focus request 和临时 reveal。`bindColumn()` 处理通用 query、展开、placement 选择与滚动事件；`revealPlacement()` 展开祖先、显露行、滚动并 focus。列由 `WorkspaceColumns` keyed mount 绑定，dispose/replacement 会调用业务 binder disposer。
+
+Explorer 的资源身份与树位置必须分开：Story [`storyExplorerResourceIdentity()` / `storyExplorerPlacementIdentity()`](../../../src/ui/story-editor/sidebar-tree.ts) 复用 Browse resource identity，并以目录父路径区分同一 Story/Entry 的多个 placement；World [`worldEntityIdentity()` / `worldTreePlacementIdentity()`](../../../src/ui/runtime-editor/world-browser-provider.ts) 用 `kind:id` 作为资源身份、沿父链构造 placement key。World `worldTreePath()` 负责 preferred placement 消歧。打开资源时保留资源身份；只有显式定位才选择/展开/显露指定 placement。
+
+Provider 继续负责真实树投影、数据来源、Story source/Init 筛选、多 Entry 放置规则、World 默认关系树与 summary/ref 路径。Story 当前提供 stories/entries/senders 查询字段，并将 service query 投影到自己的树；World 当前没有搜索输入，但树展开/选择/滚动/显式定位已经用公共服务。普通 World 摘要实体链接不会在 focus 模式自动打开左栏；正式 locate 命令可以。不要把 Story 草稿、资料来源或目录管理语义搬入 Explorer service，也不要在业务 Controller 重写完整通用树浏览控制器。
+
+源码入口：[`workspace-renderer.ts`](../../../src/ui/workspace/workspace-renderer.ts)、[`workspace-columns.ts`](../../../src/ui/workspace/workspace-columns.ts)、[`editor-workspace.ts`](../../../src/ui/workspace/editor-workspace.ts)、[`editor-explorer-service.ts`](../../../src/ui/workspace/editor-explorer-service.ts)、[`story-editor/workspace-session.ts`](../../../src/ui/story-editor/workspace-session.ts)、[`story-editor/sidebar-tree.ts`](../../../src/ui/story-editor/sidebar-tree.ts)、[`runtime-editor/world-browser-provider.ts`](../../../src/ui/runtime-editor/world-browser-provider.ts)。
+
+测试入口：[`browse-instance-manager.test.ts`](../../../tests/ui/workspace/browse-instance-manager.test.ts)、[`story-editor-workspace-session.test.ts`](../../../tests/ui/story/story-editor-workspace-session.test.ts)、[`story-editor-workspace.test.ts`](../../../tests/ui/story/story-editor-workspace.test.ts)、[`story-editor-explorer-identity.test.ts`](../../../tests/ui/story/story-editor-explorer-identity.test.ts)、[`runtime-editor-world-browser.test.ts`](../../../tests/ui/runtime-editor/runtime-editor-world-browser.test.ts)、[`editor-explorer-service.test.ts`](../../../tests/ui/workspace/editor-explorer-service.test.ts)。DOM 测试不等同浏览器视觉验收；本 Roadmap 的实际视觉/交互待验项由用户手动验收。
 
 聊天显示各自有滚动 key；同一个业务 stream 可以展示两份，阅读位置互不覆盖。Story 的送达指纹、门控和自动推进仍由共享 ChatStream 按业务流去重。发送和选择从实际窗格的 owner 取目标，不从物理中栏或 Controller 当前选中项推断。
 

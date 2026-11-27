@@ -1,6 +1,9 @@
 import { renderEditorDirectoryTools, renderStoryDocumentIcon } from '../workspace/editor-directory';
 import { renderEditorDirectoryScroll } from '../workspace/editor-directory-scroll';
 import { editorLayout } from '../workspace/editor-workspace';
+import type { BrowseInstanceSnapshot } from '../workspace/browse-instance-manager';
+import type { StoryBrowseInstanceState } from './workspace-session';
+import type { EditorBrowseInstanceState } from '../workspace/editor-browse-instances';
 import { createEditorWorkspaceColumn, createEditorWorkspaceFrame, renderEditorWorkspaceFrame } from '../workspace/editor-workspace-frame';
 import { worldWorkIcon, worldWorkType } from '../runtime-editor/world-browser';
 import { storyDocumentActions, type StoryDocumentActions } from './document-actions';
@@ -15,6 +18,7 @@ import { renderStoryRelations } from './relations-view';
 import { createStoryPreviewFrame } from './preview-view';
 import { storySidebarState, storySourceContext } from './pack-source';
 import { renderSidebarTree, sidebarInitIds, sidebarSearch } from './sidebar-tree';
+import type { EditorExplorerStateSnapshot } from '../workspace/editor-explorer-service';
 import { renderStoryFlagCatalog } from './flag-catalog-view';
 import type { UIContext } from '../runtime/context';
 import { renderChatEntry, renderStoryClickPreview } from '../components/story/story';
@@ -294,7 +298,8 @@ function inspector(ctx: UIContext, state: StoryEditorState): string {
   return `<div data-editor-key="inspector:${e(node.id)}">${properties}</div>`;
 }
 function baseColumn(ctx: UIContext, state: StoryEditorState, key: string, panel: 'left' | 'center' | 'right', title: string): WorkspaceColumnSpec {
-  return createEditorWorkspaceColumn(ctx, { key, slot: panel, bindingKey: panel === 'left' ? key : storyEditorTargetKey(state),
+  const stableKey = panel === 'center' ? 'editor-content' : panel === 'right' ? 'editor-inspector' : 'editor-explorer';
+  return createEditorWorkspaceColumn(ctx, { key: stableKey, slot: panel, bindingKey: panel === 'left' ? key : storyEditorTargetKey(state),
     workspaceOwner: 'story-editor', hostId: `${panel}Panel.${key}`, themeScope: `${panel}.story-editor`,
     className: `story-editor-column story-editor-${panel}`, title, leaveAction: panel === 'left' ? 'data-column-back' : undefined, content: '' });
 }
@@ -373,9 +378,9 @@ function storyRibbonTools(ctx: UIContext, state: StoryEditorState, draft: StoryD
            { kind: entry ? 'authoring' : 'editor', reason: actions.apply.disabledReason })) + draftTools : ''));
 }
 
-export function storyEditorChrome(ctx: UIContext, state: StoryEditorState): EditorWorkspaceChrome | undefined {
-  const workspace = state.workspace;
-  if (!workspace) return;
+export function storyEditorChrome(ctx: UIContext, state: StoryEditorState,
+  instances: BrowseInstanceSnapshot<StoryBrowseInstanceState> | BrowseInstanceSnapshot<EditorBrowseInstanceState>,
+  activeExplorerType: 'story' | 'world' = 'story'): EditorWorkspaceChrome {
   ctx = storySourceContext(ctx, state);
   const e = ctx.escapeHtml;
   const draft = currentAuthoringDraft(state);
@@ -395,21 +400,25 @@ export function storyEditorChrome(ctx: UIContext, state: StoryEditorState): Edit
   return {
     layout: editorLayout.state, viewOverride: temporaryView ? 'three' : undefined, temporaryView,
     instancesVisible: Boolean(state.directoryManagement), edges: storyEditorEdges,
-    workTypes: [{ id: storyWorkType, name: '故事编辑', active: true,
+    workTypes: [{ id: storyWorkType, name: '故事编辑', active: activeExplorerType === 'story',
       icon: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h4.5A2.5 2.5 0 0 1 10 6.5V17a3.2 3.2 0 0 0-2.5-1.3H3zm14 0h-4.5A2.5 2.5 0 0 0 10 6.5V17a3.2 3.2 0 0 1 2.5-1.3H17z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>' },
-      { id: worldWorkType, name: '世界编辑器', active: false, icon: worldWorkIcon }],
-    instances: workspace.instances.flatMap(instance => {
-      const active = instance === workspace.active;
-      const item = active && !instance.unavailable && state.target
+      { id: worldWorkType, name: '世界编辑器', active: activeExplorerType === 'world', icon: worldWorkIcon }],
+    instances: instances.instances.flatMap(instance => {
+      const active = instance.id === instances.activeBrowseInstanceId;
+      if (instance.providerKey === 'world') return [{ id: instance.id, active, title: instance.presentation.title,
+        typeLabel: 'World', label: instance.presentation.title, icon: worldWorkIcon }];
+      const storyState = instance.state as StoryBrowseInstanceState;
+      const item = active && !storyState.unavailable && state.target
         ? { target: state.target, name: name ?? state.target.id, packId: draft?.packSource?.packRecordId }
-        : instance.document;
+        : storyState.document;
       if (!item && !active) return [];
       const typeLabel = item ? (item.target.kind === 'entry' ? 'Entry' : 'Story') : undefined;
       return [{ id: instance.id, active, title: item?.name ?? '查阅故事', typeLabel,
         label: item && [typeLabel, item.name, item.target.id, item.packId].filter(Boolean).join(' · '),
         icon: item && renderStoryDocumentIcon(item.target.kind) }];
     }),
-    canDuplicate: !temporaryView && Boolean(state.target && !workspace.active.unavailable),
+    canDuplicate: !temporaryView && Boolean(state.target
+      && !(instances.instances.find(instance => instance.id === instances.activeBrowseInstanceId)?.state as StoryBrowseInstanceState | undefined)?.unavailable),
     commands: editorLayout.state.mode === 'advanced' ? storyRibbonTools(ctx, state, draft, documentActions(ctx, state, hasEntry)) : '',
     status: `<span title="${e(state.readOnlyReason ?? source)}">${e([source, access].filter(Boolean).join(' · '))}</span>
       <span title="${e(state.selectedNodeId ?? state.target?.id ?? title)}">${e([title, state.selectedNodeId].filter(Boolean).join(' / '))}</span>
@@ -418,7 +427,10 @@ export function storyEditorChrome(ctx: UIContext, state: StoryEditorState): Edit
         : issues.length ? `<span>${issues.length} 处问题</span>` : ''}</div>`,
   };
 }
-export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorState): WorkspaceColumnSpec {
+const emptyExplorerState: EditorExplorerStateSnapshot = { queries: {}, expandedPlacementKeys: [], searchExpandedPlacementKeys: [],
+  expandedOverrides: {}, searchExpandedOverrides: {}, scrollTopByHost: {} };
+
+export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorState, explorer: EditorExplorerStateSnapshot = emptyExplorerState): WorkspaceColumnSpec {
   const e = ctx.escapeHtml;
   const appliedDirectories = ctx.game.registry.storyDirectories;
   const directoryState = storySidebarState(state);
@@ -430,12 +442,12 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
   const requestedInit = state.storyInitFilter ?? '';
   const initFilter = requestedInit === 'other' || initIds.includes(requestedInit) ? requestedInit : '';
   const draft = currentDraft(state);
-  const query = sidebarSearch(state);
+  const query = sidebarSearch(state, explorer);
   const isSenderMode = state.sidebarMode === 'senders';
   const filterSummary = [query.trim(), initFilter && initName(initFilter),
     state.sidebarMode === 'stories' ? 'Story' : state.sidebarMode === 'entries' ? 'Entry' : ''].filter(Boolean).join(' · ');
   const senders = storySenders(documentContext);
-  const senderSearch = state.senderSearch.trim().toLocaleLowerCase();
+  const senderSearch = (explorer.queries.senders ?? '').trim().toLocaleLowerCase();
   const visibleSenders = senders.filter(sender => !senderSearch || `${sender.label}\n${sender.id}`.toLocaleLowerCase().includes(senderSearch));
   const selectedSender = composer(state).sender;
   const mode = isSenderMode ? 'senders' : 'directory';
@@ -467,7 +479,7 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
       `, "sidebar-tools")}
       ${filterSummary ? `<div class="story-editor-sidebar-summary" data-editor-key="sidebar-summary"><span title="${e(filterSummary)}">${e(filterSummary)}</span><button type="button" class="mini-action" data-sidebar-action="clear">清除筛选</button></div>` : ''}
       <div class="story-editor-sidebar-filters" id="story-editor-sidebar-filters" data-editor-key="sidebar-filters"${state.sidebarFiltersOpen ? '' : ' hidden'}>
-        <input type="search" aria-label="搜索名称或 ID" data-editor-key="sidebar-query" data-sidebar-search ${state.sidebarMode === 'entries' ? 'data-editor-entry-search' : 'data-editor-search'} value="${e(query)}" placeholder="名称或 ID">
+        <input type="search" aria-label="搜索名称或 ID" data-editor-key="sidebar-query" data-sidebar-search data-editor-explorer-query="${state.sidebarMode === 'entries' ? 'entries' : 'stories'}" ${state.sidebarMode === 'entries' ? 'data-editor-entry-search' : 'data-editor-search'} value="${e(query)}" placeholder="名称或 ID">
         <label>世界线<select data-editor-key="story-init-filter" data-editor-story-init-filter>
           <option value=""${initFilter ? '' : ' selected'}>全部</option><option value="other"${initFilter === 'other' ? ' selected' : ''}>其他</option>
           ${initIds.map(initId => `<option value="${e(initId)}"${initId === initFilter ? ' selected' : ''}>${e(initName(initId))}</option>`).join('')}
@@ -475,14 +487,19 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
         <div class="story-editor-actions" role="group" aria-label="内容类型">${(['all', 'stories', 'entries'] as const).map(kind =>
           `<button type="button" class="mini-action" data-column-action="story-editor-sidebar:${kind}" aria-pressed="${state.sidebarMode === kind}">${{ all: '全部', stories: 'Story', entries: 'Entry' }[kind]}</button>`).join('')}</div>
       </div>
-      ${renderEditorDirectoryScroll(ctx, 'stories', 'story-list', 'story-editor-list', renderSidebarTree(directoryContext, directoryState, initIds, initFilter, appliedDirectories))}
+      ${renderEditorDirectoryScroll(ctx, 'stories', 'story-list', 'story-editor-list', renderSidebarTree(directoryContext, directoryState, initIds, initFilter, appliedDirectories, explorer))}
     </section>
     <section class="story-editor-sidebar-pane story-editor-senders-content" data-editor-key="sidebar-senders" aria-label="发出方"${isSenderMode ? '' : ' hidden'}>
-      <label class="story-editor-search">搜索发出方<input type="search" data-editor-key="sender-search" data-editor-sender-search value="${ctx.escapeHtml(state.senderSearch)}" placeholder="名称或 ID"></label>
+      <label class="story-editor-search">搜索发出方<input type="search" data-editor-key="sender-search" data-editor-sender-search data-editor-explorer-query="senders" value="${ctx.escapeHtml(explorer.queries.senders ?? '')}" placeholder="名称或 ID"></label>
       ${draft ? '' : empty('先选择或新建一个 Story。')}
       ${renderEditorDirectoryScroll(ctx, 'senders', 'sender-list', 'story-editor-sender-list', visibleSenders.map(sender => `<button type="button" class="story-editor-list-item story-editor-sender-item${sender.id === selectedSender ? ' is-selected' : ''}" data-editor-key="sender:${e(sender.id)}" data-editor-sender="${e(sender.id)}" aria-pressed="${sender.id === selectedSender}"${!draft || (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>${senderAvatar(documentContext, sender)}<strong>${e(sender.label)}</strong></button>`).join('') || empty('没有匹配的发出方。'))}
     </section>
   </div>`, header: renderWorkspaceTitlebar(ctx, 'left', 'Story 编辑器', 'data-column-back', undefined, modeControls) };
+}
+
+export function createStoryEditorExplorerColumn(ctx: UIContext, state: StoryEditorState, explorer: EditorExplorerStateSnapshot = emptyExplorerState): WorkspaceColumnSpec {
+  const column = createStoryEditorListColumn(ctx, state, explorer);
+  return { ...column, key: 'editor-explorer', definitionId: 'editor-explorer', bindingKey: 'story-explorer' };
 }
 function editorHistoryHeader(ctx: UIContext, state: StoryEditorState, title: string): string {
   return renderWorkspaceTitlebar(ctx, 'center', title, undefined,
@@ -535,9 +552,10 @@ export function createStoryEditorInspectorColumn(ctx: UIContext, state: StoryEdi
     header: renderWorkspaceTitlebar(ctx, 'right', '属性', state.inspectorView !== 'story' && currentNode(state) ? 'data-column-back' : undefined),
     content: `<div data-editor-key="inspector">${inspector(ctx, state)}</div>` };
 }
-export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState): WorkspaceFrameSpec {
+export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState,
+  explorer: WorkspaceColumnSpec = createStoryEditorExplorerColumn(ctx, state)): WorkspaceFrameSpec {
   if (state.preview) return createStoryPreviewFrame(storySourceContext(ctx, state), state);
-  const columns = [createStoryEditorListColumn(ctx, state)];
+  const columns = [explorer];
   ctx = storySourceContext(ctx, state);
   const directory = state.directoryManagement;
   if (directory) {
@@ -580,8 +598,11 @@ export function createStoryEditorFrame(ctx: UIContext, state: StoryEditorState):
   } else columns.push(createStoryEditorFlowColumn(ctx, state), createStoryEditorInspectorColumn(ctx, state));
   return createEditorWorkspaceFrame('story-editor', columns);
 }
-export function renderStoryEditorWorkspace(ctx: UIContext, state: StoryEditorState): string {
-  const frame = renderEditorWorkspaceFrame(ctx, createStoryEditorFrame(ctx, state));
-  const chrome = storyEditorChrome(ctx, state);
-  return chrome ? renderEditorWorkspace(ctx, chrome, frame) : frame;
+export function renderStoryEditorWorkspace(ctx: UIContext, state: StoryEditorState,
+  instances: BrowseInstanceSnapshot<StoryBrowseInstanceState> | BrowseInstanceSnapshot<EditorBrowseInstanceState>,
+  activeExplorerType: 'story' | 'world' = 'story',
+  explorer?: WorkspaceColumnSpec): string {
+  const frame = renderEditorWorkspaceFrame(ctx, createStoryEditorFrame(ctx, state, explorer));
+  const chrome = storyEditorChrome(ctx, state, instances, activeExplorerType);
+  return renderEditorWorkspace(ctx, chrome, frame);
 }

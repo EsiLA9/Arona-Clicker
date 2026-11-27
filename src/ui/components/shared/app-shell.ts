@@ -42,7 +42,6 @@ export interface StoryGateState {
 }
 
 export interface PanelState {
-  worldBrowser?: import('../../runtime-editor/world-browser').WorldBrowserSession;
   /** Independent authoring drafts; never included in PlayerState / SaveData. */
   storyEditor?: import('../../story-editor/model').StoryEditorState;
   /** UI-only navigation session; never included in PlayerState or save data. */
@@ -160,7 +159,14 @@ export interface OperationWorkspaceState {
 
 export type WorkspaceState = ShopWorkspaceState | CharacterWorkspaceState | ContactsWorkspaceState | StoryWorkspaceState | OperationWorkspaceState;
 
-export function renderAppShell(ctx: UIContext, state: PanelState, editorTheme?: import('../../workspace/editor-workspace-appearance').EditorWorkspaceTheme): string {
+export function renderAppShell(
+  ctx: UIContext,
+  state: PanelState,
+  editorTheme?: import('../../workspace/editor-workspace-appearance').EditorWorkspaceTheme,
+  browseInstances?: import('../../workspace/browse-instance-manager').BrowseInstanceSnapshot<unknown>,
+  activeExplorerType: 'story' | 'world' = 'story',
+  explorers: Partial<Record<'story' | 'world', import('../../workspace/editor-explorer-service').EditorExplorerStateSnapshot>> = {},
+): string {
   const workspace = state.workspace;
   const legacyWorkspace = workspace
     ? workspace.type === 'shop'
@@ -174,5 +180,5 @@ export function renderAppShell(ctx: UIContext, state: PanelState, editorTheme?: 
             : { type: 'operation' as const, runId: workspace.runId }
     : null;
   const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
-  return renderWorkspace(ctx, route, state, editorTheme);
+  return renderWorkspace(ctx, route, state, editorTheme, browseInstances, activeExplorerType, explorers);
 }

@@ -16,11 +16,13 @@ function mpaRoutes(): Plugin {
     '/editor': '/tools/datapack-editor/ui/index.html',
   };
   const redirect = (req: IncomingMessage, res: ServerResponse, next: () => void): void => {
-    const pathname = (req.url ?? '').split('?')[0];
+    const url = req.url ?? '';
+    const queryIndex = url.indexOf('?');
+    const pathname = queryIndex < 0 ? url : url.slice(0, queryIndex);
     const target = targets[pathname];
     if (!target) return next();
     res.statusCode = 302;
-    res.setHeader('Location', target);
+    res.setHeader('Location', `${target}${queryIndex < 0 ? '' : url.slice(queryIndex)}`);
     res.end();
   };
   return {

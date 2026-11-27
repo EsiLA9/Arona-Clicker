@@ -1,10 +1,10 @@
-import { setEditorDirectoryExpanded } from '../workspace/editor-directory';
 import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
 import { EditorWorkspaceTheme } from '../workspace/editor-workspace-appearance';
 import type { EditorWorkspaceView } from '../workspace/editor-workspace';
-import { buildDefaultWorldTree, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges } from '../runtime-editor/world-browser';
+import { buildDefaultWorldTree, createWorldEditorExplorerColumn, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges, type WorldEntityRef, type WorldBrowserSession } from '../runtime-editor/world-browser';
+import { initialWorldProviderState, prepareWorldBrowseSeed, prepareWorldTarget, resolveWorldSummary, worldBrowseProviderKey, worldBrowseReuseKey } from '../runtime-editor/world-browser-provider';
 import { bindEditorWorkspace, editorLayout, setEditorWorkspaceView } from '../workspace/editor-workspace';
-import { captureEditorReturn, discardEditorReturn, restoreEditorReturn, type EditorReturn } from '../workspace/editor-return';
+import { captureEditorReturn, discardEditorReturn, restoreEditorReturn } from '../workspace/editor-return';
 // ============================================================
 // ui/controller.ts — UI 控制器（集成层门面）
 // 疏散后作为门面：核心渲染/刷新/事件编排保留于此，
@@ -37,6 +37,7 @@ import { ChatStream } from '../presentation/chat-stream';
 import { ScrollManager } from '../interaction/scroll';
 import { workspaceColumnScrollTargets } from '../interaction/workspace-scroll';
 import { WorkspaceColumns, type ColumnToken } from '../workspace/workspace-columns';
+import type { BrowseInstanceId } from '../workspace/browse-instance-manager';
 import { renderWorkspaceFrame, workspaceColumns, workspaceScope, columnInstanceId, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
 import { captureFocusWithin, restoreFocusWithin, type FocusSnapshot } from '../interaction/focus';
 import { SelectorPage } from '../navigation/selector-page';
@@ -119,6 +120,8 @@ import type { SurfaceStyleLoader } from '../utilities/surface-styles';
 import { restoreRuntimeEditorDraft, seedDebugEditing } from '../runtime-editor/debug';
 import { RuntimeEditorDraftPersistence } from '../runtime-editor/persistence';
 import { StoryEditorController, STORY_EDITOR_REGION } from '../story-editor/controller';
+import { EditorWorkbench } from '../workspace/editor-workbench';
+import { createStoryEditorExplorerColumn } from '../story-editor/view';
 import {
   backWorkspaceNavigation,
   createWorkspaceNavigation,
@@ -396,6 +399,9 @@ export class UIController {
     const editor = this.panelState.runtimeDatapackEditor;
     if (editor) editor.notice = message;
   });
+  /** Workbench owns the shared Manager and the one external editor-session lifecycle. */
+  readonly workbench = new EditorWorkbench();
+  get browseInstances() { return this.workbench.browseInstances; }
   readonly storyEditor = new StoryEditorController(this);
   private runtimeEditorPersistenceBound = false;
   private readonly runtimeEditorPageHideHandler = (): void => { flushRuntimeEditorDraft(this); this.storyEditor.save(false, false); };
@@ -1245,7 +1251,12 @@ export class UIController {
             this.refreshLogPanel(true);
           });
         }
-        return { ...column, actions };
+        const bind = (frame.id === 'world-editor' || frame.id === 'editor-empty') && column.bindingKey === 'story-explorer'
+          ? (root: HTMLElement) => this.storyEditor.bindExplorerColumn(root)
+          : column.bindingKey === 'world-explorer'
+            ? (root: HTMLElement) => this.workbench.explorer.bindColumn(root, 'world')
+            : column.bind;
+        return { ...column, actions, bind };
       });
       this.columnFrames.set(workspaceScope(frame), { ...frame, columns, onBack });
     };
@@ -1273,7 +1284,7 @@ export class UIController {
 
   refreshColumnInstances(ids: readonly string[], expected?: ColumnToken): boolean {
     if (expected && this.columns.token(expected.instanceId)?.generation !== expected.generation) return false;
-    if (this.storyEditor.isOpen() && ids.length > 0 && ids.every(id => id.startsWith('story-editor/'))) {
+    if (this.storyEditor.isOpen() && ids.length > 0 && ids.every(id => id.startsWith('editor-workbench/'))) {
       const ctx = createThemedUIContext(this);
       return this.storyEditor.refresh(ctx);
     }
@@ -1362,9 +1373,9 @@ export class UIController {
     }
     // DOM 重建前先捕获各面板滚动位置（条件变化触发的揭示刷新不得把列表拽回顶层）
     const worldTreeBody = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
-    if (worldTreeBody && this.panelState.worldBrowser
+    if (worldTreeBody && this.worldExplorerInstance()
       && !worldTreeBody.closest('[data-editor-workspace-mode="advanced"][data-editor-workspace-view="focus"]')) {
-      this.panelState.worldBrowser.scrollTop = worldTreeBody.scrollTop;
+      this.workbench.explorer.setScrollTop('world', 'world-tree', worldTreeBody.scrollTop);
     }
     this.scroll.capturePanel(this.root);
     this.scroll.captureWorkspace(this.root);
@@ -1377,7 +1388,7 @@ export class UIController {
     this.ensureDatapackWorkspaceState();
     if (!this.storyEditor.isOpen()) this.ensureDebugEditingState();
     const context = this.createPanelUIContext();
-    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.storyEditor.isOpen() && !this.isWorldBrowserOpen()) {
+    if (!this.started && this.panelState.service === 'game' && !this.panelState.workspace && !this.workbench.isOpen && !this.storyEditor.isOpen() && !this.isWorldBrowserOpen()) {
       // activeInit 为空时，游戏页就是 Lobby/Init 选择页；服务页仍走通用 App Shell。
       this.columns.releaseWithin(this.root);
       renderInitSelectImpl(this);
@@ -1387,10 +1398,34 @@ export class UIController {
     }
     this.panelState.runtimeEditorPanelOpen = this.runtimeEditorPanelOpen;
     this.collectColumns(context);
-    const markup = renderAppShell(context, this.panelState, this.activeEditorTheme());
+    const markup = renderAppShell(context, this.panelState, this.activeEditorTheme(), this.browseInstances.snapshot(), this.workbench.activeExplorerType,
+      { story: this.workbench.explorer.snapshot('story'), world: this.workbench.explorer.snapshot('world') });
+    const template = document.createElement('template');
+    template.innerHTML = markup;
+    const nextWorkbenchFrame = template.content.querySelector<HTMLElement>('[data-workspace-instance="editor-workbench"]');
+    const mountedExplorer = this.columns.node('editor-workbench/editor-explorer');
+    const candidateWorkbenchFrame = this.root.querySelector<HTMLElement>('[data-workspace-instance="editor-workbench"]');
+    const retainedWorkbenchFrame = this.workbench.isOpen && mountedExplorer && candidateWorkbenchFrame?.contains(mountedExplorer)
+      ? candidateWorkbenchFrame : null;
+    if (nextWorkbenchFrame && retainedWorkbenchFrame) nextWorkbenchFrame.replaceWith(retainedWorkbenchFrame);
     this.columns.releaseWithin(this.root);
-    this.root.innerHTML = markup;
-    for (const frame of this.columnFrames.values()) this.columns.adopt(this.root, context, frame);
+    this.root.replaceChildren(template.content);
+    const workbenchFrame = [...this.columnFrames.values()].find(frame => workspaceScope(frame) === 'editor-workbench');
+    if (workbenchFrame) {
+      const host = this.root.querySelector<HTMLElement>('[data-editor-workspace-frame-host]');
+      if (host) {
+        if (retainedWorkbenchFrame) this.columns.mount(host, context, workbenchFrame);
+        else this.columns.adopt(host, context, workbenchFrame);
+        const frames = [...host.querySelectorAll<HTMLElement>(':scope > [data-workspace-instance="editor-workbench"]')];
+        for (const duplicate of frames.slice(1)) {
+          this.columns.releaseWithin(duplicate);
+          duplicate.remove();
+        }
+      }
+    }
+    for (const frame of this.columnFrames.values()) {
+      if (workspaceScope(frame) !== 'editor-workbench') this.columns.adopt(this.root, context, frame);
+    }
     this.surfaceRuntime.markMounted();
     this.lastLogEntryId = this.game.getDevLogs()[0]?.id ?? 0;
     this.popovers.bind();
@@ -1406,7 +1441,7 @@ export class UIController {
     this.scroll.restorePanel(this.root);
     this.scroll.restoreWorkspace(this.root);
     const mountedWorldTree = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
-    if (mountedWorldTree && this.panelState.worldBrowser) mountedWorldTree.scrollTop = this.panelState.worldBrowser.scrollTop ?? 0;
+    if (mountedWorldTree && this.worldExplorerInstance()) mountedWorldTree.scrollTop = this.workbench.explorer.scrollTop('world', 'world-tree');
     const focusAfterRender = this.operationFocusAfterRender;
     this.operationFocusAfterRender = null;
     const operationFocus = focusAfterRender === 'commit'
@@ -2107,6 +2142,7 @@ export class UIController {
   /** #app 内全部 data-* 事件绑定（按域委托 controller-actions-*，render 后调用）。 */
   private bindActions(): void {
     this.bindWorldBrowser();
+    this.bindEditorWorkbench();
     bindTopBarActions(this);
     bindContactsActions(this);
     bindThemeActions(this);
@@ -2116,6 +2152,71 @@ export class UIController {
     bindVariantTrainingActions(this);
     bindSaveActions(this);
     bindOperationActions(this);
+  }
+
+  private bindEditorWorkbench(): void {
+    const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    if (!shell) return;
+    shell.addEventListener('click', event => {
+      const element = event.target instanceof Element ? event.target : null;
+      const button = element?.closest<HTMLButtonElement>('[data-editor-workspace-action]');
+      const action = button?.dataset.editorWorkspaceAction;
+      const type = button?.dataset.editorWorkType;
+      if (action === 'work-type' && (type === 'story' || type === 'world')) {
+        event.preventDefault(); event.stopPropagation(); this.setActiveEditorExplorer(type); return;
+      }
+      if (element?.closest('[data-world-editor-leave]')) {
+        event.preventDefault(); event.stopPropagation(); this.closeEditorWorkspace(); return;
+      }
+      if ((action === 'activate' || action === 'close') && button?.dataset.editorInstance) {
+        event.preventDefault(); event.stopPropagation();
+        if (action === 'activate') this.activateEditorBrowseInstance(button.dataset.editorInstance);
+        else this.closeEditorBrowseInstance(button.dataset.editorInstance);
+        return;
+      }
+      const route = this.currentWorkspaceRoute();
+      if (!this.browseInstances.active) {
+        const row = element?.closest<HTMLElement>('[data-world-select][data-world-id], [data-editor-story], [data-editor-entry], [data-sidebar-story-id]');
+        if (this.workbench.activeExplorerType === 'world') {
+          const kind = row?.dataset.worldSelect;
+          const id = row?.dataset.worldId;
+          if (id && (kind === 'init' || kind === 'area' || kind === 'spot')) {
+            event.preventDefault(); event.stopPropagation(); this.openWorldResource({ kind, id }); return;
+          }
+        } else if (row) {
+          const entryId = row.dataset.editorEntry;
+          const storyId = row.dataset.sidebarStoryId;
+          const storyKey = row.dataset.editorStory;
+          const source = row.dataset.sidebarOpenSource;
+          event.preventDefault(); event.stopPropagation();
+          if (entryId) this.storyEditor.openFromExplorer({ kind: 'entry', id: entryId }, source);
+          else if (storyId) this.storyEditor.openFromExplorer({ kind: 'story', id: storyId }, source);
+          else if (storyKey) this.storyEditor.openStoryKeyFromExplorer(storyKey, source);
+          return;
+        }
+      }
+      if (route.kind === 'story-editor' && this.workbench.activeExplorerType === 'world') {
+        const row = element?.closest<HTMLElement>('[data-world-select][data-world-id]');
+        const kind = row?.dataset.worldSelect;
+        const id = row?.dataset.worldId;
+        if (id && (kind === 'init' || kind === 'area' || kind === 'spot')) {
+          event.preventDefault(); event.stopPropagation(); this.openWorldResource({ kind, id }); return;
+        }
+      }
+      if (route.kind === 'world-editor' && this.workbench.activeExplorerType === 'story') {
+        const row = element?.closest<HTMLElement>('[data-editor-story], [data-editor-entry], [data-sidebar-story-id]');
+        const entryId = row?.dataset.editorEntry;
+        const storyId = row?.dataset.sidebarStoryId;
+        const storyKey = row?.dataset.editorStory;
+        if (entryId || storyId || storyKey) {
+          event.preventDefault(); event.stopPropagation();
+          const source = row?.dataset.sidebarOpenSource;
+          if (entryId) this.storyEditor.openFromExplorer({ kind: 'entry', id: entryId }, source);
+          else if (storyId) this.storyEditor.openFromExplorer({ kind: 'story', id: storyId }, source);
+          else this.storyEditor.openStoryKeyFromExplorer(storyKey!, source);
+        }
+      }
+    });
   }
 
   /** 招募补给弹窗：卡池列表 + 抽取按钮（委托 controller-modals）。 */
@@ -2169,18 +2270,17 @@ export class UIController {
     };
   }
 
-  private editorSession?: { theme: EditorWorkspaceTheme; returnTo: EditorReturn };
-
   activeEditorTheme(): EditorWorkspaceTheme | undefined {
-    return this.editorSession?.theme;
+    return this.workbench.activeTheme;
   }
 
-  enterEditorRoute(kind: 'story-editor' | 'world-editor'): boolean {
+  enterEditorRoute(kind: 'story-editor' | 'world-editor', leavePrepared = false): boolean {
     const route = { kind };
-    if (this.editorSession) {
-      if (!this.storyEditor.beforeLeave()) return false;
+    this.captureActiveEditorInstanceState();
+    if (this.workbench.session) {
+      if (!leavePrepared && !this.storyEditor.beforeLeave()) return false;
       this.modal.close();
-      this.editorSession.theme.preview(null);
+      this.workbench.session.theme.preview(null);
       const navigation = this.panelState.workspaceNavigation!;
       this.panelState.workspaceNavigation = replaceWorkspaceNavigation(navigation, route);
     } else {
@@ -2188,55 +2288,269 @@ export class UIController {
       const theme = new EditorWorkspaceTheme(this.game, () => this.selectorPage.currentTheme() ?? uiTheme(this),
         () => this.toast.show('编辑器主题加载失败，已切换到默认主题', 'error'));
       this.enterWorkspaceRoute(route);
-      this.editorSession = { theme, returnTo };
+      if (!this.workbench.enter({ theme, returnTo })) return false;
     }
     this.panelState.workspace = undefined;
+    this.panelState.storyEditor = this.storyEditor.state;
     return true;
   }
 
   endEditorSession(restore = false): void {
-    const session = this.editorSession;
+    const session = this.workbench.session;
     if (!session) return;
     this.modal.close();
     if (restore) restoreEditorReturn(this, session.returnTo);
     else discardEditorReturn(this, session.returnTo);
-    this.editorSession = undefined;
-    this.panelState.worldBrowser = undefined;
+    this.workbench.leave();
+    this.workbench.explorer.clearTransientState();
   }
 
   closeEditorWorkspace(): void {
-    if (!this.editorSession || !this.storyEditor.beforeLeave()) return;
+    this.captureActiveEditorInstanceState();
+    if (!this.workbench.isOpen || !this.storyEditor.beforeLeave()) return;
     this.endEditorSession(true);
     this.render();
   }
 
-  private nextWorldInstanceId = 1;
+  setActiveEditorExplorer(type: 'story' | 'world'): void {
+    if (!this.workbench.isOpen || this.workbench.activeExplorerType === type) return;
+    const route = this.currentWorkspaceRoute();
+    const scope = route.kind === 'story-editor' || route.kind === 'world-editor' ? 'editor-workbench' : undefined;
+    if (!scope) return;
+    const ctx = this.createPanelUIContext();
+    const world = this.worldExplorerInstance();
+    const mountedWorldTree = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+    if (mountedWorldTree && world) this.workbench.explorer.setScrollTop('world', 'world-tree', mountedWorldTree.scrollTop);
+    const column = type === 'story'
+      ? { ...createStoryEditorExplorerColumn(ctx, this.storyEditor.state, this.workbench.explorer.snapshot('story')), bind: route.kind === 'story-editor' && this.storyEditor.isOpen()
+        ? (root: HTMLElement) => this.storyEditor.bind(root) : (root: HTMLElement) => this.storyEditor.bindExplorerColumn(root) }
+      : { ...createWorldEditorExplorerColumn(ctx, world, this.workbench.explorer.snapshot('world')),
+        bind: (root: HTMLElement) => this.workbench.explorer.bindColumn(root, 'world') };
+    this.workbench.activeExplorerType = type;
+    const frame = this.columnFrames.get(scope);
+    if (frame) this.columnFrames.set(scope, { ...frame, columns: workspaceColumns(frame).map(item => item.slot === 'left' ? column : item) });
+    const instanceId = columnInstanceId(scope, column);
+    const updated = this.columns.update(instanceId, column, this.columns.token(instanceId), ctx);
+    if (!updated) { this.render(); return; }
+    if (type === 'world' && world) {
+      const tree = this.columns.node(instanceId)?.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+      if (tree) tree.scrollTop = this.workbench.explorer.scrollTop('world', 'world-tree');
+    }
+    const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    shell?.querySelectorAll<HTMLButtonElement>('[data-editor-workspace-action="work-type"]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.editorWorkType === type));
+    });
+  }
+
+  activateEditorBrowseInstance(id: string): boolean {
+    const browseId = id as BrowseInstanceId;
+    const target = this.browseInstances.get(browseId);
+    if (!target) return false;
+    if (this.browseInstances.activeId === browseId) return true;
+    const storyRoute = this.currentWorkspaceRoute().kind === 'story-editor' && this.storyEditor.isOpen();
+    if (storyRoute && target.providerKey === 'story') return this.storyEditor.activateManagedBrowseInstance(id);
+    let leavePrepared = false;
+    if (storyRoute) {
+      try { leavePrepared = this.storyEditor.beforeLeave(); }
+      catch { return false; }
+      if (!leavePrepared) return false;
+    }
+    const activated = this.browseInstances.activate(browseId, candidate => {
+      if (candidate.providerKey === 'story') {
+        if (!this.storyEditor.prepareManagedBrowseActivation(candidate)) return { ok: false, message: 'The Story browse instance could not be restored.' };
+        if (!this.enterEditorRoute('story-editor', true)) return { ok: false, message: 'The Story editor route could not be activated.' };
+      } else if (candidate.providerKey === worldBrowseProviderKey) {
+        const world = candidate as unknown as WorldBrowserSession;
+        const target = world.state.provider.target;
+        if (!target || !prepareWorldTarget(this.game.registry, target)) return { ok: false, message: 'The World browse target is no longer available.' };
+        if (!this.enterEditorRoute('world-editor', true)) return { ok: false, message: 'The World editor route could not be activated.' };
+      } else return { ok: false, message: 'The browse instance has no Workbench Provider.' };
+      return { ok: true, value: undefined };
+    });
+    if (!activated.ok) return false;
+    if (target.providerKey === 'story') this.panelState.storyEditor = this.storyEditor.state;
+    this.render();
+    return true;
+  }
+
+  private closeEditorBrowseInstance(id: string): boolean {
+    const browseId = id as BrowseInstanceId;
+    const instance = this.browseInstances.get(browseId);
+    if (instance?.providerKey === 'story') return this.storyEditor.closeManagedBrowseInstance(id);
+    if (instance?.providerKey === worldBrowseProviderKey) return this.closeWorldBrowseInstance(id);
+    return false;
+  }
+
   private worldBinding?: AbortController;
   private unbindWorldScroll?: () => void;
 
+  private worldExplorerInstance(): WorldBrowserSession | undefined {
+    const active = this.browseInstances.active;
+    const instance = active?.providerKey === worldBrowseProviderKey
+      ? active
+      : this.browseInstances.lastActive(worldBrowseProviderKey);
+    return instance?.providerKey === worldBrowseProviderKey ? instance as unknown as WorldBrowserSession : undefined;
+  }
+
+  activeWorldBrowseInstance(): WorldBrowserSession | undefined {
+    const active = this.browseInstances.active;
+    return active?.providerKey === 'world' ? active as unknown as WorldBrowserSession : undefined;
+  }
+
+  captureActiveEditorInstanceState(): void {
+    const worldTreeBody = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+    const worldInstance = this.worldExplorerInstance();
+    if (worldTreeBody && worldInstance
+      && !worldTreeBody.closest('[data-editor-workspace-mode="advanced"][data-editor-workspace-view="focus"]')) {
+      this.workbench.explorer.setScrollTop('world', 'world-tree', worldTreeBody.scrollTop);
+    }
+  }
+
+  private commitWorldTarget(session: WorldBrowserSession, ref: WorldEntityRef): boolean {
+    const seed = prepareWorldBrowseSeed(this.game.registry, ref);
+    if (!seed) return false;
+    const updated = this.browseInstances.update(session.id, {
+      resourceKey: seed.resourceKey,
+      presentation: seed.presentation,
+      state: session.state,
+    });
+    if (!updated.ok) return false;
+    Object.assign(session.state, seed.state);
+    return true;
+  }
+
   private isWorldBrowserOpen(): boolean {
-    return this.panelState.workspaceNavigation?.current.kind === 'world-editor';
+    return this.panelState.workspaceNavigation?.current.kind === 'world-editor'
+      && this.browseInstances.active?.providerKey === worldBrowseProviderKey;
+  }
+
+  private closeWorldBrowseInstance(id?: string): boolean {
+    const candidate = id ? this.browseInstances.get(id as BrowseInstanceId) : this.browseInstances.active;
+    const closing = candidate?.providerKey === worldBrowseProviderKey ? candidate as unknown as WorldBrowserSession : undefined;
+    if (!closing) return false;
+    if (closing.id !== this.browseInstances.activeId) {
+      const removed = this.browseInstances.close(closing.id);
+      if (removed.ok) this.render();
+      return removed.ok;
+    }
+    const preferredStory = this.browseInstances.lastActive('story');
+    const result = this.browseInstances.close(closing.id, (_record, successor) => {
+      if (!successor) return { ok: true, value: undefined };
+      if (successor.providerKey === 'story') {
+        if (!this.storyEditor.prepareManagedBrowseActivation(successor)) return { ok: false, message: 'The Story browse instance could not be restored.' };
+        if (!this.enterEditorRoute('story-editor', true)) return { ok: false, message: 'The Story editor route could not be activated.' };
+        return { ok: true, value: undefined };
+      }
+      return { ok: false, message: 'No compatible browse instance can replace the World instance.' };
+    }, preferredStory?.id);
+    if (result.ok) this.render();
+    return result.ok;
   }
 
   openWorldBrowser(advanced = false): void {
     if (this.isWorldBrowserOpen()) return;
-    if (!this.enterEditorRoute('world-editor')) return;
-    const session = this.panelState.worldBrowser ??= {
-      id: this.nextWorldInstanceId++,
-      expanded: new Set(),
-    };
+    const existing = this.browseInstances.findReusable(worldBrowseProviderKey, worldBrowseReuseKey);
+    const prior = existing?.providerKey === worldBrowseProviderKey
+      ? (existing as unknown as WorldBrowserSession).state
+      : undefined;
+    const requested = prior?.provider.target ?? initialWorldProviderState(this.game.registry, this.game.state.activeInit).target;
+    if (requested) this.openWorldResource(requested, advanced);
+  }
+
+  openWorldResource(ref: WorldEntityRef, advanced = false): boolean {
+    const enteringWorkbench = !this.workbench.isOpen;
+    const existing = this.browseInstances.findReusable(worldBrowseProviderKey, worldBrowseReuseKey);
+    const previousWorld = existing?.providerKey === worldBrowseProviderKey ? existing : undefined;
+    const previousActiveId = this.browseInstances.activeId;
+    const storyRoute = this.currentWorkspaceRoute().kind === 'story-editor' && this.storyEditor.isOpen();
+    const seed = prepareWorldBrowseSeed(this.game.registry, ref);
+    if (!seed) return false;
+    if (storyRoute) {
+      try { if (!this.storyEditor.beforeLeave()) return false; }
+      catch { return false; }
+    }
+    const opened = this.browseInstances.openOrReuse(seed, undefined, (_current, requestedSeed) => ({ ok: true, value: requestedSeed }));
+    if (!opened.ok) return false;
+    const session = opened.value as unknown as WorldBrowserSession;
+    if (!this.enterEditorRoute('world-editor', storyRoute)) {
+      if (previousActiveId) this.browseInstances.activate(previousActiveId);
+      if (previousWorld) this.browseInstances.update(previousWorld.id, {
+        resourceKey: previousWorld.resourceKey, reuseKey: previousWorld.reuseKey,
+        presentation: previousWorld.presentation, state: previousWorld.state,
+      });
+      else this.browseInstances.close(session.id);
+      return false;
+    }
+    if (enteringWorkbench) this.workbench.activeExplorerType = 'world';
     if (advanced) editorLayout.setMode('advanced');
     const roots = buildDefaultWorldTree(this.game.registry);
-    if (!session.selected || !worldTreePath(roots, session.selected).length) {
-      session.selected = roots.find(node => node.ref?.id === this.game.state.activeInit)?.ref
-        ?? roots.find(node => node.ref?.kind === 'init')?.ref;
+    const preparedTarget = session.state.provider.target && prepareWorldTarget(this.game.registry, session.state.provider.target);
+    if (!preparedTarget || !worldTreePath(roots, preparedTarget).length) {
+      const initialTarget = initialWorldProviderState(this.game.registry, this.game.state.activeInit).target;
+      if (initialTarget) this.commitWorldTarget(session, initialTarget);
     }
-    if (session.selected) {
-      const preferred = worldTreePath(roots, session.selected, session.selectedNodeKey);
-      const path = preferred.length ? preferred : worldTreePath(roots, session.selected);
-      session.selectedNodeKey = path[path.length - 1]?.key;
-    } else session.selectedNodeKey = undefined;
+    if (session.state.provider.target && this.workbench.activeExplorerType === 'world') {
+      const selectedPlacement = this.workbench.explorer.snapshot('world').selectedPlacementKey;
+      const preferred = worldTreePath(roots, session.state.provider.target, selectedPlacement);
+      const path = preferred.length ? preferred : worldTreePath(roots, session.state.provider.target);
+      this.workbench.explorer.selectPlacement('world', path[path.length - 1]?.key);
+      path.filter(node => node.children.length > 0).forEach(node => this.workbench.explorer.setExpanded('world', node.key, true));
+    }
     this.render();
+    return true;
+  }
+
+  canNavigateToWorldEntity(ref: WorldEntityRef): boolean {
+    const target = prepareWorldTarget(this.game.registry, ref);
+    return Boolean(target && worldTreePath(buildDefaultWorldTree(this.game.registry), target).length);
+  }
+
+  navigateToWorldEntity(ref: WorldEntityRef): boolean {
+    if (!this.canNavigateToWorldEntity(ref)) return false;
+    if (!this.isWorldBrowserOpen() && !this.openWorldResource(ref)) return false;
+    const previousView = editorLayout.state.view;
+    const previousExplorer = this.workbench.activeExplorerType;
+    this.setActiveEditorExplorer('world');
+    const session = this.activeWorldBrowseInstance();
+    const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    if (!session || !shell) {
+      if (previousExplorer !== 'world') this.setActiveEditorExplorer(previousExplorer);
+      return false;
+    }
+    const explorerState = this.workbench.explorer.snapshot('world');
+    const previous = { target: session.state.provider.target, selectedPlacementKey: explorerState.selectedPlacementKey,
+      expandedPlacementKeys: explorerState.expandedPlacementKeys };
+    if (!this.locateWorldInShell(shell, session, ref, undefined, false)) {
+      if (previous.target) this.commitWorldTarget(session, previous.target);
+      this.workbench.explorer.selectPlacement('world', previous.selectedPlacementKey);
+      this.workbench.explorer.replaceExpansions('world', previous.expandedPlacementKeys);
+      if (previousExplorer !== 'world') this.setActiveEditorExplorer(previousExplorer);
+      return false;
+    }
+    if (previousView === 'focus') editorLayout.setView('browse');
+    this.render();
+    const mounted = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    const current = this.activeWorldBrowseInstance();
+    const located = Boolean(mounted && current?.state.provider.target?.kind === ref.kind && current.state.provider.target.id === ref.id
+      && this.locateWorldInShell(mounted, current, ref));
+    if (located) return true;
+    if (current?.id === session.id) {
+      if (previous.target) this.commitWorldTarget(current, previous.target);
+      this.workbench.explorer.selectPlacement('world', previous.selectedPlacementKey);
+      this.workbench.explorer.replaceExpansions('world', previous.expandedPlacementKeys);
+      if (previousExplorer !== 'world') this.setActiveEditorExplorer(previousExplorer);
+      this.render();
+    }
+    editorLayout.setView(previousView);
+    return false;
+  }
+
+  private locateWorldInShell(shell: HTMLElement, session: WorldBrowserSession, ref: WorldEntityRef, preferredKey?: string, requireMounted = true): boolean {
+    const target = prepareWorldTarget(this.game.registry, ref);
+    const path = target ? worldTreePath(buildDefaultWorldTree(this.game.registry), target, preferredKey) : [];
+    if (!target || !path.length) return false;
+    if (!this.commitWorldTarget(session, target)) return false;
+    return this.workbench.explorer.revealPlacement(shell, 'world', path[path.length - 1].key) || !requireMounted;
   }
 
   openStoryEditor(advanced = false): void {
@@ -2249,7 +2563,7 @@ export class UIController {
     this.unbindWorldScroll?.();
     this.unbindWorldScroll = undefined;
     this.worldBinding = undefined;
-    const session = this.panelState.worldBrowser;
+    const session = this.activeWorldBrowseInstance();
     const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
     if (!session || !shell || !this.isWorldBrowserOpen()) return;
     const binding = this.worldBinding = new AbortController();
@@ -2257,11 +2571,11 @@ export class UIController {
     const viewBinding = {
       onBeforeViewChange: (from: EditorWorkspaceView) => {
         const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
-        if (scrollBody && from !== 'focus') session.scrollTop = scrollBody.scrollTop;
+        if (scrollBody && from !== 'focus') this.workbench.explorer.setScrollTop('world', 'world-tree', scrollBody.scrollTop);
       },
       onViewChange: (value: EditorWorkspaceView) => {
         const scrollBody = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
-        if (scrollBody && value !== 'focus') scrollBody.scrollTop = session.scrollTop ?? 0;
+        if (scrollBody && value !== 'focus') scrollBody.scrollTop = this.workbench.explorer.scrollTop('world', 'world-tree');
         refreshEditorDirectoryScrollbars(shell);
       },
     };
@@ -2272,75 +2586,43 @@ export class UIController {
       onExit: () => this.closeEditorWorkspace(),
     });
     this.unbindWorldScroll = bindEditorDirectoryScrollbars(shell);
-    const setExpanded = (key: string, open: boolean): void => {
-      if (open) session.expanded.add(key);
-      else session.expanded.delete(key);
-      const row = [...shell.querySelectorAll<HTMLElement>('[data-world-node]')].find(item => item.dataset.worldNode === key);
-      const button = row?.querySelector<HTMLButtonElement>(':scope > div > [data-world-expand]');
-      if (button) setEditorDirectoryExpanded(button, open);
-    };
-    const locateWorld = (ref: NonNullable<typeof session.selected>, preferredKey?: string): void => {
-      const path = worldTreePath(buildDefaultWorldTree(this.game.registry), ref, preferredKey);
-      if (!path.length) return;
-      session.selected = ref;
-      session.selectedNodeKey = path[path.length - 1].key;
-      path.slice(0, -1).forEach(node => setExpanded(node.key, true));
-      const selected = [...(shell.querySelectorAll<HTMLElement>('[data-world-tree] [data-world-select]'))]
-        .find(row => row.dataset.worldNodeKey === session.selectedNodeKey);
-      if (!selected) return;
-      const host = selected.closest<HTMLElement>('[data-scroll-key]');
-      if (host) {
-        const hostRect = host.getBoundingClientRect();
-        const rowRect = selected.getBoundingClientRect();
-        if (rowRect.top < hostRect.top) host.scrollTop -= hostRect.top - rowRect.top;
-        else if (rowRect.bottom > hostRect.bottom) host.scrollTop += rowRect.bottom - hostRect.bottom;
-      }
-      selected.focus({ preventScroll: true });
+    const locateWorld = (ref: WorldEntityRef, preferredKey?: string): void => {
+      const target = prepareWorldTarget(this.game.registry, ref);
+      const path = target ? worldTreePath(buildDefaultWorldTree(this.game.registry), target, preferredKey) : [];
+      if (!target || !path.length) return;
+      this.locateWorldInShell(shell, session, ref, preferredKey);
     };
     const setView = (value: EditorWorkspaceView): void => setEditorWorkspaceView(shell, worldEditorEdges, value, viewBinding);
     shell.addEventListener('click', event => {
       const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : undefined;
       if (!button || button.disabled) return;
-      const { worldExpand, worldSelect, worldId, editorWorkspaceAction: action, editorWorkType } = button.dataset;
+      const { worldSelect, worldId, editorWorkspaceAction: action } = button.dataset;
       if (action === 'mode' || action === 'back') return;
-      if (worldExpand) setExpanded(worldExpand, !session.expanded.has(worldExpand));
       if (worldSelect && worldId && (worldSelect === 'init' || worldSelect === 'area' || worldSelect === 'spot')) {
         const ref = { kind: worldSelect, id: worldId } as const;
-        const tree = shell.querySelector('[data-world-tree]');
+        const tree = shell.querySelector<HTMLElement>('[data-world-tree]');
         const fromTree = tree?.contains(button);
-        const path = worldTreePath(buildDefaultWorldTree(this.game.registry), ref, button.dataset.worldNodeKey);
-        if (!path.length) return;
-        session.selected = ref;
-        session.selectedNodeKey = path[path.length - 1].key;
-        path.slice(0, -1).forEach(node => setExpanded(node.key, true));
-        for (const row of tree?.querySelectorAll<HTMLButtonElement>('[data-world-select]') ?? []) {
-          const active = row.dataset.worldNodeKey === session.selectedNodeKey;
-          row.setAttribute('aria-pressed', String(active));
-          if (active && !fromTree) {
-            const host = row.closest<HTMLElement>('[data-scroll-key]');
-            if (host) {
-              const hostRect = host.getBoundingClientRect(); const rowRect = row.getBoundingClientRect();
-              if (rowRect.top < hostRect.top) host.scrollTop -= hostRect.top - rowRect.top;
-              else if (rowRect.bottom > hostRect.bottom) host.scrollTop += rowRect.bottom - hostRect.bottom;
-            }
-            row.focus({ preventScroll: true });
-          }
+        const target = prepareWorldTarget(this.game.registry, ref);
+        const path = target ? worldTreePath(buildDefaultWorldTree(this.game.registry), target, button.dataset.worldNodeKey) : [];
+        if (!target || !path.length) return;
+        if (!this.commitWorldTarget(session, target)) return;
+        const placementKey = button.dataset.worldNodeKey ?? path[path.length - 1].key;
+        if (!fromTree) {
+          if (editorLayout.state.view === 'focus') this.workbench.explorer.selectPlacementInColumn(tree ?? shell, 'world', placementKey);
+          else this.workbench.explorer.revealPlacement(shell, 'world', placementKey);
         }
         const detail = shell.querySelector('[data-world-detail]');
         if (detail) {
           this.popovers.dismissBeforeRootMutation(detail);
-          detail.innerHTML = renderWorldDetail(this.createPanelUIContext(), ref);
+          detail.innerHTML = renderWorldDetail(this.createPanelUIContext(), resolveWorldSummary(this.game.registry, target));
         }
       }
-      if (action === 'work-type' && editorWorkType === 'story') this.openStoryEditor(true);
       if (action === 'locate-world') {
+        this.setActiveEditorExplorer('world');
         if (editorLayout.state.view === 'focus') setView('browse');
-        if (session.selected) {
-          locateWorld(session.selected, session.selectedNodeKey);
+        if (session.state.provider.target) {
+          locateWorld(session.state.provider.target, this.workbench.explorer.snapshot('world').selectedPlacementKey);
         }
-      }
-      if (action === 'close' || button.hasAttribute('data-world-editor-leave')) {
-        this.closeEditorWorkspace();
       }
     }, options);
   }

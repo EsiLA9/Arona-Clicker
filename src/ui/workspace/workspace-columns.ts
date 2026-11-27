@@ -111,13 +111,30 @@ export class WorkspaceColumns {
       this.hooks.afterReplace?.(root);
       return;
     }
+    // A caller may mount onto string-rendered DOM. Register its existing roots
+    // before reconciliation so they are updated rather than duplicated.
+    const scope = workspaceScope(spec);
+    for (const column of columns) {
+      const id = columnInstanceId(scope, column);
+      const node = [...frame.children].find(item => item.getAttribute('data-column-instance') === id) as HTMLElement | undefined;
+      if (!node || this.mounted.get(id)?.node === node) continue;
+      this.mounted.get(id)?.cleanup();
+      this.bind(node, ctx, scope, column, spec.onBack);
+    }
     const active = document.activeElement instanceof HTMLElement && frame.contains(document.activeElement) ? document.activeElement : null;
     const expected = new Set(columns.map(column => columnInstanceId(workspaceScope(spec), column)));
     const overlayNodes = [...frame.children].filter(node => !node.hasAttribute('data-column-instance'));
     const nextOverlays = [...nextFrame.children].filter(node => !node.hasAttribute('data-column-instance'));
     const retainOverlay = overlayNodes.map(node => node.outerHTML).join('') === nextOverlays.map(node => node.outerHTML).join('');
+    const seen = new Set<string>();
     for (const node of [...frame.children]) {
       const id = node.getAttribute('data-column-instance');
+      if (id && expected.has(id) && seen.has(id)) {
+        this.hooks.beforeReplace?.(node as HTMLElement);
+        node.remove();
+        continue;
+      }
+      if (id) seen.add(id);
       if (id && expected.has(id)) continue;
       if (!id && retainOverlay) continue;
       this.hooks.beforeReplace?.(node as HTMLElement);

@@ -4,42 +4,38 @@
 
 ## Editor Workbench Roadmap
 
-Task 0386 是 Stage 02–07 的长期设计合同及执行索引。下列 0387–0418 是独立施工节点，按依赖顺序核验和执行；完整状态所有权、业务不变量、阶段边界与通过条件见 [[ai/plan/task-0386-editor-workbench-roadmap]]。当前仅建立 Task 文档，均待核验，未开始 Stage 02.5 代码施工。
+Task 0386 是 Stage 02–07 的长期设计合同及执行索引。下列 0387–0418 是独立施工节点，按依赖顺序连续执行；完成结果写回 Roadmap 后归档。完整状态所有权、业务不变量、阶段边界与通过条件见 [[ai/plan/task-0386-editor-workbench-roadmap]]。当前推进 Task 0410。
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0388-editor-workbench-stage-02-preflight]] | 待核验 | 核对 Stage 02 实际实现、运行服务和遗留人工验收 |
-| [[ai/plan/task-0387-editor-workbench-dev-navigation]] | 待核验 | Stage 02.5-A：核实 DEV 导航入口、就绪信号与成功边界 |
-| [[ai/plan/task-0389-editor-workbench-dev-navigation-coordinator]] | 待核验 | Stage 02.5-B：实现协调器并读取运行事实 |
-| [[ai/plan/task-0390-editor-workbench-dev-url-layout]] | 待核验 | Stage 02.5-C：URL 参数、重定向和临时布局投影 |
-| [[ai/plan/task-0391-editor-workbench-dev-navigation-validation]] | 待核验 | Stage 02.5-D：失败恢复、DEV 边界、文档和浏览器验证 |
-| [[ai/plan/task-0392-editor-instance-story-contract]] | 待核验 | Stage 03-A：核对 Story/Entry 状态所有权与 Provider 合同 |
-| [[ai/plan/task-0393-editor-instance-manager-core]] | 待核验 | Stage 03-B：建立公共实例身份、集合和生命周期核心 |
-| [[ai/plan/task-0394-editor-instance-activation-atomicity]] | 待核验 | Stage 03-C：迁移激活与保存门禁原子性 |
-| [[ai/plan/task-0395-editor-instance-story-lifecycle]] | 待核验 | Stage 03-D：迁移创建、复用、复制与关闭 |
-| [[ai/plan/task-0396-editor-instance-story-authority-removal]] | 待核验 | Stage 03-E：删除 Story 私有实例权威 |
-| [[ai/plan/task-0397-editor-world-provider]] | 待核验 | Stage 04-A：抽取只读 World Provider 业务状态 |
-| [[ai/plan/task-0398-editor-world-single-instance-policy]] | 待核验 | Stage 04-B：以公共 Manager 策略实现 World 单实例复用 |
-| [[ai/plan/task-0399-editor-world-manager-integration]] | 待核验 | Stage 04-C：接入统一 Manager 并保留跨路由实例 |
-| [[ai/plan/task-0400-editor-provider-boundary-audit]] | 待核验 | Stage 04-D：审查 Manager 是否含业务硬编码 |
-| [[ai/plan/task-0401-editor-workbench-session-owner]] | 待核验 | Stage 05-A：统一 Workbench 会话与外部进出边界 |
-| [[ai/plan/task-0402-editor-workbench-independent-explorer]] | 待核验 | Stage 05-B：解耦 Explorer 类型与活动实例 |
-| [[ai/plan/task-0403-editor-workbench-resource-activation]] | 待核验 | Stage 05-C：混合资源打开、实例激活和显式定位 |
-| [[ai/plan/task-0404-editor-workbench-command-scopes]] | 待核验 | Stage 05-D：按 Workbench/Explorer/Instance/Selection 路由命令 |
-| [[ai/plan/task-0405-editor-workbench-host-and-empty-state]] | 待核验 | Stage 05-E：稳定栏位、临时场景和空 Workbench |
-| [[ai/plan/task-0406-editor-workbench-cross-business-validation]] | 待核验 | Stage 05-F：完成跨业务集成场景验收 |
-| [[ai/plan/task-0407-editor-explorer-provider-identities]] | 待核验 | Stage 06-A：明确资源身份与树放置身份契约 |
-| [[ai/plan/task-0408-editor-explorer-state-owner]] | 待核验 | Stage 06-B：迁移通用浏览状态所有权 |
-| [[ai/plan/task-0409-editor-explorer-dom-interactions]] | 待核验 | Stage 06-C：统一交互并保持树 DOM 稳定 |
-| [[ai/plan/task-0410-editor-explorer-search-and-reveal]] | 待核验 | Stage 06-D：实现可恢复搜索与显式定位生命周期 |
-| [[ai/plan/task-0411-editor-explorer-shared-presentation]] | 待核验 | Stage 06-E：收敛 Explorer 公共表现契约 |
-| [[ai/plan/task-0412-editor-explorer-story-world-migration]] | 待核验 | Stage 06-F：迁移 Story/World 并退出旧浏览控制器 |
-| [[ai/plan/task-0413-editor-workbench-ownership-audit]] | 待核验 | Stage 07-A：核验最终唯一状态所有者 |
-| [[ai/plan/task-0414-editor-workbench-remove-transitional-paths]] | 待核验 | Stage 07-B：删除无消费者的过渡路径 |
-| [[ai/plan/task-0415-editor-workbench-provider-guide]] | 待核验 | Stage 07-C：编写可追踪至真实代码的接入指南 |
-| [[ai/plan/task-0416-editor-workbench-visual-knowledge]] | 待核验 | Stage 07-D：增量维护 Workbench 视觉知识 |
-| [[ai/plan/task-0417-editor-workbench-final-integration]] | 待核验 | Stage 07-E：按风险完成集中验证 |
-| [[ai/plan/task-0418-editor-workbench-final-delivery]] | 待核验 | Stage 07-F：最终交付、任务收尾并停止 |
+| Task 0391（已归档：`ai/plan/task-0391-editor-workbench-dev-navigation-validation.md`） | 已完成 | Stage 02.5-D 交付摘要见 Task 0386 |
+| Task 0392（已归档：`ai/plan/task-0392-editor-instance-story-contract.md`） | 已完成 | Stage 03-A 调查摘要见 Task 0386 |
+| Task 0393（已归档：`ai/plan/task-0393-editor-instance-manager-core.md`） | 已完成 | Stage 03-B 交付摘要见 Task 0386 |
+| Task 0394（已归档：`ai/plan/task-0394-editor-instance-activation-atomicity.md`） | 已完成 | Stage 03-C 交付摘要见 Task 0386 |
+| Task 0395（已归档：`ai/plan/task-0395-editor-instance-story-lifecycle.md`） | 已完成 | Stage 03-D 交付摘要见 Task 0386 |
+| Task 0396（已归档：`ai/plan/task-0396-editor-instance-story-authority-removal.md`） | 已完成 | Stage 03-E / Stage03 集中验收摘要见 Task 0386 |
+| Task 0397（已归档：`ai/plan/task-0397-editor-world-provider.md`） | 已完成 | Stage 04-A 摘要见 Task 0386；当前推进 0398 |
+| Task 0398（已归档：`ai/plan/task-0398-editor-world-single-instance-policy.md`） | 已完成 | Stage 04-B 摘要见 Task 0386；当前推进 0399 |
+| Task 0399（已归档：`ai/plan/task-0399-editor-world-manager-integration.md`） | 已完成 | Stage 04-C 摘要见 Task 0386；当前推进 0400 |
+| Task 0400（已归档：`ai/plan/task-0400-editor-provider-boundary-audit.md`） | 已完成 | Stage 04-D / Stage04集中验收摘要见 Task 0386；当前推进 0401 |
+| Task 0401（已归档：`ai/plan/task-0401-editor-workbench-session-owner.md`） | 已完成 | Stage 05-A 摘要见 Task 0386；当前推进 0402 |
+| Task 0402（已归档：`ai/plan/task-0402-editor-workbench-independent-explorer.md`） | 已完成 | Stage 05-B 摘要见 Task 0386；当前推进 0403 |
+| Task 0403（已归档：`ai/plan/task-0403-editor-workbench-resource-activation.md`） | 已完成 | Stage 05-C 摘要见 Task 0386；当前推进 0404 |
+| Task 0404（已归档：`ai/plan/task-0404-editor-workbench-command-scopes.md`） | 已完成 | Stage 05-D 摘要见 Task 0386；当前推进 0405 |
+| Task 0405（已归档：`ai/plan/task-0405-editor-workbench-host-and-empty-state.md`） | 已完成 | Stage 05-E 摘要见 Task 0386；Story/World 浏览器行为留待手动验收 |
+| Task 0406（已归档：`ai/plan/task-0406-editor-workbench-cross-business-validation.md`） | 已完成 | Stage 05-F 自动化集中验收摘要见 Task 0386；浏览器交互待手动验收 |
+| Task 0407（已归档：`ai/plan/task-0407-editor-explorer-provider-identities.md`） | 已完成 | Stage 06-A 身份契约摘要见 Task 0386 |
+| Task 0408（已归档：`ai/plan/task-0408-editor-explorer-state-owner.md`） | 已完成 | Stage 06-B 公共 Explorer 状态 owner 摘要见 Task 0386 |
+| Task 0409（已归档：`ai/plan/task-0409-editor-explorer-dom-interactions.md`） | 已完成 | Stage 06-C 交互绑定/DOM 稳定摘要见 Task 0386 |
+| Task 0410（已归档：`ai/plan/task-0410-editor-explorer-search-and-reveal.md`） | 已完成 | Stage 06-D 搜索与显式定位摘要见 Task 0386 |
+| Task 0411（已归档：`ai/plan/task-0411-editor-explorer-shared-presentation.md`） | 已完成 | Stage 06-E 公共 Explorer 表现契约摘要见 Task 0386 |
+| Task 0412（已归档：`ai/plan/task-0412-editor-explorer-story-world-migration.md`） | 已完成 | Stage 06-F Explorer 迁移摘要见 Task 0386 |
+| Task 0413（已归档：`ai/plan/task-0413-editor-workbench-ownership-audit.md`） | 已完成 | Stage 07-A 唯一状态所有者审计见 Task 0386 |
+| Task 0414（已归档：`ai/plan/task-0414-editor-workbench-remove-transitional-paths.md`） | 已完成 | Stage 07-B 过渡路径清理摘要见 Task 0386 |
+| Task 0415（已归档：`ai/plan/task-0415-editor-workbench-provider-guide.md`） | 已完成 | Stage 07-C Provider 接入指南见 Workspace 机制页 |
+| Task 0416（已归档：`ai/plan/task-0416-editor-workbench-visual-knowledge.md`） | 已完成 | Stage 07-D Authoring Workbench/Explorer 视觉知识见 ui-style |
+| [[ai/plan/task-0417-editor-workbench-final-integration]] | 已完成 | Stage 07-E：按风险完成集中验证 |
+| [[ai/plan/task-0418-editor-workbench-final-delivery]] | 施工中 | Stage 07-F：最终交付、任务收尾并停止 |
 
 ## 其他活动 Task
 
