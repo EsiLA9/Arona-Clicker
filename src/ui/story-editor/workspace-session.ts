@@ -1,4 +1,5 @@
-import type { BrowseInstance, BrowseInstanceSeed } from '../workspace/browse-instance-manager';
+import type { BrowseInstance, BrowseInstancePresentation, BrowseInstanceSeed } from '../workspace/browse-instance-manager';
+import { renderStoryDocumentIcon } from '../workspace/editor-directory';
 import { createStoryBrowseViewState, type StoryBrowseViewState, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { editorWorkspaceEdges } from '../workspace/editor-workspace';
 
@@ -56,9 +57,14 @@ export function restoreStoryBrowseInstanceState(state: StoryBrowseInstanceState,
 
 export type StoryBrowseInstance = BrowseInstance<StoryBrowseInstanceState>;
 
+export function storyBrowseInstancePresentation(title: string, target?: StoryEditorTarget): BrowseInstancePresentation {
+  const typeLabel = target?.kind === 'entry' ? 'Entry' : 'Story';
+  return { title, typeLabel, ...(target ? { kind: target.kind, icon: renderStoryDocumentIcon(target.kind) } : {}) };
+}
+
 function storySeed(state: StoryBrowseInstanceState, resourceKey?: string, reuseKey?: string): BrowseInstanceSeed<StoryBrowseInstanceState> {
   return { providerKey: storyWorkType, resourceKey, reuseKey, state,
-    presentation: { title: state.document?.name ?? '查阅故事', kind: state.document?.target.kind } };
+    presentation: storyBrowseInstancePresentation(state.document?.name ?? '查阅故事', state.document?.target) };
 }
 
 export function createStoryBrowseInstance(): StoryBrowseInstanceState {
@@ -99,5 +105,5 @@ export function createStoryTargetBrowseSeed(
   state.snapshot.visits = [{ target: { ...copiedTarget }, selectedNodeId: null, insertionBeforeNodeId: null, centerScroll: 0, rightScroll: 0 }];
   state.snapshot.visitIndex = 0;
   state.document = { target: copiedTarget, name: metadata.name, packId: metadata.packId, draftId: metadata.draftId };
-  return { ...seed, ...identity, presentation: { title: metadata.name, kind: target.kind } };
+  return { ...seed, ...identity, presentation: storyBrowseInstancePresentation(metadata.name, target) };
 }

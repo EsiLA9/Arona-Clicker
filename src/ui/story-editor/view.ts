@@ -1,4 +1,4 @@
-import { renderEditorDirectoryTools } from '../workspace/editor-directory';
+import { renderEditorDirectoryTools, renderEditorExplorerSearch } from '../workspace/editor-directory';
 import { renderEditorDirectoryScroll } from '../workspace/editor-directory-scroll';
 import { editorLayout } from '../workspace/editor-workspace';
 import type { BrowseInstanceSnapshot } from '../workspace/browse-instance-manager';
@@ -12,6 +12,7 @@ import { renderStoryClickAppearance } from '../components/story/story';
 import { renderPublicDescriptionField, renderStoryAuthoringEntryRelations, renderStoryAuthoringTools, renderStoryEntryFields, renderStoryPreviewEntrySelect } from './authoring-view';
 import { renderStoryTransfer } from './transfer-view';
 import { renderStoryCardOverview, renderStoryEditorTarget, storyEditorTargetColor } from './target-view';
+import type { createStoryDirectoryManagement } from './directory-management';
 import { renderStoryEditorScene } from './scene-view';
 import { renderStoryRelations } from './relations-view';
 import { createStoryPreviewFrame } from './preview-view';
@@ -25,7 +26,7 @@ import { type WorkspaceColumnSpec, workspaceColumns } from '../components/shared
 import { renderWorkspaceTitlebar } from '../components/shared/workspace-titlebar';
 import { renderEditorTool, renderEditorToolGroup } from '../workspace/editor-workspace';
 import { storyEditingMods } from './identity';
-import type { EditorWorkbenchBusinessChrome } from '../workspace/editor-workbench';
+import type { EditorWorkbenchBusinessChrome, EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { currentAuthoringDraft, storyEntries, storyEditorTargetKey } from './model';
 import { renderTabs } from '../components/shared/tabs';
@@ -356,7 +357,6 @@ function storyRibbonTools(ctx: UIContext, state: StoryEditorState, draft: StoryD
   if (state.preview) return renderEditorToolGroup('试播',
     tool('restart', '从头试播', 'restart-preview', { kind: 'authoring', large: true })
     + tool('stop', '关闭试播', 'close-preview', { kind: 'authoring', large: true }));
-  if (state.directoryManagement) return renderEditorToolGroup('目录管理', tool('back', '返回编辑', 'directory-back', { kind: 'editor', large: true }));
 
   const entry = state.target?.kind === 'entry';
   const hasDocument = Boolean(state.target);
@@ -385,8 +385,8 @@ export function storyEditorBusinessChrome(ctx: UIContext, state: StoryEditorStat
   const name = storyEditorDocumentName(ctx, state);
   const entry = state.target?.kind === 'entry';
   const hasEntry = entry && storyEntries(state, ctx.game.registry.storyEntries).has(state.target!.id);
-  const temporaryView = Boolean(state.preview || state.directoryManagement);
-  const title = state.preview ? '剧情试播' : state.directoryManagement?.title() ?? name ?? '故事编辑';
+  const temporaryView = Boolean(state.preview);
+  const title = state.preview ? '剧情试播' : name ?? '故事编辑';
   const source = draft?.packSource?.label ?? (state.sourceSelection?.startsWith('pack:')
     ? state.sourceOptions?.find(option => option.value === state.sourceSelection)?.label : undefined) ?? '当前游戏';
   const access = state.storageBlocked ? '草稿存储不可用' : state.readOnlyReason ? '只读'
@@ -396,7 +396,7 @@ export function storyEditorBusinessChrome(ctx: UIContext, state: StoryEditorStat
   const issues = !entry && !temporaryView ? draft?.editorIssues ?? [] : [];
   const canLocate = issues.some(issue => issue.nodeId);
   return {
-    temporaryView, viewOverride: temporaryView ? 'three' : undefined, instancesVisible: Boolean(state.directoryManagement),
+    temporaryView, viewOverride: temporaryView ? 'three' : undefined,
     canDuplicate: !temporaryView && Boolean(state.target
       && !(instances.instances.find(instance => instance.id === instances.activeBrowseInstanceId)?.state as StoryBrowseInstanceState | undefined)?.unavailable),
     commands: editorLayout.state.mode === 'advanced' ? storyRibbonTools(ctx, state, draft, documentActions(ctx, state, hasEntry)) : '',
@@ -412,7 +412,8 @@ const emptyExplorerState: EditorExplorerStateSnapshot = { queries: {}, expandedP
   expandedOverrides: {}, searchExpandedOverrides: {}, scrollTopByHost: {} };
 
 export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorState, explorerState: StoryExplorerState,
-  projection: StoryExplorerProjection, explorer: EditorExplorerStateSnapshot = emptyExplorerState, senderEnabled = false): WorkspaceColumnSpec {
+  projection: StoryExplorerProjection, explorer: EditorExplorerStateSnapshot = emptyExplorerState, senderEnabled = false,
+  activeResourceKey?: string): WorkspaceColumnSpec {
   const e = ctx.escapeHtml;
   const directoryContext = storySourceContext(ctx, projection);
   const appliedDirectories = directoryContext.game.registry.storyDirectories;
@@ -460,7 +461,8 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
       `, "sidebar-tools")}
       ${filterSummary ? `<div class="story-editor-sidebar-summary" data-editor-key="sidebar-summary"><span title="${e(filterSummary)}">${e(filterSummary)}</span><button type="button" class="mini-action" data-sidebar-action="clear">清除筛选</button></div>` : ''}
       <div class="story-editor-sidebar-filters" id="story-editor-sidebar-filters" data-editor-key="sidebar-filters"${explorerState.filtersOpen ? '' : ' hidden'}>
-        <input type="search" aria-label="搜索名称或 ID" data-editor-key="sidebar-query" data-sidebar-search data-editor-explorer-query="${explorerState.directoryMode === 'entries' ? 'entries' : 'stories'}" ${explorerState.directoryMode === 'entries' ? 'data-editor-entry-search' : 'data-editor-search'} value="${e(query)}" placeholder="名称或 ID">
+        ${renderEditorExplorerSearch(ctx, { query, channel: explorerState.directoryMode === 'entries' ? 'entries' : 'stories',
+          attributes: 'data-editor-key="sidebar-query" data-sidebar-search' })}
         <label>世界线<select data-editor-key="story-init-filter" data-editor-story-init-filter>
           <option value=""${initFilter ? '' : ' selected'}>全部</option><option value="other"${initFilter === 'other' ? ' selected' : ''}>其他</option>
           ${initIds.map(initId => `<option value="${e(initId)}"${initId === initFilter ? ' selected' : ''}>${e(initName(initId))}</option>`).join('')}
@@ -469,11 +471,12 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
           `<button type="button" class="mini-action" data-column-action="story-editor-sidebar:${kind}" aria-pressed="${explorerState.directoryMode === kind}">${{ all: '全部', stories: 'Story', entries: 'Entry' }[kind]}</button>`).join('')}</div>
       </div>
       ${renderEditorDirectoryScroll(ctx, 'stories', 'story-list', 'story-editor-list', projection.available
-        ? renderSidebarTree(directoryContext, state, explorerState, projection, initIds, initFilter, appliedDirectories, explorer)
+        ? renderSidebarTree(directoryContext, explorerState, projection, initIds, initFilter, appliedDirectories, explorer, activeResourceKey)
         : `<p class="story-editor-hint" role="status">${e(projection.sourceWarning ?? '当前目录来源暂不可用。')}</p>`)}
     </section>
     <section class="story-editor-sidebar-pane story-editor-senders-content" data-editor-key="sidebar-senders" aria-label="发出方"${isSenderMode ? '' : ' hidden'}>
-      <label class="story-editor-search">搜索发出方<input type="search" data-editor-key="sender-search" data-editor-sender-search data-editor-explorer-query="senders" value="${ctx.escapeHtml(explorer.queries.senders ?? '')}" placeholder="名称或 ID"></label>
+      ${renderEditorExplorerSearch(ctx, { query: explorer.queries.senders ?? '', channel: 'senders', label: '搜索发出方', className: 'story-editor-search',
+        attributes: 'data-editor-key="sender-search" data-editor-sender-search' })}
       ${draft ? '' : empty('先选择或新建一个 Story。')}
       ${renderEditorDirectoryScroll(ctx, 'senders', 'sender-list', 'story-editor-sender-list', visibleSenders.map(sender => `<button type="button" class="story-editor-list-item story-editor-sender-item${sender.id === selectedSender ? ' is-selected' : ''}" data-editor-key="sender:${e(sender.id)}" data-editor-sender="${e(sender.id)}" aria-pressed="${sender.id === selectedSender}"${!draft || (state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>${senderAvatar(documentContext, sender)}<strong>${e(sender.label)}</strong></button>`).join('') || empty('没有匹配的发出方。'))}
     </section>
@@ -481,8 +484,10 @@ export function createStoryEditorListColumn(ctx: UIContext, state: StoryEditorSt
 }
 
 export function createStoryEditorExplorerColumn(ctx: UIContext, state: StoryEditorState, explorerState: StoryExplorerState,
-  projection: StoryExplorerProjection, explorer: EditorExplorerStateSnapshot = emptyExplorerState, senderEnabled = false): WorkspaceColumnSpec {
-  const column = createStoryEditorListColumn(ctx, state, explorerState, projection, explorer, senderEnabled);
+  projection: StoryExplorerProjection, explorer: EditorExplorerStateSnapshot = emptyExplorerState, senderEnabled = false,
+  activeResourceKey?: string,
+  ): WorkspaceColumnSpec {
+  const column = createStoryEditorListColumn(ctx, state, explorerState, projection, explorer, senderEnabled, activeResourceKey);
   return { ...column, key: 'editor-explorer', definitionId: 'editor-explorer', bindingKey: 'story-explorer' };
 }
 function editorHistoryHeader(ctx: UIContext, state: StoryEditorState, title: string): string {
@@ -540,24 +545,6 @@ export function createStoryEditorBusinessColumns(ctx: UIContext, state: StoryEdi
   if (state.preview) return [...workspaceColumns(createStoryPreviewFrame(storySourceContext(ctx, state), state))];
   const columns: WorkspaceColumnSpec[] = [];
   ctx = storySourceContext(ctx, state);
-  const directory = state.directoryManagement;
-  if (directory) {
-    const { initId, directoryId } = directory.location();
-    const bindingKey = JSON.stringify(['directory', initId, directoryId]);
-    const title = directory.title();
-    columns.push(
-      { ...baseColumn(ctx, state, 'story-editor-flow', 'center', title), bindingKey,
-        header: renderWorkspaceTitlebar(ctx, 'center', title, undefined,
-          editorLayout.state.mode === 'advanced' ? undefined : '<button type="button" class="workspace-back" data-editor-action="directory-back" aria-label="返回编辑" title="返回编辑">←</button>')
-          + `<div class="story-editor-entry-tabs" data-editor-key="directory-tabs">${directory.renderTabs()}</div>`,
-        bodyOverlay: '',
-        content: `<section aria-label="目录内容" data-editor-key="directory-content">${directory.renderContent()}</section>` },
-      { ...baseColumn(ctx, state, 'story-editor-inspector', 'right', '层级与手动资料'), bindingKey,
-        content: `<section aria-label="目录资料" data-editor-key="directory-details">${directory.renderDetails()}</section>`,
-        footer: `<p class="story-editor-hint" role="status"${directory.status() ? '' : ' hidden'}>${ctx.escapeHtml(directory.status())}</p>` },
-    );
-    return columns;
-  }
   if(state.target?.kind!=='entry')state.entryPoolContext=undefined;
   if (state.target?.kind === 'entry') {
     const entry = storyEntries(state, ctx.game.registry.storyEntries).get(state.target.id);
@@ -580,4 +567,22 @@ export function createStoryEditorBusinessColumns(ctx: UIContext, state: StoryEdi
       content: `<div data-editor-key="entry-inspector" data-editor-entry-page="${ctx.escapeHtml(state.target.id)}">${renderStoryRelations(ctx,state)}${renderStoryFlagCatalog(ctx,state)}</div>` });
   } else columns.push(createStoryEditorFlowColumn(ctx, state), createStoryEditorInspectorColumn(ctx, state));
   return columns;
+}
+
+export function createStoryDirectoryBusinessProjection(ctx: UIContext,
+  directory: ReturnType<typeof createStoryDirectoryManagement>, instanceKey: string,
+  bind: (root: HTMLElement) => () => void): EditorWorkbenchBusinessProjection {
+  const title = directory.title();
+  const columns: WorkspaceColumnSpec[] = [
+    createEditorWorkspaceColumn(ctx, { key: 'editor-content', slot: 'center', bindingKey: instanceKey,
+      workspaceOwner: 'editor-workbench', hostId: 'directory-content', themeScope: 'center.story-directory', title,
+      accessory: `<div class="story-editor-entry-tabs" data-editor-key="directory-tabs">${directory.renderTabs()}</div>`,
+      content: `<section aria-label="目录内容" data-editor-key="directory-content">${directory.renderContent()}</section>`, bind }),
+    createEditorWorkspaceColumn(ctx, { key: 'editor-inspector', slot: 'right', bindingKey: instanceKey,
+      workspaceOwner: 'editor-workbench', hostId: 'directory-details', themeScope: 'right.story-directory', title: '层级与手动资料',
+      content: `<section aria-label="目录资料" data-editor-key="directory-details">${directory.renderDetails()}</section>`,
+      footer: `<p class="story-editor-hint" data-editor-key="directory-status" role="status"${directory.status() ? '' : ' hidden'}>${ctx.escapeHtml(directory.status())}${directory.hasWriteConflict()
+        ? ' <button type="button" class="mini-action" data-directory-action="reload-latest">放弃未保存输入并重新载入</button>' : ''}</p>`, bind }),
+  ];
+  return { columns, commands: '', canDuplicate: false, instancesVisible: true, status: directory.status() || '目录管理' };
 }

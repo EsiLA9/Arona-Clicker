@@ -29,6 +29,8 @@ export interface EditorWorkbenchBusinessChrome {
 
 export interface EditorWorkbenchBusinessProjection extends EditorWorkbenchBusinessChrome {
   readonly columns: readonly WorkspaceColumnSpec[];
+  /** Only a scoped temporary scene such as Story preview may replace the Explorer slot. */
+  readonly temporaryLeftColumn?: { readonly owner: 'story-preview'; readonly column: WorkspaceColumnSpec };
 }
 
 export interface EditorExplorerProjection {
@@ -67,9 +69,11 @@ export function createEditorWorkbenchChrome(context: EditorWorkbenchCompositionC
     instances: context.browseInstances.instances.filter(instance => instance.id === context.browseInstances.activeBrowseInstanceId
       || Boolean(instance.resourceKey || instance.presentation.kind)).map(instance => ({
       id: instance.id, title: instance.presentation.title,
-      typeLabel: instance.providerKey === worldWorkType ? 'World' : instance.presentation.kind === 'entry' ? 'Entry' : 'Story',
+      typeLabel: instance.providerKey === worldWorkType ? 'World' : instance.providerKey === 'story-directory' ? '目录'
+        : instance.presentation.kind === 'entry' ? 'Entry' : 'Story',
       label: instance.presentation.title, icon: instance.providerKey === worldWorkType ? worldWorkIcon
-        : instance.presentation.kind ? renderStoryDocumentIcon(instance.presentation.kind === 'entry' ? 'entry' : 'story') : editorToolIcon('open'),
+        : instance.providerKey === 'story-directory' ? editorToolIcon('open')
+          : instance.presentation.kind ? renderStoryDocumentIcon(instance.presentation.kind === 'entry' ? 'entry' : 'story') : editorToolIcon('open'),
       active: instance.id === context.browseInstances.activeBrowseInstanceId,
     })),
     canDuplicate: business?.canDuplicate ?? false,
@@ -95,7 +99,13 @@ export class EditorWorkbench {
       browseInstances: this.browseInstances.snapshot(), layout: editorLayout.state,
     };
     const businessColumns = business?.columns ?? [];
-    const columns = [businessColumns.find(column => column.slot === 'left') ?? { ...explorer.column, bind: explorer.bindColumn },
+    const businessLeft = businessColumns.find(column => column.slot === 'left');
+    if (businessLeft) throw new Error('Business projection cannot provide a persistent Workbench Explorer column.');
+    if (business?.temporaryLeftColumn && (!business.temporaryView || business.temporaryLeftColumn.owner !== 'story-preview'
+      || business.temporaryLeftColumn.column.slot !== 'left')) {
+      throw new Error('A temporary left-column override requires an owner and an active temporary view.');
+    }
+    const columns = [business?.temporaryLeftColumn?.column ?? { ...explorer.column, bind: explorer.bindColumn },
       businessColumns.find(column => column.slot === 'center') ?? createEditorWorkspaceColumn(ctx, { key: 'editor-content', slot: 'center', bindingKey: 'empty-workbench',
         workspaceOwner: 'editor-workbench', hostId: 'editor-content', themeScope: 'center.editor', title: '内容',
         content: '<p class="editor-workbench-empty" role="status">从左侧目录打开资源，或切换工作类型。</p>' }),

@@ -76,6 +76,12 @@ export class EditorExplorerService {
     values.clear();
     for (const key of placementKeys) values.set(key, true);
   }
+  replaceExpansionOverrides(type: EditorExplorerType, overrides: Readonly<Record<string, boolean>>,
+    layer: EditorExplorerExpansionLayer = 'normal'): void {
+    const values = layer === 'search' ? this.state(type).searchExpanded : this.state(type).expanded;
+    values.clear();
+    for (const [key, expanded] of Object.entries(overrides)) values.set(key, expanded);
+  }
 
   selectPlacement(type: EditorExplorerType, placementKey?: string): void { this.state(type).selectedPlacementKey = placementKey; }
   selectPlacementInColumn(root: HTMLElement, type: EditorExplorerType, placementKey?: string): void {
@@ -89,6 +95,7 @@ export class EditorExplorerService {
     const row = [...root.querySelectorAll<HTMLElement>('[data-editor-placement-select][data-editor-placement-key]')]
       .find(candidate => candidate.dataset.editorPlacementKey === placementKey);
     if (!row) return false;
+    const expansionLayer = this.state(type).reveal ? 'search' : layer;
     this.selectPlacementInColumn(root, type, placementKey);
     let list = row.closest<HTMLUListElement>('ul');
     while (list && root.contains(list)) {
@@ -98,7 +105,7 @@ export class EditorExplorerService {
         const toggle = parent.querySelector<HTMLElement>(':scope > .editor-directory-heading > [data-editor-expand], :scope > [data-editor-expand]');
         if (toggle) {
           const key = toggle.dataset.editorPlacementKey;
-          if (key) this.setExpanded(type, key, true, layer);
+          if (key) this.setExpanded(type, key, true, expansionLayer);
           setEditorDirectoryExpanded(toggle, true);
         } else list.hidden = false;
       }
@@ -139,7 +146,6 @@ export class EditorExplorerService {
   }
 
   bindColumn(root: HTMLElement, type: EditorExplorerType, options: {
-    expansionLayer?: (toggle: HTMLElement) => EditorExplorerExpansionLayer;
     onExpand?: (toggle: HTMLElement, open: boolean) => void;
     onQuery?: (channel: string, value: string, field: HTMLInputElement) => void;
   } = {}): () => void {
@@ -149,9 +155,11 @@ export class EditorExplorerService {
       const toggle = element?.closest<HTMLElement>('[data-editor-expand][data-editor-placement-key]');
       if (toggle && root.contains(toggle)) {
         const placementKey = toggle.dataset.editorPlacementKey!;
-        const layer = options.expansionLayer?.(toggle) ?? 'normal';
+        const queryChannel = root.querySelector<HTMLInputElement>('[data-editor-explorer-query]')?.dataset.editorExplorerQuery;
+        const layer = queryChannel && this.query(type, queryChannel).trim() || this.state(type).reveal ? 'search' : 'normal';
         const open = toggle.getAttribute('aria-expanded') !== 'true';
         this.setExpanded(type, placementKey, open, layer);
+        this.selectPlacementInColumn(root, type, placementKey);
         setEditorDirectoryExpanded(toggle, open);
         options.onExpand?.(toggle, open);
         event.preventDefault();

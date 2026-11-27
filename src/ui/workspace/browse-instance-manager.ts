@@ -4,6 +4,7 @@ export type BrowseInstanceId = string & { readonly __browseInstanceId: unique sy
 export interface BrowseInstancePresentation {
   readonly title: string;
   readonly kind?: string;
+  readonly typeLabel?: string;
   readonly icon?: string;
   readonly status?: string;
 }

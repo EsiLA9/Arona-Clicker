@@ -33,8 +33,16 @@
 
 .editor-directory-tools { display: flex; flex: none; flex-wrap: wrap; gap: 6px; }
 .editor-directory-tools .mini-action { min-height: 26px; padding: 3px 7px; }
+.editor-explorer-search { display: grid; flex: none; gap: 4px; font-size: 12px; }
+.editor-explorer-search input { width: 100%; min-width: 0; }
 .editor-directory-scroll-body { flex: 1; min-height: 0; overflow-y: auto; }
 .editor-directory-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-directory-name--strong { font-weight: 600; }
+.editor-directory-note { margin-inline-start: auto; color: var(--muted-on-panel); font-size: 10px; font-weight: 400; white-space: nowrap; }
+.editor-directory-note[data-editor-note-tone="自动"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--cyan)); }
+.editor-directory-note[data-editor-note-tone="手动"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--lime)); }
+.editor-directory-note[data-editor-note-tone="路径"] { color: color-mix(in srgb, var(--ink-on-panel) 70%, var(--orange)); }
+.editor-explorer-empty { margin: 0; padding: 20px 8px; color: var(--muted-on-panel); font-size: 12px; text-align: center; }
 .editor-directory-tree ul[hidden] { display: none; }
 .editor-directory-tree,
 .editor-directory-tree ul { list-style: none; margin: 0; padding: 0; }
@@ -60,6 +68,8 @@
 .editor-directory-row:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
 .editor-directory-row[aria-pressed="true"] { background: color-mix(in srgb, var(--cyan) 18%, var(--panel-light)); }
 .editor-directory-row[aria-pressed="true"]:hover { background: color-mix(in srgb, var(--cyan) 18%, var(--panel-light)); }
+.editor-directory-row.is-active-resource { box-shadow: inset 2px 0 var(--cyan); }
+.editor-directory-tree li[data-active-resource="true"] > .editor-directory-heading > .editor-directory-branch { box-shadow: inset 2px 0 var(--cyan); }
 .editor-directory-row small { margin-inline-start: auto; color: var(--muted-on-panel); }
 .editor-directory-heading { display: flex; align-items: center; gap: 4px; }
 .editor-directory-heading > .mini-action { flex: 0 0 26px; width: 26px; height: 26px; padding: 3px; border: 0; background: transparent; color: var(--muted-on-panel); opacity: .82; }

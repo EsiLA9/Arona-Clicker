@@ -7,7 +7,8 @@ function key(node: Node): string | null {
     if (node.classList.contains(role)) return role;
   }
   if (node.dataset.columnInstance) return `column:${node.dataset.columnInstance}`;
-  return node.dataset.editorKey ?? (node.dataset.editorAction ? `action:${node.dataset.editorAction}` : null);
+  return node.dataset.editorKey ?? (node.dataset.directoryField ? `directory-field:${node.dataset.directoryField}`
+    : node.dataset.editorAction ? `action:${node.dataset.editorAction}` : null);
 }
 function compatible(current: Node, next: Node): boolean {
   return current.nodeType === next.nodeType && (!(current instanceof Element) || current.tagName === (next as Element).tagName);

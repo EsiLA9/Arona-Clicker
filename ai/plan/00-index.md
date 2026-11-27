@@ -4,12 +4,18 @@
 
 ## Editor Workbench Roadmap
 
-Task 0386 记录原 Stage 02–07 Roadmap（已完成）。新的 Editor Workbench Convergence 施工依据与当前进度见 Task 0419–0422；四个 Task 按编号连续执行，完成后停止于 Stage H。旧 Roadmap 与历史人工浏览器验收记录仍保留供追溯，Task 0383／0384／0385 的真实浏览器验收仍待用户处理。
+Task 0386 记录原 Stage 02–07 Roadmap（已完成）。第二轮 Convergence 的总合同、依赖顺序与 8 份原始施工指令保存在 [[ai/plan/upper-chat-tasks/00-roadmap]] 与 upper-chat-tasks 源文件夹；正式任务编号及逐项施工内容见下表。Task 0421 与 0422 保留原编号；当前顺序为 0421、0423、0424、0425、0426、0422、0427、0428，完成 0428 后停止。upper-chat-tasks/00-index.md 是转换前输入快照；本文件是当前活动索引。源文件夹在独立复核完成前保留。旧 Task 0383／0384／0385 的真实浏览器验收仍待用户处理。
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0422-editor-convergence-search-integration]] | 待处理 | World 搜索/定位及 8 条连续回归和文档收尾 |
-| [[ai/plan/task-0421-editor-convergence-host-lifecycle]] | 进行中 | 公共 Host 绑定、命令、生命周期与局部刷新 |
+| [[ai/plan/task-0421-editor-convergence-host-lifecycle]] | 已完成 | CP1 九项回归已归因；CP2 Host/绑定迁移与旧入口退出完成；定向 5 suites / 96 tests 通过。待继续 0423 |
+| [[ai/plan/task-0423-story-directory-state]] | 已完成 | `StoryDirectoryManagementState` 成为目录状态唯一 payload；真实目录工厂消费它并按来源/写入绑定重建投影。3 suites / 61 tests 与静态检查通过，接续 0424 |
+| [[ai/plan/task-0424-story-directory-instance]] | 已完成 | `story-directory` Provider 已接入公共 Manager，归档目标独立，Story 特殊模式退出；3 suites / 27 tests 与静态检查通过。浏览器留用户手验，下一步 0425 |
+| [[ai/plan/task-0425-editor-explorer-node-contract]] | 已完成 | Story 真实 sidebar 已消费搜索前节点投影；2 suites / 27 tests 通过。私有搜索与递归渲染保留至必需后继 0426 |
+| [[ai/plan/task-0426-story-explorer-public-search]] | 已完成 | Story 已使用公共搜索投影、递归渲染和交互；4 suites / 86 tests 与静态检查通过，浏览器留用户手验。下一步 0422 |
+| [[ai/plan/task-0422-editor-convergence-search-integration]] | 已完成 | World 已接入 Story 同一公共 Explorer 管线并移除私有递归/滚动状态写入；4 suites / 88 tests 与静态检查通过，浏览器留用户手验。下一步 0427 |
+| [[ai/plan/task-0427-editor-instance-presentation]] | 进行中 | Browse Instance Provider 声明类型和表现，公共实例条停止猜测图标 |
+| [[ai/plan/task-0428-editor-convergence-final-integration]] | 待处理 | 完成连续行为矩阵、旧路径审计、接入文档与最终交付 |
 | Task 0391（已归档：`ai/plan/task-0391-editor-workbench-dev-navigation-validation.md`） | 已完成 | Stage 02.5-D 交付摘要见 Task 0386 |
 | Task 0392（已归档：`ai/plan/task-0392-editor-instance-story-contract.md`） | 已完成 | Stage 03-A 调查摘要见 Task 0386 |
 | Task 0393（已归档：`ai/plan/task-0393-editor-instance-manager-core.md`） | 已完成 | Stage 03-B 交付摘要见 Task 0386 |

@@ -93,7 +93,6 @@ export interface StoryEditorState extends StoryBrowseViewState {
   drafts: StoryDraft[];
   /** Session-only positioned previews, independently toggled per draft and node. */
   performanceEditing?: Record<string, string[]>;
-  directoryManagement?: ReturnType<typeof import('./directory-management').createStoryDirectoryManagement>;
   composers: Record<string, StoryComposer>;
   storageBlocked: boolean;
   copyStoryId?: string;

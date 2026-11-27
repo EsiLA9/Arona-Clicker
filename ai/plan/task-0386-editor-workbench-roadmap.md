@@ -162,9 +162,8 @@ Task 0387–0418 对应独立工作节点。执行依赖以本表为准，不机
 
 - Task 0419（已完成并归档至 `ai/archive/history.zip`）：抽出 Story Explorer state/projection。`StoryEditorController.explorerState` 是 Story Explorer 专属浏览状态 owner；目录查询投影不再合并为 StoryEditorState，来源解析与 Story instance 内容来源拆开，空 Manager 下构建 Explorer 不创建合成实例。定向 3 suites / 62 tests、TypeScript、architecture、docs 与 diff 均通过；无浏览器操作。
 - Task 0420（已完成）：Explorer 与活动实例 Provider 通过单一只读 Workbench projection 组合；公共 Frame/Chrome/slot 不再由 Story/World 分别构造。7 个相关 UI suites / 122 tests、TypeScript、architecture、docs 与 diff 通过；浏览器留用户手动验收。
-- Task 0420（已完成）：Provider 合同与唯一 Workbench combination projection；保持既有 `EditorWorkbench`、`WorkspaceFrame` 与 `WorkspaceColumns`，不新建 Host/Router/Manager。7 个相关 UI suites / 122 tests、TypeScript、architecture、docs 与 diff 通过；浏览器留用户手动验收。Task 文档归档后保留原路径于 `ai/archive/history.zip`。
-- Task 0421（当前）：在唯一 projection 上收公共绑定、命令作用域、activate/open/locate、生命周期失败恢复与局部 refresh。
-- Task 0422（后续）：接入 World 搜索/定位，做八条连续场景集成回归，完成文档和旧入口退出审计。本轮到此停止。
+
+第二轮收敛合同与完整来源文件见 [[ai/plan/upper-chat-tasks/00-roadmap]]。正式执行顺序为 Task 0421、0423、0424、0425、0426、0422、0427、0428；Task 0421 与 0422 保留编号，Task 0428 完成后停止。Task 0421 已完成：九项初始失败均归因并修复，CP2 公共 Workbench Host/事件入口迁移及已迁移旧入口退出是不可跳过的交付条件，最终相关定向验证为 5 suites / 96 tests 通过。Task 0423 已完成状态提取，但仅是 Task 0424 前置切片，不代表目录公共实例化完成。Task 0424 已完成：`story-directory` Provider 实际接入公共 Manager，Story 特殊目录模式退出，目录归档目标捕获且与活动 Story 解耦；3 suites / 27 tests、typecheck、architecture、docs 与 diff 检查通过。Task 0425 建立的公共节点结构已在 Task 0426 中接入真实 Story 搜索/渲染/绑定路径，Story 私有自由文本匹配和树递归已退出；相关 4 suites / 86 tests、typecheck、architecture、docs 与 diff 检查通过。当前推进 Task 0422：World 将接入同一公共 Explorer 执行管线，不能保留独立搜索或完整递归渲染。Task 0428 合并真实生产入口场景，避免为 A–H 覆盖维度制造重复测试。各项均按用户约定跳过浏览器验收，未提交或推送；详细检查点见对应 Task 文件。Task 0425–0428 的职责与依赖见 [[ai/plan/00-index]] 和各自任务文件。
 
 - 唯一布局 owner：`EditorLayoutService` / `editorLayout`，跨 Story、World 与所有 Browse Instance 持有 Classic/Advanced、视图、Ribbon 与期望栏宽。旧 per-workType key 仅用于迁移读取，不是活动写入口。
 - Workbench owner：`EditorWorkbench` 持有会话 theme/return、`activeExplorerType`、唯一 `BrowseInstanceManager` 与唯一 `EditorExplorerService`。Explorer type 只控制左栏；Manager 的 active ID 控制活动中右业务内容，二者独立。

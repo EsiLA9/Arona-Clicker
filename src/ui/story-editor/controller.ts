@@ -1,4 +1,3 @@
-import { setEditorDirectoryExpanded } from '../workspace/editor-directory';
 import { currentRelatedFlagCatalog, currentStoryFlagCatalog } from './flag-catalog-view';
 import { changeEntryActivation, defaultEntryActivation, type EntryActivation } from './entry-activation';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
@@ -14,6 +13,8 @@ import { storyCardStyle } from './target-view';
 import { isActiveEditingPack, openActiveEditingPackPicker } from '../components/shared/active-editing-pack-picker';
 import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
 import { createStoryDirectoryManagement } from './directory-management';
+import { createStoryDirectoryManagementState, type StoryDirectoryArchiveTarget, type StoryDirectoryManagementState, type StoryDirectoryResourceRef } from './directory-management-state';
+import { createStoryDirectoryBrowseSeed, resolveStoryDirectoryResourceRequest, storyDirectoryBrowseProviderKey, storyDirectoryResourceKey, type StoryDirectoryBrowseState } from './directory-instance';
 import { openConditionTreeDialog } from './condition-tree-dialog';
 import { conditionReferenceChoices } from './condition-reference-navi';
 import { storyReferenceDocuments } from './property-options';
@@ -34,7 +35,7 @@ import type { UIController } from '../controller/controller';
 import type { PanelState } from '../components/shared/app-shell';
 import type { UIContext } from '../runtime/context';
 import { createUIContext } from '../runtime/context';
-import { renderWorkspaceFrame, workspaceColumns, type WorkspaceFrameSpec } from '../components/shared/workspace-frame';
+import { renderWorkspaceFrame } from '../components/shared/workspace-frame';
 import { appendNode, bindStoryNodeToChoiceOption, bindStoryNodeToFlagReader, canBindStoryNodeToChoiceOption, canBindStoryNodeToFlagReader, composer, createStoryEditorState, currentDraft, currentNode, deleteNode, editNode, editNodeFlag, isGeneratedStoryNodeId, moveNode, moveNodeToInsertionPoint, newStory, renameStory, renameStoryChoiceOptionId, renameStoryLocalFlag, renameStoryNodeId, selectStory, setInsertionPoint, storyDefinitionFromDraft, suggestStoryNodeId, unbindStoryNodeFromChoiceOption, type StoryDraftNode } from './model';
 import { StoryDraftPersistence } from './persistence';
 import { ImageStore } from '../../data-services/assets/image-store';
@@ -43,16 +44,18 @@ import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { createStoryExplorerState, isLoadedStoryPack, parseStoryExplorerSource, storyExplorerSourceValue, storyPackCatalog, storyPackSource, storySourceGame,
   type StoryExplorerProjection } from './pack-source';
-import { createStoryEditorBusinessColumns, createStoryEditorExplorerColumn, storyEditorBusinessChrome, storyEditorDocumentName, storySenders } from './view';
+import { createStoryDirectoryBusinessProjection, createStoryEditorBusinessColumns, createStoryEditorExplorerColumn, storyEditorBusinessChrome, storyEditorDocumentName, storySenders } from './view';
 import { applyEditorWorkspaceWidths, editorLayout, editorWorkspaceViewAttributes, setEditorWorkspaceView, type EditorWorkspaceView, renderEditorWorkspaceRegions } from '../workspace/editor-workspace';
-import { captureStoryBrowseInstanceState, captureStoryInstanceState, restoreStoryBrowseInstanceState, restoreStoryInstanceState, createEmptyStoryBrowseInstance, createStoryBrowseInstanceSeed, createStoryTargetBrowseSeed, storyBrowseIdentity, editorPanels, storyEditorEdges, storyWorkType, type EditorScroll, type StoryBrowseInstance, type StoryBrowseInstanceState, type StoryInstanceScroll } from './workspace-session';
+import { captureStoryBrowseInstanceState, captureStoryInstanceState, restoreStoryBrowseInstanceState, restoreStoryInstanceState, createEmptyStoryBrowseInstance, createStoryBrowseInstanceSeed, createStoryTargetBrowseSeed, storyBrowseIdentity, storyBrowseInstancePresentation, editorPanels, storyEditorEdges, storyWorkType, type EditorScroll, type StoryBrowseInstance, type StoryBrowseInstanceState, type StoryInstanceScroll } from './workspace-session';
 import type { BrowseInstanceId } from '../workspace/browse-instance-manager';
 import type { EditorBrowseInstanceState } from '../workspace/editor-browse-instances';
 import type { EditorExplorerProjection, EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
+import { editorResourceOpenRequest, type EditorResourceOpenRequest } from '../workspace/editor-resource-request';
 import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch, storyExplorerResourceIdentity } from './sidebar-tree';
 import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
 import { storyEditorSceneTarget } from './scene-view';
 import { patchEditorDOM } from './dom';
+import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
 import { hasStoryNodeOverlay } from './property-fields';
 import { addRow, editProperty, editStoryNodeBody, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
 import type { Discriminator, PropertyPath } from './property-model';
@@ -198,9 +201,6 @@ export class StoryEditorController {
   private previewSignature = '';
   private previewReturnScroll?: Record<'left' | 'center' | 'right', number> & { launchKey?: string };
   private pendingVisit?: StoryEditorVisit;
-  private directoryReturn?: StoryEditorVisit;
-  private directoryBrowseProjection?: StoryExplorerProjection;
-  private directoryPlacement?: 'story' | 'entry';
   private pendingDirectoryReveal = false;
   private selectionNaviOpen = false;
   private editorDialog?: HTMLElement;
@@ -228,9 +228,198 @@ export class StoryEditorController {
   private get advanced() { return editorLayout.state.mode === 'advanced'; }
   private get explorerSnapshot() { return this.explorer.snapshot('story'); }
   private queryChannel(mode = this.explorerState.directoryMode): string { return this.explorerState.auxiliaryTool === 'senders' ? 'senders' : mode === 'entries' ? 'entries' : 'stories'; }
+  directoryExplorerSourceKey(): string { return storyExplorerSourceValue(this.explorerState.source); }
+  directoryRootResource(initId = this.ctrl.game.state.activeInit): StoryDirectoryResourceRef {
+    return { sourceKey: this.directoryExplorerSourceKey(), initId, logicalDirectoryKey: '' };
+  }
+  directoryArchiveRequest(): { resource: StoryDirectoryResourceRef; target: StoryDirectoryArchiveTarget } | undefined {
+    const target = this.state.target;
+    const draft = currentAuthoringDraft(this.state);
+    if (!target || !draft || this.state.storageBlocked || this.state.readOnlyReason || this.writeBlocked) return undefined;
+    const selection = this.state.sourceSelection ?? '';
+    const sourceProjection = this.syncStoryExplorerSource(parseStoryExplorerSource(selection) ?? { kind: 'runtime' });
+    const document = target.kind === 'story' ? draft.document
+      : storyEntries({ drafts: sourceProjection.drafts }, sourceProjection.sourceRegistry?.storyEntries ?? this.registry.storyEntries).get(target.id);
+    if (!document) return undefined;
+    const initId = target.kind === 'story'
+      ? (document as StoryDraft['document']).initId ?? this.ctrl.game.state.activeInit
+      : ((document as StoryEntryDef).availableInits[0] ?? this.ctrl.game.state.activeInit);
+    const logicalDirectoryKey = target.kind === 'story'
+      ? (document as StoryDraft['document']).directoryId ?? ''
+      : (document as StoryEntryDef).directoryPlacements?.find(row => row.initId === initId)?.directoryId ?? '';
+    const modName = this.registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
+    const packSource = draft.packSource;
+    return {
+      resource: { sourceKey: this.directoryExplorerSourceKey(), initId, logicalDirectoryKey, ownerModName: modName },
+      target: { kind: target.kind, id: target.id, sourceKey: selection, draftId: draft.draftId,
+        targetPackId: draft.targetPackId, modName, initId, expectedDigest: packSource?.digest },
+    };
+  }
+  createDirectoryBrowseSeed(resource: StoryDirectoryResourceRef, archiveTarget?: StoryDirectoryArchiveTarget) {
+    const normalized = parseStoryExplorerSource(resource.sourceKey) ?? { kind: 'runtime' as const };
+    const sourceProjection = this.syncStoryExplorerSource(normalized);
+    const packId = normalized.kind === 'pack' && this.packSource(normalized.packId)?.packRecordId === normalized.packId
+      ? normalized.packId : !resource.sourceKey && resource.ownerModName ? this.packQuery.getRunningStoryPackId?.(resource.ownerModName) : undefined;
+    const packSource = packId ? this.packSource(packId) : undefined;
+    const writeBinding = packSource && storyEditingMods(this.ctrl.game).some(pack => (pack.packRecordId ?? pack.id) === packId)
+      ? { packRecordId: packId!, modName: packSource.modName, expectedDigest: packSource.digest, purpose: 'directory' as const }
+      : undefined;
+    const management = createStoryDirectoryManagementState({ resource: { ...resource }, writeBinding, archiveTarget });
+    const title = this.buildDirectoryManagement(management).title();
+    return createStoryDirectoryBrowseSeed({ management }, title);
+  }
+  directoryBusinessProjection(ctx: UIContext, instance: import('../workspace/browse-instance-manager').BrowseInstance<StoryDirectoryBrowseState>): EditorWorkbenchBusinessProjection {
+    const management = this.buildDirectoryManagement(instance.state.management);
+    return createStoryDirectoryBusinessProjection(ctx, management, instance.id, root => this.bindDirectoryInstance(root, instance));
+  }
+  private bindDirectoryInstance(root: HTMLElement, instance: import('../workspace/browse-instance-manager').BrowseInstance<StoryDirectoryBrowseState>): () => void {
+    const abort = new AbortController();
+    const options = { signal: abort.signal };
+    const managementState = instance.state.management;
+    const currentDirectory = () => this.buildDirectoryManagement(managementState);
+    root.addEventListener('click', event => {
+      const element = event.target instanceof Element ? event.target : null;
+      const childResource = element?.closest<HTMLElement>('[data-editor-resource-provider="story-directory"]');
+      if (childResource && root.contains(childResource)) {
+        const request = editorResourceOpenRequest(childResource, 'instance-link');
+        const resource = request && resolveStoryDirectoryResourceRequest(request);
+        if (!resource || !this.ctrl.openStoryDirectoryResource(resource, managementState.archiveTarget)) {
+          this.ctrl.toast.show('目标目录无法打开；归档目标和当前目录工作状态已保留。', 'error');
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const reference = element?.closest<HTMLButtonElement>('[data-directory-reference-kind]');
+      if (reference && root.contains(reference)) {
+        event.preventDefault();
+        event.stopPropagation();
+        const kind = reference.dataset.directoryReferenceKind;
+        const id = reference.dataset.directoryReferenceId;
+        const sourceKey = reference.dataset.directoryReferenceSource ?? managementState.resource.sourceKey;
+        const opened = kind === 'directory' && id
+          ? this.ctrl.openStoryDirectoryResource({ sourceKey, initId: reference.dataset.directoryReferenceInit ?? managementState.resource.initId,
+              logicalDirectoryKey: id, ownerModName: reference.dataset.directoryReferenceOwner ?? id.split(':')[0] })
+          : (kind === 'story' || kind === 'entry') && id
+            ? this.openDirectoryDocumentReference(kind, id, sourceKey)
+            : false;
+        if (!opened) this.ctrl.toast.show('关联资源无法打开；当前目录工作状态已保留。', 'error');
+        return;
+      }
+      const action = element?.closest<HTMLButtonElement>('[data-directory-create], [data-directory-action], [data-column-action^="directory-tab:"]');
+      if (!action || !root.contains(action) || action.disabled) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const focusSnapshot = captureFocusWithin(this.ctrl.root);
+      const focusedField = document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement
+        ? document.activeElement : undefined;
+      const selection = focusedField && 'selectionStart' in focusedField
+        ? [focusedField.selectionStart, focusedField.selectionEnd] as const : undefined;
+      if (action.dataset.directoryAction === 'reload-latest') {
+        const binding = managementState.writeBinding;
+        const latest = binding && this.packSource(binding.packRecordId);
+        if (!binding || !latest || !isActiveEditingPack(this.packQuery, binding.packRecordId, binding.modName)) {
+          this.ctrl.toast.show('原编辑态包已不可用；输入仍保留在此目录实例中。', 'error');
+          return;
+        }
+        if (!window.confirm('重新载入会丢弃此目录实例的未保存输入，并采用当前编辑态包版本。继续吗？')) return;
+        managementState.writeBinding = { ...binding, expectedDigest: latest.digest };
+        managementState.working = { editingDesign: false, values: new Map(), moving: false, moveQuery: '',
+          moveParent: undefined, sorting: undefined, removing: false, status: '已载入编辑态包的最新版本。' };
+        this.ctrl.render();
+        return;
+      }
+      const creation = action.dataset.directoryCreate;
+      if (creation) {
+        const owner = action.dataset.directoryCreateOwner;
+        this.closeEditorDialog();
+        this.editorDialog = openActiveEditingPackPicker(this.ctrl.modal, {
+          catalog: this.packQuery, escapeHtml: createUIContext(this.editorGame).escapeHtml,
+          trigger: action, accept: pack => !owner || pack.modName === owner,
+          onClose: () => { this.editorDialog = undefined; },
+          onSelect: packId => {
+            if (this.browseInstances.activeId !== instance.id) return;
+            const pack = this.packSource(packId);
+            if (!pack || !isActiveEditingPack(this.packQuery, packId, pack.modName)) {
+              managementState.working.status = '该包已不在当前活跃的编辑态中，目录修改仍保留。';
+              this.ctrl.render();
+              return;
+            }
+            managementState.writeBinding = { packRecordId: packId, modName: pack.modName,
+              expectedDigest: pack.digest, purpose: 'new-directory' };
+            this.buildDirectoryManagement(managementState).action(creation, root);
+            this.ctrl.render();
+          },
+        });
+        return;
+      }
+      currentDirectory().action(action.dataset.directoryAction ?? action.dataset.columnAction?.slice('directory-'.length) ?? '', root);
+      this.syncDirectoryBrowseIdentity(instance);
+      this.ctrl.render();
+      restoreFocusWithin(this.ctrl.root, focusSnapshot);
+      if (selection && document.activeElement instanceof HTMLInputElement || selection && document.activeElement instanceof HTMLTextAreaElement) {
+        const active = document.activeElement as HTMLInputElement | HTMLTextAreaElement;
+        active.setSelectionRange(selection[0], selection[1]);
+      }
+    }, options);
+    root.addEventListener('input', event => {
+      const field = event.target;
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement)
+        || !field.hasAttribute('data-directory-field')) return;
+      const directory = currentDirectory();
+      const update = directory.input(field);
+      if (update === 'preview') {
+        const preview = root.querySelector<HTMLElement>('[data-directory-preview]');
+        if (preview) {
+          const next = preview.cloneNode(false) as HTMLElement;
+          next.innerHTML = directory.renderPreview();
+          patchEditorDOM(preview, next, removed => this.ctrl.popovers.dismissBeforeRootMutation(removed));
+        }
+      } else if (update === 'region') {
+        const current = root.querySelector<HTMLElement>('[data-editor-key="directory-details"]');
+        if (current) {
+          const next = current.cloneNode(false) as HTMLElement;
+          next.innerHTML = directory.renderDetails();
+          patchEditorDOM(current, next, removed => this.ctrl.popovers.dismissBeforeRootMutation(removed));
+        }
+      }
+    }, options);
+    root.addEventListener('change', event => {
+      const field = event.target;
+      if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement)
+        || !field.hasAttribute('data-directory-field')) return;
+      currentDirectory().input(field);
+    }, options);
+    return () => abort.abort();
+  }
+
+  openDirectoryDocumentReference(kind: 'story' | 'entry', id: string, sourceKey: string): boolean {
+    return this.openFromExplorer({ kind, id }, sourceKey);
+  }
+
+  private syncDirectoryBrowseIdentity(instance: import('../workspace/browse-instance-manager').BrowseInstance<StoryDirectoryBrowseState>): void {
+    const state = instance.state;
+    const resourceKey = storyDirectoryResourceKey(state.management.resource);
+    if (resourceKey === instance.resourceKey && resourceKey === instance.reuseKey) return;
+    const collision = this.browseInstances.findReusable(storyDirectoryBrowseProviderKey, resourceKey);
+    if (collision && collision.id !== instance.id) {
+      state.unavailable = { reason: '目录身份已被另一个打开的实例占用；当前工作状态已保留，请处理冲突后再继续。' };
+      this.ctrl.toast.show(state.unavailable.reason, 'error');
+      return;
+    }
+    const title = this.buildDirectoryManagement(state.management).title();
+    const updated = this.browseInstances.update(instance.id, { resourceKey, reuseKey: resourceKey,
+      presentation: { ...instance.presentation, title, kind: 'directory', icon: 'directory' } });
+    if (!updated.ok) {
+      state.unavailable = { reason: updated.message };
+      this.ctrl.toast.show(updated.message, 'error');
+    }
+  }
   createExplorerColumn(ctx: UIContext, snapshot = this.explorerSnapshot) {
+    const active = this.browseInstances.active;
     return createStoryEditorExplorerColumn(ctx, this.state, this.explorerState, this.syncStoryExplorerSource(), snapshot,
-      this.isOpen() && this.browseInstances.active?.providerKey === storyWorkType);
+      this.isOpen() && active?.providerKey === storyWorkType,
+      active?.providerKey === storyWorkType || active?.providerKey === storyDirectoryBrowseProviderKey ? active.resourceKey : undefined);
   }
   explorerProjection(ctx: UIContext, snapshot = this.explorerSnapshot): EditorExplorerProjection {
     return { type: 'story', state: snapshot, column: this.createExplorerColumn(ctx, snapshot), bindColumn: root => {
@@ -242,12 +431,17 @@ export class StoryEditorController {
   businessProjection(ctx: UIContext): EditorWorkbenchBusinessProjection {
     if (this.browseInstances.active?.providerKey === storyWorkType && this.state.target) this.syncBrowseInstanceIdentity();
     const instances = this.browseInstances.snapshot();
-    return { columns: createStoryEditorBusinessColumns(ctx, this.state).map(column => ({ ...column, bind: root => this.bind(root) })),
+    const projectedColumns = createStoryEditorBusinessColumns(ctx, this.state).map(column => ({ ...column,
+      onBack: column.key === 'editor-inspector' ? () => { this.action('info'); this.requestRefresh(); } : column.onBack,
+      bind: (root: HTMLElement) => this.bind(root),
+    }));
+    const previewLeft = this.state.preview ? projectedColumns.find(column => column.slot === 'left') : undefined;
+    return { columns: projectedColumns.filter(column => column !== previewLeft),
+      ...(previewLeft ? { temporaryLeftColumn: { owner: 'story-preview', column: previewLeft } } : {}),
       ...storyEditorBusinessChrome(ctx, this.state, instances) };
   }
   workspaceBack(): void {
     if (this.preview) { this.closeAuthoringPreview(); this.requestRefresh(); }
-    else if (this.state.directoryManagement) { this.closeDirectoryManagement(); this.requestRefresh(); }
     else this.close();
   }
   private revealExplorerTarget(target: StoryEditorTarget | null | undefined): void {
@@ -472,7 +666,6 @@ export class StoryEditorController {
     const state = this.state;
     const previous = currentAuthoringDraft(state);
     this.rememberVisit();
-    this.closeDirectoryManagement();
     this.sourceVisits.set(state.sourceSelection ?? '', { visits: state.visits, index: state.visitIndex });
     const history = this.sourceVisits.get(selection);
     state.sourceSelection = selection || undefined;
@@ -488,7 +681,6 @@ export class StoryEditorController {
       || item.entryOnly === previous?.entryOnly && item.document.id === previous?.document.id);
     if (draft) {
       state.target = draft.entryOnly ? { kind: 'entry', id: draft.entryOnly } : { kind: 'story', id: draft.document.id };
-      if (!this.advanced) this.revealExplorerTarget(state.target);
       this.pushVisit(); this.syncSource();
     } else {
       const last = state.visits[state.visitIndex]?.target;
@@ -562,7 +754,6 @@ export class StoryEditorController {
       ?? (this.registry.stories.has(storyId) ? `source:${storyId}` : undefined);
   }
   private captureVisit(): StoryEditorVisit | undefined {
-    if (this.state.directoryManagement) return this.directoryReturn;
     const target = this.state.target;
     if (!target) return;
     return { target: { ...target }, selectedNodeId: this.state.selectedNodeId, insertionBeforeNodeId: this.state.insertionBeforeNodeId,
@@ -646,6 +837,40 @@ export class StoryEditorController {
     this.ctrl.render();
     return true;
   }
+  openResourceRequest(request: EditorResourceOpenRequest): boolean {
+    if (request.resource.providerKey !== storyWorkType
+      || request.resource.kind !== 'story' && request.resource.kind !== 'entry'
+      || !request.resource.id) return false;
+    const target = { kind: request.resource.kind, id: request.resource.id } as StoryEditorTarget;
+    const source = request.sourceKey ?? storyExplorerSourceValue(this.explorerState.source);
+    const normalized = parseStoryExplorerSource(source);
+    if (!normalized) return false;
+    const projection = this.syncStoryExplorerSource(normalized);
+    const expected = this.storyBrowseSeed(target, source, projection).resourceKey;
+    if (expected !== request.resource.resourceKey) return false;
+    return this.openFromExplorer(target, source);
+  }
+  duplicateActiveResource(): boolean {
+    if (!this.isOpen() || !this.state.target) return false;
+    const previousId = this.browseInstances.activeId;
+    this.openBrowseTarget(this.state.target, true);
+    const duplicated = Boolean(this.browseInstances.activeId && this.browseInstances.activeId !== previousId);
+    if (duplicated) this.requestRefresh();
+    return duplicated;
+  }
+  locateActiveResource(): boolean {
+    const target = this.state.target;
+    if (!this.isOpen() || !target) return false;
+    this.ctrl.setActiveEditorExplorer('story');
+    this.revealWorkspaceLeft();
+    this.explorerState.auxiliaryTool = undefined;
+    this.explorerState.source = parseStoryExplorerSource(this.state.sourceSelection ?? '') ?? { kind: 'runtime' };
+    this.syncStoryExplorerSource();
+    this.revealExplorerTarget(target);
+    this.requestRefresh();
+    this.ctrl.flushUIUpdates();
+    return true;
+  }
   openStoryKeyFromExplorer(key: string, source = storyExplorerSourceValue(this.explorerState.source)): boolean {
     const id = this.state.drafts.find(draft => draft.draftId === key)?.document.id
       ?? (key.startsWith('source:') ? key.slice('source:'.length) : undefined);
@@ -686,10 +911,7 @@ export class StoryEditorController {
   }
   private browseTarget(target: StoryEditorTarget, historyIndex?: number): void {
     if (!this.hasTarget(target)) return;
-    if (historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) {
-      this.closeDirectoryManagement();
-      return;
-    }
+    if (historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
     if (!this.save(false, false)) return;
     this.selectBrowseTarget(target, historyIndex);
   }
@@ -703,14 +925,13 @@ export class StoryEditorController {
     if(this.state.target?.kind==='entry'){
       const body=this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
       const scrolls=this.entryTabScroll.get(this.state.target.id)??{};
-      scrolls[this.state.entryEditorTab??'basic']=this.directoryReturn?.centerScroll??body?.scrollTop??0;
+      scrolls[this.state.entryEditorTab??'basic']=body?.scrollTop??0;
       this.entryTabScroll.set(this.state.target.id,scrolls);
       this.entryTabs.set(this.state.target.id,this.state.entryEditorTab??'basic');
     }
     const visit = historyIndex === undefined
       ? [...this.state.visits].reverse().find(visit => visit.target.kind === target.kind && visit.target.id === target.id)
       : this.state.visits[historyIndex];
-    this.closeDirectoryManagement();
     this.closeAuthoringPreview(); this.previewReturnScroll = undefined; this.closeThemeContentEdit();
     if (target.kind === 'story') {
       if (!this.selectDocument(this.storyKey(target.id)!)) return;
@@ -736,10 +957,7 @@ export class StoryEditorController {
     if (historyIndex !== undefined) this.state.visitIndex = historyIndex;
     else this.pushVisit();
     this.pendingVisit = visit;
-    if (!this.advanced) {
-      this.explorerState.auxiliaryTool = undefined;
-      this.revealExplorerTarget(target);
-    }
+    if (!this.advanced) this.explorerState.auxiliaryTool = undefined;
     if (keepFlagInspector && target.kind === 'story') this.restoreInspectorScroll();
     this.browseStateOwner.state.unavailable = false;
     this.state.notice = null;
@@ -752,11 +970,25 @@ export class StoryEditorController {
     }
   }
 
-  prepareManagedBrowseActivation(instance: import('../workspace/browse-instance-manager').BrowseInstance<EditorBrowseInstanceState>): boolean {
-    return instance.providerKey === storyWorkType && this.restoreBrowseInstance(instance as StoryBrowseInstance, false, true);
+  prepareManagedBrowseActivation(instance: import('../workspace/browse-instance-manager').BrowseInstance<EditorBrowseInstanceState>): (() => void) | undefined {
+    if (instance.providerKey !== storyWorkType) return undefined;
+    let previous: ReturnType<typeof captureStoryInstanceState>;
+    let candidate: ReturnType<typeof captureStoryBrowseInstanceState>;
+    try {
+      previous = captureStoryInstanceState(this.state);
+      candidate = captureStoryBrowseInstanceState((instance as StoryBrowseInstance).state);
+    } catch { return undefined; }
+    if (!this.restoreBrowseInstance(instance as StoryBrowseInstance, false, true)) return undefined;
+    return () => {
+      restoreStoryInstanceState(this.state, previous);
+      restoreStoryBrowseInstanceState((instance as StoryBrowseInstance).state, candidate);
+      try { this.syncSource(true); } catch { /* Keep the pre-activation Story state available. */ }
+      this.requestRefresh();
+    };
   }
-  isOpen(): boolean { return !this.disposed && this.ctrl.panelState.workspaceNavigation?.current.kind === 'story-editor'
-    && this.browseInstances.active?.providerKey === storyWorkType; }
+  isOpen(): boolean {
+    return !this.disposed && this.ctrl.workbench.isOpen && this.browseInstances.active?.providerKey === storyWorkType;
+  }
   dispose(): void {
     this.unbindWorkspace();
     this.inlineText.dispose();
@@ -778,7 +1010,6 @@ export class StoryEditorController {
     if (this.isOpen()) return;
     const enteringWorkbench = !this.ctrl.workbench.isOpen;
     if (!this.loaded) { this.persistence.load(this.state); this.loaded = true; }
-    this.ctrl.captureActiveEditorInstanceState();
     const previousActive = this.browseInstances.active;
     const rememberedStory = this.browseInstances.lastActive(storyWorkType);
     if (!rememberedStory) {
@@ -853,7 +1084,7 @@ export class StoryEditorController {
     if (!this.isOpen()) return true;
     const saved = this.save(false, false);
     if (saved) {
-      this.closeAuthoringPreview(); this.closeDirectoryManagement(); this.previewReturnScroll = undefined;
+      this.closeAuthoringPreview(); this.previewReturnScroll = undefined;
       this.nodeMenu.close(); this.closeSelectionNavi(); this.closeEditorDialog(); this.requiredFlagDropdown.close(); this.closeThemeContentEdit();
       this.rememberBrowseInstance();
     }
@@ -905,16 +1136,13 @@ export class StoryEditorController {
       && current.presentation.title === name && current.presentation.kind === target.kind) return;
     const updated = this.browseInstances.update(instance.id, {
       ...identity,
-      presentation: { title: name, kind: target.kind },
+      presentation: storyBrowseInstancePresentation(name, target),
     });
     if (!updated.ok) throw new Error(updated.message);
   }
 
   private activateBrowseInstance(next: StoryBrowseInstance): void {
-    if (this.activeBrowseInstance.id === next.id && !next.state.unavailable) {
-      if (this.state.directoryManagement) this.closeDirectoryManagement();
-      return;
-    }
+    if (this.activeBrowseInstance.id === next.id && !next.state.unavailable) return;
     if (this.activeBrowseInstance.id === next.id) {
       if (!this.save(false, false)) return;
       this.restoreBrowseInstance(next, false, true);
@@ -939,7 +1167,7 @@ export class StoryEditorController {
   }
 
   private restoreBrowseInstance(next: StoryBrowseInstance, commitActive = true, allowUnavailable = true): boolean {
-    if (this.state.preview || this.state.directoryManagement) return false;
+    if (this.state.preview) return false;
     let previous: ReturnType<typeof captureStoryInstanceState>;
     let nextPrevious: ReturnType<typeof captureStoryBrowseInstanceState>;
     try { previous = captureStoryInstanceState(this.state); }
@@ -1050,10 +1278,7 @@ export class StoryEditorController {
     if (sameSource && !this.hasTarget(target)) return;
     if (!sameSource && source.startsWith('pack:') && !this.packSource(source.slice(5))) return;
     const current = this.activeBrowseInstance;
-    if (!duplicate && sameSource && this.state.target?.kind === target.kind && this.state.target.id === target.id) {
-      this.closeDirectoryManagement();
-      return;
-    }
+    if (!duplicate && sameSource && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
     const seed = this.storyBrowseSeed(target, source);
     const reusableRecord = duplicate ? undefined : this.browseInstances.findReusable(storyWorkType, seed.reuseKey);
     const reusable = reusableRecord?.providerKey === storyWorkType ? reusableRecord as StoryBrowseInstance : undefined;
@@ -1108,6 +1333,10 @@ export class StoryEditorController {
         return this.ctrl.enterEditorRoute('world-editor')
           ? { ok: true, value: undefined }
           : { ok: false, message: 'The World editor route could not be activated.' };
+      }
+      if (successor.providerKey === storyDirectoryBrowseProviderKey) {
+        if (!this.save(false, false)) return { ok: false, message: 'The current Story session refused to leave.' };
+        return { ok: true, value: undefined };
       }
       if (!this.save(false, false)) return { ok: false, message: 'The current Story session refused to leave.' };
       if (successor.providerKey !== storyWorkType) return { ok: false, message: 'The successor is not a Story browse instance.' };
@@ -1178,11 +1407,6 @@ export class StoryEditorController {
       if (intent === 'mode' || intent === 'back') return;
       if (this.state.preview) {
         if (element.dataset.authoringAction === 'restart-preview' || element.dataset.authoringAction === 'close-preview') this.authoringClick(element);
-      } else if (this.state.directoryManagement) {
-        if (action === 'directory-back') {
-          this.closeDirectoryManagement();
-          this.requestBrowseDirectoryReveal();
-        }
       } else if (editorLayout.state.mode === 'advanced') {
         if (intent === 'open') {
           this.revealWorkspaceLeft();
@@ -1197,15 +1421,6 @@ export class StoryEditorController {
             this.locateIssue(draft, issue.path);
             this.revealNodeId = this.state.selectedNodeId;
           }
-        } else if (intent === 'duplicate' && this.state.target) {
-          this.openBrowseTarget(this.state.target, true);
-        } else if (intent === 'locate' && this.state.target) {
-          this.ctrl.setActiveEditorExplorer('story');
-          this.revealWorkspaceLeft();
-          this.explorerState.auxiliaryTool = undefined;
-          this.explorerState.source = parseStoryExplorerSource(this.state.sourceSelection ?? '') ?? { kind: 'runtime' };
-          this.syncStoryExplorerSource();
-          this.revealExplorerTarget(this.state.target);
         } else if (action === 'open-pack-manager') {
           if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
           return;
@@ -1256,44 +1471,15 @@ export class StoryEditorController {
     patchEditorDOM(header, nextHeader, beforeRemove);
   }
 
-  private setSidebarFolder(toggle: HTMLElement, open: boolean): void {
-    const id = toggle.dataset.sidebarFolder;
-    if (!id || !setEditorDirectoryExpanded(toggle, open)) return;
-    this.explorer.setExpanded('story', id, open, sidebarSearch(this.explorerState, this.explorerSnapshot).trim() ? 'search' : 'normal');
-    if (toggle.hasAttribute('data-sidebar-deferred')) this.refreshSidebar();
-    else refreshEditorDirectoryScrollbars(this.ctrl.root);
-  }
-
   private revealSidebarSelection(): void {
     const list = this.editorScrollHost('left');
     if (!list || this.explorerState.auxiliaryTool === 'senders') return;
     const column = list.closest<HTMLElement>('.story-editor-left') ?? list;
-    if (!this.state.directoryManagement) {
-      const row = [...list.querySelectorAll<HTMLElement>('.story-editor-tree-item[aria-pressed="true"]')]
-        .find(item => !item.closest('ul[hidden]'));
-      const key = row?.dataset.editorPlacementKey;
-      if (key) this.explorer.revealPlacement(column, 'story', key,
-        sidebarSearch(this.explorerState, this.explorerSnapshot).trim() ? 'search' : 'normal');
-      return;
-    }
-    const selector = this.state.directoryManagement ? '[data-editor-directory="folder"][aria-pressed="true"]' : '.story-editor-tree-item[aria-pressed="true"]';
-    let row = [...list.querySelectorAll<HTMLElement>(selector)].find(item => !item.closest('ul[hidden]'));
-    if (!row) return;
-    let branch = row.closest('ul') as HTMLElement | null;
-    while (branch && branch !== list) {
-      if (branch instanceof HTMLUListElement && branch.hidden) {
-        const toggle = branch.parentElement?.querySelector<HTMLElement>(':scope > .editor-directory-heading > [data-sidebar-folder]');
-        if (toggle) this.setSidebarFolder(toggle, true);
-      }
-      branch = branch.parentElement;
-    }
-    row = [...list.querySelectorAll<HTMLElement>(selector)].find(item => !item.closest('ul[hidden]'));
-    if (!row) return;
-    const host = list.getBoundingClientRect();
-    const target = row.getBoundingClientRect();
-    if (target.top < host.top) list.scrollTop -= host.top - target.top;
-    else if (target.bottom > host.bottom) list.scrollTop += target.bottom - host.bottom;
-    row.focus({ preventScroll: true });
+    const row = [...list.querySelectorAll<HTMLElement>('[data-editor-resource-provider][data-editor-resource-key][data-editor-placement-select][aria-pressed="true"]')]
+      .find(item => !item.closest('ul[hidden]'));
+    const key = row?.dataset.editorPlacementKey;
+    if (key) this.explorer.revealPlacement(column, 'story', key,
+      sidebarSearch(this.explorerState, this.explorerSnapshot).trim() ? 'search' : 'normal');
   }
 
   refresh(ctx: UIContext): boolean {
@@ -1341,7 +1527,7 @@ export class StoryEditorController {
           const matches = [...current.querySelectorAll<HTMLElement>(':scope > [data-column-instance]')].filter(column => column.dataset.columnInstance === id);
           const mounted = matches.find(column => this.ctrl.columns.node(id) === column) ?? matches[0];
           for (const duplicate of matches) if (duplicate !== mounted) duplicate.remove();
-          if (mounted) patchEditorDOM(mounted, nextColumn, root => {
+          if (mounted && mounted.outerHTML !== nextColumn.outerHTML) patchEditorDOM(mounted, nextColumn, root => {
             this.nodeMenu.dismissBeforeMutation(root);
             this.ctrl.popovers.dismissBeforeRootMutation(root);
           });
@@ -1420,7 +1606,6 @@ export class StoryEditorController {
       if (body) body.scrollTop = this.pendingEntryScroll;
       this.pendingEntryScroll = undefined;
     }
-    this.state.directoryManagement?.restoreTabScroll(this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body'));
     if (this.revealNodeId) {
       const nodeId = this.revealNodeId;
       const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-center .workspace-column__body');
@@ -1469,8 +1654,7 @@ export class StoryEditorController {
     const options = { signal: abort.signal };
     const unbindScrollbars = bindEditorDirectoryScrollbars(root);
     const unbindInteractions = this.explorer.bindColumn(root, 'story', {
-      expansionLayer: () => sidebarSearch(this.explorerState, this.explorerSnapshot).trim() ? 'search' : 'normal',
-      onExpand: toggle => { if (toggle.hasAttribute('data-sidebar-deferred')) this.refreshSidebar(); },
+      onExpand: toggle => { if (toggle.hasAttribute('data-editor-expand-deferred')) this.refreshSidebar(); },
       onQuery: () => this.refreshSidebar(),
     });
     root.addEventListener('change', event => {
@@ -1570,12 +1754,9 @@ export class StoryEditorController {
     const click = (event: Event): void => {
       const menu = this.ctrl.root.querySelector<HTMLDetailsElement>('.story-editor-sidebar-ops[open]');
       if (menu && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
-      const sidebar = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sidebar-folder], [data-sidebar-action]') : null;
+      const sidebar = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sidebar-action]') : null;
       if (!this.advanced && sidebar && root.contains(sidebar)) {
-        if (sidebar.dataset.sidebarFolder) {
-          this.setSidebarFolder(sidebar, sidebar.getAttribute('aria-expanded') !== 'true');
-          return;
-        } else if (sidebar.dataset.sidebarAction === 'filters') {
+        if (sidebar.dataset.sidebarAction === 'filters') {
           this.explorerState.filtersOpen = !this.explorerState.filtersOpen;
         } else {
           this.explorer.setQuery('story', 'stories', ''); this.explorer.setQuery('story', 'entries', ''); this.explorerState.initFilter = '';
@@ -1765,58 +1946,9 @@ export class StoryEditorController {
         if (!choiceCondition.disabled) this.editChoiceCondition(choiceCondition);
         return;
       }
-      const directoryTrigger = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-editor-directory]') : null;
-      if (directoryTrigger && root.contains(directoryTrigger)) {
-        if (!directoryTrigger.disabled) {
-          const { editorDirectory, directoryInitId, directoryFolderId, directoryOwner } = directoryTrigger.dataset;
-          const browseProjection = directoryTrigger.closest('.story-editor-left') ? this.syncStoryExplorerSource() : undefined;
-          this.editStoryDirectory(editorDirectory, directoryInitId === undefined ? undefined : { initId: directoryInitId, directoryId: directoryFolderId ?? '' }, directoryOwner, undefined, browseProjection);
-        }
-        return;
-      }
-      const directoryRef = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-directory-reference-kind]') : null;
-      if (directoryRef && root.contains(directoryRef) && this.state.directoryManagement) {
-        const { directoryReferenceSource: source, directoryReferenceKind: kind, directoryReferenceId: id, directoryReferenceInit: initId } = directoryRef.dataset;
-        if (!id || !kind) return;
-        if (source && source !== this.state.sourceSelection) {
-          this.selectSource(source);
-          if (source !== this.state.sourceSelection) return;
-        }
-        if (kind === 'directory') this.editStoryDirectory('folder', { initId: initId ?? '', directoryId: id }, this.registry.storyDirectories.get(id)?.modName);
-        else if (kind === 'story' || kind === 'entry') this.browseTarget({ kind, id });
-        this.requestRefresh();
-        return;
-      }
-      const directoryAction = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-directory-create], [data-directory-action], [data-column-action^="directory-tab:"], [data-editor-action="directory-back"]') : null;
-      if (directoryAction && root.contains(directoryAction) && this.state.directoryManagement) {
-        if (directoryAction.disabled) return;
-        const creation = directoryAction.dataset.directoryCreate;
-        if (creation) {
-          const management = this.state.directoryManagement;
-          const owner = directoryAction.dataset.directoryCreateOwner;
-          this.closeEditorDialog();
-          this.editorDialog = openActiveEditingPackPicker(this.ctrl.modal, {
-            catalog: this.packQuery, escapeHtml: createUIContext(this.editorGame).escapeHtml,
-            trigger: directoryAction,
-            accept: pack => !owner || pack.modName === owner,
-            onClose: () => { this.editorDialog = undefined; },
-            onSelect: packId => {
-              if (this.state.directoryManagement !== management) return;
-              this.editStoryDirectory('folder', management.location(), undefined, packId);
-              this.state.directoryManagement?.action(creation, root);
-              this.requestRefresh();
-            },
-          });
-          return;
-        }
-        if (directoryAction.dataset.editorAction === 'directory-back'
-          || this.state.directoryManagement.action(directoryAction.dataset.directoryAction ?? directoryAction.dataset.columnAction?.slice('directory-'.length) ?? '', root)) this.closeDirectoryManagement();
-        this.requestRefresh();
-        return;
-      }
       const authorTarget = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-value-action], [data-authoring-add], [data-authoring-init-rewards], [data-authoring-add-condition-reward], [data-authoring-copy], [data-authoring-catalog], [data-authoring-action], [data-authoring-preview-option]') : null;
       if (authorTarget && root.contains(authorTarget)) { this.authoringClick(authorTarget); this.requestRefresh(); return; }
-      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-story], [data-editor-entry], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
+      const element = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-resource-provider], [data-story-insertion-before], [data-story-insertion-end], [data-editor-action], [data-editor-entry-target], [data-editor-sender], [data-column-action^="story-editor-entry-tab:"], [data-column-action^="story-editor-inspector-tab:"], [data-column-action^="story-editor-sidebar:"], [data-column-action^="story-editor-node-type:"], [data-story-row-action], [data-story-init-branch], [data-story-init-condition], [data-story-init-object], [data-story-init-value], [data-story-remove-readonly], [data-story-rename-node-id], [data-story-rename-option-id], [data-story-choice-flag-unbind]') : null;
       if (!element || !root.contains(element) || element instanceof HTMLButtonElement && element.disabled) { select(event); return; }
       if (element.hasAttribute('data-editor-resource-provider')) return;
       if (element.hasAttribute('data-story-insertion-before') || element.hasAttribute('data-story-insertion-end')) {
@@ -1824,7 +1956,6 @@ export class StoryEditorController {
         if (setInsertionPoint(this.state, beforeNodeId)) this.requestRefresh();
         return;
       }
-      const source = element.dataset.editorStory;
       const sender = element.dataset.editorSender;
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
       const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
@@ -1880,15 +2011,8 @@ export class StoryEditorController {
       if (sender) {
         const draft = currentDraft(this.state);
         if (draft && storySenders(createUIContext(this.editorGame)).some(item => item.id === sender)) composer(this.state).sender = sender;
-      } else if (element.dataset.sidebarOpenSource !== undefined) {
-        const id = element.dataset.editorEntry ?? element.dataset.sidebarStoryId;
-        if (id) this.openBrowseTarget({ kind: element.dataset.editorEntry ? 'entry' : 'story', id }, false, element.dataset.sidebarOpenSource);
-      } else if (element.dataset.editorEntry) {
-        this.openBrowseTarget({ kind: 'entry', id: element.dataset.editorEntry });
       } else if (element.dataset.editorEntryTarget) {
         this.browseTarget({ kind: 'entry', id: element.dataset.editorEntryTarget });
-      } else if (source) {
-        this.browseStory(source, true);
       } else if (element.hasAttribute('data-story-remove-readonly')) this.removeReadonlyProperty(element);
       else if (element.dataset.storyRowAction || element.dataset.storyConditionAdd || element.dataset.storyInitBranch || element.dataset.storyInitCondition || element.dataset.storyInitObject !== undefined || element.dataset.storyInitValue) this.propertyAction(element);
       else {
@@ -1900,20 +2024,6 @@ export class StoryEditorController {
     const input = (event: Event): void => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) return;
-      if (target.hasAttribute('data-directory-field')) {
-        const directory = this.state.directoryManagement;
-        const update = directory?.input(target);
-        if (update === 'region') this.requestRefresh();
-        if (directory && update === 'preview') {
-          const preview = root.querySelector<HTMLElement>('[data-directory-preview]');
-          if (preview) {
-            const next = preview.cloneNode(false) as HTMLElement;
-            next.innerHTML = directory.renderPreview();
-            patchEditorDOM(preview, next, removed => this.ctrl.popovers.dismissBeforeRootMutation(removed));
-          }
-        }
-        return;
-      }
       if (target.hasAttribute('data-editor-source')) {
         if (!this.advanced) this.selectSource(target.value);
         return;
@@ -2518,8 +2628,7 @@ export class StoryEditorController {
     return { left: this.editorScrollPosition('left'), center: this.editorScrollPosition('center'), right: this.editorScrollPosition('right') };
   }
   private captureInstanceScroll(): StoryInstanceScroll {
-    return { center: this.directoryReturn?.centerScroll ?? this.editorScrollPosition('center'),
-      right: this.directoryReturn?.rightScroll ?? this.editorScrollPosition('right') };
+    return { center: this.editorScrollPosition('center'), right: this.editorScrollPosition('right') };
   }
   private restoreEditorScroll(scroll: EditorScroll): void {
     for (const panel of editorPanels) {
@@ -2982,7 +3091,6 @@ export class StoryEditorController {
           this.rememberVisit();this.closeAuthoringPreview();this.closeThemeContentEdit();
           const draft = newStory(this.state,record.manifest.modName,known,id);this.state.targetPackId=id;
           if (this.state.sourceOptions) draft.packSource = this.packSource(id);
-          if (!this.advanced) this.revealExplorerTarget(this.state.target);
           this.state.inspectorView=undefined;this.state.storyInspectorTab='overview';this.pushVisit();
           this.ctrl.modal.close();this.requestRefresh();
         } catch (error) {
@@ -3077,15 +3185,6 @@ export class StoryEditorController {
     this.editorDialog = undefined;
   }
 
-  private closeDirectoryManagement(): void {
-    if (!this.state.directoryManagement) return;
-    this.state.directoryManagement = undefined;
-    this.pendingVisit = this.directoryReturn;
-    this.directoryReturn = undefined;
-    this.directoryBrowseProjection = undefined;
-    this.directoryPlacement = undefined;
-  }
-
   private directoryReferences(packId: string, id: string, automatic: boolean) {
     const own = this.packSource(packId)?.modName;
     const refs = new Map<string, StoryDirectoryReference & { source?: string; sourceLabel?: string }>();
@@ -3119,65 +3218,58 @@ export class StoryEditorController {
     return [...refs.values()];
   }
 
-  private editStoryDirectory(requested?: string, location?: { initId: string; directoryId: string }, directoryOwner?: string,
-    creationPack?: string, browseProjection?: StoryExplorerProjection): void {
-    const activeKind = this.state.target?.kind;
-    const mode = requested === 'browse' && activeKind ? activeKind : requested === 'folder' ? this.directoryPlacement ?? requested : requested;
-    const current = this.state.directoryManagement?.location();
-    if (!creationPack && current && location && current.initId === location.initId && current.directoryId === location.directoryId) return;
-    const draft = mode === 'entry' ? currentAuthoringDraft(this.state) : mode === 'story' ? currentDraft(this.state) : undefined;
-    const sourceProjection = mode === 'story' || mode === 'entry' ? {
-      source: parseStoryExplorerSource(this.state.sourceSelection ?? '') ?? { kind: 'runtime' as const },
-      sourceOptions: this.state.sourceOptions ?? [], drafts: [...this.state.drafts, ...(this.state.parkedDrafts ?? [])],
-      sourceRegistry: this.state.sourceRegistry, sourcePics: this.state.sourcePics, sourceWarning: this.state.sourceWarning,
-      sourceMod: this.state.sourceMod, runtimeScope: '', available: true,
-    } satisfies StoryExplorerProjection : browseProjection ?? this.directoryBrowseProjection ?? this.syncStoryExplorerSource();
+  private buildDirectoryManagement(state: StoryDirectoryManagementState) {
+    const resource = state.resource;
+    const source = parseStoryExplorerSource(resource.sourceKey) ?? { kind: 'runtime' as const };
+    const sourceProjection = this.syncStoryExplorerSource(source);
+    const archiveSource = state.archiveTarget && state.archiveTarget.sourceKey !== resource.sourceKey
+      ? parseStoryExplorerSource(state.archiveTarget.sourceKey) : undefined;
+    const archiveProjection = archiveSource ? this.syncStoryExplorerSource(archiveSource) : sourceProjection;
     const ctx = createUIContext(storySourceGame(this.ctrl.game, sourceProjection));
     const registry = ctx.game.registry;
-    const directoryDrafts = [...sourceProjection.drafts];
-    const entries = storyEntries({ drafts: directoryDrafts }, registry.storyEntries);
-    const entryId = mode === 'entry' && this.state.target?.kind === 'entry' ? this.state.target.id : undefined;
-    const entry = entryId ? [...(draft?.authoring?.activeStories ?? []), ...(draft?.authoring?.passiveStories ?? [])].find(row => row.id === entryId) : undefined;
-    const story = mode === 'story' ? draft?.document : undefined;
-    const id = (entry ?? story)?.id;
-    const stories = new Map<string, import('../../arona-clicker/content/story/story-directory').StoryDirectoryDocument>(registry.stories);
+    const directoryDrafts = [...new Map([...sourceProjection.drafts, ...archiveProjection.drafts].map(draft => [draft.draftId, draft])).values()];
+    const archiveRegistry = archiveProjection.sourceRegistry ?? registry;
+    const entryRegistry = new Map([...registry.storyEntries, ...archiveRegistry.storyEntries]);
+    const entries = storyEntries({ drafts: directoryDrafts }, entryRegistry);
+    const targetRef = state.archiveTarget;
+    const id = targetRef?.id;
+    const draft = targetRef?.draftId
+      ? [...this.state.drafts, ...(this.state.parkedDrafts ?? [])].find(item => item.draftId === targetRef.draftId)
+      : undefined;
+    const entry = targetRef?.kind === 'entry' ? entries.get(targetRef.id) : undefined;
+    const targetEntry = targetRef?.kind === 'entry'
+      ? [...(draft?.authoring?.activeStories ?? []), ...(draft?.authoring?.passiveStories ?? [])].find(row => row.id === targetRef.id)
+      : undefined;
+    const story = targetRef?.kind === 'story' ? archiveRegistry.stories.get(targetRef.id) ?? draft?.document : undefined;
+    const stories = new Map<string, import('../../arona-clicker/content/story/story-directory').StoryDirectoryDocument>([...registry.stories, ...archiveRegistry.stories]);
     for (const item of directoryDrafts) {
       if (item.sourceId && item.sourceId !== item.document.id) stories.delete(item.sourceId);
       if (!item.entryOnly || !stories.has(item.document.id)) stories.set(item.document.id, item.document);
     }
-    const modName = id ? registry.storyDirectoryContentOwner(id, entry ? 'entry' : 'story') : undefined;
-    const selection = storyExplorerSourceValue(sourceProjection.source);
-    const selectedId = selection?.startsWith('pack:') ? selection.slice(5) : undefined;
-    const runningOwner = !selection && !draft && location ? directoryOwner : undefined;
-    const runningPack = runningOwner ? this.packQuery.getRunningStoryPackId?.(runningOwner) : undefined;
-    const editPack = creationPack ?? (sourceProjection.sourceOptions.length || this.state.sourceOptions ? (draft && this.writeBlocked ? null : draft?.targetPackId ?? selectedId ?? runningPack ?? null) : undefined);
-    const packSource = editPack ? this.packSource(editPack) : undefined;
-    let expected = packSource?.digest;
-    if (!this.state.directoryManagement) this.directoryReturn = this.captureVisit();
-    this.directoryBrowseProjection = mode === 'story' || mode === 'entry' ? undefined : sourceProjection;
-    this.inlineText.finish();
-    this.closeEditorDialog(); this.closeSelectionNavi(); this.requiredFlagDropdown.close(); this.nodeMenu.close(); this.closeThemeContentEdit();
-    this.directoryPlacement = mode === 'story' || mode === 'entry' ? mode : undefined;
-    this.explorerState.auxiliaryTool = undefined;
-    this.state.directoryManagement = createStoryDirectoryManagement(ctx, {
-      stories, entries, target: id ? { story, entry, packId: draft?.targetPackId, modName } : undefined,
+    const modName = targetRef?.modName ?? (id ? registry.storyDirectoryContentOwner(id, targetRef?.kind) ?? id.split(':')[0] : undefined);
+    const selection = resource.sourceKey;
+    const runningOwner = !selection && !draft ? resource.ownerModName : undefined;
+    const binding = state.writeBinding;
+    const packSource = binding && this.packSource(binding.packRecordId);
+    const creatingPackDirectory = binding?.purpose === 'new-directory';
+    const sourceLabel = packSource
+      ? `${packSource.label}${creatingPackDirectory || !selection ? ' · 目录资料保存后需应用到当前游戏' : ''}`
+      : sourceProjection.sourceOptions.find(item => item.value === selection)?.label ?? '当前游戏';
+    return createStoryDirectoryManagement(ctx, {
+      state, stories, entries,
       appliedCatalog: () => this.ctrl.game.registry,
       sourceMod: sourceProjection.sourceMod,
-      location, initIds: sidebarInitIds(ctx, sourceProjection), contentOwner: editorDirectoryContentOwner(ctx, sourceProjection), packId: editPack,
-      navigation: creationPack ? this.state.directoryManagement?.navigation() : undefined,
-      sourceLabel: packSource
-        ? `${packSource.label}${creationPack || !selection ? ' · 目录资料保存后需应用到当前游戏' : ''}`
-        : sourceProjection.sourceOptions.find(source => source.value === selection)?.label ?? '当前游戏',
+      initIds: sidebarInitIds(ctx, sourceProjection), contentOwner: editorDirectoryContentOwner(ctx, sourceProjection),
+      sourceLabel,
       references: (packId, node) => this.directoryReferences(packId, node.id, node.source === 'AutoCreated'),
       save: this.ctrl.commands.saveStoryDirectoryToPack && ((packId, directory, remove) => {
-        if (creationPack && (!packSource || !isActiveEditingPack(this.packQuery, packId, packSource.modName))) {
-          return { ok: false, message: '该包已不在当前活跃的编辑态中。当前修改已保留。' };
-        }
-        if (this.state.sourceOptions && (editPack !== packId || this.packSource(packId)?.digest !== expected
-          || (mode === 'story' || mode === 'entry' ? (this.state.sourceSelection ?? '') !== selection
-            : storyExplorerSourceValue(this.explorerState.source) !== selection)
+        const livePackSource = this.packSource(packId);
+        const bindingMatches = Boolean(binding && binding.packRecordId === packId && livePackSource
+          && livePackSource.modName === binding.modName && livePackSource.digest === binding.expectedDigest
+          && isActiveEditingPack(this.packQuery, packId, binding.modName));
+        if (!bindingMatches || creatingPackDirectory && !livePackSource
           || (runningOwner && this.packQuery.getRunningStoryPackId?.(runningOwner) !== packId)
-          || (!creationPack && mode !== 'folder' && this.writeBlocked))) {
+          || (binding?.purpose === 'content' && this.writeBlocked)) {
           return { ok: false, message: '编辑态 Mod 已变化。当前修改已保留，请核对原包和最新版本后重试。' };
         }
         const previous = this.packQuery.getPackRecord?.(packId)?.datapack.storyDirectories ?? [];
@@ -3187,47 +3279,51 @@ export class StoryEditorController {
           return original ? original.parentId !== update.parentId || original.hierarchyString !== update.hierarchyString : !update.characterId;
         });
         const result = this.ctrl.commands.saveStoryDirectoryToPack!(packId, directory, remove);
-        if (result.ok && this.state.sourceOptions) {
-          this.refreshPackSource(packId, expected);
-          expected = this.packSource(packId)?.digest;
+        if (result.ok && binding) {
+          this.refreshPackSource(packId, binding.expectedDigest);
+          binding.expectedDigest = this.packSource(packId)?.digest;
         }
         if (result.ok && relocate) this.pendingDirectoryReveal = true;
         return result;
       }),
-      place: (initId, placement, packId) => {
-        if (!draft || !id || this.writeBlocked || !this.state.drafts.includes(draft)) return '当前编辑目标已失效。';
-        if (draft.targetPackId && draft.targetPackId !== packId) return '请使用草稿已绑定的编辑态 Mod。';
+      place: (initId, placement) => {
+        if (!targetRef || !draft || !id || !targetRef.draftId || draft.draftId !== targetRef.draftId
+          || !this.state.drafts.includes(draft) || !targetRef.targetPackId) return '归档目标草稿已不存在或不可编辑。';
+        const targetPackId = targetRef.targetPackId;
+        const targetPackSource = this.packSource(targetPackId);
+        if (!targetPackSource || targetPackSource.modName !== targetRef.modName
+          || targetPackSource.digest !== targetRef.expectedDigest
+          || !isActiveEditingPack(this.packQuery, targetPackId, targetRef.modName ?? '')) return '目标编辑包已变化；归档草稿保持不变，请重新打开归档操作。';
+        if (draft.targetPackId !== targetPackId) return '目标草稿的写入包已变化。';
         if (placement?.order !== undefined && !Number.isFinite(placement.order)) return '请填写有效的顺序。';
         try {
-          const { record } = storyEditingMod(this.ctrl.game, packId);
+          const { record } = storyEditingMod(this.ctrl.game, targetPackId);
           const owner = record.manifest.modName;
-          const rows = entry ? [...record.datapack.activeStories, ...record.datapack.passiveStories] : record.datapack.stories;
-          if (modName ? owner !== modName : !rows.some(row => row.id === id) && !id.startsWith(`${owner}:`)) return '该编辑态 Mod 不拥有当前内容。';
-          if (entry) {
-            if (entry.availableInits.length && !entry.availableInits.includes(initId)) return '此入口不适用于该世界线。';
-            const placements = (entry.directoryPlacements ?? []).filter(row => row.initId !== initId);
+          const rows = targetRef.kind === 'entry' ? [...record.datapack.activeStories, ...record.datapack.passiveStories] : record.datapack.stories;
+          if (owner !== targetRef.modName || !rows.some(row => row.id === id)) return '目标编辑态 Mod 不拥有此文档。';
+          if (targetRef.kind === 'entry') {
+            if (!targetEntry || targetEntry.availableInits.length && !targetEntry.availableInits.includes(initId)) return '此入口不适用于该世界线。';
+            const placements = (targetEntry.directoryPlacements ?? []).filter(row => row.initId !== initId);
             if (placement) placements.push({ initId, ...placement });
-            if (placements.length) entry.directoryPlacements = placements;
-            else delete entry.directoryPlacements;
+            if (placements.length) targetEntry.directoryPlacements = placements;
+            else delete targetEntry.directoryPlacements;
           } else if (story) {
-            const { directoryId: previousDirectory, hierarchyString: previousHierarchy, ...document } = draft.document;
+            const { directoryId: _previousDirectory, hierarchyString: _previousHierarchy, ...document } = draft.document;
             if (!placement) draft.document = document;
             else {
-              const { initId: previousInit, ...storyFields } = document;
+              const { initId: _previousInit, ...storyFields } = document;
               const { order, ...position } = placement;
               draft.document = { ...storyFields, ...(initId ? { initId } : {}), ...position };
             }
           }
-          draft.targetPackId = packId;
+          draft.targetPackId = targetPackId;
           draft.dirty = true;
-          this.state.error = null;
-          this.state.notice = '目录位置已更新到当前草稿。';
+          return '目录位置已更新到目标草稿。';
         } catch (error) {
           return error instanceof Error ? error.message : String(error);
         }
       },
     });
-    this.requestRefresh();
   }
 
   private editEntryCatalog(trigger: HTMLElement, draft: StoryDraft): void {
