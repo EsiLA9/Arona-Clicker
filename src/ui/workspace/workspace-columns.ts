@@ -185,6 +185,32 @@ export class WorkspaceColumns {
     if (columnInstanceId(scope, spec) !== instanceId) return false;
     const nextCtx = ctx ?? current.ctx;
     const next = this.create(nextCtx, scope, { ...spec, key: current.spec.key ?? decodeURIComponent(instanceId.slice(instanceId.lastIndexOf('/') + 1)) });
+    const sameBinding = current.spec.bindingKey === spec.bindingKey && current.spec.definitionId === spec.definitionId;
+    if (sameBinding) {
+      const focus = captureFocusWithin(current.node);
+      const positions = new Map([...workspaceColumnScrollTargets(current.node)].map(([key, node]) => [key, node.scrollTop]));
+      const chatPositions = new Map([...current.node.querySelectorAll<HTMLElement>('.chat-stream')]
+        .map(host => [chatStreamIdentity(host), host.scrollTop]));
+      this.hooks.beforeReplace?.(current.node);
+      for (const attribute of [...current.node.attributes]) if (!next.hasAttribute(attribute.name)) current.node.removeAttribute(attribute.name);
+      for (const attribute of [...next.attributes]) if (current.node.getAttribute(attribute.name) !== attribute.value) current.node.setAttribute(attribute.name, attribute.value);
+      current.node.replaceChildren(...[...next.childNodes]);
+      current.ctx = nextCtx;
+      current.spec = spec;
+      current.markup = renderWorkspaceColumn(nextCtx, spec, scope);
+      this.backVisibility(current);
+      for (const [key, node] of workspaceColumnScrollTargets(current.node)) {
+        const position = positions.get(key);
+        if (position !== undefined) node.scrollTop = position;
+      }
+      for (const host of current.node.querySelectorAll<HTMLElement>('.chat-stream')) {
+        const position = chatPositions.get(chatStreamIdentity(host));
+        if (position !== undefined) host.scrollTop = position;
+      }
+      restoreFocusWithin(current.node, focus);
+      this.hooks.afterReplace?.(current.node);
+      return true;
+    }
     const focus = captureFocusWithin(current.node);
     const positions = new Map([...workspaceColumnScrollTargets(current.node)].map(([key, node]) => [key, node.scrollTop]));
     const chatPositions = new Map([...current.node.querySelectorAll<HTMLElement>('.chat-stream')]

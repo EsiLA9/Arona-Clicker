@@ -4,10 +4,12 @@
 
 ## Editor Workbench Roadmap
 
-Task 0386 是 Stage 02–07 的长期设计合同及执行索引。下列 0387–0418 是独立施工节点，按依赖顺序连续执行；完成结果写回 Roadmap 后归档。完整状态所有权、业务不变量、阶段边界与通过条件见 [[ai/plan/task-0386-editor-workbench-roadmap]]。当前推进 Task 0410。
+Task 0386 记录原 Stage 02–07 Roadmap（已完成）。新的 Editor Workbench Convergence 施工依据与当前进度见 Task 0419–0422；四个 Task 按编号连续执行，完成后停止于 Stage H。旧 Roadmap 与历史人工浏览器验收记录仍保留供追溯，Task 0383／0384／0385 的真实浏览器验收仍待用户处理。
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
+| [[ai/plan/task-0422-editor-convergence-search-integration]] | 待处理 | World 搜索/定位及 8 条连续回归和文档收尾 |
+| [[ai/plan/task-0421-editor-convergence-host-lifecycle]] | 进行中 | 公共 Host 绑定、命令、生命周期与局部刷新 |
 | Task 0391（已归档：`ai/plan/task-0391-editor-workbench-dev-navigation-validation.md`） | 已完成 | Stage 02.5-D 交付摘要见 Task 0386 |
 | Task 0392（已归档：`ai/plan/task-0392-editor-instance-story-contract.md`） | 已完成 | Stage 03-A 调查摘要见 Task 0386 |
 | Task 0393（已归档：`ai/plan/task-0393-editor-instance-manager-core.md`） | 已完成 | Stage 03-B 交付摘要见 Task 0386 |
@@ -34,8 +36,8 @@ Task 0386 是 Stage 02–07 的长期设计合同及执行索引。下列 0387�
 | Task 0414（已归档：`ai/plan/task-0414-editor-workbench-remove-transitional-paths.md`） | 已完成 | Stage 07-B 过渡路径清理摘要见 Task 0386 |
 | Task 0415（已归档：`ai/plan/task-0415-editor-workbench-provider-guide.md`） | 已完成 | Stage 07-C Provider 接入指南见 Workspace 机制页 |
 | Task 0416（已归档：`ai/plan/task-0416-editor-workbench-visual-knowledge.md`） | 已完成 | Stage 07-D Authoring Workbench/Explorer 视觉知识见 ui-style |
-| [[ai/plan/task-0417-editor-workbench-final-integration]] | 已完成 | Stage 07-E：按风险完成集中验证 |
-| [[ai/plan/task-0418-editor-workbench-final-delivery]] | 施工中 | Stage 07-F：最终交付、任务收尾并停止 |
+| Task 0417（已归档：`ai/plan/task-0417-editor-workbench-final-integration.md`） | 已完成 | Stage 07-E 7 suites/140 tests 通过；真实视觉/交互待人工验收 |
+| Task 0418（已归档：`ai/plan/task-0418-editor-workbench-final-delivery.md`） | 已完成 | Stage 07-F 最终交付见 Task 0386；Roadmap 到此停止 |
 
 ## 其他活动 Task
 

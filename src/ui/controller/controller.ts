@@ -1,9 +1,11 @@
-import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
+import { refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
 import { EditorWorkspaceTheme } from '../workspace/editor-workspace-appearance';
 import type { EditorWorkspaceView } from '../workspace/editor-workspace';
-import { buildDefaultWorldTree, createWorldEditorExplorerColumn, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges, type WorldEntityRef, type WorldBrowserSession } from '../runtime-editor/world-browser';
+import { buildDefaultWorldTree, createWorldEditorBusinessProjection, renderWorldDetail, worldTreePath, worldWorkType, worldEditorEdges, worldExplorerProjection, type WorldEntityRef, type WorldBrowserSession } from '../runtime-editor/world-browser';
 import { initialWorldProviderState, prepareWorldBrowseSeed, prepareWorldTarget, resolveWorldSummary, worldBrowseProviderKey, worldBrowseReuseKey } from '../runtime-editor/world-browser-provider';
-import { bindEditorWorkspace, editorLayout, setEditorWorkspaceView } from '../workspace/editor-workspace';
+import { bindEditorWorkspace, editorLayout, renderEditorWorkspaceRegions, setEditorWorkspaceView } from '../workspace/editor-workspace';
+import { editorWorkspaceEdges } from '../workspace/editor-workspace';
+import { editorResourceOpenRequest, type EditorResourceOpenRequest } from '../workspace/editor-resource-request';
 import { captureEditorReturn, discardEditorReturn, restoreEditorReturn } from '../workspace/editor-return';
 // ============================================================
 // ui/controller.ts — UI 控制器（集成层门面）
@@ -120,8 +122,7 @@ import type { SurfaceStyleLoader } from '../utilities/surface-styles';
 import { restoreRuntimeEditorDraft, seedDebugEditing } from '../runtime-editor/debug';
 import { RuntimeEditorDraftPersistence } from '../runtime-editor/persistence';
 import { StoryEditorController, STORY_EDITOR_REGION } from '../story-editor/controller';
-import { EditorWorkbench } from '../workspace/editor-workbench';
-import { createStoryEditorExplorerColumn } from '../story-editor/view';
+import { EditorWorkbench, type EditorWorkbenchProjection } from '../workspace/editor-workbench';
 import {
   backWorkspaceNavigation,
   createWorkspaceNavigation,
@@ -574,9 +575,9 @@ export class UIController {
     this.renderScheduled = false;
     this.updates.dispose();
     document.removeEventListener('keydown', this.onDebugShortcut);
+    this.editorWorkbenchBinding?.abort();
+    this.editorWorkbenchBinding = undefined;
     this.worldBinding?.abort();
-    this.unbindWorldScroll?.();
-    this.unbindWorldScroll = undefined;
     this.storyEditor.dispose();
     this.endEditorSession();
     this.selectorPage.dispose();
@@ -1208,7 +1209,6 @@ export class UIController {
   private collectColumns(ctx: UIContext): void {
     this.columnFrames.clear();
     ctx.workspaceColumns = frame => {
-      if (frame.id === 'story-editor') frame = this.storyEditor.configureFrame(frame);
       const route = this.currentWorkspaceRoute();
       const onBack = frame.onBack !== undefined ? frame.onBack : (this.panelState.workspace ? () => this.disposeWorkspace()
         : route.kind === 'area' ? () => { this.returnFromAreaWorkspace(); this.render(); }
@@ -1251,12 +1251,7 @@ export class UIController {
             this.refreshLogPanel(true);
           });
         }
-        const bind = (frame.id === 'world-editor' || frame.id === 'editor-empty') && column.bindingKey === 'story-explorer'
-          ? (root: HTMLElement) => this.storyEditor.bindExplorerColumn(root)
-          : column.bindingKey === 'world-explorer'
-            ? (root: HTMLElement) => this.workbench.explorer.bindColumn(root, 'world')
-            : column.bind;
-        return { ...column, actions, bind };
+        return { ...column, actions };
       });
       this.columnFrames.set(workspaceScope(frame), { ...frame, columns, onBack });
     };
@@ -1397,9 +1392,10 @@ export class UIController {
       return;
     }
     this.panelState.runtimeEditorPanelOpen = this.runtimeEditorPanelOpen;
+    if (this.workbench.isOpen) this.panelState.storyEditor = this.storyEditor.state;
     this.collectColumns(context);
-    const markup = renderAppShell(context, this.panelState, this.activeEditorTheme(), this.browseInstances.snapshot(), this.workbench.activeExplorerType,
-      { story: this.workbench.explorer.snapshot('story'), world: this.workbench.explorer.snapshot('world') });
+    const editorWorkbenchProjection = this.workbench.isOpen ? this.createEditorWorkbenchProjection(context) : undefined;
+    const markup = renderAppShell(context, this.panelState, this.activeEditorTheme(), editorWorkbenchProjection);
     const template = document.createElement('template');
     template.innerHTML = markup;
     const nextWorkbenchFrame = template.content.querySelector<HTMLElement>('[data-workspace-instance="editor-workbench"]');
@@ -2156,7 +2152,38 @@ export class UIController {
 
   private bindEditorWorkbench(): void {
     const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
+    this.editorWorkbenchBinding?.abort();
+    this.editorWorkbenchBinding = undefined;
     if (!shell) return;
+    const abort = new AbortController();
+    this.editorWorkbenchBinding = abort;
+    const routeKind = this.currentWorkspaceRoute().kind;
+    const storyRoute = routeKind === 'story-editor' && this.storyEditor.isOpen();
+    const worldRoute = routeKind === 'world-editor';
+    const worldViewBinding = worldRoute ? {
+      onBeforeViewChange: (from: EditorWorkspaceView) => {
+        const tree = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+        if (tree && from !== 'focus') this.workbench.explorer.setScrollTop('world', 'world-tree', tree.scrollTop);
+      },
+      onViewChange: (view: EditorWorkspaceView) => {
+        const tree = shell.querySelector('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
+        if (tree && view !== 'focus') tree.scrollTop = this.workbench.explorer.scrollTop('world', 'world-tree');
+      },
+    } : {};
+    const storyBinding = storyRoute ? this.storyEditor.workspaceViewBinding() : worldViewBinding;
+    bindEditorWorkspace(this.root, abort.signal, {
+      edges: editorWorkspaceEdges(['left', 'center', 'right']),
+      ...storyBinding,
+      onModeChange: () => {
+        if (storyRoute) this.storyEditor.onWorkbenchModeChange();
+        else this.render();
+      },
+      onViewChange: view => {
+        storyBinding.onViewChange?.(view);
+        if (!storyRoute) this.render();
+      },
+      onExit: () => this.closeEditorWorkspace(),
+    });
     shell.addEventListener('click', event => {
       const element = event.target instanceof Element ? event.target : null;
       const button = element?.closest<HTMLButtonElement>('[data-editor-workspace-action]');
@@ -2174,49 +2201,24 @@ export class UIController {
         else this.closeEditorBrowseInstance(button.dataset.editorInstance);
         return;
       }
-      const route = this.currentWorkspaceRoute();
-      if (!this.browseInstances.active) {
-        const row = element?.closest<HTMLElement>('[data-world-select][data-world-id], [data-editor-story], [data-editor-entry], [data-sidebar-story-id]');
-        if (this.workbench.activeExplorerType === 'world') {
-          const kind = row?.dataset.worldSelect;
-          const id = row?.dataset.worldId;
-          if (id && (kind === 'init' || kind === 'area' || kind === 'spot')) {
-            event.preventDefault(); event.stopPropagation(); this.openWorldResource({ kind, id }); return;
-          }
-        } else if (row) {
-          const entryId = row.dataset.editorEntry;
-          const storyId = row.dataset.sidebarStoryId;
-          const storyKey = row.dataset.editorStory;
-          const source = row.dataset.sidebarOpenSource;
-          event.preventDefault(); event.stopPropagation();
-          if (entryId) this.storyEditor.openFromExplorer({ kind: 'entry', id: entryId }, source);
-          else if (storyId) this.storyEditor.openFromExplorer({ kind: 'story', id: storyId }, source);
-          else if (storyKey) this.storyEditor.openStoryKeyFromExplorer(storyKey, source);
-          return;
-        }
+      const resourceNode = element?.closest<HTMLElement>('[data-editor-resource-provider][data-editor-resource-key]');
+      if (resourceNode) {
+        const request = editorResourceOpenRequest(resourceNode,
+          resourceNode.dataset.editorResourceOrigin === 'instance-link' ? 'instance-link' : 'explorer-placement');
+        if (request) { event.preventDefault(); event.stopPropagation(); this.openEditorResource(request); }
       }
-      if (route.kind === 'story-editor' && this.workbench.activeExplorerType === 'world') {
-        const row = element?.closest<HTMLElement>('[data-world-select][data-world-id]');
-        const kind = row?.dataset.worldSelect;
-        const id = row?.dataset.worldId;
-        if (id && (kind === 'init' || kind === 'area' || kind === 'spot')) {
-          event.preventDefault(); event.stopPropagation(); this.openWorldResource({ kind, id }); return;
-        }
-      }
-      if (route.kind === 'world-editor' && this.workbench.activeExplorerType === 'story') {
-        const row = element?.closest<HTMLElement>('[data-editor-story], [data-editor-entry], [data-sidebar-story-id]');
-        const entryId = row?.dataset.editorEntry;
-        const storyId = row?.dataset.sidebarStoryId;
-        const storyKey = row?.dataset.editorStory;
-        if (entryId || storyId || storyKey) {
-          event.preventDefault(); event.stopPropagation();
-          const source = row?.dataset.sidebarOpenSource;
-          if (entryId) this.storyEditor.openFromExplorer({ kind: 'entry', id: entryId }, source);
-          else if (storyId) this.storyEditor.openFromExplorer({ kind: 'story', id: storyId }, source);
-          else this.storyEditor.openStoryKeyFromExplorer(storyKey!, source);
-        }
-      }
-    });
+    }, { signal: abort.signal });
+  }
+
+  private openEditorResource(request: EditorResourceOpenRequest): boolean {
+    const { providerKey, kind, id } = request.resource;
+    if (providerKey === 'story' && (kind === 'story' || kind === 'entry')) {
+      return this.storyEditor.openFromExplorer({ kind, id }, request.sourceKey);
+    }
+    if (providerKey === worldBrowseProviderKey && (kind === 'init' || kind === 'area' || kind === 'spot')) {
+      return this.openWorldResource({ kind, id });
+    }
+    return false;
   }
 
   /** 招募补给弹窗：卡池列表 + 抽取按钮（委托 controller-modals）。 */
@@ -2312,6 +2314,25 @@ export class UIController {
     this.render();
   }
 
+  createEditorWorkbenchProjection(ctx: UIContext): EditorWorkbenchProjection {
+    const snapshot = this.workbench.browseInstances.snapshot();
+    const active = snapshot.instances.find(instance => instance.id === snapshot.activeBrowseInstanceId);
+    const world = active?.providerKey === 'world' ? active as WorldBrowserSession : undefined;
+    const explorerState = this.workbench.explorer.snapshot(this.workbench.activeExplorerType);
+    const explorer = this.workbench.activeExplorerType === 'story'
+      ? this.storyEditor.explorerProjection(ctx, explorerState)
+      : worldExplorerProjection(ctx, explorerState, this.workbench.explorer);
+    const business = active?.providerKey === 'story'
+      ? this.storyEditor.businessProjection(ctx)
+      : world ? createWorldEditorBusinessProjection(ctx, world) : undefined;
+    const projection = this.workbench.project(ctx, explorer, business);
+    const frame = { ...projection.frame, onBack: () => {
+      if (this.workbench.browseInstances.active?.providerKey === 'story') this.storyEditor.workspaceBack();
+      else this.closeEditorWorkspace();
+    } };
+    return { ...projection, frame };
+  }
+
   setActiveEditorExplorer(type: 'story' | 'world'): void {
     if (!this.workbench.isOpen || this.workbench.activeExplorerType === type) return;
     const route = this.currentWorkspaceRoute();
@@ -2321,14 +2342,12 @@ export class UIController {
     const world = this.worldExplorerInstance();
     const mountedWorldTree = this.root.querySelector<HTMLElement>('[data-world-tree]')?.closest<HTMLElement>('[data-scroll-key]');
     if (mountedWorldTree && world) this.workbench.explorer.setScrollTop('world', 'world-tree', mountedWorldTree.scrollTop);
-    const column = type === 'story'
-      ? { ...createStoryEditorExplorerColumn(ctx, this.storyEditor.state, this.workbench.explorer.snapshot('story')), bind: route.kind === 'story-editor' && this.storyEditor.isOpen()
-        ? (root: HTMLElement) => this.storyEditor.bind(root) : (root: HTMLElement) => this.storyEditor.bindExplorerColumn(root) }
-      : { ...createWorldEditorExplorerColumn(ctx, world, this.workbench.explorer.snapshot('world')),
-        bind: (root: HTMLElement) => this.workbench.explorer.bindColumn(root, 'world') };
     this.workbench.activeExplorerType = type;
-    const frame = this.columnFrames.get(scope);
-    if (frame) this.columnFrames.set(scope, { ...frame, columns: workspaceColumns(frame).map(item => item.slot === 'left' ? column : item) });
+    const projection = this.createEditorWorkbenchProjection(ctx);
+    const projectedExplorer = workspaceColumns(projection.frame).find(column => column.slot === 'left');
+    if (!projectedExplorer) return;
+    const column = projectedExplorer;
+    this.columnFrames.set(scope, { ...projection.frame, columns: workspaceColumns(projection.frame).map(item => item.slot === 'left' ? column : item) });
     const instanceId = columnInstanceId(scope, column);
     const updated = this.columns.update(instanceId, column, this.columns.token(instanceId), ctx);
     if (!updated) { this.render(); return; }
@@ -2337,9 +2356,12 @@ export class UIController {
       if (tree) tree.scrollTop = this.workbench.explorer.scrollTop('world', 'world-tree');
     }
     const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
-    shell?.querySelectorAll<HTMLButtonElement>('[data-editor-workspace-action="work-type"]').forEach(button => {
-      button.setAttribute('aria-pressed', String(button.dataset.editorWorkType === type));
-    });
+    const rail = shell?.querySelector<HTMLElement>('[data-editor-workspace-rail]');
+    if (rail) {
+      const template = document.createElement('template');
+      template.innerHTML = renderEditorWorkspaceRegions(ctx, projection.chrome).rail;
+      rail.replaceWith(template.content.firstElementChild!);
+    }
   }
 
   activateEditorBrowseInstance(id: string): boolean {
@@ -2381,8 +2403,8 @@ export class UIController {
     return false;
   }
 
+  private editorWorkbenchBinding?: AbortController;
   private worldBinding?: AbortController;
-  private unbindWorldScroll?: () => void;
 
   private worldExplorerInstance(): WorldBrowserSession | undefined {
     const active = this.browseInstances.active;
@@ -2560,8 +2582,6 @@ export class UIController {
 
   private bindWorldBrowser(): void {
     this.worldBinding?.abort();
-    this.unbindWorldScroll?.();
-    this.unbindWorldScroll = undefined;
     this.worldBinding = undefined;
     const session = this.activeWorldBrowseInstance();
     const shell = this.root.querySelector<HTMLElement>('[data-editor-workspace]');
@@ -2579,13 +2599,6 @@ export class UIController {
         refreshEditorDirectoryScrollbars(shell);
       },
     };
-    bindEditorWorkspace(shell, binding.signal, {
-      edges: worldEditorEdges,
-      ...viewBinding,
-      onModeChange: () => this.render(),
-      onExit: () => this.closeEditorWorkspace(),
-    });
-    this.unbindWorldScroll = bindEditorDirectoryScrollbars(shell);
     const locateWorld = (ref: WorldEntityRef, preferredKey?: string): void => {
       const target = prepareWorldTarget(this.game.registry, ref);
       const path = target ? worldTreePath(buildDefaultWorldTree(this.game.registry), target, preferredKey) : [];
@@ -2596,6 +2609,7 @@ export class UIController {
     shell.addEventListener('click', event => {
       const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : undefined;
       if (!button || button.disabled) return;
+      if (button.hasAttribute('data-editor-resource-provider')) return;
       const { worldSelect, worldId, editorWorkspaceAction: action } = button.dataset;
       if (action === 'mode' || action === 'back') return;
       if (worldSelect && worldId && (worldSelect === 'init' || worldSelect === 'area' || worldSelect === 'spot')) {

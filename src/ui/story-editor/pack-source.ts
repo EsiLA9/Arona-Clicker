@@ -3,9 +3,44 @@ import type { GameReadModel, PackCatalogEntry, PackCatalogReadModel } from '../.
 import type { Datapack } from '../../data-services/contracts/datapack';
 import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
-import { editorLayout } from '../workspace/editor-workspace';
 import { displayName } from '../../engine/core/display-name';
 import type { StoryDraft, StoryEditorState } from './model';
+
+export type StoryExplorerSource = { kind: 'runtime' } | { kind: 'pack'; packId: string } | { kind: 'draft'; draftId: string };
+export interface StoryExplorerState {
+  directoryMode: 'all' | 'stories' | 'entries';
+  auxiliaryTool?: 'senders';
+  filtersOpen: boolean;
+  initFilter: string;
+  source: StoryExplorerSource;
+}
+export interface StoryExplorerProjection {
+  source: StoryExplorerSource;
+  sourceOptions: readonly { value: string; label: string; group: 'packs' | 'drafts' }[];
+  drafts: readonly StoryDraft[];
+  sourceRegistry?: ContentCatalogQueryPort;
+  sourcePics?: GameReadModel['pics'];
+  sourceWarning?: string;
+  sourceMod?: string;
+  runtimeScope: string;
+  available: boolean;
+}
+
+export function createStoryExplorerState(): StoryExplorerState {
+  return { directoryMode: 'all', filtersOpen: false, initFilter: '', source: { kind: 'runtime' } };
+}
+
+/** Legacy control values are normalized only at the select/input boundary. */
+export function parseStoryExplorerSource(value: string): StoryExplorerSource | undefined {
+  if (!value) return { kind: 'runtime' };
+  if (value.startsWith('pack:') && value.length > 5) return { kind: 'pack', packId: value.slice(5) };
+  if (value.startsWith('draft:') && value.length > 6) return { kind: 'draft', draftId: value.slice(6) };
+  return undefined;
+}
+
+export function storyExplorerSourceValue(source: StoryExplorerSource): string {
+  return source.kind === 'runtime' ? '' : `${source.kind}:${source.kind === 'pack' ? source.packId : source.draftId}`;
+}
 
 export function isLoadedStoryPack(query: Partial<PackCatalogReadModel>, entry: PackCatalogEntry): boolean {
   return query.getRunningStoryPackId?.(entry.modName) === (entry.packRecordId ?? entry.id);
@@ -16,7 +51,7 @@ export function storyPackSource(entry: PackCatalogEntry): NonNullable<StoryDraft
     label: `${entry.name} · ${entry.version} · ${entry.editingMode === 'editing' ? '编辑态' : '普通态'}` };
 }
 
-export function storySourceGame(game: GameReadModel, state: StoryEditorState): GameReadModel {
+export function storySourceGame(game: GameReadModel, state: Pick<StoryExplorerProjection, 'sourceRegistry' | 'sourcePics'>): GameReadModel {
   const registry = state.sourceRegistry;
   if (!registry) return game;
   return new Proxy(game, {
@@ -29,17 +64,10 @@ export function storySourceGame(game: GameReadModel, state: StoryEditorState): G
   });
 }
 
-export function storySourceContext(ctx: UIContext, state: StoryEditorState): UIContext {
+export function storySourceContext(ctx: UIContext, state: Pick<StoryExplorerProjection, 'sourceRegistry' | 'sourcePics'>): UIContext {
   if (!state.sourceRegistry) return ctx;
   const game = storySourceGame(ctx.game, state);
   return { ...ctx, game, nameOf: (type, id) => displayName(game.registry, type, id) };
-}
-
-export function storySidebarState(state: StoryEditorState): StoryEditorState {
-  if (editorLayout.state.mode !== 'advanced' || !state.sidebarSource) return state;
-  const sourceSelection = state.sidebarSourceSelection;
-  return { ...state, ...state.sidebarSource, sourceSelection,
-    target: (state.sourceSelection ?? '') === (sourceSelection ?? '') ? state.target : null };
 }
 
 /** Index the runtime's loaded source and dependencies for a scoped editor view. */

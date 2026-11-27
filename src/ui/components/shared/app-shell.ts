@@ -163,9 +163,7 @@ export function renderAppShell(
   ctx: UIContext,
   state: PanelState,
   editorTheme?: import('../../workspace/editor-workspace-appearance').EditorWorkspaceTheme,
-  browseInstances?: import('../../workspace/browse-instance-manager').BrowseInstanceSnapshot<unknown>,
-  activeExplorerType: 'story' | 'world' = 'story',
-  explorers: Partial<Record<'story' | 'world', import('../../workspace/editor-explorer-service').EditorExplorerStateSnapshot>> = {},
+  editorWorkbenchProjection?: import('../../workspace/editor-workbench').EditorWorkbenchProjection,
 ): string {
   const workspace = state.workspace;
   const legacyWorkspace = workspace
@@ -180,5 +178,5 @@ export function renderAppShell(
             : { type: 'operation' as const, runId: workspace.runId }
     : null;
   const route = resolveCurrentWorkspaceRoute(state.workspaceNavigation, { service: state.service, workspace: legacyWorkspace });
-  return renderWorkspace(ctx, route, state, editorTheme, browseInstances, activeExplorerType, explorers);
+  return renderWorkspace(ctx, route, state, editorTheme, editorWorkbenchProjection);
 }

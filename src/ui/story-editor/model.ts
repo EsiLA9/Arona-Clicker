@@ -93,14 +93,7 @@ export interface StoryEditorState extends StoryBrowseViewState {
   drafts: StoryDraft[];
   /** Session-only positioned previews, independently toggled per draft and node. */
   performanceEditing?: Record<string, string[]>;
-  sidebarMode: 'all' | 'stories' | 'entries' | 'senders';
-  sidebarDirectoryMode?: 'all' | 'stories' | 'entries';
-  sidebarFiltersOpen?: boolean;
-  sidebarRuntimeScope?: string;
-  sidebarSourceSelection?: string;
-  sidebarSource?: Pick<StoryEditorState, 'drafts' | 'sourceRegistry' | 'sourcePics' | 'sourceMod' | 'sourceWarning'>;
   directoryManagement?: ReturnType<typeof import('./directory-management').createStoryDirectoryManagement>;
-  storyInitFilter?: string;
   composers: Record<string, StoryComposer>;
   storageBlocked: boolean;
   copyStoryId?: string;
@@ -133,7 +126,7 @@ export function createStoryBrowseViewState(): StoryBrowseViewState {
     storyInspectorTab: 'overview', entryEditorTab: 'basic', notice: null, error: null };
 }
 export function createStoryEditorState(): StoryEditorState {
-  return { ...createStoryBrowseViewState(), drafts: [], sidebarMode: 'all',
+  return { ...createStoryBrowseViewState(), drafts: [],
     composers: Object.create(null), storageBlocked: false };
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
@@ -159,7 +152,7 @@ export function storyPreviewEntries(state: StoryEditorState, draft: StoryDraft, 
     ? remembered : entries[0]?.id ?? '';
   return { entries, entryId };
 }
-export function storyEntries(state: StoryEditorState, sources: ReadonlyMap<string, StoryEntryDef>): ReadonlyMap<string, StoryEntryDef> {
+export function storyEntries(state: { drafts: readonly StoryDraft[] }, sources: ReadonlyMap<string, StoryEntryDef>): ReadonlyMap<string, StoryEntryDef> {
   const entries = new Map(sources);
   for (const draft of [...state.drafts.filter(item => !item.entryOnly), ...state.drafts.filter(item => item.entryOnly)]) {
     for (const id of [...(draft.authoring?.removed?.activeStories ?? []), ...(draft.authoring?.removed?.passiveStories ?? [])]) entries.delete(id);
@@ -324,7 +317,7 @@ export function composer(state: StoryEditorState): StoryComposer {
   const draft = currentDraft(state);
   return draft ? state.composers[draft.draftId] ??= { sender: 'narrator', text: '' } : { sender: 'narrator', text: '' };
 }
-export function storyList(state: StoryEditorState, sources: ReadonlyMap<string, StoryDef>, query = ''): StoryListItem[] {
+export function storyList(state: { drafts: readonly StoryDraft[] }, sources: ReadonlyMap<string, StoryDef>, query = ''): StoryListItem[] {
   const drafts = state.drafts.filter(draft => !draft.entryOnly);
   const entries = [...sources.values()].map(source => {
     const draft = drafts.find(item => item.sourceId === source.id || item.document.id === source.id);

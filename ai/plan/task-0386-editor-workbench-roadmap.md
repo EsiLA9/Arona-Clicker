@@ -93,6 +93,7 @@
 | 0415 | Stage07-C完成：更新 `workspace-columns-and-layout.md` 的编辑器接入指引，按真实 owner/调用链说明 Workbench、Manager、Story/World Provider 生命周期、失败准备、World 单实例策略、Explorer resource/placement identity 与公共交互边界；修正旧的 Story 私有实例管理描述，添加当前源文件和测试链接。`check:docs` 0 errors、diff通过；纯文档任务。 | `docs/docs-830/04-presentation/workspace-columns-and-layout.md`；相关 Workbench/Manager/Story/World/Explorer 源码与测试链接 |
 | 0416 | Stage07-D完成：更新 Authoring Workbench/Explorer 视觉知识，纠正 World 默认双栏、业务侧私有 Explorer 状态等过时描述；标出公共 `.editor-directory-*` row/Chevron/选中/focus/hover 契约、左右栏/实例关系与 Story/World 真实差异。CSS/组件证据链接已核；`check:docs` 0 errors、diff通过。颜色主题、屏幕几何与滚动条视觉留人工验收。 | `ui-style/visual-languages/authoring/patterns/workbench.md`、`patterns/explorer.md`；`editor-workspace.css`、`editor-directory.css`、`editor-explorer-service.ts`、Workbench/Explorer 测试 |
 | 0417 | Stage07-E综合自动化验收完成：7 suites/140 tests，typecheck、architecture、docs（0 errors/129 markdown）、diff通过。按用户要求未操作浏览器；已在 Task0417 列出 Workbench/Stage02/0384/0385 的手动验收路径和旧5173服务刷新提示。无代码改动、无存档写入、无提交/推送。 | `ai/plan/task-0417-editor-workbench-final-integration.md`（归档后 `history.zip` 原路径）；`.test-artifacts/latest.log`、Workbench/Story/World/Explorer/DEV suites |
+| 0418 | Stage07-F最终交付完成：将唯一 owner、Provider 责任、旧权威退出、接入/DEV 路径、Stage/CP 结果、自动验证与浏览器人工待验影响汇总到本 Roadmap 和现行机制页；归档/索引闭合，无代码变更、无 commit/push。`check:docs` 与 `git diff --check` 通过。Stage07完成后按 Roadmap 停止。 | `ai/plan/task-0418-editor-workbench-final-delivery.md`（归档后 `history.zip` 原路径）；Task0386 Roadmap 最终交付段、Task0417人工验收清单、Workspace/DEV 机制页 |
 
 ## 单独 Task 序列与依赖
 
@@ -113,7 +114,7 @@ Task 0387–0418 对应独立工作节点。执行依赖以本表为准，不机
 | 11–14 | Task 0397/0398/0399/0400（已归档） | Stage 04 A–D |
 | 15–20 | Task 0401–0406（已归档） | Stage 05 A–F 完成；视觉/交互浏览器项由用户手动验收 |
 | 21–26 | Task 0407/0408/0409/0410/0411/0412 已归档（摘要见上表） | Stage 06 A–F |
-| 27–32 | Task 0413/0414/0415 已归档；Task 0416/0417 已完成；[[ai/plan/task-0418-editor-workbench-final-delivery]] | Stage 07 A–F |
+| 27–32 | Task 0413–0418 均已归档（摘要见本表） | Stage 07 A–F 已完成 |
 
 ## 执行合同与验证策略
 
@@ -151,10 +152,31 @@ Task 0387–0418 对应独立工作节点。执行依赖以本表为准，不机
 - 已完成：Task0415，真实 Provider/Workbench/Explorer 接入路径和测试入口已记录到 Workspace 机制页。
 - 已完成：Task0416，Authoring Workbench/Explorer 视觉知识已按实际公共 class 与当前 owner 修正；浏览器视觉结论继续由用户验收。
 - 已完成：Task0417，7 suites/140 tests 与 typecheck/architecture/docs/diff 通过；Stage02/0384/0385的真实浏览器路径与未验范围已记入 Task0417，按用户要求留手动。
-- 正在进行：Task0418 最终交付与索引收尾。
-- 下一步：核对 0413–0417 归档摘要、Roadmap/索引链接、最终唯一 owner 与手动待验影响；完成文档检查并归档 0418 后停止。
+- 已完成：Task0418最终交付与归档；Stage07已结束，本 Roadmap 按约停止。
+
+## Stage 07 最终交付
+
+> 后续源码审查发现公共表现与数据合同仍有分裂。新的收敛授权及四个连续施工 Task 见 [[ai/plan/00-index]] 与 Task 0419–0422；本 Roadmap 以下结果保留为 Stage 02–07 的历史交付记录，不表示收敛工作已完成。
+
+### 后续 Editor Workbench Convergence
+
+- Task 0419（已完成并归档至 `ai/archive/history.zip`）：抽出 Story Explorer state/projection。`StoryEditorController.explorerState` 是 Story Explorer 专属浏览状态 owner；目录查询投影不再合并为 StoryEditorState，来源解析与 Story instance 内容来源拆开，空 Manager 下构建 Explorer 不创建合成实例。定向 3 suites / 62 tests、TypeScript、architecture、docs 与 diff 均通过；无浏览器操作。
+- Task 0420（已完成）：Explorer 与活动实例 Provider 通过单一只读 Workbench projection 组合；公共 Frame/Chrome/slot 不再由 Story/World 分别构造。7 个相关 UI suites / 122 tests、TypeScript、architecture、docs 与 diff 通过；浏览器留用户手动验收。
+- Task 0420（已完成）：Provider 合同与唯一 Workbench combination projection；保持既有 `EditorWorkbench`、`WorkspaceFrame` 与 `WorkspaceColumns`，不新建 Host/Router/Manager。7 个相关 UI suites / 122 tests、TypeScript、architecture、docs 与 diff 通过；浏览器留用户手动验收。Task 文档归档后保留原路径于 `ai/archive/history.zip`。
+- Task 0421（当前）：在唯一 projection 上收公共绑定、命令作用域、activate/open/locate、生命周期失败恢复与局部 refresh。
+- Task 0422（后续）：接入 World 搜索/定位，做八条连续场景集成回归，完成文档和旧入口退出审计。本轮到此停止。
+
+- 唯一布局 owner：`EditorLayoutService` / `editorLayout`，跨 Story、World 与所有 Browse Instance 持有 Classic/Advanced、视图、Ribbon 与期望栏宽。旧 per-workType key 仅用于迁移读取，不是活动写入口。
+- Workbench owner：`EditorWorkbench` 持有会话 theme/return、`activeExplorerType`、唯一 `BrowseInstanceManager` 与唯一 `EditorExplorerService`。Explorer type 只控制左栏；Manager 的 active ID 控制活动中右业务内容，二者独立。
+- 唯一 Browse Instance active ID/集合：`BrowseInstanceManager`。Story/Entry 与 World 作为 Providers 使用同一集合；Story 负责 source-aware resource identity、草稿门禁、capture/restore/copy；World 负责 `kind:id` 资源身份、父链 placement 与固定 `world-browser` reuse 策略。最后实例关闭留空 Workbench，退出编辑器是独立命令。
+- 唯一通用 Explorer 状态：`EditorExplorerService` 按 Explorer type 管 query、普通/搜索折叠、placement selection、scroll host、focus/reveal，并实际绑定通用 query/expand/select/reveal/scroll。Provider 留资源树投影、筛选、多放置消歧与业务操作；共享 DOM/CSS 使用稳定 `.editor-directory-*` 契约。
+- 接入与 DEV：真实 Provider/生命周期/Explorer 身份入口见 `docs/docs-830/04-presentation/workspace-columns-and-layout.md`；DEV 导航 API、URL query 与失败门禁见 `docs/docs-830/07-tooling/runtime-editor-and-project-checks.md` 与 `src/ui/development/dev-navigation.ts`。
+- 迁移退出：Story 私有实例集合/active ID、World 私有 numeric ID/session 生命周期、Story/World 布局副本与 World view、Explorer 业务侧通用 query/fold/selection/scroll writer、Story-only `browseInstanceSnapshot()` 生产 facade 已退出。旧存储迁移读取、真实 Story/World Provider 适配及单向 UIController Manager getter因有明确作用保留。
+- 自动验证：Task0417 的 7 个相关 UI suites / 140 tests、TypeScript、architecture、docs、diff 全通过。日志为 `.test-artifacts/latest.log`。没有执行全量无关测试。
+- 人工待验：遵从用户要求，本轮未操作浏览器。Task0417归档页保留具体操作清单；仍待确认 Story/Entry 正文与属性输入焦点、两种编辑器主题/真实栏宽、悬浮滚动条无挤压、目录管理/试播布局往返、跨来源实例定位与 World focus 普通链接/显式定位、末实例空态/退出返回和反复进退无重复事件。Task0384/0385与0383继续标记待人工验收，不据自动测试改成“通过”。旧5173若有过期转换模块需先刷新/重启。
+- Git：未创建本地 checkpoint commit，未推送；共享工作区中此前存在的其他差异未被重置。
 
 ## 结果与问题
 
-- 结果：Roadmap和32个独立节点（Task0387–0418）已建立；当前已完成到 Task0417，推进 Task0418。Task 0385/0384 与 Stage02视觉/交互清单仍为用户手动验收项。
-- 验证：0388–0406历史验证见前序记录；0407 identity/World 110项及 World rebuild 18项；0408 7 files/145 tests；0409 7 files/139 tests；0410 3 files/76 tests，新增 focus 定位路径 2 项；0411 2 files/33 tests；0412 7 files/140 tests；0413 源码 owner 审计（只读）；0414 4 个 targeted lifecycle tests；0415 docs check 0 errors（131 markdown）、diff通过；0416 docs check 0 errors（130 markdown）、diff通过；0417 7 files/140 tests、typecheck、architecture、docs（129 markdown/0 errors）、diff通过。Stage02及本 Roadmap 后续浏览器手验由用户处理。未创建本地checkpoint commit或远程推送。
+- 结果：Roadmap 和 32 个独立节点（Task0387–0418）已全部完成/归档；Stage07最终交付完成并停止。Task0383/0384/0385 与 Stage02视觉/交互清单保留用户手动验收，不由本 Roadmap 代签通过。
+- 验证：0388–0406历史验证见前序记录；0407 identity/World 110项及 World rebuild 18项；0408 7 files/145 tests；0409 7 files/139 tests；0410 3 files/76 tests，新增 focus 定位路径 2 项；0411 2 files/33 tests；0412 7 files/140 tests；0413 源码 owner 审计（只读）；0414 4 个 targeted lifecycle tests；0415 docs check 0 errors（131 markdown）、diff通过；0416 docs check 0 errors（130 markdown）、diff通过；0417 7 files/140 tests、typecheck、architecture、docs（129 markdown/0 errors）、diff通过；0418 final docs check与diff通过。未创建本地checkpoint commit或远程推送。

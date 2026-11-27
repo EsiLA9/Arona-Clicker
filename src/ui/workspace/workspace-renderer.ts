@@ -1,4 +1,3 @@
-import { createWorldEditorExplorerColumn, renderWorldBrowser, worldWorkIcon } from '../runtime-editor/world-browser';
 import type { UIContext } from '../runtime/context';
 import { renderHeader } from '../components/shared/header';
 import {
@@ -28,12 +27,9 @@ import { renderAreaMapWorkspace } from '../components/map/area-map-workspace';
 import { renderMapEntryWorkspace } from '../components/map/map-entry-workspace';
 import type { PanelState } from '../components/shared/app-shell';
 import type { WorkspaceRoute } from './workspace-router';
-import { createStoryEditorExplorerColumn, renderStoryEditorWorkspace } from '../story-editor/view';
-import type { BrowseInstanceSnapshot } from './browse-instance-manager';
-import type { EditorExplorerType } from './editor-workbench';
-import type { EditorExplorerStateSnapshot } from './editor-explorer-service';
-import { createEditorWorkspaceColumn, createEditorWorkspaceFrame, renderEditorWorkspaceFrame } from './editor-workspace-frame';
-import { editorLayout, editorToolIcon, editorWorkspaceEdges, renderEditorWorkspace } from './editor-workspace';
+import type { EditorWorkbenchProjection } from './editor-workbench';
+import { renderEditorWorkspaceFrame } from './editor-workspace-frame';
+import { renderEditorWorkspace } from './editor-workspace';
 
 function studentVariantId(route: WorkspaceRoute, state: PanelState): string | null {
   if (route.kind === 'area-map') return null;
@@ -96,51 +92,12 @@ function renderGameWorkspace(ctx: UIContext, state: PanelState): string {
 }
 
 function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: PanelState,
-  browseInstances?: BrowseInstanceSnapshot<unknown>, activeExplorerType: EditorExplorerType = 'story',
-  explorers: Partial<Record<EditorExplorerType, EditorExplorerStateSnapshot>> = {}): { body: string; footerNote: string } {
-  const storyExplorer = explorers.story ?? emptyExplorerState;
-  const worldExplorer = explorers.world ?? emptyExplorerState;
-  const active = browseInstances?.instances.find(instance => instance.id === browseInstances.activeBrowseInstanceId);
-  if ((route.kind === 'story-editor' || route.kind === 'world-editor') && !active) {
-    const explorer = activeExplorerType === 'story' && state.storyEditor
-      ? createStoryEditorExplorerColumn(ctx, state.storyEditor, storyExplorer)
-      : createWorldEditorExplorerColumn(ctx, undefined, worldExplorer);
-    const columns = [explorer,
-      createEditorWorkspaceColumn(ctx, { key: 'editor-content', slot: 'center', bindingKey: 'empty-workbench',
-        workspaceOwner: 'editor-workbench', hostId: 'editor-content', themeScope: 'center.editor', title: '内容',
-        content: '<p class="editor-workbench-empty" role="status">从左侧目录打开资源，或切换工作类型。</p>' }),
-      createEditorWorkspaceColumn(ctx, { key: 'editor-inspector', slot: 'right', bindingKey: 'empty-workbench',
-        workspaceOwner: 'editor-workbench', hostId: 'editor-inspector', themeScope: 'right.editor', title: '属性',
-        visible: editorLayout.state.mode === 'advanced', content: '' })];
-    const frame = renderEditorWorkspaceFrame(ctx, createEditorWorkspaceFrame('editor-empty', columns));
-    const snapshot = browseInstances as BrowseInstanceSnapshot<import('./editor-browse-instances').EditorBrowseInstanceState> | undefined;
-    const chrome = {
-      layout: editorLayout.state, edges: editorWorkspaceEdges(['left', 'center', 'right']), temporaryView: false,
-      workTypes: [
-        { id: 'story', name: '故事编辑', icon: editorToolIcon('open'), active: activeExplorerType === 'story' },
-        { id: 'world', name: '世界编辑器', icon: worldWorkIcon, active: activeExplorerType === 'world' },
-      ],
-      instances: (snapshot?.instances ?? []).map(instance => ({ id: instance.id, title: instance.presentation.title,
-        typeLabel: instance.providerKey === 'world' ? 'World' : 'Story', active: false })),
-      canDuplicate: false, commands: '', status: '尚未打开浏览实例',
-    };
-    return { body: renderEditorWorkspace(ctx, chrome, frame), footerNote: '编辑工作台 · 未打开资源' };
-  }
-  if (route.kind === 'world-editor' && active?.providerKey === 'world') {
-    const world = active as import('../runtime-editor/world-browser-provider').WorldBrowseInstance;
-    const explorer = activeExplorerType === 'story' && state.storyEditor
-      ? createStoryEditorExplorerColumn(ctx, state.storyEditor)
-      : createWorldEditorExplorerColumn(ctx, world, worldExplorer);
-    return { body: renderWorldBrowser(ctx, world, activeExplorerType, explorer,
-      browseInstances as BrowseInstanceSnapshot<import('./editor-browse-instances').EditorBrowseInstanceState>, worldExplorer), footerNote: '世界编辑器' };
-  }
-  if (route.kind === 'story-editor' && state.storyEditor && browseInstances) {
-    const storySnapshot = browseInstances as BrowseInstanceSnapshot<import('./editor-browse-instances').EditorBrowseInstanceState>;
-    const world = browseInstances.instances.find(instance => instance.providerKey === 'world') as import('../runtime-editor/world-browser-provider').WorldBrowseInstance | undefined;
-    const explorer = activeExplorerType === 'world'
-      ? createWorldEditorExplorerColumn(ctx, world, worldExplorer)
-      : createStoryEditorExplorerColumn(ctx, state.storyEditor, storyExplorer);
-    return { body: renderStoryEditorWorkspace(ctx, state.storyEditor, storySnapshot, activeExplorerType, explorer), footerNote: 'Story 编辑器 · 本地草稿' };
+  editorWorkbenchProjection?: EditorWorkbenchProjection): { body: string; footerNote: string } {
+  if (route.kind === 'story-editor' || route.kind === 'world-editor') {
+    if (!editorWorkbenchProjection) throw new Error('An open Editor Workbench must provide its live composition projection.');
+    return { body: renderEditorWorkspace(ctx, editorWorkbenchProjection.chrome,
+      renderEditorWorkspaceFrame(ctx, editorWorkbenchProjection.frame)),
+      footerNote: route.kind === 'world-editor' ? '世界编辑器' : 'Story 编辑器 · 本地草稿' };
   }
   if (route.kind === 'area-map' && state.areaMapSession?.sessionId === route.sessionId) {
     return { body: renderAreaMapWorkspace(ctx, state.areaMapSession, state), footerNote: '区域地图' };
@@ -175,9 +132,8 @@ function renderWorkspaceBody(ctx: UIContext, route: WorkspaceRoute, state: Panel
 
 export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: PanelState,
   editorTheme?: import('./editor-workspace-appearance').EditorWorkspaceTheme,
-  browseInstances?: BrowseInstanceSnapshot<unknown>, activeExplorerType: EditorExplorerType = 'story',
-  explorers: Partial<Record<EditorExplorerType, EditorExplorerStateSnapshot>> = {}): string {
-  const rendered = renderWorkspaceBody(ctx, route, state, browseInstances, activeExplorerType, explorers);
+  editorWorkbenchProjection?: EditorWorkbenchProjection): string {
+  const rendered = renderWorkspaceBody(ctx, route, state, editorWorkbenchProjection);
   return `
     <main class="console-shell">
       ${renderHeader(ctx, { studentVariantId: studentVariantId(route, state), editorTheme })}
@@ -185,7 +141,3 @@ export function renderWorkspace(ctx: UIContext, route: WorkspaceRoute, state: Pa
       <footer><span>ARONA CLICKER / LOCAL PROTOTYPE</span><span>${rendered.footerNote}</span></footer>
     </main>`;
 }
-
-const emptyExplorerState: EditorExplorerStateSnapshot = {
-  queries: {}, expandedPlacementKeys: [], searchExpandedPlacementKeys: [], expandedOverrides: {}, searchExpandedOverrides: {}, scrollTopByHost: {},
-};
