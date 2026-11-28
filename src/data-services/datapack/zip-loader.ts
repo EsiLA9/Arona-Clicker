@@ -7,7 +7,7 @@ import type { PassivePoolDef } from '../contracts/passive-pool';
 import type { StoryDef } from '../contracts/story';
 import type { ActiveStoryEntry, PassiveStoryEntry } from '../contracts/story-entry';
 import type JSZip from 'jszip';
-import { ZipPackSource } from './source';
+import { PROJECT_LAYOUT_PATH, ZipPackSource } from './source';
 import { FragmentParseError, mergeFragments as mergeParsedFragments, parseFragment as parseDatapackFragment } from './fragment-parser';
 import type {
   AffectorPackDef,
@@ -56,6 +56,9 @@ export interface ZipLoadResult {
 export async function loadDatapackFromZip(zip: JSZip): Promise<ZipLoadResult> {
   const source = new ZipPackSource(zip);
   const entries = await source.list();
+  if (entries.some(entry => entry.path === PROJECT_LAYOUT_PATH)) {
+    throw new ZipLoadError('这是作者布局副本，请先生成旧版兼容发行包。', PROJECT_LAYOUT_PATH);
+  }
   const jsonEntries = entries.filter(entry => /\.json$/i.test(entry.path));
   const imagePaths: string[] = [];
   let ignoredCount = 0;

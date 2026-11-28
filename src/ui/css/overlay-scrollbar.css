@@ -1,0 +1,51 @@
+/* Opt-in floating scrollbar. Native scrolling remains on the viewport element. */
+.overlay-scrollbar {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.overlay-scrollbar__viewport {
+  min-width: 0;
+  min-height: 0;
+  scrollbar-width: none;
+}
+.overlay-scrollbar__viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.overlay-scrollbar__content { min-width: 0; width: 100%; }
+
+.overlay-scrollbar__track {
+  position: absolute;
+  z-index: 4;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 12px;
+  pointer-events: none;
+}
+
+.overlay-scrollbar__thumb {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 3px;
+  width: 5px;
+  min-height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-on-panel) 38%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  cursor: default;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.overlay-scrollbar[data-overlay-scrollbar-overflow][data-overlay-scrollbar-visible] .overlay-scrollbar__thumb {
+  opacity: 1;
+  pointer-events: auto;
+}
+.overlay-scrollbar__thumb:is(:hover, :active) { background: color-mix(in srgb, var(--ink-on-panel) 58%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-scrollbar__thumb { transition: none; }
+}

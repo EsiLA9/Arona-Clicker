@@ -4,7 +4,8 @@
  * M5 完整实现分片写回；M4 先提供：默认数据加载、整体下载、复制、粘贴导入。
  */
 import { jsonArchiveEntry, writeZipArchive } from '../../../src/data-services/archive/archive-writer';
-import { parsePackFromZipFile } from '../../../src/data-services/datapack/pack-parser';
+import { openZipPackSource, FolderPackSource, SingleFilePackSource } from '../../../src/data-services/datapack/source';
+import { readProject, type ProjectRead } from '../../../src/data-services/datapack/project-source';
 import { parsePackManifest, type PackManifest } from '../../../src/data-services/datapack/manifest';
 import type { EditorPackageMetadata } from '../model/editor-model';
 import type { DatapackData } from '../validate/index';
@@ -12,6 +13,34 @@ import type { DatapackData } from '../validate/index';
 export interface DatapackFileImport {
   datapack: DatapackData;
   manifest?: PackManifest;
+  project?: ProjectRead;
+  sourceName?: string;
+}
+
+export async function readEditorProject(files: readonly File[], directory = false): Promise<ProjectRead> {
+  if (!files.length) throw new Error('未选中文件。');
+  const read = (file: File) => async () => new Uint8Array(await file.arrayBuffer());
+  if (directory) {
+    const entries = files.map(file => ({
+      path: file.webkitRelativePath.slice(file.webkitRelativePath.indexOf('/') + 1),
+      read: read(file),
+    })).sort((left, right) => left.path.localeCompare(right.path, 'en'));
+    return readProject(new FolderPackSource(entries));
+  }
+  const [file] = files;
+  return readProject(/\.zip$/i.test(file.name) || /zip/i.test(file.type)
+    ? await openZipPackSource(await file.arrayBuffer())
+    : new SingleFilePackSource({ path: file.name, read: read(file) }));
+}
+
+export function downloadProjectZip(bytes: Uint8Array, filename: string): void {
+  const blob = new Blob([new Uint8Array(bytes).buffer], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /** 用 Vite import.meta.glob 批量加载真实 datapack 分片并合并 */
@@ -85,17 +114,20 @@ export function fileInputImport(): Promise<DatapackFileImport | null> {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,.zip,application/json,application/zip,application/x-zip-compressed';
+    input.oncancel = () => resolve(null);
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return resolve(null);
       try {
         if (/\.zip$/i.test(file.name) || /zip/i.test(file.type)) {
-          const parsed = await parsePackFromZipFile(file);
-          resolve({ datapack: parsed.datapack as unknown as DatapackData, manifest: parsed.manifest });
+          const project = await readEditorProject([file]);
+          if (project.status === 'incomplete') throw new Error(project.diagnostics.map(item => `${item.path}：${item.message}`).join('\n'));
+          resolve({ datapack: project.datapack as unknown as DatapackData, manifest: project.manifest, project, sourceName: file.name });
           return;
         }
         const text = await file.text();
-        resolve({ datapack: JSON.parse(text) as DatapackData });
+        const datapack = JSON.parse(text) as DatapackData;
+        resolve({ datapack, project: await readEditorProject([file]), sourceName: file.name });
       } catch (e) {
         alert(`导入失败：${(e as Error).message}`);
         resolve(null);

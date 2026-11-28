@@ -8,6 +8,11 @@ export type WorkspaceResponsiveProfile = 'default' | 'two-column' | 'single-colu
 export type WorkspaceScrollMode = 'auto' | 'content' | 'none';
 export type WorkspaceScrollOwner = 'workspace-body' | 'content-region' | 'delegated';
 export type WorkspaceSurface = 'panel' | 'none';
+export interface WorkspaceColumnBinding {
+  afterContentUpdate?(): void;
+  dispose(): void;
+}
+export type WorkspaceColumnBindingResult = void | (() => void) | WorkspaceColumnBinding;
 export interface WorkspaceColumnSpec {
   /** Legacy appearance name, never the physical position or instance identity. */
   slot?: WorkspaceSlot;
@@ -18,7 +23,7 @@ export interface WorkspaceColumnSpec {
   onBack?: (() => void) | null;
   backSelector?: string;
   actions?: import('../../workspace/column-actions').ColumnActions;
-  bind?: (root: HTMLElement) => void | (() => void);
+  bind?: (root: HTMLElement) => WorkspaceColumnBindingResult;
   /** 稳定的业务语义，供主题编辑器和后续工作区扩展识别；不参与布局。 */
   role?: string;
   /** 当前列的 Workspace owner；用于 DOM 身份检查和刷新边界诊断。 */

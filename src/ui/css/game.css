@@ -1,6 +1,7 @@
 /* One startup request; keep the original entry order for the shared cascade. */
 @import './variables.css';
 @import './layout.css';
+@import './overlay-scrollbar.css';
 @import './story-nav.css';
 @import './chat.css';
 @import './chat-input.css';

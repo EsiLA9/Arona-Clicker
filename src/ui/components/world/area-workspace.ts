@@ -4,6 +4,16 @@ import { createAreaNavigationColumn } from '../../columns';
 import { renderWorkspaceFrame, type WorkspaceFrameSpec } from '../shared/workspace-frame';
 import { renderWorkspaceTitlebar } from '../shared/workspace-titlebar';
 import { resolveEntityPresentation } from '../presentation/entity-presentation';
+import { createOverlayScrollbar, renderOverlayScrollbar, type OverlayScrollbarBinding } from '../../interaction/overlay-scrollbar';
+
+function areaScrollbarBinding(column: HTMLElement): OverlayScrollbarBinding | undefined {
+  const root = column.querySelector<HTMLElement>('[data-overlay-scrollbar]');
+  const viewport = root?.querySelector<HTMLElement>('.area-workspace__center-content');
+  const content = root?.querySelector<HTMLElement>('[data-overlay-scrollbar-content]');
+  const track = root?.querySelector<HTMLElement>('.overlay-scrollbar__track');
+  const thumb = track?.querySelector<HTMLElement>('.overlay-scrollbar__thumb');
+  return root && viewport && content && track && thumb ? { root, viewport, content, track, thumb } : undefined;
+}
 
 function placeholder(ctx: UIContext, areaName: string, detail: string): string {
   return `<div class="workspace-placeholder"><h2>${ctx.escapeHtml(areaName)}</h2><p>${ctx.escapeHtml(detail)}</p></div>`;
@@ -27,10 +37,12 @@ export function createAreaWorkspaceFrame(ctx: UIContext, areaId: string, state: 
       </section>`
     : '<p class="area-workspace__empty" role="status">这个区域目前没有待接取的故事。</p>';
 
-  const center = `<div class="area-workspace__center-content" data-scroll-owner="content-region">
+  const center = renderOverlayScrollbar(`<div class="area-workspace__center-content overlay-scrollbar__viewport" data-scroll-owner="content-region">
+      <div class="area-workspace__center-content-body overlay-scrollbar__content" data-overlay-scrollbar-content>
         <section class="area-workspace__overview"><h2>${ctx.escapeHtml(areaName)}</h2>${areaDescription ? `<p>${ctx.escapeHtml(areaDescription)}</p>` : ''}</section>
         ${storyList}
-      </div>`;
+      </div>
+    </div>`);
   const right = placeholder(ctx, areaName, '区域详情将在此逐步设计。');
 
   return { id: 'area',
@@ -43,6 +55,18 @@ export function createAreaWorkspaceFrame(ctx: UIContext, areaId: string, state: 
         themeScope: 'center.game',
         surface: 'panel',
         className: 'area-workspace__center',
+        bind: column => {
+          const binding = areaScrollbarBinding(column);
+          if (!binding) return;
+          const controller = createOverlayScrollbar(binding);
+          return {
+            afterContentUpdate: () => {
+              const next = areaScrollbarBinding(column);
+              if (next) controller.rebind(next);
+            },
+            dispose: () => controller.dispose(),
+          };
+        },
         header: renderWorkspaceTitlebar(ctx, 'center', '区域概览', 'data-area-workspace-leave'),
         content: center,
         scroll: 'content',

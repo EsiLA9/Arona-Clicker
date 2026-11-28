@@ -10,7 +10,7 @@
 
 首批交付依次是多文件读入与来源、按表/实体拆分及选合/全合、快速层级化、独立 Datapack 编辑器与 CLI 接入。支持单 JSON、旧包目录及 ZIP，目录可任意嵌套，同一文件可混合多种表。资源沿用包内相对路径。转换先输出新目录或 ZIP。移动文件不改变 ID、Story 目录、Area 关系或运行行为。M02–M04 可以消费首批成果，基本拆合和层级化无需等待这三个模块。
 
-原文件编辑保存、固定构建输入、生产迁移随后按消费者推进。M03 负责构建，M04 负责草稿。Base 保留 TS 原始构建和测试。路径验证可只用代表性 Base 片段的导出副本，或由测试包完成。Base 历史差异和权威源选择独立裁定。
+原文件保存随 M04 草稿推进，读入及导出迁移在首批完成后可独立推进。M03 消费固定构建输入。Base 保留 TS 原始构建和测试，并将实际分片导出接入共用服务。局部路径样本可以先试，全量 Base 导出是迁移验收。Base 历史差异和权威源选择独立裁定。
 
 ## 3. 目标数据结构
 
@@ -48,13 +48,15 @@ interface PackageInput {
   packageRef: string; modName?: string; version?: string; digest?: string;
   dependencies?: string[]; mode: 'project'|'dependency';
 }
-interface ProjectRead {
+interface ProjectReadBase {
   project: string; revision?: string; packages: PackageInput[];
   files: SourceFile[]; definitions: DefinitionRecord[];
-  datapack?: Datapack; // 合法且完整时提供原有合并投影
-  incomplete: { packageRef: string; path?: string; reason: string }[];
   diagnostics: Diagnostic[];
 }
+type ProjectRead = ProjectReadBase & (
+  | { status: 'complete'; datapack: Datapack }
+  | { status: 'incomplete'; incomplete: { packageRef: string; path?: string; reason: string }[] }
+);
 ```
 
 `ProjectRead` 通过读取器访问原始字节。M03 或试播需要固定输入时，读取器按 revision 提供一致的文件与资产字节，无法保证则拒绝旧请求。版本可覆盖清单、读取顺序、依赖选择及草稿。JSON Pointer 按 RFC 6901 编码，区分实体字段 `/theme/colorGroupId` 与文档位置 `/spots/3/theme/colorGroupId`。文本接入后按语言精度提供范围，展示行列从一开始，CRLF 计一次换行，内部偏移用 UTF-16。M02 提供领域逻辑键，读取不依赖 Registry 或运行状态。
@@ -73,7 +75,7 @@ project/
   assets/...
 ```
 
-导入记录每表实际次序。先验证现有枚举规则下，目标路径及分片顺序能否表达原序。如果目录交错造成变序，且回读证明确实影响行为或数据保真，才为受影响表试验局部顺序信息，以目标文件和片内位置定位。试验覆盖缺项、重复项和外部新增。旧读取器兼容产物可合回有序 JSON。首批不建设全局排序清单、依赖锁和永久身份。
+导入记录每表实际次序。保持实体内部数组。顶层表按实际消费者分为有顺序意义、已证明可换序和待核实。既有分片顺序无法表达受约束的交错时，为受影响表记录目标文件与片内位置，校验缺项、重复及外部新增。待核实表优先保序，无法可靠恢复时明确提示。旧读取器兼容产物输出有序合一 JSON，局部顺序信息随作者布局流转。首批不建设全局顺序清单、依赖锁和永久身份。
 
 ### 3.2 布局计划与后续保存计划
 
@@ -110,7 +112,7 @@ interface SaveResult {
 | 全包合一 | 生成全部有序定义的单 JSON；资产独立；旧清单保持身份 | 不把图片/音频当作定义文本，不重复编译 DSL 与生成 JSON |
 | 快速层级化 | 按表、明确 Init 归属、角色显式映射、Story 系列或手工路径分组；多归属进入共享/待分组 | 不凭正文名字猜角色，不改变游戏目录或触发条件 |
 
-例：原 `stories=[A,B,C]`。A/C 放在 chapter-1.json，B 放 chapter-2.json；回读仍为 A/B/C，不以路径排序替代逻辑次序。任何顶层列表默认保序：areas/spots 的 Registry 枚举、passiveStories/passivePools 的随机落点、triggerDefs/affectorPacks/milestones/listeners 的调用顺序、storyDirectories/resourceDisplays 的相同 order 都可能改变行为。其余 ID 表没有证明无序也保持原次序。所有内部数组原样保留。
+例：原 `passiveStories=[A,B,C]`，A/C 放在一个文件、B 放另一文件。作者副本可按局部顺序回读为 A/B/C，有序合一后的兼容产物得到同样结果。按表核对实际消费者，证明无序的表可自由调整。全拆、分组、选合、全合可用每次输出继续执行。详细规则和反例见 [Task 0436](../../../ai/plan/task-0436-datapack-layout-transform.md)。
 
 同包重复 ID、单例重复、extras 键冲突和未知顶层字段在源中保留并定位。旧导入可提供旧合并结果对照，但不能无提示折叠冲突。未知字段原样保存；无法无损合一时阻止该转换，允许保留未处理的原文件。已知对象内的未识别字段随对象完整复制。作者布局中 DSL 与 JSON 可同时存在但同一实体只有一个作者声明；反向转换并取代源须独立确认并保证完整。发行默认生成旧 Runtime 可读取的单 JSON + 资产，由 M03 决定发行形式。
 
@@ -125,6 +127,6 @@ interface SaveResult {
 1. M01-A 对应 [Task 0435](../../../ai/plan/task-0435-datapack-multifile-source.md)。复用 `PackSource`、`parseFragment`、`mergeFragments` 读入目录、ZIP 和单 JSON，保留原位及未知项，继续提供旧严格加载结果。用 Base 分片、bundle、addition-test 目录和两个 ZIP 各自对照。
 2. M01-B 对应 [Task 0436](../../../ai/plan/task-0436-datapack-layout-transform.md) 和 [Task 0437](../../../ai/plan/task-0437-datapack-layout-tools.md)。共用布局计划先交付拆合，再提供类型、Init、角色、系列及自定义分组和手工预览。独立工具与 CLI 真实接入并输出新副本。Base 当前调用可继续使用原脚本。
 3. M01-C 对应 [Task 0438](../../../ai/plan/task-0438-datapack-source-save.md)。接真实可写宿主和 M04 字段保存，先验证单文件两个实体，再扩到外部冲突、多文件及恢复。只读入口仍可导出副本。
-4. M01-D 对应 [Task 0439](../../../ai/plan/task-0439-datapack-pipeline-convergence.md)。独立工具、CLI 和实际编辑器消费者逐步接共同输出，退出已被替代的重复组装。保留 Base TS 原始构建与测试，必要时为样本提供相对路径或资产适配。正式 Base 权威源、运行切换和历史差异由负责人另行裁定。
+4. M01-D 对应 [Task 0439](../../../ai/plan/task-0439-datapack-pipeline-convergence.md)。首批完成后可迁移 Base 实际导出、独立工具与 CLI，退出重复分片和资产组装。正式构建随 M03，只有实际写回的接线依赖 M01-C。保留 Base TS 原始构建与测试。正式 Base 权威源、运行切换和历史差异另行裁定。
 
 验收分两期。首批用真实包完成读入、拆合、分组、手调、输出及回读，对照字段、运行意义的表序和资产，验证重复声明、坏文件、未知键、空目录、大小写碰撞和资产缺失。后续验证原地保存、外部变化、中途失败恢复与生产等价。以 `tests/data/datapack/` 中 PackSource、解析、归档、Base 导出测试及 `tools/datapack-editor/ui/io.test.ts` 作旧行为对照。

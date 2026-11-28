@@ -15,7 +15,7 @@ const usage = `本地 Task 管理：
   npm run task -- archive <task-id>
 
 Task 与 SubTask 内容保存在 ai/plan Markdown；归档复用 archive:docs。
-newTask 只生成骨架；交付前按 ai/guide/task-workflow.md 补全当前依据与具体改动方案。`;
+newTask 生成默认施工规格骨架；交付前按 ai/guide/task-workflow.md 补全内容。`;
 
 function fail(message) {
   throw new Error(message);
@@ -76,24 +76,26 @@ async function newTask(args) {
   const template = fs.readFileSync(templatePath, 'utf8');
   const body = template.match(/```markdown\r?\n([\s\S]*?)\r?\n```/)?.[1];
   if (!body) fail('Task 模板中没有 Markdown 模板区块。');
-  const document = body.replace('# Task：<可独立验收的结果>', `# Task：${title}`);
+  const titleMarker = '# Task XXXX · 任务名称';
+  if (body.split(/\r?\n/, 1)[0] !== titleMarker) fail('Task 模板缺少默认标题行。');
+  const document = body.replace(titleMarker, () => `# Task ${id.slice(5)} · ${title}`) + lineEnding(body);
 
   let index = fs.readFileSync(indexPath, 'utf8');
   const indexNewline = lineEnding(index);
-  index = addIndexRow(index, `| [[ai/plan/${id}-${slug}]] | 待处理 | 补全当前依据与具体改动方案 |`, indexNewline);
+  index = addIndexRow(index, `| [[ai/plan/${id}-${slug}]] | 待处理 | 补全施工规格 |`, indexNewline);
   fs.writeFileSync(filePath, document, { flag: 'wx' });
   fs.writeFileSync(indexPath, index);
   console.log(`已创建 ${id}：ai/plan/${fileName}`);
-  console.log('已生成待补全骨架；交付前按 ai/guide/task-workflow.md 写明具体改动、调用衔接与验证，删除模板占位符。');
+  console.log('已生成待补全骨架；交付前按 ai/guide/task-workflow.md 补全施工规格并删除填写提示。');
 }
 
 function ensureSubtasksSection(text, newline) {
-  let document = text;
-  if (document.includes('## SubTasks')) return document;
+  if (/^## SubTasks[ \t]*\r?$/m.test(text)) return text;
   const section = `## SubTasks${newline}${newline}| ID | 范围 | 负责人 | 状态 |${newline}| --- | --- | --- | --- |${newline}${newline}`;
-  const related = document.indexOf('## 相关文件与资料');
-  document = related < 0 ? `${document.trimEnd()}${newline}${newline}${section}` : `${document.slice(0, related)}${section}${document.slice(related)}`;
-  return document;
+  const anchor = /^## (?:\d+\. )?施工记录[ \t]*\r?$/m.exec(text)
+    ?? /^## 相关文件与资料[ \t]*\r?$/m.exec(text);
+  if (!anchor) return `${text.trimEnd()}${newline}${newline}${section}`;
+  return `${text.slice(0, anchor.index).trimEnd()}${newline}${newline}${section}${text.slice(anchor.index)}`;
 }
 
 function newSubtask(args) {
@@ -105,7 +107,7 @@ function newSubtask(args) {
   const filePath = taskFile(taskId);
   const original = fs.readFileSync(filePath, 'utf8');
   const newline = lineEnding(original);
-  let document = ensureSubtasksSection(original, newline);
+  const document = ensureSubtasksSection(original, newline);
   const ids = [...document.matchAll(/\bST-(\d+)\b/g)].map(([, number]) => Number(number));
   const id = `ST-${String(Math.max(0, ...ids) + 1).padStart(2, '0')}`;
   const lines = document.split(/\r?\n/);

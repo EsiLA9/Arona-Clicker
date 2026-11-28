@@ -1,6 +1,7 @@
 import type { ToastService } from '../components/shared/toast';
 
 async function loadEditorWorkspaceStyles(): Promise<void> {
+  await import('../css/overlay-scrollbar.css');
   await import('../css/editor-workspace.css');
   await import('../css/editor-directory.css');
 }

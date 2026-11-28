@@ -17,7 +17,11 @@ Engine / Datapack TypeScript 契约
 
 ## 导入与导出
 
-`io.ts` 支持加载默认分片、导入 JSON / ZIP、复制 JSON、下载 JSON / ZIP。ZIP 导入复用 Data Services 的包解析器；ZIP 导出写出 `datapack.json` manifest 和内容 fragment。导入的数据进入独立 `EditorModel`，编辑器不会直接修改已运行游戏的 Registry 或玩家状态。
+`io.ts` 支持加载默认分片、导入 JSON / ZIP、复制 JSON、下载 JSON / ZIP。ZIP 导入复用 Data Services 的项目读入，现有表单 ZIP 导出写出 `datapack.json` manifest 和内容 fragment。导入的数据进入独立 `EditorModel`，编辑器不会直接修改已运行游戏的 Registry 或玩家状态。
+
+「文件组织」是独立编辑器侧栏入口。左侧查看按文件定位的声明，右侧预览拆合或分组后的目标树。可以打开目录、ZIP 或 JSON，按表／实体拆分，选合或全合，按类型、Init、角色、Story 系列或自定义规则分组。路径调整按文件或声明指定。确认导出新 ZIP，可再次打开继续转换。源数据是本次导入的文件内容，表单内改动另行保留。坏文件可定位，完整转换需要成功读入。
+
+`npm run datapack:layout -- --help` 提供同源终端入口。省略 `--out` 只出预览。写入时给出不存在的目标文件夹或 ZIP，目标父目录需已存在。例如 `npm run datapack:layout -- split datapack-dev/addition_test --by entity --out .test-artifacts/addition-split.zip`。作者布局可用 `merge --compatible` 生成旧版发行结构，需已有有效包清单。
 
 源码入口：`tools/datapack-editor/ui/main.ts`、`model/editor-model.ts`、`ui/io.ts`、`schema/merge.ts`、`schema/editor-extras.ts`、`validate/index.ts`、`scripts/gen-engine-schema.mjs`。
 

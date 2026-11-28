@@ -1,41 +1,19 @@
 /* Shared directory tree and non-layout scrollbar presentation. */
 .editor-directory-scroll {
-  --editor-directory-thumb-gutter: 8px;
   position: relative;
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  margin-inline-end: calc(-1 * var(--editor-directory-thumb-gutter));
-  padding-inline-end: var(--editor-directory-thumb-gutter);
 }
-.editor-directory-scroll > [data-scroll-key] { overflow-x: hidden; scrollbar-width: none; }
-.editor-directory-scroll > [data-scroll-key]::-webkit-scrollbar { display: none; }
-.editor-directory-thumb {
-  position: absolute;
-  z-index: 1;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  width: 6px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--ink-on-panel) 38%, transparent);
-  visibility: hidden;
-  pointer-events: none;
-  touch-action: none;
-  cursor: default;
-}
-.editor-directory-scroll:hover > .editor-directory-thumb[data-overflow] {
-  visibility: visible;
-  pointer-events: auto;
-}
-.editor-directory-thumb:is(:hover, :active) { background: color-mix(in srgb, var(--ink-on-panel) 58%, transparent); }
+.editor-directory-scroll > .overlay-scrollbar { min-height: 0; flex: 1 1 auto; }
 
 .editor-directory-tools { display: flex; flex: none; flex-wrap: wrap; gap: 6px; }
 .editor-directory-tools .mini-action { min-height: 26px; padding: 3px 7px; }
 .editor-explorer-search { display: grid; flex: none; gap: 4px; font-size: 12px; }
 .editor-explorer-search input { width: 100%; min-width: 0; }
-.editor-directory-scroll-body { flex: 1; min-height: 0; overflow-y: auto; }
+.editor-directory-scroll-body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; }
 .editor-directory-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-directory-name--strong { font-weight: 600; }
 .editor-directory-note { margin-inline-start: auto; color: var(--muted-on-panel); font-size: 10px; font-weight: 400; white-space: nowrap; }

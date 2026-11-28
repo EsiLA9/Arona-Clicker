@@ -1,10 +1,10 @@
 import type { Datapack } from '../contracts/datapack';
-import type { } from '../../engine/types';
 import { parsePackManifest, type PackManifest } from './manifest';
-import { mergeFragments, parseFragment } from './fragment-parser';
-import { PackSource, ZipPackSource } from './source';
+import { mergeFragments, parseFragment, type DatapackFragment } from './fragment-parser';
+import { openZipPackSource, PROJECT_LAYOUT_PATH, type PackSource } from './source';
 
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|apng|avif|bmp|ico)$/i;
+export const isPackImagePath = (path: string): boolean => IMAGE_EXT_RE.test(path);
 const IMAGE_MIME: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
   '.webp': 'image/webp', '.svg': 'image/svg+xml', '.apng': 'image/apng',
@@ -54,10 +54,13 @@ async function readJson(entry: { path: string; read(): Promise<Uint8Array> }): P
 
 export async function parsePack(source: PackSource, onProgress?: PackProgressReporter): Promise<ParsedPack> {
   const entries = await source.list();
+  if (entries.some(entry => entry.path === PROJECT_LAYOUT_PATH)) {
+    throw new PackParseError('这是作者布局副本，请先生成旧版兼容发行包。', PROJECT_LAYOUT_PATH);
+  }
   const manifestEntry = entries.find(entry => entry.path === 'datapack.json');
   if (!manifestEntry) throw new PackParseError('缺少根目录 datapack.json。', 'datapack.json');
   const jsonEntries = entries.filter(entry => entry.path !== 'datapack.json' && /\.json$/i.test(entry.path));
-  const imageEntries = entries.filter(entry => IMAGE_EXT_RE.test(entry.path));
+  const imageEntries = entries.filter(entry => isPackImagePath(entry.path));
   const total = jsonEntries.length + imageEntries.length + 2;
   let completed = 0;
   const advance = () => onProgress?.(++completed, total);
@@ -76,17 +79,21 @@ export async function parsePack(source: PackSource, onProgress?: PackProgressRep
     advance();
     return { path: entry.path, url };
   }));
-  const datapack = { ...mergeFragments(fragments), modName: manifest.modName };
-  if (datapack.name !== manifest.name || datapack.version !== manifest.version) {
-    throw new PackParseError('manifest 与 Datapack 分片的 name/version 不一致。', manifestEntry.path);
-  }
+  const datapack = mergePackFragments(fragments, manifest);
   advance();
   return { manifest, datapack, images, jsonFileCount: jsonEntries.length, ignoredCount };
 }
 
+export function mergePackFragments(fragments: readonly DatapackFragment[], manifest: PackManifest): Datapack {
+  const datapack = { ...mergeFragments(fragments), modName: manifest.modName };
+  if (datapack.name !== manifest.name || datapack.version !== manifest.version) {
+    throw new PackParseError('manifest 与 Datapack 分片的 name/version 不一致。', 'datapack.json');
+  }
+  return datapack;
+}
+
 export async function parsePackFromZipBuffer(input: ArrayBuffer | Uint8Array | Blob, onProgress?: PackProgressReporter): Promise<ParsedPack> {
-  const { default: JSZip } = await import('jszip');
-  return parsePack(new ZipPackSource(await JSZip.loadAsync(input)), onProgress);
+  return parsePack(await openZipPackSource(input), onProgress);
 }
 
 export async function parsePackFromZipFile(file: File | Blob, onProgress?: PackProgressReporter): Promise<ParsedPack> {

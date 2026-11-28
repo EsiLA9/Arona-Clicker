@@ -12,6 +12,7 @@ interface MountedColumn {
   markup: string;
   token: ColumnToken;
   cleanup: () => void;
+  afterContentUpdate?: () => void;
   workspaceBack?: (() => void) | null;
 }
 
@@ -62,7 +63,11 @@ export class WorkspaceColumns {
     };
     node.addEventListener('click', back, true);
     const unbindActions = bindColumnActions(node, () => record.spec.actions ?? {});
-    const dispose = spec.bind?.(node);
+    const binding = spec.bind?.(node);
+    const dispose = typeof binding === 'function' ? binding : binding?.dispose.bind(binding);
+    record.afterContentUpdate = typeof binding === 'object' && binding
+      ? binding.afterContentUpdate?.bind(binding)
+      : undefined;
     record.cleanup = () => { node.removeEventListener('click', back, true); unbindActions(); dispose?.(); };
     this.mounted.set(id, record);
     this.backVisibility(record);
@@ -208,6 +213,7 @@ export class WorkspaceColumns {
         if (position !== undefined) host.scrollTop = position;
       }
       restoreFocusWithin(current.node, focus);
+      current.afterContentUpdate?.();
       this.hooks.afterReplace?.(current.node);
       return true;
     }

@@ -133,6 +133,76 @@ body {
   min-height: 0;
   min-width: 0;
 }
+#content[hidden], #file-layout [hidden] {
+  display: none;
+}
+#file-layout:not([hidden]) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.file-layout-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#file-layout > .file-layout-bar {
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.file-layout-source {
+  margin: 0;
+  padding: 8px 16px;
+  color: var(--text-dim);
+}
+.file-layout-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+.file-layout-columns > section {
+  overflow: auto;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.file-layout-columns h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.file-layout-columns li {
+  list-style: none;
+  margin-block: 4px;
+}
+.file-layout-columns ul {
+  padding-inline-start: 14px;
+}
+.file-layout-columns label {
+  display: block;
+}
+.file-layout-columns textarea {
+  display: block;
+  width: 100%;
+}
+.file-layout-columns select {
+  max-width: 100%;
+}
+.file-layout-columns [data-result] {
+  white-space: pre-line;
+  color: var(--text-dim);
+}
+#file-layout > .file-layout-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+}
 #list-container {
   width: 280px;
   flex-shrink: 0;

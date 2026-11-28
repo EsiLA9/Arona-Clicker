@@ -13,6 +13,10 @@
 
 低层 `loadDatapackFromZip()` 可直接把 ZIP 内 JSON fragments 合并为 Datapack；它与带 manifest、身份校验和图片结果的 `parsePack()` 包路径职责不同。导出侧 `ZipArchiveWriter` 接收 `ArchivePlan`：先拒绝绝对路径、反斜线、空路径段、`.` / `..` 和重复路径，再按路径稳定排序并生成 ZIP。这样导出结果只包含调用方明确提供的条目。
 
+作者工具通过 `project-source.ts:readProject` 读取单 JSON、目录或 ZIP。文件字节、声明原值、源路径及 JSON Pointer 随读取结果保存。完整输入提供 Datapack 投影，缺文件、坏分片或缺少包内图片时提供可读声明和诊断。文件位置属于作者布局，游戏 ID 由实体自身定义。
+
+`project-layout.ts:planProjectLayout` 生成拆分、合一和分组的副本计划。每次输出可重新读入继续转换。分片物理排列不足以表达原表次序时，`.datapack-layout` 只为受影响表记录片内位置。普通运行读取入口会提示先生成兼容发行包。兼容全合输出旧清单、单内容分片和适用资产，无需附属顺序记录。实际操作见 [[datapack-editor-and-schema]]。
+
 TypeScript Base 文件夹导出通过 `scripts/export-base-datapack.mjs` 读取作者源，写入 `datapack.json`、图片资源和 `content/` 下的分片；`metadata.json` 保存 name/version，每个 Datapack 顶层字段各有一个 JSON fragment。`parsePack()` 会把这些文件合并为同一 Datapack。Runtime 静态 bundle 仍由 `scripts/sync-base-datapack-bundle.mjs` 生成到 `base-pack/content.json`，与面向包目录的多文件导出分开维护。
 
 ## 来源层与覆盖解析

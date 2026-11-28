@@ -5,7 +5,7 @@
 
 | 需要 | 阅读 |
 | --- | --- |
-| Task 的范围、执行、验收与交接 | [[ai/guide/task-workflow]] |
+| Task 创建、施工规格、验收与交接 | [[ai/guide/task-workflow]] |
 | 跨会话原型架构调查、蓝图评审与后续施工交接 | [[ai/guide/prototype-blueprint-workflow]] |
 | GALHCG 查询、分页、只读变更复核 | [[ai/guide/galhcg-project-map]]；获授权维护时再读 `.galhcg/agent-maintenance.md` |
 | 领域未知、跨领域或正式施工时选择 Read Set | [[ai/guide/task-read-set-routing]]；已知领域从 [[AGENTS]] 直接进入下方领域包 |
@@ -29,7 +29,7 @@
 
 ## 模板
 
-- [[ai/guide/templates/execution-task]]：独立可验收的调查或施工 Task。
+- [[ai/guide/templates/execution-task]]：`newTask` 使用的默认施工规格骨架。
 
 ## 权威关系
 

@@ -59,7 +59,7 @@ export interface DatapackFragment {
   singletons: Partial<Pick<Datapack, DatapackSingletonField>>;
 }
 
-function isListField(key: string): key is DatapackListField {
+export function isListField(key: string): key is DatapackListField {
   return (DATAPACK_LIST_FIELDS as readonly string[]).includes(key);
 }
 
@@ -71,6 +71,11 @@ export function parseFragment(path: string, content: string): DatapackFragment {
   let raw: unknown;
   try { raw = JSON.parse(content); }
   catch (error) { throw new FragmentParseError('JSON 解析失败：' + (error instanceof Error ? error.message : String(error)), path); }
+  return parseFragmentValue(path, raw);
+}
+
+/** The decoded object belongs to the caller and may be migrated in place. */
+export function parseFragmentValue(path: string, raw: unknown): DatapackFragment {
   if (Array.isArray(raw)) {
     throw new FragmentParseError('顶层是数组，无法推断所属字段。请改写为对象分片，例如 {"spots": [...]}，或完整 Datapack 对象。', path);
   }

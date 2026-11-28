@@ -411,7 +411,8 @@ h3 {
 .workspace-column > .presentation-host-content > .workspace-column__slot { height: 100%; min-height: 0; }
 .workspace-column__body > .panel { display: flex; flex-direction: column; height: 100%; }
 .workspace-column__body > .panel > .panel-body { min-height: 0; flex: 1 1 auto; }
-.area-workspace__center-content { display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--panel-region-gap); min-width: 0; min-height: 0; overflow: auto; padding: var(--panel-content-padding); }
+.area-workspace__center-content { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: var(--panel-content-padding); }
+.area-workspace__center-content-body { display: flex; flex: 0 0 auto; flex-direction: column; gap: var(--panel-region-gap); min-height: 100%; }
 .area-workspace__overview { display: grid; gap: 8px; }
 .area-workspace__overview h2 { margin: 0; color: var(--theme-node-text, var(--ink-on-panel)); font-size: 18px; }
 .area-workspace__overview p { max-width: 34em; margin: 0; color: var(--muted-on-panel); line-height: 1.7; }

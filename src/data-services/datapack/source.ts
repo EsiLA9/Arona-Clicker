@@ -1,13 +1,24 @@
 import type JSZip from 'jszip';
 
+export const PROJECT_LAYOUT_PATH = '.datapack-layout';
+
 export interface PackEntry {
   path: string;
+  originalPath?: string;
   read(): Promise<Uint8Array>;
 }
 
 export interface PackSource {
   readonly kind: 'file' | 'folder' | 'zip';
   list(): Promise<PackEntry[]>;
+}
+
+export class SingleFilePackSource implements PackSource {
+  readonly kind = 'file' as const;
+
+  constructor(private readonly entry: PackEntry) {}
+
+  async list(): Promise<PackEntry[]> { return [this.entry]; }
 }
 
 /** 将构建资源或浏览器文件提供的相对条目视为展开的包目录。 */
@@ -33,9 +44,15 @@ export class ZipPackSource implements PackSource {
       if (file.dir || path.endsWith('/')) return;
       entries.push({
         path,
+        originalPath: file.unsafeOriginalName,
         read: () => file.async('uint8array'),
       });
     });
     return entries;
   }
+}
+
+export async function openZipPackSource(input: ArrayBuffer | Uint8Array | Blob): Promise<ZipPackSource> {
+  const { default: JSZip } = await import('jszip');
+  return new ZipPackSource(await JSZip.loadAsync(input));
 }

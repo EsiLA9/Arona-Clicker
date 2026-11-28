@@ -14,6 +14,7 @@ import { renderList, type Selection } from './components/list-view';
 import { renderDetail } from './components/detail-view';
 import { NaviService } from './navi';
 import type { ValidationIssue } from '../validate/index';
+import { mountFileLayout } from './file-layout';
 
 const model = new EditorModel();
 const navi = new NaviService();
@@ -27,6 +28,29 @@ const toolbarEl = document.getElementById('toolbar')!;
 const listEl = document.getElementById('list-container')!;
 const detailEl = document.getElementById('detail-container')!;
 const errorPanelEl = document.getElementById('error-panel')!;
+const contentEl = document.getElementById('content')!;
+const layoutEl = document.getElementById('file-layout')!;
+let layoutOpen = false;
+const fileLayout = mountFileLayout(layoutEl, { close: () => showFileLayout(false), hasEdits: () => model.canUndo() });
+
+function showFileLayout(open: boolean): void {
+  layoutOpen = open;
+  contentEl.hidden = open;
+  layoutEl.hidden = !open;
+  if (open) {
+    toolbarEl.textContent = 'Datapack 文件组织';
+    errorPanelEl.hidden = true;
+    fileLayout.refresh();
+  } else {
+    renderToolbar();
+    renderErrors(model.validate());
+  }
+  const button = sidebarEl.querySelector('[data-file-layout-nav]');
+  button?.classList.toggle('active', open);
+  for (const table of sidebarEl.querySelectorAll<HTMLElement>('[data-editor-table]')) {
+    table.classList.toggle('active', !open && table.dataset.editorTable === currentTable);
+  }
+}
 
 // ---------- 侧栏 ----------
 
@@ -36,13 +60,23 @@ function renderSidebar(): void {
   title.className = 'sidebar-title';
   title.textContent = 'Datapack';
   sidebarEl.appendChild(title);
+  const layoutButton = document.createElement('button');
+  layoutButton.type = 'button';
+  layoutButton.className = 'table-link';
+  layoutButton.classList.toggle('active', layoutOpen);
+  layoutButton.dataset.fileLayoutNav = '';
+  layoutButton.textContent = '文件组织';
+  layoutButton.onclick = () => showFileLayout(true);
+  sidebarEl.appendChild(layoutButton);
 
   for (const t of TABLES) {
     if (t.virtual) continue; // 虚拟合并引用表不展示在导航
     const btn = document.createElement('button');
-    btn.className = 'table-link' + (t.key === currentTable ? ' active' : '');
+    btn.dataset.editorTable = t.key;
+    btn.className = 'table-link' + (!layoutOpen && t.key === currentTable ? ' active' : '');
     btn.textContent = t.label;
     btn.onclick = () => {
+      showFileLayout(false);
       currentTable = t.key;
       selection = null;
       listFilter = '';
@@ -67,12 +101,18 @@ function renderToolbar(): void {
   actions.appendChild(toolBtn('⟲ 撤销', () => model.undo(), !model.canUndo()));
   actions.appendChild(toolBtn('⟳ 重做', () => model.redo(), !model.canRedo()));
   actions.appendChild(toolBtn('校验', () => renderErrors(model.validate())));
-  actions.appendChild(toolBtn('加载默认数据', () => { model.loadDatapack(loadDefaultDatapack()); }));
+  actions.appendChild(toolBtn('加载默认数据', () => { fileLayout.setSource(undefined); model.loadDatapack(loadDefaultDatapack()); }));
   actions.appendChild(toolBtn('导入文件', async () => {
     const imported = await fileInputImport();
-    if (imported) model.loadDatapack(imported.datapack, imported.manifest);
+    if (imported) {
+      fileLayout.setSource(imported.project, imported.sourceName);
+      model.loadDatapack(imported.datapack, imported.manifest);
+    }
   }));
-  actions.appendChild(toolBtn('粘贴导入', async () => { const d = await pasteImport(); if (d) model.loadDatapack(d); }));
+  actions.appendChild(toolBtn('粘贴导入', async () => {
+    const d = await pasteImport();
+    if (d) { fileLayout.setSource(undefined); model.loadDatapack(d); }
+  }));
   actions.appendChild(toolBtn('复制当前表', () => void copyTableJson()));
   actions.appendChild(toolBtn('复制全量', () => void copyDatapack(model.toDatapack())));
   actions.appendChild(toolBtn('下载', () => downloadDatapack(model.toDatapack())));
@@ -268,6 +308,7 @@ function renderDetailOnly(): void {
 
 function renderAll(): void {
   renderSidebar();
+  if (layoutOpen) { fileLayout.refresh(); return; }
   renderToolbar();
   const issues = model.validate();
   renderList(listEl, model, currentTable, listViewOpts(issues));
