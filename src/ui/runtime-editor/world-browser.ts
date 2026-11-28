@@ -1,60 +1,20 @@
-import { renderEditorDirectoryTools } from '../workspace/editor-directory';
-import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars, renderEditorDirectoryScroll } from '../workspace/editor-directory-scroll';
+import { chooseEditorExplorerPosition, indexEditorExplorer } from '../workspace/editor-explorer-nodes';
+import { editorExplorerKindFilter, type EditorExplorerDescription } from '../workspace/editor-explorer-column';
 import { renderEditorReviewFields, renderEditorReviewSection } from '../workspace/editor-review';
 import type { UIContext } from '../runtime/context';
 import { createEditorWorkspaceColumn } from '../workspace/editor-workspace-frame';
 import type { WorkspaceColumnSpec } from '../components/shared/workspace-frame';
-import { editorLayout, editorToolIcon, renderEditorTool, renderEditorToolGroup } from '../workspace/editor-workspace';
-import { EditorExplorerService, type EditorExplorerStateSnapshot } from '../workspace/editor-explorer-service';
-import { projectEditorExplorerTree, renderEditorExplorerSearch, renderEditorExplorerTree } from '../workspace/editor-directory';
-import type { EditorExplorerProjection, EditorWorkbenchBusinessChrome, EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
-import { buildDefaultWorldTree, resolveWorldSummary, worldBrowseProviderKey, worldEntityKey, worldExplorerNodes, type WorldBrowseInstance, type WorldEntityRef, type WorldSummary, type WorldTreeNode } from './world-browser-provider';
-export { buildDefaultWorldTree, resolveWorldResourceRequest, worldEntityIdentity, worldEntityKey, type WorldBrowseInstance, type WorldBrowseInstanceState, type WorldEntityRef, type WorldProviderState, type WorldTreeNode } from './world-browser-provider';
+import { editorLayout, renderEditorTool, renderEditorToolGroup } from '../workspace/editor-workspace';
+import type { EditorExplorerStateSnapshot } from '../workspace/editor-explorer-service';
+import type { EditorWorkbenchBusinessChrome, EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
+import { resolveWorldSummary, worldBrowseProviderKey, worldEntityKey, worldExplorerNodes, type WorldBrowseInstance, type WorldEntityRef, type WorldSummary } from './world-browser-provider';
+export { resolveWorldResourceRequest, worldEntityKey, type WorldBrowseInstance, type WorldBrowseInstanceState, type WorldEntityRef, type WorldProviderState } from './world-browser-provider';
 export type WorldBrowserSession = WorldBrowseInstance;
 
 const worldColumns = {
-  tree: { slot: 'left', key: 'editor-explorer', title: '世界目录' },
   detail: { slot: 'center', key: 'editor-content', title: '内容摘要' },
   review: { slot: 'right', key: 'editor-inspector', title: '便捷信息' },
 } as const;
-export const worldWorkType = 'world';
-export const worldWorkIcon = editorToolIcon('locate');
-
-export function worldTreePath(nodes: readonly WorldTreeNode[], ref: WorldEntityRef, preferredKey?: string): WorldTreeNode[] {
-  const key = worldEntityKey(ref);
-  for (const node of nodes) {
-    if (node.ref && worldEntityKey(node.ref) === key && (!preferredKey || node.key === preferredKey)) return [node];
-    const path = worldTreePath(node.children, ref, preferredKey);
-    if (path.length) return [node, ...path];
-  }
-  return [];
-}
-
-const emptyExplorerState: EditorExplorerStateSnapshot = { queries: {}, expandedPlacementKeys: [], searchExpandedPlacementKeys: [],
-  expandedOverrides: {}, searchExpandedOverrides: {}, scrollTopByHost: {} };
-
-export function renderWorldTree(ctx: UIContext, roots: readonly WorldTreeNode[], explorer: EditorExplorerStateSnapshot = emptyExplorerState,
-  activeResourceKey?: string): string {
-  const tree = projectEditorExplorerTree(worldExplorerNodes(roots), {
-    query: explorer.queries.default ?? '',
-    expandedOverrides: explorer.expandedOverrides,
-    searchExpandedOverrides: explorer.searchExpandedOverrides,
-    selectedPlacementKey: explorer.selectedPlacementKey,
-    activeResourceKey,
-    revealPlacementKey: explorer.reveal?.placementKey,
-  });
-  return renderEditorExplorerTree(ctx, tree, tree.emptyReason === 'no-items' ? '当前没有世界内容。' : '没有匹配的世界内容。');
-}
-
-export function refreshWorldExplorerTree(root: HTMLElement, ctx: UIContext, explorer: EditorExplorerStateSnapshot,
-  activeResourceKey?: string): boolean {
-  const nav = root.querySelector<HTMLElement>('[data-world-tree]');
-  if (!nav) return false;
-  nav.innerHTML = renderWorldTree(ctx, buildDefaultWorldTree(ctx.game.registry), explorer, activeResourceKey);
-  refreshEditorDirectoryScrollbars(root);
-  return true;
-}
-
 export function renderWorldDetail(ctx: UIContext, summary?: WorldSummary): string {
   const e = ctx.escapeHtml;
   if (!summary) return '<p>从左侧目录选择世界内容。</p>';
@@ -70,25 +30,23 @@ export function renderWorldDetail(ctx: UIContext, summary?: WorldSummary): strin
       summary.children.length ? `<ul>${summary.children.map(item => `<li>${link(item.ref, item.label)}</li>`).join('')}</ul>` : '', '暂无条目。') : ''}`;
 }
 
-export function createWorldEditorExplorerColumn(ctx: UIContext, explorer: EditorExplorerStateSnapshot, activeResourceKey?: string): WorkspaceColumnSpec {
-  const roots = buildDefaultWorldTree(ctx.game.registry);
-  return createEditorWorkspaceColumn(ctx, { ...worldColumns.tree, bindingKey: 'world-explorer', hostId: 'editor-explorer',
-    workspaceOwner: 'editor-workbench', themeScope: 'left.editor', leaveAction: 'data-world-editor-leave', scroll: 'content',
-    content: renderEditorExplorerSearch(ctx, { query: explorer.queries.default ?? '', channel: 'default', label: '搜索世界内容', className: 'editor-explorer-search',
-      attributes: 'data-editor-key="world-search"' })
-      + renderEditorDirectoryTools("目录工具", '<button type="button" class="mini-action" data-editor-workspace-action="locate-world">定位选中项</button>', "world-directory-tools")
-      + renderEditorDirectoryScroll(ctx, "world-tree", "world-tree-list", "", `<nav data-world-tree aria-label="世界目录">${renderWorldTree(ctx, roots, explorer, activeResourceKey)}</nav>`) });
-}
-
-export function worldExplorerProjection(ctx: UIContext, state: EditorExplorerStateSnapshot, service: EditorExplorerService,
-  getActiveResourceKey?: () => string | undefined): EditorExplorerProjection {
-  return { type: 'world', state, column: createWorldEditorExplorerColumn(ctx, state, getActiveResourceKey?.()), bindColumn: root => {
-    const unbindInteractions = service.bindColumn(root, 'world', { onQuery: () => refreshWorldExplorerTree(root, ctx, service.snapshot('world'), getActiveResourceKey?.()) });
-    const unbindScrollbars = bindEditorDirectoryScrollbars(root);
-    const host = root.querySelector<HTMLElement>('[data-scroll-key="world-tree"]');
-    if (host) host.scrollTop = service.scrollTop('world', 'world-tree');
-    return () => { unbindInteractions(); unbindScrollbars(); };
-  } };
+export function describeWorldExplorer(ctx: UIContext, state: EditorExplorerStateSnapshot, activeResourceKey?: string): EditorExplorerDescription {
+  const positions = worldExplorerNodes(ctx.game.registry);
+  const reveal = state.reveal;
+  const revealPlacementKey = reveal && chooseEditorExplorerPosition(indexEditorExplorer(positions).candidates(reveal.resourceKey),
+    reveal.placementKey ?? state.selectedPlacementKey)?.placementKey;
+  return { title: '世界目录', leaveAction: 'data-world-editor-leave', panes: [{
+      key: 'world-directory', title: '世界目录', scrollKey: 'world-tree', listKey: 'world-tree-list',
+      search: { channel: 'default', label: '搜索世界内容', className: 'editor-explorer-search',
+        attributes: 'data-editor-key="world-search"' },
+      filters: { id: 'world-explorer-filters', defaultOpen: true, facets: [editorExplorerKindFilter(['init', 'area', 'spot'])] },
+      tools: `<button type="button" class="mini-action" data-editor-workspace-action="locate-world"${activeResourceKey ? '' : ' disabled'}>定位当前世界资源</button>`,
+      navigationAttribute: 'data-world-tree',
+      tree: { positions, options: {
+        expandedOverrides: state.expandedOverrides, searchExpandedOverrides: state.searchExpandedOverrides,
+        selectedPlacementKey: state.selectedPlacementKey, activeResourceKey, revealPlacementKey,
+      }, emptyMessage: '当前没有世界内容。', noMatchMessage: '没有匹配的世界内容。' },
+  }] };
 }
 
 export function createWorldEditorBusinessColumns(ctx: UIContext, session: WorldBrowserSession): WorkspaceColumnSpec[] {

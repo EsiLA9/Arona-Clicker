@@ -1,10 +1,12 @@
+import { editorDirectoryClick, projectEditorExplorerTree, renderEditorExplorerTree, setEditorDirectoryExpanded } from '../workspace/editor-directory';
+import type { EditorExplorerNode } from '../workspace/editor-explorer-nodes';
 import { baseStoryHierarchy, type StoryContentItem } from '../../arona-clicker/content/story/story-hierarchy';
-import type { StoryEntryCatalog, StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryCatalog, type StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { STORY_CATALOG_ORDER_STEP, UNGROUPED_STORY_CHAPTER_ID, withAuthoredStoryCatalog } from '../columns/authored-story-catalog';
 import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
 import { renderStoryIdentityInline } from '../components/story/story-identity';
-import { patchEditorDOM } from './dom';
+import { patchEditorDOM } from '../workspace/editor-dom';
 import { openStoryEditorDialog } from './editor-dialog';
 import { readStructuredInput } from './structured-value';
 
@@ -120,21 +122,29 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
     return [{ row, title: row.openingTitle || item.name || options.storyName(row.storyId) || row.id,
       explicit, effective: explicit ?? auto, canEdit: options.canEdit(row) && (current || Boolean(row.catalog)) }];
   }).sort((a, b) => a.effective - b.effective || a.row.id.localeCompare(b.row.id));
-  const folderButton = (folder: Folder, content: string) => `<button type="button" class="mini-action" data-catalog-select="${escape(pathKey(folder.path))}" aria-pressed="${folder === selected}">${content}</button>`;
+  let browsePositions: EditorExplorerNode[] = [];
   const browse = (): string => {
-    const needle = query.trim().toLowerCase();
-    const contains = (value: string) => value.toLowerCase().includes(needle);
+    const needle = query.trim().toLocaleLowerCase();
+    const contains = (value: string) => value.toLocaleLowerCase().includes(needle);
+    const position = (folder: Folder, placementKey: string, label: string, folderNode: boolean,
+      parentKey?: string, note?: string, entry?: StoryEntryDef): EditorExplorerNode => ({
+      placementKey, parentKey, label, searchableText: [label], folder: folderNode ? {} : undefined,
+      presentation: { auxiliaryLabel: note, tooltip: folder.trail, kind: entry ? 'entry' : undefined, entryType: storyEntryType(entry) },
+      select: () => choose(folder),
+    });
     if (needle) {
-      const results: string[] = [];
-      for (const folder of folders.values()) {
-        if (contains(folder.trail) || contains(folder.id)) results.push(folderButton(folder, escape(folder.trail)));
+      const results: EditorExplorerNode[] = [];
+      for (const [key, folder] of folders) {
+        if (contains(folder.trail) || contains(folder.id)) results.push(position(folder, key, folder.trail, false));
         for (const { row, title } of items(folder)) {
           if ([title, row.id, row.storyId, options.storyName(row.storyId) ?? ''].some(contains)) {
-            results.push(folderButton(folder, `${renderStoryIdentityInline(ctx, 'entry', title, row.id)}<small>${escape(folder.trail)}</small>`));
+            results.push(position(folder, JSON.stringify([key, row.id]), title, false, undefined, folder.trail, row));
           }
         }
       }
-      return results.length ? results.slice(0, 80).join('') + (results.length > 80 ? `<p>共 ${results.length} 项，已显示前 80 项。可缩小搜索范围。</p>` : '') : '<p>无匹配结果。</p>';
+      browsePositions = results.slice(0, 80);
+      return renderEditorExplorerTree(ctx, projectEditorExplorerTree(browsePositions, { query: '' }), '无匹配结果。')
+        + (results.length > 80 ? `<p>共 ${results.length} 项，已显示前 80 项。可缩小搜索范围。</p>` : '');
     }
     const counts = new Map<Folder, number>();
     const count = (folder: Folder): number => {
@@ -143,15 +153,11 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
       return total;
     };
     roots.forEach(count);
-    const tree = (branches: Folder[]): string => `<ul>${branches.map(folder => {
-      const key = pathKey(folder.path);
-      const open = expanded.has(key);
-      return `<li data-editor-key="catalog:${escape(key)}"><div class="story-catalog-row">
-        ${folder.children.length ? `<button type="button" data-catalog-toggle="${escape(key)}" aria-label="${open ? '收起' : '展开'}${escape(folder.name)}" aria-expanded="${open}">${open ? '▾' : '▸'}</button>` : ''}
-        ${folderButton(folder, `${escape(folder.name)} <small>${counts.get(folder)}</small>`)}
-        </div>${open && folder.children.length ? tree(folder.children) : ''}</li>`;
-    }).join('')}</ul>`;
-    return tree(roots);
+    browsePositions = [...folders].map(([key, folder]) => position(folder, key, folder.name, true,
+      folder.parent && pathKey(folder.parent.path), String(counts.get(folder) ?? 0)));
+    const overrides = Object.fromEntries(browsePositions.map(row => [row.placementKey, expanded.has(row.placementKey)]));
+    return renderEditorExplorerTree(ctx, projectEditorExplorerTree(browsePositions, { query: '', expandedOverrides: overrides,
+      selectedPlacementKey: selected && pathKey(selected.path) }), '当前没有目录。');
   };
   const destination = () => {
     const depth = selected?.path.length ?? 0;
@@ -271,18 +277,28 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
       patch(right, destination());
     }
   });
+  function choose(folder?: Folder): void {
+    selected = folder;
+    const fromSearch = Boolean(query);
+    query = search.value = '';
+    reveal(selected);
+    refresh();
+    right.scrollTop = 0;
+    if (fromSearch) left.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' });
+  }
   panel.addEventListener('click', event => {
+    if (editorDirectoryClick(left, event, row => browsePositions.find(node => node.placementKey === row.dataset.editorPlacementKey), {
+      expand: (key, toggle, open) => {
+        if (open) expanded.add(key);
+        else expanded.delete(key);
+        setEditorDirectoryExpanded(toggle, open);
+      },
+      select: () => {},
+      open: () => false,
+    })) return;
     const button = event.target instanceof Element ? event.target.closest('button') : null;
     if (!button) return;
-    const { catalogToggle, catalogSelect } = button.dataset;
-    if (catalogToggle !== undefined) {
-      if (expanded.has(catalogToggle)) expanded.delete(catalogToggle);
-      else expanded.add(catalogToggle);
-      patch(left, browse());
-      return;
-    }
-    if (catalogSelect !== undefined) selected = folders.get(catalogSelect);
-    else if (button.hasAttribute('data-catalog-root')) selected = undefined;
+    if (button.hasAttribute('data-catalog-root')) choose();
     else if (button.hasAttribute('data-catalog-add')) {
       const input = right.querySelector<HTMLInputElement>('[data-catalog-new-name]');
       const name = input?.value.trim();
@@ -291,16 +307,11 @@ export function openStoryCatalogDialog(modal: ModalManager, ctx: UIContext, trig
         input?.focus();
         return;
       }
-      selected = (selected?.children ?? roots).find(folder => folder.name === name || folder.id === name)
+      const folder = (selected?.children ?? roots).find(folder => folder.name === name || folder.id === name)
         ?? add(`author-${encodeURIComponent(name)}`, name, selected);
       if (input) input.value = '';
+      choose(folder);
     } else return;
-    const fromSearch = Boolean(query);
-    query = search.value = '';
-    reveal(selected);
-    refresh();
-    right.scrollTop = 0;
-    if (fromSearch) left.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' });
   });
   let dragging: string | undefined;
   let marker: HTMLElement | undefined;

@@ -33,7 +33,7 @@ export function prepareReferenceNavi(root: ParentNode, hasTarget: (target: Story
         const target = { kind, id };
         const identity = cards.resolve(target);
         row.insertAdjacentHTML('afterend', renderStoryEditorTarget(cards.ctx, kind, id, identity?.title ?? '',
-          Boolean(id) && hasTarget(target), { gradient: identity?.gradient }));
+          Boolean(id) && hasTarget(target), { gradient: identity?.gradient, entryType: identity?.entryType }));
         (row.nextElementSibling as HTMLElement).dataset.editorKey = `${row.dataset.editorKey}:target`;
       }
     }

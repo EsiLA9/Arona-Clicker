@@ -1,6 +1,6 @@
 import { emptyStoryAuthoring, patchStoryDatapack, STORY_AUTHORING_TABLES, validateStoryAuthoringShape, type StoryAuthoringPatch, type StoryAuthoringResult } from '../../data-services/authoring/story-authoring';
 import type { StoryDef } from '../../data-services/contracts/story';
-import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackSource } from '../contracts/runtime/runtime';
+import type { StoryDefinitionRestoreResult, StoryDefinitionSaveResult, StoryPackSource, PackOrganizationStatus } from '../contracts/runtime/runtime';
 import type { StoryAuthoringPreviewTarget } from '../contracts/runtime/story-authoring';
 import { packStoryIdentityReferences, planStoryIdentityChange, type StoryIdentityChange } from '../../data-services/authoring/story-identity';
 import { storyDirectoryReferences } from '../../data-services/authoring/story-directory-references';
@@ -53,6 +53,8 @@ function replaceRuntimeDatapack(active: readonly Datapack[], replacement: Datapa
 export class AronaClickerRuntime extends GameInstance implements PackCatalogReadModel, PackCatalogCommands {
   packManager: PackManager;
   private packAsyncStore: AsyncPackSnapshotStore | undefined;
+  private packOrganizationStage?: PackOrganizationStatus['stage'];
+  private readonly packOrganizationListeners = new Set<(status: PackOrganizationStatus) => void>();
   private activeDatapacks: readonly Datapack[] = [];
   private readonly storyOverlaySources = new WeakMap<Datapack, string | undefined>();
   private readonly loadedStoryPackMetadata = new WeakMap<Datapack, Pick<StoredPack, 'manifest' | 'images'>>();
@@ -153,36 +155,72 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
     this.persistPackManagerSnapshot();
   }
 
-  applyEnabledPacks(): void {
-    const target = this.createPackApplyTarget();
+  getPackOrganizationStatus(): PackOrganizationStatus {
+    const loadedCount = this.activeDatapacks.length;
+    return { stage: this.packOrganizationStage ?? (loadedCount ? 'ready' : 'waiting'), loadedCount };
+  }
+
+  onPackOrganizationChange(listener: (status: PackOrganizationStatus) => void): () => void {
+    this.packOrganizationListeners.add(listener);
+    return () => { this.packOrganizationListeners.delete(listener); };
+  }
+
+  private setPackOrganizationStage(stage?: PackOrganizationStatus['stage']): void {
+    if (this.packOrganizationStage === stage) return;
+    this.packOrganizationStage = stage;
+    if (!this.packOrganizationListeners.size) return;
+    const status = this.getPackOrganizationStatus();
+    for (const listener of this.packOrganizationListeners) {
+      try { listener(status); }
+      catch (error) { console.warn('[PackManager] 无法通知数据包组织状态：', error); }
+    }
+  }
+
+  private organizePacks<T>(stage: 'validating' | 'registering', work: () => T,
+    succeeded?: (result: T) => boolean): T {
+    this.setPackOrganizationStage(stage);
     try {
-      this.packManager.applyEnabled(target);
+      const result = work();
+      this.setPackOrganizationStage(succeeded && !succeeded(result) ? 'failed' : undefined);
+      return result;
     } catch (error) {
-      const invalidIds = this.packManager.findInvalidOptionalPackIds(datapacks => this.validatePackDatapacks(datapacks));
-      if (invalidIds.length === 0) throw error;
-      const disabledIds = this.packManager.disableOptionalPacks(invalidIds);
-      this.persistPackManagerSnapshot();
+      this.setPackOrganizationStage('failed');
+      throw error;
+    }
+  }
+
+  applyEnabledPacks(): void {
+    this.organizePacks('validating', () => {
+      const target = this.createPackApplyTarget();
       try {
         this.packManager.applyEnabled(target);
-      } catch (recoveryError) {
-        throw new Error(`自动卸载失效数据包后仍无法加载运行时：${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+      } catch (error) {
+        const invalidIds = this.packManager.findInvalidOptionalPackIds(datapacks => this.validatePackDatapacks(datapacks));
+        if (invalidIds.length === 0) throw error;
+        const disabledIds = this.packManager.disableOptionalPacks(invalidIds);
+        this.persistPackManagerSnapshot();
+        try {
+          this.packManager.applyEnabled(target);
+        } catch (recoveryError) {
+          throw new Error(`自动卸载失效数据包后仍无法加载运行时：${recoveryError instanceof Error ? recoveryError.message : String(recoveryError)}`);
+        }
+        const names = disabledIds
+          .map(id => this.packManager.getPack(id)?.manifest.name ?? id)
+          .join('、');
+        this.devLog.record(`检测到失效数据包，已自动停用：${names}`, {
+          source: 'datapack',
+          level: 'warning',
+          details: error instanceof Error ? error.message : String(error),
+        });
       }
-      const names = disabledIds
-        .map(id => this.packManager.getPack(id)?.manifest.name ?? id)
-        .join('、');
-      this.devLog.record(`检测到失效数据包，已自动停用：${names}`, {
-        source: 'datapack',
-        level: 'warning',
-        details: error instanceof Error ? error.message : String(error),
-      });
-    }
-    // PackManager 在异步恢复模式下不直接持有存储器；启动时的补正结果
-    // （包括 base 补入与失效可选包停用）也必须落回同一份策略快照。
-    this.persistPackManagerSnapshot();
-    this.runtimeMod = null;
-    this.runtimeEditorPackRecordId = null;
-    this.runtimeContent.reset();
-    this.runtimeWorldContent.reset();
+      // PackManager 在异步恢复模式下不直接持有存储器；启动时的补正结果
+      // （包括 base 补入与失效可选包停用）也必须落回同一份策略快照。
+      this.persistPackManagerSnapshot();
+      this.runtimeMod = null;
+      this.runtimeEditorPackRecordId = null;
+      this.runtimeContent.reset();
+      this.runtimeWorldContent.reset();
+    });
   }
 
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[]; panes: readonly PackCatalogPane[] } {
@@ -358,37 +396,40 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   openEditingPack(packRecordId: string): RuntimeModApplyResult {
-    const pack = this.packManager.getPack(packRecordId);
-    if (!pack || packEditingMode(pack) !== 'editing') return { ok: false, message: '目标记录不存在，或不是编辑态数据包。' };
-    const draft = datapackToRuntimeModDraft(pack);
-    const previousTarget = this.runtimeEditorPackRecordId;
-    const previousRuntimeMod = this.runtimeMod;
-    try {
-      const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
-      const overlay = cloneJson(pack.datapack);
-      this.storyOverlaySources.set(overlay, packRecordId);
-      const datapacks = replaceRuntimeDatapack(active, overlay, this.runtimeMod ? [this.runtimeMod.modName] : []);
-      this.validatePackDatapacks(datapacks);
-      this.reloadPreservingState(datapacks);
-      this.runtimeMod = draft;
-      this.runtimeEditorPackRecordId = packRecordId;
-      this.runtimeContent.adoptRuntimeMod(
-        draft.modName,
-        draft.spots.map(spot => `${draft.modName}:spot:${spot.idName}`),
-        draft.suspendedSpotIds ?? [],
-      );
-      this.runtimeWorldContent.adoptRuntimeMod(
-        draft.modName,
-        pack.datapack.inits.map(init => init.id),
-        pack.datapack.areas.map(area => area.id),
-        pack.datapack.areaMaps?.map(areaMap => areaMap.id) ?? [],
-      );
-      return { ok: true, message: `已打开编辑态数据包：${draft.displayName}。` };
-    } catch (error) {
-      this.runtimeMod = previousRuntimeMod;
-      this.runtimeEditorPackRecordId = previousTarget;
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
-    }
+    return this.organizePacks('validating', () => {
+      const pack = this.packManager.getPack(packRecordId);
+      if (!pack || packEditingMode(pack) !== 'editing') return { ok: false, message: '目标记录不存在，或不是编辑态数据包。' };
+      const draft = datapackToRuntimeModDraft(pack);
+      const previousTarget = this.runtimeEditorPackRecordId;
+      const previousRuntimeMod = this.runtimeMod;
+      try {
+        const active = this.activeDatapacks.length ? this.activeDatapacks : this.packManager.enabledPacks();
+        const overlay = cloneJson(pack.datapack);
+        this.storyOverlaySources.set(overlay, packRecordId);
+        const datapacks = replaceRuntimeDatapack(active, overlay, this.runtimeMod ? [this.runtimeMod.modName] : []);
+        this.validatePackDatapacks(datapacks);
+        this.setPackOrganizationStage('loading');
+        this.reloadPreservingState(datapacks);
+        this.runtimeMod = draft;
+        this.runtimeEditorPackRecordId = packRecordId;
+        this.runtimeContent.adoptRuntimeMod(
+          draft.modName,
+          draft.spots.map(spot => `${draft.modName}:spot:${spot.idName}`),
+          draft.suspendedSpotIds ?? [],
+        );
+        this.runtimeWorldContent.adoptRuntimeMod(
+          draft.modName,
+          pack.datapack.inits.map(init => init.id),
+          pack.datapack.areas.map(area => area.id),
+          pack.datapack.areaMaps?.map(areaMap => areaMap.id) ?? [],
+        );
+        return { ok: true, message: `已打开编辑态数据包：${draft.displayName}。` };
+      } catch (error) {
+        this.runtimeMod = previousRuntimeMod;
+        this.runtimeEditorPackRecordId = previousTarget;
+        return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      }
+    }, result => result.ok);
   }
 
   getPackConfiguration(): PackConfigurationDraft {
@@ -407,15 +448,17 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   applyPackConfiguration(draft: PackConfigurationDraft): { ok: boolean; message: string; validation: { ok: boolean; errors: readonly string[]; warnings: readonly string[] } } {
-    const validation = this.validatePackConfiguration(draft);
-    if (!validation.ok) return { ok: false, message: validation.errors[0] ?? '数据包配置校验失败。', validation };
-    try {
-      this.packManager.applyConfiguration(draft, this.createPackApplyTarget());
-      this.persistPackManagerSnapshot();
-      return { ok: true, message: '数据包启用集已应用。', validation };
-    } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
-    }
+    return this.organizePacks('validating', () => {
+      const validation = this.validatePackConfiguration(draft);
+      if (!validation.ok) return { ok: false, message: validation.errors[0] ?? '数据包配置校验失败。', validation };
+      try {
+        this.packManager.applyConfiguration(draft, this.createPackApplyTarget());
+        this.persistPackManagerSnapshot();
+        return { ok: true, message: '数据包启用集已应用。', validation };
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
+      }
+    }, result => result.ok);
   }
 
   setPackSelection(paneKey: string, selectedSlot: DatapackSelectionSlot): void {
@@ -424,28 +467,30 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   applyPackSelection(): { ok: boolean; message: string; validation: { ok: boolean; errors: readonly string[]; warnings: readonly string[] }; plan?: import('../../data-services/datapack/pack-manager').RuntimeApplyPlan } {
-    let plan: import('../../data-services/datapack/pack-manager').RuntimeApplyPlan;
-    try {
-      plan = this.packManager.buildRuntimeApplyPlan();
-      const registry = new Registry();
-      for (const entry of plan.entries) registry.load(this.packManager.getPack(entry.packRecordId)!.datapack);
-      registry.validateAreaMapRefs();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { ok: false, message, validation: { ok: false, errors: [message], warnings: [] } };
-    }
-    const validation = { ok: true, errors: [], warnings: [] } as const;
-    try {
-      plan = this.packManager.applySelection(this.createPackApplyTarget());
-      this.persistPackManagerSnapshot();
-      this.runtimeMod = null;
-      this.runtimeEditorPackRecordId = null;
-      this.runtimeContent.reset();
-      this.runtimeWorldContent.reset();
-      return { ok: true, message: '已按 Pane 选择原子应用数据包。', validation, plan };
-    } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
-    }
+    return this.organizePacks('validating', () => {
+      let plan: import('../../data-services/datapack/pack-manager').RuntimeApplyPlan;
+      try {
+        plan = this.packManager.buildRuntimeApplyPlan();
+        const registry = new Registry();
+        for (const entry of plan.entries) registry.load(this.packManager.getPack(entry.packRecordId)!.datapack);
+        registry.validateAreaMapRefs();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { ok: false, message, validation: { ok: false, errors: [message], warnings: [] } };
+      }
+      const validation = { ok: true, errors: [], warnings: [] } as const;
+      try {
+        plan = this.packManager.applySelection(this.createPackApplyTarget());
+        this.persistPackManagerSnapshot();
+        this.runtimeMod = null;
+        this.runtimeEditorPackRecordId = null;
+        this.runtimeContent.reset();
+        this.runtimeWorldContent.reset();
+        return { ok: true, message: '已按 Pane 选择原子应用数据包。', validation, plan };
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : String(error), validation };
+      }
+    }, result => result.ok);
   }
 
   /** 设置热 Spot 编辑会话使用的临时 Mod 元信息；不触发 Registry 或 Runtime 重载。 */
@@ -575,6 +620,10 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   applyRuntimeMod(draft: RuntimeModDraft): RuntimeModApplyResult {
+    return this.organizePacks('validating', () => this.applyRuntimeModContents(draft), result => result.ok);
+  }
+
+  private applyRuntimeModContents(draft: RuntimeModDraft): RuntimeModApplyResult {
     try {
       const targetPackRecordId = draft.targetPackRecordId ?? this.runtimeEditorPackRecordId;
       const targetPack = targetPackRecordId ? this.requireEditingPack(targetPackRecordId) : undefined;
@@ -679,6 +728,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
       for (const datapack of background) backgroundRegistry.load(datapack);
       assertRuntimeDefinitionConflicts(backgroundRegistry, draft, this.runtimeMod);
       this.validatePackDatapacks(datapacks);
+      this.setPackOrganizationStage('loading');
       this.reloadPreservingState(datapacks);
       this.runtimeMod = {
         ...draft,
@@ -1027,23 +1077,32 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   }
 
   async restorePackManager(store: AsyncPackSnapshotStore): Promise<void> {
-    this.packAsyncStore = store;
-    const snapshot = await store.load();
-    if (snapshot) {
-      this.packManager = new PackManager(
-        snapshot,
-        undefined,
-        [createBundledBasePack(), createBundledGameplayBMapPack()],
-        ['gameplay-b@1.0.0'],
-        ['gameplay-b-strategy-park@1.0.0'],
-      );
-      await store.save(this.packManager.snapshot());
+    this.setPackOrganizationStage('restoring');
+    try {
+      this.packAsyncStore = store;
+      const snapshot = await store.load();
+      if (snapshot) {
+        this.packManager = new PackManager(
+          snapshot,
+          undefined,
+          [createBundledBasePack(), createBundledGameplayBMapPack()],
+          ['gameplay-b@1.0.0'],
+          ['gameplay-b-strategy-park@1.0.0'],
+        );
+        await store.save(this.packManager.snapshot());
+      }
+      this.setPackOrganizationStage();
+    } catch (error) {
+      this.setPackOrganizationStage('failed');
+      throw error;
     }
   }
 
   reconcileDevelopmentPacks(packs: readonly StoredPack[]): void {
-    this.packManager.reconcileDevelopmentPacks(packs);
-    this.persistPackManagerSnapshot();
+    this.organizePacks('registering', () => {
+      this.packManager.reconcileDevelopmentPacks(packs);
+      this.persistPackManagerSnapshot();
+    });
   }
 
   async savePackManager(store: AsyncPackSnapshotStore): Promise<void> {
@@ -1074,7 +1133,10 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
   } {
     const shouldEnterDefaultInit = Boolean(this.state.activeInit);
     return {
-      validate: datapacks => this.validatePackDatapacks(datapacks),
+      validate: datapacks => {
+        this.setPackOrganizationStage('validating');
+        this.validatePackDatapacks(datapacks);
+      },
       capture: () => ({
         datapacks: [...this.activeDatapacks],
         saveData: this.state ? this.save() : null,
@@ -1087,6 +1149,7 @@ export class AronaClickerRuntime extends GameInstance implements PackCatalogRead
         if (checkpoint.saveData) this.load(checkpoint.saveData);
       },
       reload: datapacks => {
+        this.setPackOrganizationStage('loading');
         const progress = retainStoryDirectoryProgress(this.registry, this.state);
         this.reload([...datapacks], { enterDefaultInit: shouldEnterDefaultInit });
         if (progress) this.mutations.retainStoryDirectoryProgress(progress);

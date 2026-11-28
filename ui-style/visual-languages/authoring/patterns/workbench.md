@@ -6,7 +6,7 @@
 
 Story／StoryEntry 与 World 共用 Advanced Workbench 外壳。工作类型 SVG 栏只选择左侧 Explorer；实例条的活动 Browse Instance 决定中栏、右栏和顶部业务工具，因此切换工作类型不会替换活动文档，激活实例也不会强迫切换 Explorer。实例条中的 Story、Entry、World 项来自同一共享集合。布局视图对整个 Workbench 生效，World 不会在进入时自动切到双栏；三栏可保留 World 右侧便捷信息预留栏。Classic/Advanced、三栏/双栏/专注及 Ribbon 具体表现仍按下文共享外壳规则读取。
 
-高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换。顶部工具组使用 panel-light 表面及对应文字角色，实例条以同一层半透明黑色覆盖未选中标签、间隙与两端留白，选中标签露出与三栏间隙相连的主题画布。实例条高 36px，关闭按钮独立占 24px。底部状态栏直接使用工作区底色。SVG 工作类型栏与导航栏共用左栏外框，三栏外框采用 5px 圆角。顶部与三栏之间保留 6px 空隙，工具栏下沿可直接拖动切换高度。两条 6px 栏缝以纵向三点提示拖宽，双击恢复侧栏默认宽度。正文底部的插入工具沿用 `.mini-action`。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts` 和 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
+高级模式通过 `editor-workspace.ts` 在同一 Frame 外装配占满视口的工具组、实例条、工作类型 SVG 栏和单行状态栏。工具组用竖线、组名和图标区分命令，当前对象名称放在实例条。高级工具栏默认展开，拖动底边可在带状工具栏和单行之间切换。顶部工具组使用 panel-light 表面及对应文字角色，实例条以同一层半透明黑色覆盖未选中标签、间隙与两端留白，选中标签露出与三栏间隙相连的主题画布。实例条高 36px，关闭按钮独立占 24px。底部状态栏直接使用工作区底色。右侧显示 Runtime 的数据包组织阶段与已载入包数，状态变化只更新该提示。SVG 工作类型栏与导航栏共用左栏外框，三栏外框采用 5px 圆角。顶部与三栏之间保留 6px 空隙，工具栏下沿可直接拖动切换高度。两条 6px 栏缝以纵向三点提示拖宽，双击恢复侧栏默认宽度。正文底部的插入工具沿用 `.mini-action`。三栏、双栏查阅、专注正文共用原滚动宿主。回归入口为 `tests/ui/story/story-editor-workspace.test.ts` 和 `tests/ui/runtime-editor/runtime-editor-world-browser.test.ts`。
 
 ## 共享栏位、只读审阅与视图折叠
 

@@ -3,6 +3,7 @@ import type { UIContext } from '../runtime/context';
 import type { StoryEditorState, StoryEditorTarget } from './model';
 import { buildStoryRelations, potentialStoryCalls, storyTransferContext, type StoryCall } from './relations-model';
 import { renderStoryEditorTarget } from './target-view';
+import { storyEntryType } from '../../data-services/contracts/story-entry';
 
 export function renderStoryRelations(ctx: UIContext, state: StoryEditorState): string {
   const target = state.target;
@@ -13,9 +14,10 @@ export function renderStoryRelations(ctx: UIContext, state: StoryEditorState): s
   const name = (ref: StoryEditorTarget): string => ref.kind === 'story' ? relations.stories.get(ref.id)?.name || ref.id
     : relations.entries.get(ref.id)?.openingTitle || relations.stories.get(relations.entries.get(ref.id)?.storyId ?? '')?.name || ref.id;
   const row = (ref: StoryEditorTarget, key: string, detail: string, path?: string) => {
-    const document = ref.kind === 'story' ? relations.stories.get(ref.id) : relations.entries.get(ref.id);
+    const entry = ref.kind === 'entry' ? relations.entries.get(ref.id) : undefined;
+    const document = ref.kind === 'story' ? relations.stories.get(ref.id) : entry;
     return renderStoryEditorTarget(ctx, ref.kind, ref.id, name(ref), Boolean(document), {
-      relation: { key, detail, path }, gradient: document?.cardGradient,
+      relation: { key, detail, path }, gradient: document?.cardGradient, entryType: storyEntryType(entry),
     });
   };
   const list = (rows: readonly StoryCall[], incoming = false): string => rows.length ? `<div class="story-editor-list">${rows.map(call => {

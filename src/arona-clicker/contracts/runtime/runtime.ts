@@ -151,7 +151,14 @@ export interface StoryPackContent {
   readonly images: readonly Pick<StoredPack, 'manifest' | 'images'>[];
 }
 
+export interface PackOrganizationStatus {
+  readonly stage: 'waiting' | 'restoring' | 'registering' | 'validating' | 'loading' | 'ready' | 'failed';
+  readonly loadedCount: number;
+}
+
 export interface PackCatalogReadModel {
+  getPackOrganizationStatus?(): PackOrganizationStatus;
+  onPackOrganizationChange?(listener: (status: PackOrganizationStatus) => void): () => void;
   getPackCatalog(): { entries: readonly PackCatalogEntry[]; dependencies: readonly PackCatalogDependencyHint[]; panes?: readonly PackCatalogPane[] };
   getPackRecord?(packRecordId: string): PackCatalogRecord | null;
   getStoryPackSources?(source: StoryPackSource): StoryPackContent;

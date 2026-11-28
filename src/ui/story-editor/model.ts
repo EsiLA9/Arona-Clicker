@@ -68,6 +68,7 @@ export interface StoryEditorVisit {
 export interface StoryBrowseViewState {
   sourceSelection?: string;
   targetPackId?: string;
+  suspendedDraftId?: string;
   target: StoryEditorTarget | null;
   visits: StoryEditorVisit[];
   visitIndex: number;
@@ -82,6 +83,8 @@ export interface StoryBrowseViewState {
   error: string | null;
 }
 export interface StoryEditorState extends StoryBrowseViewState {
+  /** Transient read-only projection of the original, outside the draft bank. */
+  prototypeDocument?: StoryDraft;
   sourceRegistry?: import('../../arona-clicker/contracts/runtime/content-catalog').ContentCatalogQueryPort;
   sourcePics?: import('../../arona-clicker/contracts/runtime/runtime').GameReadModel['pics'];
   sourceOptions?: { value: string; label: string; group: 'packs' | 'drafts' }[];
@@ -120,7 +123,7 @@ export const cloneStory = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const identity = (prefix: string): string => `${prefix}_${crypto.randomUUID().replace(/-/g, '')}`;
 export function createStoryBrowseViewState(): StoryBrowseViewState {
-  return { sourceSelection: undefined, targetPackId: undefined, target: null, visits: [], visitIndex: -1,
+  return { sourceSelection: undefined, targetPackId: undefined, suspendedDraftId: undefined, target: null, visits: [], visitIndex: -1,
     selectedNodeId: null, insertionBeforeNodeId: null, inspectorView: 'story', nodeDesignerTab: 'basic',
     storyInspectorTab: 'overview', entryEditorTab: 'basic', notice: null, error: null };
 }
@@ -130,14 +133,18 @@ export function createStoryEditorState(): StoryEditorState {
 }
 export function currentDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
-  return target?.kind === 'story' ? state.drafts.find(draft => !draft.entryOnly && draft.document.id === target.id) : undefined;
+  return target?.kind === 'story' ? (state.prototypeDocument?.document.id === target.id ? state.prototypeDocument
+    : state.drafts.find(draft => !draft.entryOnly && draft.document.id === target.id)) : undefined;
+}
+export function suspendedStoryDraft(state: StoryEditorState): StoryDraft | undefined {
+  return state.suspendedDraftId ? state.parkedDrafts?.find(draft => draft.draftId === state.suspendedDraftId) : undefined;
 }
 /** Entry forms edit the existing owner draft while the viewing target stays an Entry. */
 export function currentAuthoringDraft(state: StoryEditorState): StoryDraft | undefined {
   const target = state.target;
   if (target?.kind !== 'entry') return currentDraft(state);
   return state.drafts.find(draft => draft.entryOnly === target.id)
-    ?? [...state.drafts].reverse().find(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
+    ?? [state.prototypeDocument, ...[...state.drafts].reverse()].find(draft => [...(draft?.authoring?.activeStories ?? []), ...(draft?.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
 }
 export function storyEditorTargetKey(state: StoryEditorState): string {
   const key = state.target ? `${state.target.kind}:${state.target.id}` : '';

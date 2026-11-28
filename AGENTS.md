@@ -11,6 +11,7 @@
 - 游戏内 UI、主题、表现：[[ai/guide/context-packs/ui-presentation]]。
 - 其他机制、模块或状态：[[1-项目/ACProgram/docs/docs-830/00-INDEX|00-INDEX]]；领域未知或跨领域时用 [[ai/guide/task-read-set-routing]]。
 - 文档维护：[[ai/guide/conventions/doc-maintenance]]；需要记录、拆分或交接任务时：[[ai/guide/task-workflow]]。
+- 跨会话原型架构调查、蓝图评审与后续施工交接：[[ai/guide/prototype-blueprint-workflow]]。
 
 “编辑器”默认指游戏内 `src/ui/`；只有明确点名独立 Datapack / Schema Editor 才进入 `tools/datapack-editor/`。
 

@@ -1,5 +1,7 @@
 import type { UIContext } from '../../runtime/context';
 import type { StoryCardGradient } from '../../../data-services/contracts/story-card-gradient';
+import { storyEntryType, type StoryEntryDef } from '../../../data-services/contracts/story-entry';
+import { renderEditorEntityIcon, type EditorEntryIconType } from '../shared/editor-entity-icon';
 import { isStoryCardGradient } from '../../../data-services/validation/story-card-gradient';
 import { contrastRatio, INK_ON_DARK, INK_ON_LIGHT, MIN_CONTRAST, parseColor, readableOnColor, representativeColorOf, toHex } from '../../../engine/core/color';
 
@@ -15,18 +17,20 @@ export interface StoryIdentity {
   id: string;
   title: string;
   gradient?: StoryCardGradient;
+  entryType?: EditorEntryIconType;
 }
 
 export function resolveStoryIdentity(target: Pick<StoryIdentity, 'kind' | 'id'>,
   stories: ReadonlyMap<string, { name: string; cardGradient?: StoryCardGradient }>,
-  entries: ReadonlyMap<string, { storyId: string; openingTitle?: string; cardGradient?: StoryCardGradient }>): StoryIdentity | undefined {
+  entries: ReadonlyMap<string, Pick<StoryEntryDef, 'storyId' | 'openingTitle' | 'cardGradient' | 'activation'>>): StoryIdentity | undefined {
   const { kind, id } = target;
   if (kind === 'story') {
     const story = stories.get(id);
     if (story) return { kind, id, title: storyIdentityTitle(kind, story.name, id), gradient: story.cardGradient };
   } else {
     const entry = entries.get(id);
-    if (entry) return { kind, id, title: storyIdentityTitle(kind, entry.openingTitle || stories.get(entry.storyId)?.name || '', id), gradient: entry.cardGradient };
+    if (entry) return { kind, id, title: storyIdentityTitle(kind, entry.openingTitle || stories.get(entry.storyId)?.name || '', id),
+      gradient: entry.cardGradient, entryType: storyEntryType(entry) };
   }
 }
 
@@ -43,9 +47,13 @@ export function renderStoryIdentityInline(ctx: Pick<UIContext, 'escapeHtml'>, ki
   return `<span class="story-identity-inline" data-story-target-kind="${kind}">${renderStoryIdentityContent(ctx, title, id)}</span>`;
 }
 
+export function renderStoryIdentityCardContent(ctx: Pick<UIContext, 'escapeHtml'>, { kind, id, title, entryType }: StoryIdentity): string {
+  return renderStoryIdentityContent(ctx, title, id) + renderEditorEntityIcon(kind, entryType);
+}
+
 export function renderStoryIdentityPreview(ctx: UIContext, identity: StoryIdentity): string {
-  const { kind, id, title, gradient } = identity;
-  return `<span class="story-identity-card story-identity-preview" data-story-target-kind="${kind}" data-story-target-id="${ctx.escapeHtml(id)}" style="${storyCardStyle(kind, id, gradient)}">${renderStoryIdentityContent(ctx, title, id)}</span>`;
+  const { kind, id, gradient } = identity;
+  return `<span class="story-identity-card story-identity-preview" data-story-target-kind="${kind}" data-story-target-id="${ctx.escapeHtml(id)}" style="${storyCardStyle(kind, id, gradient)}">${renderStoryIdentityCardContent(ctx, identity)}</span>`;
 }
 
 function hashId(id: string): number {

@@ -1,12 +1,13 @@
 import type { StoryCardGradient } from '../../data-services/contracts/story-card-gradient';
 import type { ModalManager } from '../interaction/modal';
 import type { UIContext } from '../runtime/context';
+import type { EditorEntryIconType } from '../components/shared/editor-entity-icon';
 import type { StoryEditorTarget } from './model';
 import { openStoryEditorDialog } from './editor-dialog';
 import { renderStoryCardOverview, storyCardPickerColors, storyCardStyle } from './target-view';
 
 export function openStoryCardGradientDialog(modal: ModalManager, ctx: UIContext, trigger: HTMLElement, target: StoryEditorTarget,
-  name: string, original: StoryCardGradient | undefined, onPreview: (gradient?: StoryCardGradient) => void,
+  name: string, original: StoryCardGradient | undefined, entryType: EditorEntryIconType | undefined, onPreview: (gradient?: StoryCardGradient) => void,
   onApply: (gradient?: StoryCardGradient) => boolean, onClose: () => void): HTMLElement {
   const { kind, id } = target;
   const initial = storyCardPickerColors(kind, id, original);
@@ -14,7 +15,7 @@ export function openStoryCardGradientDialog(modal: ModalManager, ctx: UIContext,
   let applied = false;
   const panel = openStoryEditorDialog(modal, {
     title: '编辑卡片渐变',
-    body: `${renderStoryCardOverview(ctx, kind, id, name, original)}
+    body: `${renderStoryCardOverview(ctx, kind, id, name, original, false, entryType)}
       <div class="story-editor-card-gradient-fields">
         <label>起色<input type="color" name="start" value="${initial.start}"></label>
         <label>止色<input type="color" name="end" value="${initial.end}"></label>

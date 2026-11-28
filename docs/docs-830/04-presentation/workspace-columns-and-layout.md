@@ -120,9 +120,15 @@ Story 的 `StoryEditorController.state` 是活动 Provider 的工作集；Manage
 
 [`EditorExplorerService`](../../../src/ui/workspace/editor-explorer-service.ts) 按 Explorer type 独立持有 query channel、普通/搜索折叠、选中 placement、各滚动 host、focus request 和临时 reveal。`bindColumn()` 处理通用 query、展开、placement 选择与滚动事件；`revealPlacement()` 展开祖先、显露行、滚动并 focus。列由 `WorkspaceColumns` keyed mount 绑定，dispose/replacement 会调用业务 binder disposer。
 
-Explorer 的资源身份与树位置必须分开：Story [`storyExplorerResourceIdentity()` / `storyExplorerPlacementIdentity()`](../../../src/ui/story-editor/sidebar-tree.ts) 复用 Browse resource identity，并以目录父路径区分同一 Story/Entry 的多个 placement；World [`worldEntityIdentity()` / `worldTreePlacementIdentity()`](../../../src/ui/runtime-editor/world-browser-provider.ts) 用 `kind:id` 作为资源身份、沿父链构造 placement key。World `worldTreePath()` 负责 preferred placement 消歧。打开资源时保留资源身份；只有显式定位才选择/展开/显露指定 placement。
+Explorer 使用 [公共位置契约](../../../src/ui/workspace/editor-explorer-nodes.ts)。各视图提供有序记录，以稳定 `placementKey` 标识每次放置，以 `parentKey` 表达父子关系。`folder` 描述空目录、普通展开与延后挂载等树行为，`resource` 和来源描述可打开的业务实例。一个资源可有多个目录位置，同 ID 的包内容仍按精确来源识别。公共索引校验父子关系，并提供用于搜索和定位的子项与资源位置。
 
-Provider 继续负责真实树投影、数据来源、Story source/Init 筛选、多 Entry 放置规则、World 默认关系树与 summary/ref 路径。Story 当前提供 stories/entries/senders 查询字段，并将 service query 投影到自己的树；World 当前没有搜索输入，但树展开/选择/滚动/显式定位已经用公共服务。普通 World 摘要实体链接不会在 focus 模式自动打开左栏；正式 locate 命令可以。不要把 Story 草稿、资料来源或目录管理语义搬入 Explorer service，也不要在业务 Controller 重写完整通用树浏览控制器。
+高级编辑器提供 Datapacks、Storys 与 IAS 三个左栏视图。`EditorWorkbench.project()` 使用 [公共栏组件](../../../src/ui/workspace/editor-explorer-column.ts) 生成标题控件、搜索筛选、工具区、目录和滚动宿主。[公共行渲染与分派](../../../src/ui/workspace/editor-directory.ts) 以位置键与动作读取当前投影。同一标题行包含可展开槽、名称与行内操作槽。文件夹名称和箭头都选中位置并切换展开，行内入口打开业务实例并保留当前目录选择，实体叶项通过名称打开。Story 目录管理的内容概览、移动目标树和 Entry 归档目录也复用树投影、行结构和交互入口。各宿主持有自身的选择、草稿与排序状态。
+
+[Datapacks](../../../src/ui/workspace/datapack-explorer.ts) 从包记录构造顶级包根，展开时在同层显示该包定义的 Story、StoryEntry、Init、Area 与 Spot。包内位置带包记录身份，资源打开仍交给 Story 或 IAS 的现有业务入口。打开 IAS 前核对运行定义的所有者和实际包记录。仅在包库可见的条目会说明当前无法打开。
+
+实例主体激活后只更新当前导航已可见行的活动标记。每个实例都有 SVG Logo，组件为缺省图标提供保底。单击 Logo 定位到 Storys 或 IAS，双击定位到 Datapacks 的实际包和资源行。公共定位更新左栏视图，临时展开并露出目标，选中实际行并滚动、聚焦。失败时恢复定位造成的变化。普通 IAS 摘要链接保持当前导航与布局。接入可参考 `StoryEditorController.explorerProvider()`、`describeWorldExplorer()` 和 `DatapackExplorer.describe()`。
+
+Browse Instance 的接入也复用已有 Manager：先按稳定业务资源身份和 Provider 复用策略准备 `BrowseInstanceSeed`，把领域工作状态放入 opaque `state`，再通过 `BrowseInstanceManager.openOrReuse()` / `createPrepared()` 与 Provider 的恢复及保存门禁协调；Provider 提供中右栏、命令和 `BrowseInstancePresentation`，由 `UIController.createEditorWorkbenchProjection()` 统一组合。Story 参考 `storyBrowseIdentity()`、`prepareManagedBrowseActivation()` 和 `businessProjection()`；World 参考 `prepareWorldBrowseSeed()`、固定 `worldBrowseReuseKey` 与 `createWorldEditorBusinessProjection()`。Provider 不另建 active ID/实例集合，也不直接构造公共标签条或左栏。
 
 源码入口：[`workspace-renderer.ts`](../../../src/ui/workspace/workspace-renderer.ts)、[`workspace-columns.ts`](../../../src/ui/workspace/workspace-columns.ts)、[`editor-workspace.ts`](../../../src/ui/workspace/editor-workspace.ts)、[`editor-explorer-service.ts`](../../../src/ui/workspace/editor-explorer-service.ts)、[`story-editor/workspace-session.ts`](../../../src/ui/story-editor/workspace-session.ts)、[`story-editor/sidebar-tree.ts`](../../../src/ui/story-editor/sidebar-tree.ts)、[`runtime-editor/world-browser-provider.ts`](../../../src/ui/runtime-editor/world-browser-provider.ts)。
 

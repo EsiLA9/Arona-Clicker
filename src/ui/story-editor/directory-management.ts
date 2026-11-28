@@ -1,14 +1,19 @@
+import { projectEditorExplorerTree, renderEditorExplorerTree } from '../workspace/editor-directory';
+import type { EditorExplorerNode } from '../workspace/editor-explorer-nodes';
+import { storyBrowseIdentity } from './workspace-session';
+import { storyDirectoryBrowseProviderKey, storyDirectoryResourceKey, storyDirectoryResourceRefId } from './directory-instance';
 import { renderEditorReviewFields } from '../workspace/editor-review';
 import { buildStoryDirectory, storyHierarchyNodeId, type StoryDirectoryCatalog, type StoryDirectoryDocument, type StoryDirectoryNode } from '../../arona-clicker/content/story/story-directory';
 import type { StoryAuthoringResult } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import type { PackCatalogReadModel } from '../../arona-clicker/contracts/runtime/runtime';
 import { isStoryHierarchy, parseCharacterStoryDirectoryId, type StoryDirectoryDef, type StoryEntryDirectoryPlacement } from '../../data-services/contracts/story-directory';
-import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryDef } from '../../data-services/contracts/story-entry';
+import type { EditorEntryIconType } from '../components/shared/editor-entity-icon';
 import type { StoryDirectoryReference } from '../../data-services/authoring/story-directory-references';
 import type { UIContext } from '../runtime/context';
 import { storyEditingMod } from './identity';
-import { buildEditorStoryDirectories, directoryManagementAttrs } from './sidebar-tree';
+import { buildEditorStoryDirectories } from './sidebar-tree';
 import { renderStoryDirectoryDetails } from '../components/story/story-directory-details';
 import { renderTabs } from '../components/shared/tabs';
 import { directoryStatus, mergeDirectoryDesigns } from './directory-status';
@@ -143,66 +148,93 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
     exclude(node);
     return new Set([...tree.nodes.values()].filter(item => item.source !== 'Path' && owns(item) && !excluded.has(item.id)).map(item => item.id));
   };
-  const sortArrows = (id: string, ids: readonly string[]) => {
-    const index = ids.indexOf(id);
-    if (index === -1) return '';
-    return `<div class="story-editor-actions">
-      ${button(`up:${e(id)}`, '上移', index === 0)}
-      ${button(`down:${e(id)}`, '下移', index === ids.length - 1)}
-    </div>`;
-  };
-
-  const renderContent = () => {
-    const node = tree.nodes.get(navigation.selectedDirectoryKey);
-    const link = (kind: 'story' | 'entry', id: string, name: string) => `<li data-editor-key="${kind}:${e(id)}">
-      <button type="button" class="story-editor-tree-row" data-story-target-kind="${kind}" title="${e(name)} · ${e(id)}" data-editor-${kind}-target="${e(id)}">
-        <span class="story-editor-tree-name">${e(name)}</span><small>${kind === 'story' ? '正文' : '入口'}</small>
-      </button></li>`;
-    const leaves = (folder?: StoryDirectoryNode) => [
-      ...(folder?.stories ?? []).map(story => link('story', story.id, story.name)),
-      ...(folder?.entries ?? []).map(row => {
-        const entry = options.entries.get(row.id);
-        return link('entry', row.id, entry?.openingTitle || options.stories.get(entry?.storyId ?? '')?.name || row.id);
-      }),
-    ].join('');
-    const branch = (child: StoryDirectoryNode, topLevel = false): string => {
-      const open = expanded.has(child.id);
-      const count = child.children.length + child.stories.length + child.entries.length;
-      return `<li data-editor-key="directory-child:${e(child.id)}"><div class="story-editor-tree-heading">
-        ${count && !working.sorting ? `<button type="button" class="mini-action" data-directory-action="fold:${e(child.id)}" aria-label="${open ? '折叠' : '展开'}${e(child.title)}" aria-expanded="${open}">${open ? '▾' : '▸'}</button>` : ''}
-        <button type="button" class="story-editor-tree-row" ${directoryManagementAttrs(e, initId, child, state.resource.sourceKey)}${working.sorting ? ' disabled' : ''} title="${e(child.title)}"><span class="story-editor-tree-name">${e(child.title)}</span><small>${count} 项</small></button>
-        ${working.sorting && topLevel ? sortArrows(child.id, working.sorting) : ''}</div>
-        ${open && !working.sorting ? `<ul>${child.children.map(item => branch(item)).join('')}${leaves(child)}</ul>` : ''}</li>`;
+  const contentsPositions = (): EditorExplorerNode[] => {
+    const current = tree.nodes.get(navigation.selectedDirectoryKey);
+    const positions: EditorExplorerNode[] = [];
+    const sourceKey = state.resource.sourceKey;
+    const packCatalog = ctx.game as typeof ctx.game & Partial<PackCatalogReadModel>;
+    const leaf = (kind: 'story' | 'entry', id: string, label: string, parentKey?: string, entryType?: EditorEntryIconType) => {
+      const target = { kind, id };
+      const owner = options.contentOwner(id, kind) ?? id.split(':')[0];
+      const resourceKey = storyBrowseIdentity(target, sourceKey, !sourceKey ? packCatalog.getRunningStoryPackId?.(owner) : undefined).resourceKey;
+      positions.push({ placementKey: JSON.stringify([parentKey, kind, id]), parentKey, sourceKey,
+        label, searchableText: [label, id], resource: { providerKey: 'story', kind, id, resourceKey },
+        presentation: { entryType, auxiliaryLabel: kind === 'story' ? '正文' : '入口' } });
     };
-    const directories = children();
+    const leaves = (folder?: StoryDirectoryNode, parentKey?: string) => {
+      for (const story of folder?.stories ?? []) leaf('story', story.id, story.name, parentKey);
+      for (const { id } of folder?.entries ?? []) {
+        const entry = options.entries.get(id);
+        leaf('entry', id, entry?.openingTitle || options.stories.get(entry?.storyId ?? '')?.name || id, parentKey, storyEntryType(entry));
+      }
+    };
+    const branch = (child: StoryDirectoryNode, parentKey?: string) => {
+      const userResource = { initId, logicalDirectoryKey: child.id, sourceKey };
+      const ref = storyDirectoryResourceRefId(userResource);
+      const resource = { ...ref, providerKey: storyDirectoryBrowseProviderKey,
+        resourceKey: storyDirectoryResourceKey(userResource), ownerModName: child.modName };
+      const sorting = working.sorting;
+      const index = !parentKey ? sorting?.indexOf(child.id) ?? -1 : -1;
+      const actions = sorting && index >= 0 ? [
+        { id: 'up', label: '上移', disabledReason: index === 0 ? '已在第一项' : undefined,
+          run: (root: HTMLElement) => action('up:' + child.id, root) },
+        { id: 'down', label: '下移', disabledReason: index === sorting.length - 1 ? '已在最后一项' : undefined,
+          run: (root: HTMLElement) => action('down:' + child.id, root) },
+      ] : undefined;
+      positions.push({ placementKey: child.id, parentKey, folder: {}, sourceKey, resource,
+        label: child.title, searchableText: [child.title, child.id], actions, resourceActionLabel: '管理目录 · ' + child.title,
+        selectDisabledReason: sorting ? '正在调整同级顺序' : undefined,
+        openDisabledReason: sorting ? '正在调整同级顺序' : undefined,
+        presentation: { auxiliaryLabel: (child.children.length + child.stories.length + child.entries.length) + ' 项' } });
+      if (!sorting) {
+        child.children.forEach(item => branch(item, child.id));
+        leaves(child, child.id);
+      }
+    };
     const order = new Map(pendingOrder().map(row => [row.id, row.order]));
+    const directories = children();
     const ordered = order.size ? [...directories].sort((a, b) => (order.get(a.id) ?? a.order ?? Number.MAX_SAFE_INTEGER)
       - (order.get(b.id) ?? b.order ?? Number.MAX_SAFE_INTEGER) || a.id.localeCompare(b.id)) : directories;
-    const contents = ordered.map(child => branch(child, true)).join('') + leaves(node);
+    ordered.forEach(child => branch(child));
+    leaves(current);
+    return positions;
+  };
+  const renderContent = () => {
     const toolbar = working.sorting
-      ? button('save-order', '保存顺序', order.size === 0) + button('cancel-order', '取消')
+      ? button('save-order', '保存顺序', pendingOrder().length === 0) + button('cancel-order', '取消')
       : !targetStory && !targetEntry && !working.create && !working.moving && !working.removing && editableChildren().length > 1 ? button('sort', '调整同级顺序') : '';
+    const projection = projectEditorExplorerTree(contentsPositions(), { query: '', defaultExpanded: row => expanded.has(row.placementKey) });
     return `${toolbar ? `<div class="story-editor-actions story-editor-actions--tools" data-editor-key="directory-order-tools">${toolbar}</div>` : ''}
-      ${contents ? `<ul class="story-editor-tree" data-editor-key="directory-contents">${contents}</ul>` : '<p class="story-editor-empty">此目录暂无内容。</p>'}`;
+      <div data-directory-explorer="contents" data-editor-key="directory-contents">${renderEditorExplorerTree(ctx, projection, '此目录暂无内容。')}</div>`;
   };
 
+  const movePositions = (node: StoryDirectoryNode): EditorExplorerNode[] => {
+    const allowed = parentChoices(node);
+    const positions: EditorExplorerNode[] = [];
+    const collect = (items: readonly StoryDirectoryNode[], parentKey?: string) => {
+      for (const item of items) {
+        positions.push({ placementKey: item.id, parentKey, folder: {}, label: item.title, searchableText: [path(item.id), item.id],
+          selectDisabledReason: allowed.has(item.id) ? undefined : '此目录不能作为上级',
+          select: root => action('parent:' + item.id, root) });
+        collect(item.children, item.id);
+      }
+    };
+    positions.push({ placementKey: '', label: 'Init 根目录', searchableText: ['Init 根目录', initTitle],
+      select: root => action('parent:', root) });
+    collect(tree.roots);
+    return positions;
+  };
   const renderMove = (node: StoryDirectoryNode) => {
     const allowed = parentChoices(node);
-    const query = working.moveQuery.trim().toLocaleLowerCase();
-    const option = (id: string, label: string) => `<button type="button" class="story-editor-list-item" data-editor-key="move-parent:${e(id)}" data-directory-action="parent:${e(id)}" aria-pressed="${working.moveParent === id}"><strong>${e(label)}</strong></button>`;
-    const branch = (items: readonly StoryDirectoryNode[]): string => items.map(item => {
-      const nested = branch(item.children);
-      const match = allowed.has(item.id) && `${path(item.id)} ${item.id}`.toLocaleLowerCase().includes(query);
-      if (!match && !nested) return '';
-      return `<li>${match ? option(item.id, item.title) : `<span>${e(item.title)}</span>`}${nested ? `<ul>${nested}</ul>` : ''}</li>`;
-    }).join('');
-    const choices = branch(tree.roots);
+    const projection = projectEditorExplorerTree(movePositions(node), { query: working.moveQuery,
+      domainVisible: row => row.placementKey === '' || allowed.has(row.placementKey), defaultExpanded: () => true, selectedPlacementKey: working.moveParent });
+    const choices = renderEditorExplorerTree(ctx, projection, '没有可选的上级目录。');
     const currentParent = node.definition?.parentId ?? '';
     return `<div class="story-editor-authoring">
       <label class="story-editor-property">搜索上级目录<input type="search" data-directory-field="move-query" value="${e(working.moveQuery)}"></label>
       <p class="story-editor-hint">原位置：${e(path(node.id))}</p>
       ${working.moveParent === undefined ? '' : `<p class="story-editor-hint">新位置：${e(path(working.moveParent) + ' / ' + node.title)}</p>`}
-      <ul class="story-directory-parent-tree">${!query || `init 根目录 ${initTitle}`.toLocaleLowerCase().includes(query) ? `<li>${option('', 'Init 根目录')}</li>` : ''}${choices}</ul>
+      <div data-directory-explorer="move" data-editor-key="directory-move-tree">${choices}</div>
       <div class="story-editor-actions story-editor-actions--tools">${button('confirm-move', '确认移动', working.moveParent === undefined || working.moveParent === currentParent)}${button('cancel-move', '取消')}</div>
     </div>`;
   };
@@ -313,7 +345,7 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
         <p class="story-editor-hint">选择已有资料后可预览。</p>
         <ul class="story-editor-tree" aria-label="选择已有手动资料">
           <li><button type="button" class="story-editor-tree-row" data-directory-action="candidate:" aria-pressed="${!working.create && !selected}">路径默认显示</button></li>
-          ${choices.map(row => `<li data-editor-key="hierarchy-design:${e(row.definition.id)}"><button type="button" class="story-editor-tree-row"
+          ${choices.map(row => `<li><button type="button" class="story-editor-tree-row"
             data-directory-action="candidate:${e(row.definition.id)}" aria-pressed="${!working.create && selected?.definition.id === row.definition.id}" title="${e(row.definition.id)}">
             <span class="story-editor-tree-name">${e(row.definition.title || row.definition.id)}</span><small>${e(row.modName)}</small></button></li>`).join('')}
         </ul>
@@ -359,11 +391,6 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
       return false;
     }
     if (name === 'view-design') { switchTab('design'); return false; }
-    if (name.startsWith('fold:')) {
-      const id = name.slice('fold:'.length);
-      if (!expanded.delete(id)) expanded.add(id);
-      return false;
-    }
     if (name.startsWith('candidate:') && node?.source === 'Path') {
       if (working.moving || working.removing || working.sorting) return false;
       if (designDirty()) { working.status = '请先保存或放弃当前目录设计。'; return false; }
@@ -516,7 +543,13 @@ export function createStoryDirectoryManagement(ctx: UIContext, options: Director
     }
     return false;
   };
-  return { title, renderDetails, renderPreview, input, action, status: () => working.status,
+  return { title, renderDetails,
+    treePositions: (scope?: string) => {
+      if (scope === 'contents') return contentsPositions();
+      const selected = tree.nodes.get(navigation.selectedDirectoryKey);
+      return scope === 'move' && selected ? movePositions(selected) : [];
+    },
+    fold: (key: string, open: boolean) => { if (open) expanded.add(key); else expanded.delete(key); }, renderPreview, input, action, status: () => working.status,
     hasWriteConflict: () => working.status.includes('编辑态 Mod 已变化'),
     renderTabs: () => renderTabs(ctx, 'center', [
       { id: 'design', label: '目录设计', action: 'directory-tab:design' },

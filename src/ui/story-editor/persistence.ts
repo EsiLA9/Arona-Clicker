@@ -232,7 +232,7 @@ export class StoryDraftPersistence {
           if (draft.dirty) recoveryDrafts.push(row);
         }
       }
-      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: currentAuthoringDraft(state)?.draftId ?? null,
+      this.storage.set(STORY_EDITOR_STORAGE_KEY, JSON.stringify({ version: 1, currentId: state.suspendedDraftId ?? currentAuthoringDraft(state)?.draftId ?? null,
         ...(state.sourceSelection ? { sourceSelection: state.sourceSelection } : {}),
         drafts: [...saved.values()], ...(recoveryDrafts.length ? { recoveryDrafts } : {}) }));
       this.savedRows = saved;

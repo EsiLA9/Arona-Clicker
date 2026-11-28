@@ -1,5 +1,5 @@
 import type { BrowseInstance, BrowseInstancePresentation, BrowseInstanceSeed } from '../workspace/browse-instance-manager';
-import { renderStoryDocumentIcon } from '../workspace/editor-directory';
+import { renderEditorEntityIcon, type EditorEntryIconType } from '../components/shared/editor-entity-icon';
 import { createStoryBrowseViewState, type StoryBrowseViewState, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { editorWorkspaceEdges } from '../workspace/editor-workspace';
 
@@ -21,6 +21,7 @@ export function captureStoryInstanceState(state: StoryBrowseViewState): StoryBro
 
 export function restoreStoryInstanceState(state: StoryEditorState, saved: StoryBrowseViewState): void {
   Object.assign(state, captureStoryInstanceState(saved));
+  state.prototypeDocument = undefined;
 }
 
 export interface StoryBrowseInstanceState {
@@ -57,9 +58,9 @@ export function restoreStoryBrowseInstanceState(state: StoryBrowseInstanceState,
 
 export type StoryBrowseInstance = BrowseInstance<StoryBrowseInstanceState>;
 
-export function storyBrowseInstancePresentation(title: string, target?: StoryEditorTarget): BrowseInstancePresentation {
+export function storyBrowseInstancePresentation(title: string, target?: StoryEditorTarget, entryType?: EditorEntryIconType): BrowseInstancePresentation {
   const typeLabel = target?.kind === 'entry' ? 'Entry' : 'Story';
-  return { title, typeLabel, ...(target ? { kind: target.kind, icon: renderStoryDocumentIcon(target.kind) } : {}) };
+  return { title, typeLabel, ...(target ? { kind: target.kind, icon: renderEditorEntityIcon(target.kind, entryType) } : {}) };
 }
 
 function storySeed(state: StoryBrowseInstanceState, resourceKey?: string, reuseKey?: string): BrowseInstanceSeed<StoryBrowseInstanceState> {
@@ -96,7 +97,7 @@ export function createStoryTargetBrowseSeed(
   source: string,
   target: StoryEditorTarget,
   identity: { resourceKey: string; reuseKey: string },
-  metadata: { name: string; packId?: string; draftId?: string },
+  metadata: { name: string; packId?: string; draftId?: string; entryType?: EditorEntryIconType },
 ): BrowseInstanceSeed<StoryBrowseInstanceState> {
   const seed = createEmptyStoryBrowseInstance(current, source);
   const state = seed.state;
@@ -105,5 +106,5 @@ export function createStoryTargetBrowseSeed(
   state.snapshot.visits = [{ target: { ...copiedTarget }, selectedNodeId: null, insertionBeforeNodeId: null, centerScroll: 0, rightScroll: 0 }];
   state.snapshot.visitIndex = 0;
   state.document = { target: copiedTarget, name: metadata.name, packId: metadata.packId, draftId: metadata.draftId };
-  return { ...seed, ...identity, presentation: storyBrowseInstancePresentation(metadata.name, target) };
+  return { ...seed, ...identity, presentation: storyBrowseInstancePresentation(metadata.name, target, metadata.entryType) };
 }

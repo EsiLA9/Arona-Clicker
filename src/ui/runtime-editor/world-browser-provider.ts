@@ -2,15 +2,9 @@ import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runt
 import type { BrowseInstance, BrowseInstanceSeed } from '../workspace/browse-instance-manager';
 import type { EditorResourceOpenRequest } from '../workspace/editor-resource-request';
 import type { EditorExplorerNode } from '../workspace/editor-explorer-nodes';
+import { renderEditorEntityIcon } from '../components/shared/editor-entity-icon';
 
 export type WorldEntityRef = { kind: 'init' | 'area' | 'spot'; id: string };
-export interface WorldTreeNode {
-  key: string;
-  label: string;
-  ref?: WorldEntityRef;
-  isDefault?: boolean;
-  children: readonly WorldTreeNode[];
-}
 export type WorldCatalog = Pick<ContentCatalogQueryPort, 'inits' | 'areas' | 'spots'>;
 export interface WorldProviderState {
   target?: WorldEntityRef;
@@ -40,53 +34,34 @@ export function resolveWorldResourceRequest(request: EditorResourceOpenRequest):
   const ref = { kind, id } as WorldEntityRef;
   return worldEntityKey(ref) === resourceKey ? ref : undefined;
 }
-export const worldEntityIdentity = (ref: WorldEntityRef): string => worldEntityKey(ref);
-export function worldTreePlacementIdentity(parentPlacement: string | undefined, ref: WorldEntityRef): string {
-  return JSON.stringify([parentPlacement ?? null, worldEntityIdentity(ref)]);
-}
-
-export function buildDefaultWorldTree(catalog: WorldCatalog): WorldTreeNode[] {
-  type Branch = Omit<WorldTreeNode, 'children'> & { children: Branch[] };
-  const branch = (kind: WorldEntityRef['kind'], entity: { id: string; name: string }, parentPlacement?: string, isDefault = false): Branch => {
-    const ref = { kind, id: entity.id };
-    return { key: worldTreePlacementIdentity(parentPlacement, ref), label: entity.name || entity.id, ref, isDefault, children: [] };
+export function worldExplorerNodes(catalog: WorldCatalog): EditorExplorerNode[] {
+  const missingParent = 'missing-parent';
+  const position = (kind: WorldEntityRef['kind'], entity: { id: string; name: string },
+    parentKey?: string, isDefault = false): EditorExplorerNode => {
+    const resourceKey = worldEntityKey({ kind, id: entity.id });
+    const label = entity.name || entity.id;
+    return { placementKey: resourceKey, parentKey, folder: kind === 'spot' ? undefined : {},
+      resource: { providerKey: worldBrowseProviderKey, resourceKey, kind, id: entity.id },
+      resourceActionLabel: '查看 ' + labels[kind] + ' · ' + label,
+      label, searchableText: [label, entity.id], presentation: { kind,
+        auxiliaryLabel: labels[kind] + (isDefault ? ' · 默认' : ''), markers: ['strong-label'] } };
   };
-  const inits = new Map([...catalog.inits.values()].map(init => [init.id, branch('init', init)]));
-  const areas = new Map<string, Branch>();
-  const orphan: Branch = { key: 'missing-parent', label: '归属缺失', children: [] };
-  for (const area of catalog.areas.values()) {
-    const parent = inits.get(area.initId) ?? orphan;
-    const node = branch('area', area, parent.key, Boolean(catalog.inits.get(area.initId)?.defaultAreas.includes(area.id)));
-    areas.set(area.id, node);
-    parent.children.push(node);
+  const roots = [...catalog.inits.values()].map(init => position('init', init))
+    .sort((a, b) => a.label.localeCompare(b.label) || a.placementKey.localeCompare(b.placementKey));
+  const areas = [...catalog.areas.values()].map(area => {
+    const init = catalog.inits.get(area.initId);
+    return position('area', area, init ? worldEntityKey({ kind: 'init', id: init.id }) : missingParent,
+      init?.defaultAreas.includes(area.id));
+  });
+  const spots = [...catalog.spots.values()].map(spot => {
+    const area = catalog.areas.get(spot.areaId);
+    return position('spot', spot, area ? worldEntityKey({ kind: 'area', id: area.id }) : missingParent,
+      area?.defaultSpots.includes(spot.id));
+  });
+  if ([...areas, ...spots].some(node => node.parentKey === missingParent)) {
+    roots.push({ placementKey: missingParent, folder: {}, label: '归属缺失', searchableText: ['归属缺失'] });
   }
-  for (const spot of catalog.spots.values()) {
-    const parent = areas.get(spot.areaId) ?? orphan;
-    parent.children.push(branch('spot', spot, parent.key, Boolean(catalog.areas.get(spot.areaId)?.defaultSpots.includes(spot.id))));
-  }
-  const roots = [...inits.values()].sort((a, b) => a.label.localeCompare(b.label) || a.key.localeCompare(b.key));
-  if (orphan.children.length) roots.push(orphan);
-  return roots;
-}
-
-/** Search-ready World projection. The existing World renderer adopts this contract in Task 0422. */
-export function worldExplorerNodes(roots: readonly WorldTreeNode[]): EditorExplorerNode[] {
-  const project = (node: WorldTreeNode): EditorExplorerNode => {
-    const children = node.children.map(project);
-    const resource = node.ref ? {
-      providerKey: worldBrowseProviderKey, resourceKey: worldEntityKey(node.ref),
-      kind: node.ref.kind, id: node.ref.id,
-    } : undefined;
-    return {
-      placementKey: node.key, ...(resource ? { resource } : {}), label: node.label,
-      searchableText: [node.label, ...(node.ref ? [node.ref.id] : [])], children,
-      childState: children.length ? { kind: 'loaded', totalCount: children.length } : { kind: 'empty' },
-      presentation: { kind: node.ref?.kind ?? 'group', auxiliaryLabel: node.ref
-        ? `${labels[node.ref.kind]}${node.isDefault ? ' · 默认' : ''}` : undefined,
-        markers: [...(node.ref ? ['strong-label'] : []), ...(node.isDefault ? ['default'] : [])] },
-    };
-  };
-  return roots.map(project);
+  return [...roots, ...areas, ...spots];
 }
 
 export function prepareWorldTarget(catalog: WorldCatalog, ref: WorldEntityRef): WorldEntityRef | undefined {
@@ -123,9 +98,9 @@ export function prepareWorldBrowseSeed(catalog: WorldCatalog, ref: WorldEntityRe
   if (!target || !summary) return undefined;
   return {
     providerKey: worldBrowseProviderKey,
-    resourceKey: worldEntityIdentity(target),
+    resourceKey: worldEntityKey(target),
     reuseKey: worldBrowseReuseKey,
     state: { provider: { target } },
-    presentation: { title: summary.title, kind: target.kind },
+    presentation: { title: summary.title, kind: target.kind, typeLabel: 'World', icon: renderEditorEntityIcon(target.kind) },
   };
 }

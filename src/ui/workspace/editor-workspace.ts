@@ -1,3 +1,4 @@
+import type { PackCatalogReadModel, PackOrganizationStatus } from '../../arona-clicker/contracts/runtime/runtime';
 import type { WorkspaceSlot } from '../components/shared/workspace-frame';
 import type { UIContext } from '../runtime/context';
 import { LocalStorageAdapter } from '../../data-services/persistence/storage-adapter';
@@ -107,7 +108,7 @@ export interface EditorWorkspaceChrome {
   instancesVisible?: boolean;
   edges: readonly EditorWorkspaceEdge[];
   workTypes: readonly { id: string; name: string; icon: string; active: boolean }[];
-  instances: readonly { id: string; title: string; typeLabel?: string; label?: string; icon?: string; active: boolean }[];
+  instances: readonly { id: string; title: string; typeLabel?: string; label?: string; icon?: string; status?: string; active: boolean }[];
   canDuplicate: boolean;
   commands: string;
   status: string;
@@ -399,6 +400,18 @@ function bindRibbonResize(root: HTMLElement, signal: AbortSignal): void {
   }, options);
 }
 
+export function editorPackOrganizationLabel({ stage, loadedCount }: PackOrganizationStatus): string {
+  switch (stage) {
+    case 'waiting': return '数据包 · 等待装载';
+    case 'restoring': return '数据包 · 正在恢复本机包库';
+    case 'registering': return '数据包 · 正在登记开发包';
+    case 'validating': return '数据包 · 正在校验内容';
+    case 'loading': return '数据包 · 正在装载运行时内容';
+    case 'ready': return '数据包 · 已就绪（' + loadedCount + ' 个已载入）';
+    case 'failed': return loadedCount ? '数据包 · 组织失败（' + loadedCount + ' 个已载入）' : '数据包 · 组织失败';
+  }
+}
+
 export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspaceChrome) {
   const e = ctx.escapeHtml;
   const advanced = spec.layout.mode === 'advanced';
@@ -408,6 +421,8 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
   const exit = spec.temporaryView ? '' : renderEditorTool(ctx, 'exit', '退出编辑器', 'back');
   const ribbon = spec.layout.ribbon;
   const grip = ribbonGripValue(ribbon);
+  const status = (ctx.game as Partial<PackCatalogReadModel>).getPackOrganizationStatus?.();
+  const packStatus = status ? e(editorPackOrganizationLabel(status)) : undefined;
   return {
     header: `<header class="editor-workspace__header" data-editor-workspace-header${advanced ? ` data-editor-workspace-ribbon="${ribbon}"` : ''}>
       ${advanced ? `<div class="editor-workspace__ribbon" data-editor-key="ribbon-tools">${spec.commands}${renderEditorToolGroup('工作区', `<div class="editor-workspace__tool-stack">${view}${mode}${exit}</div>`)}</div>
@@ -419,9 +434,11 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
     documents: `<nav class="editor-workspace__documents" data-editor-workspace-documents aria-label="浏览实例"${advanced && (!spec.temporaryView || spec.instancesVisible) ? '' : ' hidden'}>
         ${advanced && (!spec.temporaryView || spec.instancesVisible) ? `
           ${spec.instances.map(item => {
-            const name = e(item.typeLabel ? `${item.typeLabel} · ${item.title}` : item.title);
-            return `<div class="editor-workspace__document" data-editor-key="browse-instance:${item.id}" data-current="${item.active}">
-              <button type="button" class="mini-action" data-editor-workspace-action="activate" data-editor-instance="${item.id}" aria-label="${name}" aria-pressed="${item.active}" title="${e(item.label ?? item.title)}">${item.icon ?? ''}<span class="editor-workspace__document-title">${e(item.title)}</span></button>
+            const name = e([item.typeLabel, item.title, item.status].filter(Boolean).join(' · '));
+            const title = e(item.status ? `${item.label ?? item.title} · ${item.status}` : item.label ?? item.title);
+            return `<div class="editor-workspace__document" data-editor-key="browse-instance:${item.id}" data-current="${item.active}"${item.status ? ` data-status="${e(item.status)}"` : ''}>
+              <button type="button" class="mini-action editor-workspace__document-icon" data-editor-workspace-action="locate-instance" data-editor-instance="${item.id}" aria-label="定位 ${name}" title="单击按类型定位，双击按数据包路径定位">${item.icon?.trimStart().startsWith('<svg') ? item.icon : editorToolIcon('open')}</button>
+              <button type="button" class="mini-action" data-editor-workspace-action="activate" data-editor-instance="${item.id}" aria-label="${name}" aria-pressed="${item.active}" title="${title}"><span class="editor-workspace__document-title">${e(item.title)}</span></button>
               <button type="button" class="mini-action" data-editor-workspace-action="close" data-editor-instance="${item.id}" aria-label="关闭 ${name}" title="关闭实例">×</button>
             </div>`;
           }).join('')}
@@ -429,7 +446,9 @@ export function renderEditorWorkspaceRegions(ctx: UIContext, spec: EditorWorkspa
     </nav>`,
     rail: `<nav class="editor-workspace__rail" data-editor-workspace-rail aria-label="工作类型"${advanced && (spec.temporaryView || editorWorkspaceView(spec.edges, spec.viewOverride ?? spec.layout.view) !== 'focus') ? '' : ' hidden'}>${spec.workTypes.map(type => `
       <button type="button" class="editor-workspace__work-type" data-editor-workspace-action="work-type" data-editor-work-type="${e(type.id)}" title="${e(type.name)}" aria-label="${e(type.name)}" aria-pressed="${type.active}">${type.icon}</button>`).join('')}</nav>`,
-    status: `<footer class="editor-workspace__status" data-editor-workspace-status${advanced ? '' : ' hidden'}>${spec.status}</footer>`,
+    status: `<footer class="editor-workspace__status" data-editor-workspace-status${advanced ? '' : ' hidden'}>${spec.status}${
+      packStatus === undefined ? '' : `<span class="editor-workspace__pack-status" data-editor-key="pack-organization"
+        data-editor-pack-organization role="status" title="${packStatus}">${packStatus}</span>`}</footer>`,
   };
 }
 

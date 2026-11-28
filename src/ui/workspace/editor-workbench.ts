@@ -8,10 +8,15 @@ import type { WorkspaceColumnSpec } from '../components/shared/workspace-frame';
 import type { UIContext } from '../runtime/context';
 import type { BrowseInstanceSnapshot } from './browse-instance-manager';
 import type { EditorExplorerStateSnapshot } from './editor-explorer-service';
-import { worldWorkIcon, worldWorkType } from '../runtime-editor/world-browser';
-import { renderStoryDocumentIcon } from './editor-directory';
+import { createEditorExplorerColumn, type EditorExplorerProvider } from './editor-explorer-column';
 
-export type EditorExplorerType = 'story' | 'world';
+export const editorExplorerTypes = [
+  { id: 'datapacks', name: 'Datapacks', icon: editorToolIcon('pack') },
+  { id: 'story', name: 'Storys', get icon() { return storyWorkIcon; } },
+  { id: 'world', name: 'IAS', icon: editorToolIcon('locate') },
+] as const;
+
+export type EditorExplorerType = typeof editorExplorerTypes[number]['id'];
 
 export interface EditorWorkbenchExternalSession {
   readonly theme: EditorWorkspaceTheme;
@@ -31,13 +36,6 @@ export interface EditorWorkbenchBusinessProjection extends EditorWorkbenchBusine
   readonly columns: readonly WorkspaceColumnSpec[];
   /** Only a scoped temporary scene such as Story preview may replace the Explorer slot. */
   readonly temporaryLeftColumn?: { readonly owner: 'story-preview'; readonly column: WorkspaceColumnSpec };
-}
-
-export interface EditorExplorerProjection {
-  readonly type: EditorExplorerType;
-  readonly state: EditorExplorerStateSnapshot;
-  readonly column: WorkspaceColumnSpec;
-  readonly bindColumn: (root: HTMLElement) => () => void;
 }
 
 export interface EditorWorkbenchProjection {
@@ -62,18 +60,11 @@ export function createEditorWorkbenchChrome(context: EditorWorkbenchCompositionC
     layout: context.layout, edges: editorWorkspaceEdges(['left', 'center', 'right']),
     temporaryView: business?.temporaryView ?? false, viewOverride: business?.viewOverride,
     instancesVisible: business?.instancesVisible,
-    workTypes: [
-      { id: 'story', name: '故事编辑', icon: storyWorkIcon, active: context.activeExplorerType === 'story' },
-      { id: worldWorkType, name: '世界编辑器', icon: worldWorkIcon, active: context.activeExplorerType === 'world' },
-    ],
-    instances: context.browseInstances.instances.filter(instance => instance.id === context.browseInstances.activeBrowseInstanceId
-      || Boolean(instance.resourceKey || instance.presentation.kind)).map(instance => ({
+    workTypes: editorExplorerTypes.map(type => ({ ...type, active: context.activeExplorerType === type.id })),
+    instances: context.browseInstances.instances.map(instance => ({
       id: instance.id, title: instance.presentation.title,
-      typeLabel: instance.providerKey === worldWorkType ? 'World' : instance.providerKey === 'story-directory' ? '目录'
-        : instance.presentation.kind === 'entry' ? 'Entry' : 'Story',
-      label: instance.presentation.title, icon: instance.providerKey === worldWorkType ? worldWorkIcon
-        : instance.providerKey === 'story-directory' ? editorToolIcon('open')
-          : instance.presentation.kind ? renderStoryDocumentIcon(instance.presentation.kind === 'entry' ? 'entry' : 'story') : editorToolIcon('open'),
+      typeLabel: instance.presentation.typeLabel, label: instance.presentation.title,
+      icon: instance.presentation.icon, status: instance.presentation.status,
       active: instance.id === context.browseInstances.activeBrowseInstanceId,
     })),
     canDuplicate: business?.canDuplicate ?? false,
@@ -92,12 +83,16 @@ export class EditorWorkbench {
   get isOpen(): boolean { return Boolean(this.current); }
   get activeTheme(): EditorWorkspaceTheme | undefined { return this.current?.theme; }
 
-  /** Compose only the common frame and chrome; provider columns/commands are read from this call's live projection. */
-  project(ctx: UIContext, explorer: EditorExplorerProjection, business?: EditorWorkbenchBusinessProjection): EditorWorkbenchProjection {
-    const composition: EditorWorkbenchCompositionContext = {
-      activeExplorerType: this.activeExplorerType, explorerState: explorer.state,
+  composition(): EditorWorkbenchCompositionContext {
+    return {
+      activeExplorerType: this.activeExplorerType, explorerState: this.explorer.snapshot(this.activeExplorerType),
       browseInstances: this.browseInstances.snapshot(), layout: editorLayout.state,
     };
+  }
+
+  /** Compose only the common frame and chrome; provider columns/commands are read from this call's live projection. */
+  project(ctx: UIContext, provider: EditorExplorerProvider, business?: EditorWorkbenchBusinessProjection): EditorWorkbenchProjection {
+    const composition = this.composition();
     const businessColumns = business?.columns ?? [];
     const businessLeft = businessColumns.find(column => column.slot === 'left');
     if (businessLeft) throw new Error('Business projection cannot provide a persistent Workbench Explorer column.');
@@ -105,7 +100,7 @@ export class EditorWorkbench {
       || business.temporaryLeftColumn.column.slot !== 'left')) {
       throw new Error('A temporary left-column override requires an owner and an active temporary view.');
     }
-    const columns = [business?.temporaryLeftColumn?.column ?? { ...explorer.column, bind: explorer.bindColumn },
+    const columns = [business?.temporaryLeftColumn?.column ?? createEditorExplorerColumn(ctx, this.activeExplorerType, this.explorer, provider),
       businessColumns.find(column => column.slot === 'center') ?? createEditorWorkspaceColumn(ctx, { key: 'editor-content', slot: 'center', bindingKey: 'empty-workbench',
         workspaceOwner: 'editor-workbench', hostId: 'editor-content', themeScope: 'center.editor', title: '内容',
         content: '<p class="editor-workbench-empty" role="status">从左侧目录打开资源，或切换工作类型。</p>' }),

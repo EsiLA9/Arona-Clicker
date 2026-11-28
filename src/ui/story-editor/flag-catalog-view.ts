@@ -56,7 +56,7 @@ export function renderStoryFlagCatalog(ctx: UIContext, state: StoryEditorState):
       const node = refs.find(ref => ref.nodeId)?.nodeId;
       const detail = flagRole(refs) || '清除';
       return `<div data-editor-key="${e(sourceKey)}"${node ? ` data-story-flag-node="${e(node)}"` : ''}>${renderStoryEditorTarget(ctx, source.kind, source.id, identity?.title ?? source.id, Boolean(identity), {
-        gradient: identity?.gradient,
+        gradient: identity?.gradient, entryType: identity?.entryType,
         relation: { key: sourceKey, detail, showType: false },
       })}</div>`;
     }).join('');

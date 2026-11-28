@@ -376,6 +376,30 @@
 
 [data-story-target-kind="story"] { --story-card-icon: url('../story-editor/book.svg'); }
 [data-story-target-kind="entry"] { --story-card-icon: url('../story-editor/clapperboard.svg'); }
+.editor-entity-icon {
+  display: block;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, currentColor 72%, var(--editor-entity-accent, currentColor));
+}
+.editor-entity-icon[data-entity-icon="story"] { --editor-entity-accent: var(--cyan, #3b9eff); }
+.editor-entity-icon[data-entity-icon="entry"] { --editor-entity-accent: #8863c9; }
+.editor-entity-icon[data-entity-icon="init"] { --editor-entity-accent: var(--cyan, #3b9eff); }
+.editor-entity-icon[data-entity-icon="area"] { --editor-entity-accent: var(--lime, #2ec494); }
+.editor-entity-icon[data-entity-icon="spot"] { --editor-entity-accent: var(--orange, #ffa94d); }
+.editor-entity-icon__art { fill: currentColor; stroke: none; }
+.editor-entity-icon:is([data-entity-icon="init"], [data-entity-icon="area"], [data-entity-icon="spot"]) > .editor-entity-icon__art {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 45%, var(--editor-entity-accent));
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.editor-entity-icon__badge { color: #44306c; }
+.editor-entity-icon__badge[data-entry-type="active"] { color: #14577b; }
+.editor-entity-icon__badge > rect { fill: currentColor; stroke: #fff; stroke-width: .65; }
+.editor-entity-icon__badge > path { fill: none; stroke: #fff; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
 .story-editor-tree-row[data-story-target-kind] .story-editor-tree-name,
 .story-identity-inline > strong,
 .story-identity-card > strong {
@@ -410,14 +434,11 @@
   text-align: start;
   overflow-wrap: anywhere;
 }
-.story-identity-card::before {
-  content: '';
+.story-identity-card > .editor-entity-icon {
   position: absolute;
   inset: 4px 5px auto auto;
   width: var(--story-card-icon-size);
   height: var(--story-card-icon-size);
-  background: #fff;
-  mask: var(--story-card-icon) center / contain no-repeat;
   pointer-events: none;
 }
 .story-identity-card > strong { padding-inline-end: var(--story-card-icon-size); }

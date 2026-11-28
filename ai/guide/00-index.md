@@ -6,6 +6,7 @@
 | 需要 | 阅读 |
 | --- | --- |
 | Task 的范围、执行、验收与交接 | [[ai/guide/task-workflow]] |
+| 跨会话原型架构调查、蓝图评审与后续施工交接 | [[ai/guide/prototype-blueprint-workflow]] |
 | GALHCG 查询、分页、只读变更复核 | [[ai/guide/galhcg-project-map]]；获授权维护时再读 `.galhcg/agent-maintenance.md` |
 | 领域未知、跨领域或正式施工时选择 Read Set | [[ai/guide/task-read-set-routing]]；已知领域从 [[AGENTS]] 直接进入下方领域包 |
 | 架构、Schema、测试和文档维护约定 | [[ai/guide/conventions/00-index]] |
@@ -22,6 +23,7 @@
 
 ## 提示词
 
+- [[ai/guide/prompts/prototype-blueprint-review]]：用真实操作、源码和验收结果编写新人能接手的原型蓝图。
 - [[ai/guide/prompts/sol-discussion]]：外部方案讨论；输出是建议，不是项目决定或实现事实。
 - [[ai/guide/prompts/local-fact-review]]：按 Task 的关键问题核对必要源码与测试。
 

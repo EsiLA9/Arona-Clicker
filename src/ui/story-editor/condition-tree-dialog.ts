@@ -12,7 +12,7 @@ import {
   compileConditionTree, conditionTreeLocation, createConditionTree, moveConditionTreeNode,
   type ConditionRootMode, type ConditionTreeGroup, type ConditionTreeLeaf, type ConditionTreeNode,
 } from './condition-tree-model';
-import { patchEditorDOM } from './dom';
+import { patchEditorDOM } from '../workspace/editor-dom';
 import { openStoryEditorDialog } from './editor-dialog';
 import type { StoryEditorState } from './model';
 import type { StoryReferenceKind } from './property-options';

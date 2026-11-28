@@ -7,11 +7,9 @@ import { displayName } from '../../engine/core/display-name';
 import type { StoryDraft, StoryEditorState } from './model';
 
 export type StoryExplorerSource = { kind: 'runtime' } | { kind: 'pack'; packId: string } | { kind: 'draft'; draftId: string };
+export type StoryDirectoryMode = 'all' | 'stories' | 'entries';
 export interface StoryExplorerState {
-  directoryMode: 'all' | 'stories' | 'entries';
   auxiliaryTool?: 'senders';
-  filtersOpen: boolean;
-  initFilter: string;
   source: StoryExplorerSource;
 }
 export interface StoryExplorerProjection {
@@ -27,7 +25,7 @@ export interface StoryExplorerProjection {
 }
 
 export function createStoryExplorerState(): StoryExplorerState {
-  return { directoryMode: 'all', filtersOpen: false, initFilter: '', source: { kind: 'runtime' } };
+  return { source: { kind: 'runtime' } };
 }
 
 /** Legacy control values are normalized only at the select/input boundary. */

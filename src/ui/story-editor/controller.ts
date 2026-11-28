@@ -1,6 +1,7 @@
+import { editorDirectoryClick, setEditorDirectoryExpanded } from '../workspace/editor-directory';
 import { currentRelatedFlagCatalog, currentStoryFlagCatalog } from './flag-catalog-view';
 import { changeEntryActivation, defaultEntryActivation, type EntryActivation } from './entry-activation';
-import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { emptyStoryAuthoring, STORY_AUTHORING_TABLES, validateStoryAuthoringShape } from '../../data-services/authoring/story-authoring';
 import { storyDirectoryReferences, type StoryDirectoryReference } from '../../data-services/authoring/story-directory-references';
 import { acceptEditorStoryRename, knownModStoryIds, planEditorStoryRename, storyEditingMod, storyEditingMods } from './identity';
@@ -14,7 +15,7 @@ import { isActiveEditingPack, openActiveEditingPackPicker } from '../components/
 import { openStoryCatalogDialog, type CatalogDialogMemory } from './catalog-dialog';
 import { createStoryDirectoryManagement } from './directory-management';
 import { createStoryDirectoryManagementState, type StoryDirectoryArchiveTarget, type StoryDirectoryManagementState, type StoryDirectoryResourceRef } from './directory-management-state';
-import { createStoryDirectoryBrowseSeed, resolveStoryDirectoryResourceRequest, storyDirectoryBrowseProviderKey, storyDirectoryResourceKey, type StoryDirectoryBrowseState } from './directory-instance';
+import { createStoryDirectoryBrowseSeed, storyDirectoryBrowseProviderKey, storyDirectoryResourceKey, type StoryDirectoryBrowseState } from './directory-instance';
 import { openConditionTreeDialog } from './condition-tree-dialog';
 import { conditionReferenceChoices } from './condition-reference-navi';
 import { storyReferenceDocuments } from './property-options';
@@ -28,7 +29,7 @@ import { buildStoryFlagCatalog, flagImportKey, renameStoryCatalogFlag, storyFlag
 import { openLocalFlagNavi } from './local-flag-navi';
 import { RequiredFlagDropdown, requiredFlagOptions } from './required-flag-dropdown';
 import { StoryInlineTextEditor } from './inline-text';
-import { currentAuthoringDraft, storyEntries, storyPreviewEntries, type StoryDraft, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
+import { currentAuthoringDraft, storyEntries, storyPreviewEntries, suspendedStoryDraft, type StoryDraft, type StoryEditorState, type StoryEditorTarget, type StoryEditorVisit } from './model';
 import { setValueAt, valueAt, type ValuePath } from './structured-value';
 import type { StoryAuthoringPatch, StoryAuthoringPreview, StoryAuthoringPreviewTarget, StoryPreviewDecision } from '../../arona-clicker/contracts/runtime/story-authoring';
 import type { UIController } from '../controller/controller';
@@ -44,17 +45,18 @@ import type { PackCatalogReadModel, StoryPackSource } from '../../arona-clicker/
 import type { ContentCatalogQueryPort } from '../../arona-clicker/contracts/runtime/content-catalog';
 import { createStoryExplorerState, isLoadedStoryPack, parseStoryExplorerSource, storyExplorerSourceValue, storyPackCatalog, storyPackSource, storySourceGame,
   type StoryExplorerProjection } from './pack-source';
-import { createStoryDirectoryBusinessProjection, createStoryEditorBusinessColumns, createStoryEditorExplorerColumn, storyEditorBusinessChrome, storyEditorDocumentName, storySenders } from './view';
+import { createStoryDirectoryBusinessProjection, createStoryEditorBusinessColumns, describeStoryEditorExplorer, storyEditorBusinessChrome, storyEditorDocumentName, storySenders } from './view';
 import { applyEditorWorkspaceWidths, editorLayout, editorWorkspaceViewAttributes, setEditorWorkspaceView, type EditorWorkspaceView, renderEditorWorkspaceRegions } from '../workspace/editor-workspace';
 import { captureStoryBrowseInstanceState, captureStoryInstanceState, restoreStoryBrowseInstanceState, restoreStoryInstanceState, createEmptyStoryBrowseInstance, createStoryBrowseInstanceSeed, createStoryTargetBrowseSeed, storyBrowseIdentity, storyBrowseInstancePresentation, editorPanels, storyEditorEdges, storyWorkType, type EditorScroll, type StoryBrowseInstance, type StoryBrowseInstanceState, type StoryInstanceScroll } from './workspace-session';
 import type { BrowseInstanceId } from '../workspace/browse-instance-manager';
 import type { EditorBrowseInstanceState } from '../workspace/editor-browse-instances';
-import type { EditorExplorerProjection, EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
-import { editorResourceOpenRequest, type EditorResourceOpenRequest } from '../workspace/editor-resource-request';
-import { editorDirectoryContentOwner, sidebarInitIds, sidebarSearch, storyExplorerResourceIdentity } from './sidebar-tree';
-import { bindEditorDirectoryScrollbars, refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
+import type { EditorWorkbenchBusinessProjection } from '../workspace/editor-workbench';
+import { type EditorResourceOpenRequest } from '../workspace/editor-resource-request';
+import { editorDirectoryContentOwner, sidebarInitIds } from './sidebar-tree';
+import { refreshEditorDirectoryScrollbars } from '../workspace/editor-directory-scroll';
+import { editorExplorerScroll, refreshEditorExplorerColumn, type EditorExplorerProvider } from '../workspace/editor-explorer-column';
 import { storyEditorSceneTarget } from './scene-view';
-import { patchEditorDOM } from './dom';
+import { patchEditorDOM } from '../workspace/editor-dom';
 import { captureFocusWithin, restoreFocusWithin } from '../interaction/focus';
 import { hasStoryNodeOverlay } from './property-fields';
 import { addRow, editProperty, editStoryNodeBody, moveRowBy, readProperty, removeProperty, removeRow, selectBranch, selectDiscriminant, selectLiteralKind, selectNodeType, selectThemeScope, toggleOptional, rowIdAt } from './property-model';
@@ -160,7 +162,7 @@ export class StoryEditorController {
   private get explorer() { return this.ctrl.workbench.explorer; }
   private activatingBrowseInstance?: StoryBrowseInstance;
   private restoreInstanceScroll?: StoryInstanceScroll;
-  private storyExplorerCatalog?: { key: string; projection: ReturnType<StoryEditorController['readScopedSource']> };
+  private storyExplorerCatalog?: { key: string; projection?: ReturnType<StoryEditorController['readScopedSource']> };
   private cachedExplorerProjection?: StoryExplorerProjection;
   private loaded = false;
   private disposed = false;
@@ -227,8 +229,8 @@ export class StoryEditorController {
   private get editorGame() { return storySourceGame(this.ctrl.game, this.state); }
   private get advanced() { return editorLayout.state.mode === 'advanced'; }
   private get explorerSnapshot() { return this.explorer.snapshot('story'); }
-  private queryChannel(mode = this.explorerState.directoryMode): string { return this.explorerState.auxiliaryTool === 'senders' ? 'senders' : mode === 'entries' ? 'entries' : 'stories'; }
-  directoryExplorerSourceKey(): string { return storyExplorerSourceValue(this.explorerState.source); }
+  private queryChannel(): string { return this.explorerState.auxiliaryTool === 'senders' ? 'senders' : this.explorer.filter('story', 'kind') === 'entries' ? 'entries' : 'stories'; }
+  directoryExplorerSourceKey(): string { return this.explorerSnapshot.reveal?.sourceKey ?? storyExplorerSourceValue(this.explorerState.source); }
   directoryRootResource(initId = this.ctrl.game.state.activeInit): StoryDirectoryResourceRef {
     return { sourceKey: this.directoryExplorerSourceKey(), initId, logicalDirectoryKey: '' };
   }
@@ -279,16 +281,25 @@ export class StoryEditorController {
     const currentDirectory = () => this.buildDirectoryManagement(managementState);
     root.addEventListener('click', event => {
       const element = event.target instanceof Element ? event.target : null;
-      const childResource = element?.closest<HTMLElement>('[data-editor-resource-provider="story-directory"]');
-      if (childResource && root.contains(childResource)) {
-        const request = editorResourceOpenRequest(childResource, 'instance-link');
-        const resource = request && resolveStoryDirectoryResourceRequest(request);
-        if (!resource || !this.ctrl.openStoryDirectoryResource(resource, managementState.archiveTarget)) {
-          this.ctrl.toast.show('目标目录无法打开；归档目标和当前目录工作状态已保留。', 'error');
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        return;
+      const treeRoot = element?.closest<HTMLElement>('[data-directory-explorer]');
+      if (treeRoot && root.contains(treeRoot)) {
+        const directory = currentDirectory();
+        const scope = treeRoot.dataset.directoryExplorer;
+        const handled = editorDirectoryClick(treeRoot, event, row =>
+          directory.treePositions(scope).find(position => position.placementKey === row.dataset.editorPlacementKey), {
+          expand: (placementKey, toggle, open) => {
+            if (scope === 'contents') directory.fold(placementKey, open);
+            setEditorDirectoryExpanded(toggle, open);
+          },
+          select: placementKey => {
+            for (const row of treeRoot.querySelectorAll<HTMLElement>('[data-editor-placement-select]')) {
+              row.setAttribute('aria-pressed', String(row.dataset.editorPlacementKey === placementKey));
+            }
+          },
+          open: request => this.ctrl.dispatchEditorResource(request),
+          onCommand: () => { this.syncDirectoryBrowseIdentity(instance); this.ctrl.render(); },
+        });
+        if (handled) return;
       }
       const reference = element?.closest<HTMLButtonElement>('[data-directory-reference-kind]');
       if (reference && root.contains(reference)) {
@@ -409,24 +420,24 @@ export class StoryEditorController {
     }
     const title = this.buildDirectoryManagement(state.management).title();
     const updated = this.browseInstances.update(instance.id, { resourceKey, reuseKey: resourceKey,
-      presentation: { ...instance.presentation, title, kind: 'directory', icon: 'directory' } });
+      presentation: { ...instance.presentation, title, kind: 'directory', typeLabel: '目录' } });
     if (!updated.ok) {
       state.unavailable = { reason: updated.message };
       this.ctrl.toast.show(updated.message, 'error');
     }
   }
-  createExplorerColumn(ctx: UIContext, snapshot = this.explorerSnapshot) {
-    const active = this.browseInstances.active;
-    return createStoryEditorExplorerColumn(ctx, this.state, this.explorerState, this.syncStoryExplorerSource(), snapshot,
-      this.isOpen() && active?.providerKey === storyWorkType,
-      active?.providerKey === storyWorkType || active?.providerKey === storyDirectoryBrowseProviderKey ? active.resourceKey : undefined);
-  }
-  explorerProjection(ctx: UIContext, snapshot = this.explorerSnapshot): EditorExplorerProjection {
-    return { type: 'story', state: snapshot, column: this.createExplorerColumn(ctx, snapshot), bindColumn: root => {
-      const unbindExplorer = this.bindExplorerColumn(root);
-      const unbindStory = this.isOpen() ? this.bind(root) : undefined;
-      return () => { unbindExplorer(); unbindStory?.(); };
-    } };
+  explorerProvider(ctx: UIContext): EditorExplorerProvider {
+    return {
+      describe: () => {
+        const active = this.browseInstances.active;
+        const source = parseStoryExplorerSource(this.directoryExplorerSourceKey()) ?? this.explorerState.source;
+        return describeStoryEditorExplorer(ctx, this.state, this.explorerState, this.syncStoryExplorerSource(source), this.explorerSnapshot,
+          this.isOpen() && active?.providerKey === storyWorkType,
+          active?.providerKey === storyWorkType || active?.providerKey === storyDirectoryBrowseProviderKey ? active.resourceKey : undefined);
+      },
+      changeControl: (control, value) => this.changeExplorerControl(control, value),
+      bindActions: root => this.isOpen() ? this.bind(root) : undefined,
+    };
   }
   businessProjection(ctx: UIContext): EditorWorkbenchBusinessProjection {
     if (this.browseInstances.active?.providerKey === storyWorkType && this.state.target) this.syncBrowseInstanceIdentity();
@@ -444,19 +455,10 @@ export class StoryEditorController {
     if (this.preview) { this.closeAuthoringPreview(); this.requestRefresh(); }
     else this.close();
   }
-  private revealExplorerTarget(target: StoryEditorTarget | null | undefined): void {
-    if (!target) return;
-    const scope = this.state.sourceSelection ?? '';
-    const owner = this.registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
-    this.explorer.reveal('story', storyExplorerResourceIdentity(target, scope,
-      !scope ? this.packQuery.getRunningStoryPackId?.(owner) : undefined));
-    this.explorer.selectPlacement('story', undefined);
-    this.explorer.requestFocus('story', 'selected');
-  }
   private clearExplorerReveal(): void { this.explorer.clearReveal('story'); }
   private get writeBlocked() {
     const draft = currentAuthoringDraft(this.state);
-    return this.state.storageBlocked || Boolean(draft && !this.draftSaveAllowed(draft));
+    return this.state.storageBlocked || Boolean(this.state.suspendedDraftId || draft && !this.draftSaveAllowed(draft));
   }
 
   private packSource(id: string): StoryDraft['packSource'] {
@@ -495,8 +497,8 @@ export class StoryEditorController {
       && (!draft.targetPackId || editable) && (!draft.packSource.digest || draft.packSource.digest === source.digest));
   }
 
-  private readScopedSource(source: StoryPackSource | undefined) {
-    const resolved = source && this.packQuery.getStoryPackSources?.(source);
+  private readScopedSource(source: StoryPackSource) {
+    const resolved = this.packQuery.getStoryPackSources?.(source);
     const sourceRegistry = storyPackCatalog(resolved?.datapacks ?? []);
     const sourcePics = new PicService(sourceRegistry.pics, new ImageStore());
     for (const pack of resolved?.images ?? []) sourcePics.register(pack.manifest.modName, pack.images);
@@ -533,7 +535,9 @@ export class StoryEditorController {
     const key = JSON.stringify([storyExplorerSourceValue(source), selectedPackSource?.digest, catalogSignature,
       bank.map(draft => [draft.draftId, draft.dirty, draft.persisted, draft.packSource?.digest])]);
     if (source.kind === 'runtime') this.storyExplorerCatalog = undefined;
-    else if (available && this.storyExplorerCatalog?.key !== key) this.storyExplorerCatalog = { key, projection: this.readScopedSource(selectedPackSource) };
+    else if (available && this.storyExplorerCatalog?.key !== key) this.storyExplorerCatalog = {
+      key, projection: selectedPackSource ? this.readScopedSource(selectedPackSource) : undefined,
+    };
     const drafts = !available ? [] : recovery ? [recovery] : source.kind === 'pack'
       ? bank.filter(draft => draft.packSource?.packRecordId === source.packId
         && this.draftInLoadedSource(draft, pack && storyPackSource(pack), pack?.editingMode === 'editing'))
@@ -567,6 +571,8 @@ export class StoryEditorController {
     const bank = [...state.drafts, ...(state.parkedDrafts ?? [])];
     const previous = currentAuthoringDraft(state);
     const recovery = selection.startsWith('draft:') ? bank.find(draft => draft.draftId === selection.slice(6)) : undefined;
+    const suspended = bank.find(draft => draft.draftId === state.suspendedDraftId);
+    if (!suspended) { state.suspendedDraftId = undefined; state.prototypeDocument = undefined; }
     const selected = selection.startsWith('pack:') ? sources.get(selection.slice(5)) : undefined;
     const live = this.ctrl.game.registry;
     const liveChanged = this.liveRegistry !== live;
@@ -587,13 +593,16 @@ export class StoryEditorController {
       return { value: `pack:${id}`, group: 'packs', label: `${sources.get(id)!.label} · ${status}` };
     });
     if (force || liveChanged || catalogChanged) {
-      const projection = selection ? this.readScopedSource(selected ?? recovery?.packSource) : undefined;
+      // A legacy recovery without provenance resolves references against the live index.
+      const scoped = (suspended && this.prototypePackSource(suspended)) ?? selected ?? recovery?.packSource;
+      const projection = scoped ? this.readScopedSource(scoped) : undefined;
       state.sourceRegistry = projection?.sourceRegistry;
       state.sourcePics = projection?.sourcePics;
       state.sourceWarning = projection?.sourceWarning;
     }
     const active: StoryDraft[] = [], parked: StoryDraft[] = [];
     for (const draft of bank) {
+      if (draft === suspended) { parked.push(draft); continue; }
       if (!draft.packSource && draft.targetPackId) {
         const source = sources.get(draft.targetPackId);
         const record = source && query.getPackRecord?.(source.packRecordId);
@@ -618,7 +627,7 @@ export class StoryEditorController {
       state.sourceOptions.push({ value: `draft:${draft.draftId}`, group: 'drafts',
         label: `${draft.document.name || draft.document.id} · ${draft.packSource?.label ?? draft.document.id}` });
     }
-    if (previous && !active.includes(previous)) {
+    if (previous && !suspended && !active.includes(previous)) {
       this.closeAuthoringPreview();
       this.closeEditorDialog(); this.closeSelectionNavi(); this.closeThemeContentEdit();
       if (parked.includes(previous)) {
@@ -647,10 +656,15 @@ export class StoryEditorController {
     const draft = currentAuthoringDraft(state);
     const source = draft?.packSource;
     const pack = source && catalog?.entries.find(entry => (entry.packRecordId ?? entry.id) === source.packRecordId);
-    state.readOnlyReason = recovery
-      ? `草稿已保留，暂时无法保存。原来源为 ${recovery.packSource?.label ?? recovery.document.id}。请在数据包管理中载入对应的编辑态 Mod。`
+    if (suspended && state.target && (force || liveChanged || catalogChanged || !state.prototypeDocument)) {
+      this.readPrototypeDocument(suspended.sourceId ?? suspended.document.id);
+    }
+    state.readOnlyReason = suspended ? '正在查看原型，草稿已暂停。' : recovery
+      ? recovery.packSource
+        ? `草稿已保留，暂时无法保存。原来源为 ${recovery.packSource.label}。请在数据包管理中载入对应的编辑态 Mod。`
+        : '草稿已保留，暂时无法保存。该草稿缺少数据包来源记录，引用按当前游戏内容解析。'
       : draft && !this.draftSaveAllowed(draft) ? '当前内容可查阅和试播。请在数据包管理中载入对应的编辑态 Mod 后编辑。' : undefined;
-    state.canApplySource = Boolean(draft && this.draftSaveAllowed(draft) && pack && query.getRunningStoryPackId(pack.modName) === source?.packRecordId);
+    state.canApplySource = Boolean(!suspended && draft && this.draftSaveAllowed(draft) && pack && query.getRunningStoryPackId(pack.modName) === source?.packRecordId);
   }
 
   private selectSource(selection: string): void {
@@ -669,12 +683,12 @@ export class StoryEditorController {
     this.sourceVisits.set(state.sourceSelection ?? '', { visits: state.visits, index: state.visitIndex });
     const history = this.sourceVisits.get(selection);
     state.sourceSelection = selection || undefined;
+    state.suspendedDraftId = undefined; state.prototypeDocument = undefined;
     state.targetPackId = selection.startsWith('pack:') ? selection.slice(5) : undefined;
     state.target = null; state.selectedNodeId = null; state.insertionBeforeNodeId = null;
     state.visits = history?.visits ?? []; state.visitIndex = history?.index ?? -1;
     if (!this.advanced) {
-    this.explorer.setQuery('story', 'stories', ''); this.explorer.setQuery('story', 'entries', ''); this.explorerState.initFilter = '';
-      this.explorer.clearSearchExpansions('story'); this.clearExplorerReveal();
+      this.explorer.clearFilters('story', ['init'], ['stories', 'entries']);
     }
     this.syncSource(true);
     const draft = state.drafts.find(item => selection === `draft:${item.draftId}` || item === previous
@@ -692,12 +706,32 @@ export class StoryEditorController {
   }
 
   private selectDocument(key: string): boolean {
+    if (this.state.suspendedDraftId) {
+      const sourceId = key.startsWith('source:') ? key.slice(7) : key;
+      if (!this.readPrototypeDocument(sourceId)) return false;
+      this.state.target = { kind: 'story', id: sourceId };
+      this.state.selectedNodeId = null; this.state.insertionBeforeNodeId = null;
+      return true;
+    }
     if (!selectStory(this.state, key, this.registry.stories)) return false;
     const draft = currentDraft(this.state)!;
-    if (this.state.sourceOptions && !draft.packSource) {
+    if (this.state.sourceOptions && !draft.packSource && !this.state.sourceSelection?.startsWith('draft:')) {
       const mod = this.registry.storyDirectoryContentOwner(draft.document.id, 'story') ?? draft.document.id.split(':')[0];
       this.bindDraftSource(draft, mod);
     }
+    return true;
+  }
+
+  private readPrototypeDocument(storyId: string): boolean {
+    const view = createStoryEditorState();
+    if (!selectStory(view, `source:${storyId}`, this.registry.stories)) {
+      this.state.prototypeDocument = undefined;
+      return false;
+    }
+    const document = currentDraft(view)!;
+    document.draftId = `prototype:${storyId}`;
+    hydrateStoryAuthoring(document, this.registry);
+    this.state.prototypeDocument = document;
     return true;
   }
 
@@ -713,19 +747,20 @@ export class StoryEditorController {
   }
 
   private selectEntryDocument(entry: StoryEntryDef): boolean {
+    if (this.state.suspendedDraftId) return this.readPrototypeDocument(entry.storyId);
     const drafts = this.state.drafts;
     if (drafts.some(draft => draft.entryOnly === entry.id)) return true;
     const entryMod = this.registry.storyDirectoryContentOwner(entry.id);
     const existing = drafts.some(draft => [...(draft.authoring?.activeStories ?? []), ...(draft.authoring?.passiveStories ?? [])].some(row => row.id === entry.id));
     if (existing && (!this.state.sourceOptions || !entryMod)) return true;
-    const key = this.storyKey(entry.storyId);
-    const linked = key && this.selectDocument(key) ? currentDraft(this.state) : undefined;
     const storyMod = this.registry.storyDirectoryContentOwner(entry.storyId, 'story');
-    if (this.state.sourceOptions && (!linked || entryMod && entryMod !== storyMod)) {
+    const key = this.storyKey(entry.storyId);
+    if (this.state.sourceOptions && (!key || entryMod && entryMod !== storyMod)) {
       const table = this.registry.activeStories.has(entry.id) ? 'activeStories' : 'passiveStories';
+      const prototype = this.registry.stories.get(entry.storyId);
       const draft: StoryDraft = {
-        draftId: crypto.randomUUID(), sourceId: linked?.sourceId ?? null, entryOnly: entry.id,
-        document: linked ? structuredClone(linked.document) : { id: entry.storyId, name: entry.storyId, nodes: [], stages: {} },
+        draftId: crypto.randomUUID(), sourceId: prototype?.id ?? null, entryOnly: entry.id,
+        document: prototype ? structuredClone({ ...prototype, nodes: [...prototype.nodes] }) : { id: entry.storyId, name: entry.storyId, nodes: [], stages: {} },
         authoring: { ...emptyStoryAuthoring(), [table]: [structuredClone(entry)] },
         dirty: false, persisted: false, savedAt: null,
       };
@@ -736,8 +771,13 @@ export class StoryEditorController {
       drafts.push(draft);
       return true;
     }
+    const linked = key && this.selectDocument(key) ? currentDraft(this.state) : undefined;
     if (!linked) return false;
     hydrateStoryAuthoring(linked, this.registry);
+    const active = this.registry.activeStories.get(entry.id);
+    const passive = this.registry.passiveStories.get(entry.id);
+    if (active && !linked.authoring!.activeStories.some(row => row.id === entry.id)) linked.authoring!.activeStories.push(structuredClone(active));
+    if (passive && !linked.authoring!.passiveStories.some(row => row.id === entry.id)) linked.authoring!.passiveStories.push(structuredClone(passive));
     return true;
   }
 
@@ -858,19 +898,6 @@ export class StoryEditorController {
     if (duplicated) this.requestRefresh();
     return duplicated;
   }
-  locateActiveResource(): boolean {
-    const target = this.state.target;
-    if (!this.isOpen() || !target) return false;
-    this.ctrl.setActiveEditorExplorer('story');
-    this.revealWorkspaceLeft();
-    this.explorerState.auxiliaryTool = undefined;
-    this.explorerState.source = parseStoryExplorerSource(this.state.sourceSelection ?? '') ?? { kind: 'runtime' };
-    this.syncStoryExplorerSource();
-    this.revealExplorerTarget(target);
-    this.requestRefresh();
-    this.ctrl.flushUIUpdates();
-    return true;
-  }
   openStoryKeyFromExplorer(key: string, source = storyExplorerSourceValue(this.explorerState.source)): boolean {
     const id = this.state.drafts.find(draft => draft.draftId === key)?.document.id
       ?? (key.startsWith('source:') ? key.slice('source:'.length) : undefined);
@@ -883,12 +910,10 @@ export class StoryEditorController {
     } else if (!this.openFromExplorer(target, source)) return false;
     const opened = this.state.target?.kind === target.kind && this.state.target.id === target.id;
     if (opened && this.isOpen()) {
-      this.ctrl.setActiveEditorExplorer('story');
-      this.requestBrowseDirectoryReveal();
       this.requestRefresh();
       this.ctrl.flushUIUpdates();
     }
-    return opened;
+    return opened && this.ctrl.locateActiveEditorResource('type');
   }
   private storyBrowseSeed(target: StoryEditorTarget, source: string,
     projection = this.syncStoryExplorerSource(parseStoryExplorerSource(source) ?? this.explorerState.source)): ReturnType<typeof createStoryTargetBrowseSeed> {
@@ -898,21 +923,60 @@ export class StoryEditorController {
       ? drafts.find(item => !item.entryOnly && item.document.id === target.id)
       : drafts.find(item => item.entryOnly === target.id
         || [...(item.authoring?.activeStories ?? []), ...(item.authoring?.passiveStories ?? [])].some(entry => entry.id === target.id));
-    const owner = registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
-    const runningPackId = !source ? this.packQuery.getRunningStoryPackId?.(owner) : undefined;
-    const recoveryDraftId = source.startsWith('draft:') ? source.slice(6) : undefined;
-    const packId = source.startsWith('pack:') ? source.slice(5) : draft?.packSource?.packRecordId ?? runningPackId;
-    const identity = storyBrowseIdentity(target, source, packId);
+    const { resourcePackId, documentPackId, documentSource, recovery } = this.storyBrowseSource(target, source, registry);
     const name = target.kind === 'story'
       ? draft?.document.name ?? registry.stories.get(target.id)?.name ?? target.id
       : target.id;
-    return createStoryTargetBrowseSeed(this.state, source, target, identity,
-      { name, packId, draftId: recoveryDraftId ?? draft?.draftId });
+    const matchedDraft = !source.startsWith('draft:') && (!draft?.persisted && !draft?.dirty || draft?.packSource?.packRecordId === documentPackId) ? draft : undefined;
+    // The tree resolves the clicked resource scope; instance reuse resolves the actual document scope.
+    return createStoryTargetBrowseSeed(this.state, documentSource, target, {
+      resourceKey: storyBrowseIdentity(target, source, resourcePackId).resourceKey,
+      reuseKey: storyBrowseIdentity(target, documentSource, documentPackId).reuseKey,
+    }, { name, packId: documentPackId, draftId: recovery?.draftId ?? matchedDraft?.draftId,
+      entryType: target.kind === 'entry' ? storyEntryType(storyEntries(projection, registry.storyEntries).get(target.id)) : undefined });
+  }
+
+  private storyBrowseSource(target: StoryEditorTarget, source: string, registry: typeof this.registry) {
+    const bank = [...this.state.drafts, ...(this.state.parkedDrafts ?? [])];
+    const owner = registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
+    const selectedRecovery = source.startsWith('draft:') ? bank.find(item => item.draftId === source.slice(6)) : undefined;
+    const packScope = source.startsWith('pack:') ? source.slice(5) : selectedRecovery?.packSource?.packRecordId;
+    const resourcePackId = packScope ?? this.packQuery.getRunningStoryPackId?.(owner);
+    const entry = target.kind === 'entry' ? registry.storyEntries.get(target.id) : undefined;
+    const storyId = target.kind === 'story' ? target.id : entry?.storyId;
+    const storyOwner = storyId && (registry.storyDirectoryContentOwner(storyId, 'story') ?? storyId.split(':')[0]);
+    const entryOnly = entry && owner !== storyOwner ? entry.id : undefined;
+    const matches = selectedRecovery && (selectedRecovery.entryOnly === target.id
+      || !selectedRecovery.entryOnly && !entryOnly && (selectedRecovery.document.id === storyId || selectedRecovery.sourceId === storyId)
+      || target.kind === 'entry' && (selectedRecovery.authoring?.activeStories.some(row => row.id === target.id)
+        || selectedRecovery.authoring?.passiveStories.some(row => row.id === target.id)));
+    const recovery = matches ? selectedRecovery : storyId ? this.recoveryDraftForPrototype(storyId, entryOnly, resourcePackId) : undefined;
+    const documentSource = recovery ? `draft:${recovery.draftId}` : selectedRecovery ? (packScope ? `pack:${packScope}` : '') : source;
+    return { resourcePackId, documentSource, documentPackId: recovery ? recovery.packSource?.packRecordId : resourcePackId, recovery };
+  }
+
+  private recoveryDraftForPrototype(storyId: string, entryOnly: string | undefined, packId?: string): StoryDraft | undefined {
+    const candidates = [...this.state.drafts, ...(this.state.parkedDrafts ?? [])].filter(item => (item.persisted || item.dirty)
+      && item.entryOnly === entryOnly && (item.sourceId ?? item.document.id) === storyId);
+    const bound = packId ? candidates.find(item => (item.packSource?.packRecordId ?? item.targetPackId) === packId) : undefined;
+    if (bound) return this.draftInLoadedSource(bound, this.packSource(packId!), true) ? undefined : bound;
+    return candidates.find(item => !item.packSource && !item.targetPackId && item.sourceId);
   }
   private browseTarget(target: StoryEditorTarget, historyIndex?: number): void {
     if (!this.hasTarget(target)) return;
     if (historyIndex === undefined && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
     if (!this.save(false, false)) return;
+    const state = this.state;
+    const selection = state.sourceSelection ?? '';
+    const nextSource = this.storyBrowseSource(target, selection, this.registry).documentSource || undefined;
+    if (state.suspendedDraftId || nextSource !== state.sourceSelection) {
+      this.rememberVisit();
+      state.target = null;
+      state.suspendedDraftId = undefined; state.prototypeDocument = undefined;
+      state.sourceSelection = nextSource;
+      state.targetPackId = nextSource?.startsWith('pack:') ? nextSource.slice(5) : undefined;
+      this.syncSource(true);
+    }
     this.selectBrowseTarget(target, historyIndex);
   }
   private selectBrowseTarget(target: StoryEditorTarget, historyIndex?: number): void {
@@ -1043,7 +1107,7 @@ export class StoryEditorController {
     this.inlineText.finish();
     if (!this.loaded) return true;
     const draft = currentAuthoringDraft(this.state);
-    if (manual && draft && !this.draftSaveAllowed(draft)) {
+    if (manual && (this.state.suspendedDraftId || draft && !this.draftSaveAllowed(draft))) {
       this.persist();
       this.state.error = this.state.error ?? this.state.readOnlyReason ?? '当前内容无法保存，请打开对应编辑态 Mod。';
       if (refresh && this.isOpen()) this.requestRefresh();
@@ -1111,9 +1175,10 @@ export class StoryEditorController {
     active.state.snapshot = captureStoryInstanceState(state);
     active.state.scroll = this.captureInstanceScroll();
     const draft = currentAuthoringDraft(state);
+    const suspended = suspendedStoryDraft(state);
     active.state.document = state.target ? {
       target: { ...state.target }, name: storyEditorDocumentName(createUIContext(this.editorGame), state) ?? state.target.id,
-      packId: draft?.packSource?.packRecordId, draftId: draft?.draftId,
+      packId: (suspended ?? draft)?.packSource?.packRecordId, draftId: (suspended ?? draft)?.draftId,
     } : undefined;
     active.state.unavailable = false;
     if (state.target) this.syncBrowseInstanceIdentity();
@@ -1124,19 +1189,29 @@ export class StoryEditorController {
     if (!this.browseInstances.get(instance.id)) return;
     const target = this.state.target;
     if (!target) return;
-    const draft = currentAuthoringDraft(this.state);
+    const draft = suspendedStoryDraft(this.state) ?? currentAuthoringDraft(this.state);
     const source = this.state.sourceSelection ?? '';
     const owner = this.ctrl.game.registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
     const packId = source.startsWith('pack:') ? source.slice(5)
       : draft?.packSource?.packRecordId ?? this.packQuery.getRunningStoryPackId?.(owner);
     const identity = storyBrowseIdentity(target, source, packId);
-    const name = target.kind === 'story' ? draft?.document.name ?? this.registry.stories.get(target.id)?.name ?? target.id : target.id;
+    const name = target.kind === 'story'
+      ? (this.state.prototypeDocument ?? draft)?.document.name ?? this.registry.stories.get(target.id)?.name ?? target.id : target.id;
     const current = this.browseInstances.get(instance.id);
+    if (source.startsWith('draft:') && current?.resourceKey) {
+      const live = storyBrowseIdentity(target, '', this.packQuery.getRunningStoryPackId?.(owner));
+      const pack = draft?.packSource && storyBrowseIdentity(target, `pack:${draft.packSource.packRecordId}`);
+      if (current.resourceKey === live.resourceKey || current.resourceKey === pack?.resourceKey) identity.resourceKey = current.resourceKey;
+    }
+    const authoring = (this.state.prototypeDocument ?? currentAuthoringDraft(this.state))?.authoring;
+    const entry = target.kind === 'entry' ? authoring?.activeStories.find(row => row.id === target.id)
+      ?? authoring?.passiveStories.find(row => row.id === target.id) ?? this.registry.storyEntries.get(target.id) : undefined;
+    const presentation = storyBrowseInstancePresentation(name, target, storyEntryType(entry));
     if (current?.resourceKey === identity.resourceKey && current.reuseKey === identity.reuseKey
-      && current.presentation.title === name && current.presentation.kind === target.kind) return;
+      && current.presentation.title === name && current.presentation.kind === target.kind && current.presentation.icon === presentation.icon) return;
     const updated = this.browseInstances.update(instance.id, {
       ...identity,
-      presentation: storyBrowseInstancePresentation(name, target),
+      presentation,
     });
     if (!updated.ok) throw new Error(updated.message);
   }
@@ -1201,9 +1276,10 @@ export class StoryEditorController {
       const document = next.state.document;
       if (document) {
         const cached = [...state.drafts, ...(state.parkedDrafts ?? [])].find(draft => draft.draftId === document.draftId);
-        const target = cached && document.target.kind === 'story' ? { kind: 'story' as const, id: cached.document.id } : document.target;
+        const target = cached && document.target.kind === 'story'
+          ? { kind: 'story' as const, id: state.suspendedDraftId ? cached.sourceId ?? cached.document.id : cached.document.id } : document.target;
         const owner = this.registry.storyDirectoryContentOwner(target.id, target.kind) ?? target.id.split(':')[0];
-        if (cached && state.parkedDrafts?.includes(cached)) {
+        if (cached && cached.draftId !== state.suspendedDraftId && state.parkedDrafts?.includes(cached)) {
           state.sourceSelection = `draft:${cached.draftId}`;
           state.targetPackId = undefined;
           this.syncSource(true);
@@ -1261,25 +1337,22 @@ export class StoryEditorController {
     }
   }
 
-  private requestBrowseDirectoryReveal(): void {
-    if (!this.state.target) return;
-    this.explorerState.auxiliaryTool = undefined;
-    this.explorerState.source = parseStoryExplorerSource(this.state.sourceSelection ?? '') ?? { kind: 'runtime' };
-    this.syncStoryExplorerSource();
-    this.revealExplorerTarget(this.state.target);
-  }
 
   private openBrowseTarget(target: StoryEditorTarget, duplicate = false, source = this.state.sourceSelection ?? ''): void {
     if (!this.advanced) {
+      const seed = this.storyBrowseSeed(target, source);
+      const selection = seed.state.snapshot.sourceSelection ?? '';
+      if (selection !== (this.state.sourceSelection ?? '')) this.selectSource(selection);
+      if (selection !== (this.state.sourceSelection ?? '')) return;
       this.browseTarget(target);
       return;
     }
-    const sameSource = source === (this.state.sourceSelection ?? '');
+    const seed = this.storyBrowseSeed(target, source);
+    const sameSource = (seed.state.snapshot.sourceSelection ?? '') === (this.state.sourceSelection ?? '');
     if (sameSource && !this.hasTarget(target)) return;
     if (!sameSource && source.startsWith('pack:') && !this.packSource(source.slice(5))) return;
     const current = this.activeBrowseInstance;
     if (!duplicate && sameSource && this.state.target?.kind === target.kind && this.state.target.id === target.id) return;
-    const seed = this.storyBrowseSeed(target, source);
     const reusableRecord = duplicate ? undefined : this.browseInstances.findReusable(storyWorkType, seed.reuseKey);
     const reusable = reusableRecord?.providerKey === storyWorkType ? reusableRecord as StoryBrowseInstance : undefined;
     if (!duplicate && reusable && reusable.id !== current.id) {
@@ -1365,15 +1438,12 @@ export class StoryEditorController {
 
   workspaceViewBinding() {
     return {
-      onBeforeViewChange: (from: EditorWorkspaceView) => {
+      onBeforeViewChange: () => {
         this.activeBrowseInstance.state.scroll = this.captureInstanceScroll();
-        if (from !== 'focus') {
-          const left = this.editorScrollHost('left');
-          if (left) this.explorer.setScrollTop('story', this.sidebarScrollKey, left.scrollTop);
-        }
+        editorExplorerScroll(this.ctrl.columns.node('editor-workbench/editor-explorer'), 'capture');
       },
       onViewChange: (view: EditorWorkspaceView) => {
-        if (view !== 'focus') this.setEditorScroll('left', this.explorer.scrollTop('story', this.sidebarScrollKey));
+        editorExplorerScroll(this.ctrl.columns.node('editor-workbench/editor-explorer'), 'restore');
         if (view === 'three') this.setEditorScroll('right', this.activeBrowseInstance.state.scroll.right ?? 0);
       },
     };
@@ -1409,9 +1479,10 @@ export class StoryEditorController {
         if (element.dataset.authoringAction === 'restart-preview' || element.dataset.authoringAction === 'close-preview') this.authoringClick(element);
       } else if (editorLayout.state.mode === 'advanced') {
         if (intent === 'open') {
+          this.ctrl.setActiveEditorExplorer('story');
           this.revealWorkspaceLeft();
           this.explorerState.auxiliaryTool = undefined;
-          this.explorerState.filtersOpen = true;
+          this.explorer.setFilterPanel('story', 'sidebar-stories', true);
           this.explorer.requestFocus('story', `search:${this.queryChannel()}`);
         } else if (intent === 'issue') {
           const draft = currentDraft(this.state);
@@ -1443,44 +1514,6 @@ export class StoryEditorController {
   }
 
   private get sidebarScrollKey() { return this.explorerState.auxiliaryTool === 'senders' ? 'senders' : 'stories'; }
-
-  private preserveSidebarModeScroll(update: () => void): void {
-    const previous = this.editorScrollHost('left');
-    const previousKey = previous?.dataset.scrollKey;
-    if (previousKey && this.editorPanelVisible('left')) this.explorer.setScrollTop('story', previousKey, previous.scrollTop);
-    update();
-    const current = this.editorScrollHost('left');
-    const currentKey = current?.dataset.scrollKey;
-    if (currentKey && currentKey !== previousKey) this.setEditorScroll('left', this.explorer.scrollTop('story', currentKey));
-  }
-
-  private refreshSidebar(updateHeader = false): void {
-    const body = this.ctrl.root.querySelector<HTMLElement>('.story-editor-left .workspace-column__body');
-    if (!body) return;
-    const column = this.createExplorerColumn(createUIContext(this.ctrl.game), this.explorerSnapshot);
-    const next = body.cloneNode(false) as HTMLElement;
-    next.innerHTML = column.content;
-    const beforeRemove = (removed: HTMLElement) => this.ctrl.popovers.dismissBeforeRootMutation(removed);
-    this.preserveSidebarModeScroll(() => patchEditorDOM(body, next, beforeRemove));
-    refreshEditorDirectoryScrollbars(body);
-    if (!updateHeader) return;
-    const header = body.closest('.workspace-column__slot')?.querySelector<HTMLElement>('.workspace-column__header');
-    if (!header) return;
-    const nextHeader = header.cloneNode(false) as HTMLElement;
-    nextHeader.innerHTML = column.header ?? '';
-    patchEditorDOM(header, nextHeader, beforeRemove);
-  }
-
-  private revealSidebarSelection(): void {
-    const list = this.editorScrollHost('left');
-    if (!list || this.explorerState.auxiliaryTool === 'senders') return;
-    const column = list.closest<HTMLElement>('.story-editor-left') ?? list;
-    const row = [...list.querySelectorAll<HTMLElement>('[data-editor-resource-provider][data-editor-resource-key][data-editor-placement-select][aria-pressed="true"]')]
-      .find(item => !item.closest('ul[hidden]'));
-    const key = row?.dataset.editorPlacementKey;
-    if (key) this.explorer.revealPlacement(column, 'story', key,
-      sidebarSearch(this.explorerState, this.explorerSnapshot).trim() ? 'search' : 'normal');
-  }
 
   refresh(ctx: UIContext): boolean {
     if (!this.isOpen()) return false;
@@ -1514,7 +1547,7 @@ export class StoryEditorController {
       const active = document.activeElement instanceof HTMLElement && current.contains(document.activeElement) ? document.activeElement : null;
       const nextColumns = [...next.querySelectorAll<HTMLElement>(':scope > [data-column-instance]')];
       const nextIds = new Set(nextColumns.map(column => column.dataset.columnInstance));
-      this.preserveSidebarModeScroll(() => {
+      {
         for (const oldColumn of [...current.querySelectorAll<HTMLElement>(':scope > [data-column-instance]')]) {
           if (!nextIds.has(oldColumn.dataset.columnInstance)) {
             this.nodeMenu.dismissBeforeMutation(oldColumn);
@@ -1527,18 +1560,23 @@ export class StoryEditorController {
           const matches = [...current.querySelectorAll<HTMLElement>(':scope > [data-column-instance]')].filter(column => column.dataset.columnInstance === id);
           const mounted = matches.find(column => this.ctrl.columns.node(id) === column) ?? matches[0];
           for (const duplicate of matches) if (duplicate !== mounted) duplicate.remove();
-          if (mounted && mounted.outerHTML !== nextColumn.outerHTML) patchEditorDOM(mounted, nextColumn, root => {
-            this.nodeMenu.dismissBeforeMutation(root);
-            this.ctrl.popovers.dismissBeforeRootMutation(root);
-          });
-          else current.append(nextColumn);
+          if (!mounted) {
+            current.append(nextColumn);
+          } else if (id === 'editor-workbench/editor-explorer' && mounted.dataset.columnBinding === nextColumn.dataset.columnBinding) {
+            refreshEditorExplorerColumn(mounted);
+          } else if (mounted.outerHTML !== nextColumn.outerHTML) {
+            patchEditorDOM(mounted, nextColumn, root => {
+              this.nodeMenu.dismissBeforeMutation(root);
+              this.ctrl.popovers.dismissBeforeRootMutation(root);
+            });
+          }
         }
         current.className = next.className;
         current.dataset.layout = next.dataset.layout ?? '';
         current.dataset.responsive = next.dataset.responsive ?? '';
         current.dataset.composition = next.dataset.composition ?? '';
         current.style.gridTemplateColumns = next.style.gridTemplateColumns;
-      });
+      }
       this.nodeMenu.retainIfAnchored();
       this.ctrl.columns.adopt(host, ctx, frame);
       if (oldBinding !== current.querySelector<HTMLElement>('.story-editor-center')?.dataset.columnBinding) {
@@ -1591,10 +1629,13 @@ export class StoryEditorController {
       this.pendingVisit = undefined;
     }
     const explorerFocus = this.explorerSnapshot.focusRequest;
-    if (!this.state.preview && (explorerFocus === 'selected' || this.pendingDirectoryReveal)) {
-      this.explorer.takeFocusRequest('story');
+    if (!this.state.preview && this.pendingDirectoryReveal) {
       this.pendingDirectoryReveal = false;
-      this.revealSidebarSelection();
+      const root = this.ctrl.columns.node('editor-workbench/editor-explorer');
+      const key = this.explorerSnapshot.selectedPlacementKey;
+      if (root?.dataset.columnBinding === 'story-explorer' && key && this.explorerState.auxiliaryTool !== 'senders') {
+        this.explorer.revealPlacement(root, 'story', key, this.explorer.query('story', this.queryChannel()).trim() ? 'search' : 'normal');
+      }
     }
     if (this.pendingInspectorScroll !== undefined) {
       this.setEditorScroll('right', this.pendingInspectorScroll);
@@ -1649,64 +1690,21 @@ export class StoryEditorController {
       }
     }
   }
-  bindExplorerColumn(root: HTMLElement): () => void {
-    const abort = new AbortController();
-    const options = { signal: abort.signal };
-    const unbindScrollbars = bindEditorDirectoryScrollbars(root);
-    const unbindInteractions = this.explorer.bindColumn(root, 'story', {
-      onExpand: toggle => { if (toggle.hasAttribute('data-editor-expand-deferred')) this.refreshSidebar(); },
-      onQuery: () => this.refreshSidebar(),
-    });
-    root.addEventListener('change', event => {
-      const field = event.target;
-      if (!(field instanceof HTMLSelectElement) || !root.contains(field)) return;
-      if (field.hasAttribute('data-editor-story-init-filter')) {
-        this.explorerState.initFilter = field.value;
-      } else if (field.hasAttribute('data-editor-source') && this.advanced) {
-        const source = parseStoryExplorerSource(field.value);
-        if (!source) return;
-        this.explorerState.source = source;
-      } else return;
+  private changeExplorerControl(control: string, value: string): boolean {
+    if (control === 'view' && (value === 'directory' || value === 'senders')) {
+      this.explorerState.auxiliaryTool = value === 'senders' ? 'senders' : undefined;
       this.clearExplorerReveal();
-      this.explorer.clearSearchExpansions('story');
-      this.syncStoryExplorerSource();
-      this.refreshSidebar();
-      event.stopImmediatePropagation();
-    }, options);
-    root.addEventListener('click', event => {
-      const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sidebar-action], [data-column-action^="story-editor-sidebar:"]') : null;
-      if (!button || !root.contains(button)) return;
-      if (button.dataset.sidebarAction === 'filters') {
-        this.explorerState.filtersOpen = !this.explorerState.filtersOpen;
-        this.refreshSidebar();
-        event.stopImmediatePropagation();
-        if (this.explorerState.filtersOpen) root.querySelector<HTMLInputElement>('[data-sidebar-search]')?.focus({ preventScroll: true });
-        return;
-      }
-      if (button.dataset.sidebarAction === 'clear') {
-        this.explorer.setQuery('story', 'stories', ''); this.explorer.setQuery('story', 'entries', ''); this.explorerState.initFilter = '';
-        this.explorerState.directoryMode = 'all'; this.explorerState.auxiliaryTool = undefined;
-        this.clearExplorerReveal(); this.explorer.clearSearchExpansions('story');
-        this.refreshSidebar();
-        event.stopImmediatePropagation();
-        return;
-      }
-      const mode = button.dataset.columnAction?.slice('story-editor-sidebar:'.length);
-      if (mode === 'all' || mode === 'stories' || mode === 'entries') {
-        this.explorerState.directoryMode = mode; this.explorerState.auxiliaryTool = undefined;
-        this.clearExplorerReveal(); this.explorer.clearSearchExpansions('story');
-        this.refreshSidebar();
-        event.stopImmediatePropagation();
-      } else if (mode === 'directory' || mode === 'senders') {
-        const menu = root.querySelector<HTMLElement>('#story-editor-sidebar-modes');
-        menu?.hidePopover?.();
-        if (menu?.contains(button)) root.querySelector<HTMLElement>('[popovertarget="story-editor-sidebar-modes"]')?.focus({ preventScroll: true });
-        this.explorerState.auxiliaryTool = mode === 'senders' ? 'senders' : undefined;
-        this.refreshSidebar(true);
-        event.stopImmediatePropagation();
-      }
-    }, options);
-    return () => { abort.abort(); unbindInteractions(); unbindScrollbars(); };
+      return true;
+    }
+    if (control === 'source') {
+      if (!this.advanced) return false;
+      const source = parseStoryExplorerSource(value);
+      if (!source) return false;
+      this.explorerState.source = source;
+    } else return false;
+    this.clearExplorerReveal();
+    this.explorer.clearSearchExpansions('story');
+    return true;
   }
 
   bind(root: HTMLElement): () => void {
@@ -1754,21 +1752,6 @@ export class StoryEditorController {
     const click = (event: Event): void => {
       const menu = this.ctrl.root.querySelector<HTMLDetailsElement>('.story-editor-sidebar-ops[open]');
       if (menu && event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
-      const sidebar = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-sidebar-action]') : null;
-      if (!this.advanced && sidebar && root.contains(sidebar)) {
-        if (sidebar.dataset.sidebarAction === 'filters') {
-          this.explorerState.filtersOpen = !this.explorerState.filtersOpen;
-        } else {
-          this.explorer.setQuery('story', 'stories', ''); this.explorer.setQuery('story', 'entries', ''); this.explorerState.initFilter = '';
-          this.explorerState.directoryMode = 'all'; this.explorerState.auxiliaryTool = undefined;
-          this.clearExplorerReveal(); this.explorer.clearSearchExpansions('story');
-        }
-        this.refreshSidebar();
-        if (sidebar.dataset.sidebarAction === 'filters' && this.explorerState.filtersOpen) {
-          root.querySelector<HTMLInputElement>('[data-sidebar-search]')?.focus({ preventScroll: true });
-        }
-        return;
-      }
       const intent = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-editor-action], [data-column-action], [data-authoring-action], [data-editor-directory]') : null;
       if (intent?.dataset.editorAction === 'open-pack-manager') {
         if (this.beforeLeave()) { this.ctrl.navigateToService('datapack'); this.ctrl.render(); }
@@ -1958,7 +1941,6 @@ export class StoryEditorController {
       }
       const sender = element.dataset.editorSender;
       const nodeTypeTab = element.dataset.columnAction?.slice('story-editor-node-type:'.length);
-      const sidebarTab = element.dataset.columnAction?.slice('story-editor-sidebar:'.length);
       const inspectorTab = element.dataset.columnAction?.startsWith('story-editor-inspector-tab:') ? element.dataset.columnAction.slice('story-editor-inspector-tab:'.length) : undefined;
       const entryTab = element.dataset.columnAction?.startsWith('story-editor-entry-tab:') ? element.dataset.columnAction.slice('story-editor-entry-tab:'.length) : undefined;
       if (entryTab && ['basic','rewards','gates'].includes(entryTab) && this.state.target?.kind==='entry') {
@@ -1995,18 +1977,6 @@ export class StoryEditorController {
             }
           }
         }
-      } else if (sidebarTab === 'stories' || sidebarTab === 'entries' || sidebarTab === 'all') {
-        this.explorerState.directoryMode = sidebarTab; this.explorerState.auxiliaryTool = undefined;
-        this.clearExplorerReveal(); this.explorer.clearSearchExpansions('story');
-        this.refreshSidebar();
-        return;
-      } else if (sidebarTab === 'directory' || sidebarTab === 'senders') {
-        const menu = root.querySelector<HTMLElement>('#story-editor-sidebar-modes');
-        menu?.hidePopover?.();
-        if (menu?.contains(element)) root.querySelector<HTMLElement>('[popovertarget="story-editor-sidebar-modes"]')?.focus({ preventScroll: true });
-        this.explorerState.auxiliaryTool = sidebarTab === 'senders' ? 'senders' : undefined;
-        this.refreshSidebar(true);
-        return;
       }
       if (sender) {
         const draft = currentDraft(this.state);
@@ -2778,13 +2748,15 @@ export class StoryEditorController {
       this.inlineText.finish();
       this.state.error = null;
       hydrateStoryAuthoring(draft, this.registry);
-      const compiled = compileStoryAuthoring(this.state);
+      const compiled = compileStoryAuthoring(this.state.suspendedDraftId ? { ...this.state, drafts: [draft] } : this.state);
       if (!compiled.ok) { this.state.error = compiled.message; return; }
       const entryId = this.state.target?.kind === 'entry' ? this.state.target.id
         : storyPreviewEntries(this.state, draft, this.registry.storyEntries).entryId;
       const selection = this.state.sourceSelection;
-      const source = selection?.startsWith('pack:') ? this.packSource(selection.slice(5))
-        : selection?.startsWith('draft:') ? draft.packSource : undefined;
+      const suspended = suspendedStoryDraft(this.state);
+      const source = suspended ? this.prototypePackSource(suspended)
+        : selection?.startsWith('pack:') ? this.packSource(selection.slice(5))
+          : selection?.startsWith('draft:') ? draft.packSource : undefined;
       if ((selection?.startsWith('pack:') && !source) || (draft.packSource && this.packQuery.getRunningStoryPackId?.(draft.packSource.modName) !== draft.packSource.packRecordId)) {
         this.state.error = '试播来源当前未载入，请先在数据包管理中应用所需版本。';
         return;
@@ -3158,7 +3130,7 @@ export class StoryEditorController {
     const name = trigger.querySelector('strong')?.textContent ?? id;
     const scope = kind === 'story' ? '$document' : '$authoring';
     this.closeEditorDialog();
-    this.editorDialog = openStoryCardGradientDialog(this.ctrl.modal, createUIContext(this.editorGame), trigger, target, name, original, gradient => {
+    this.editorDialog = openStoryCardGradientDialog(this.ctrl.modal, createUIContext(this.editorGame), trigger, target, name, original, storyEntryType(entry), gradient => {
       const style = storyCardStyle(kind, id, gradient);
       for (const card of this.ctrl.root.querySelectorAll<HTMLElement>('[data-story-target-kind][data-story-target-id]')) {
         if (card.dataset.storyTargetKind === kind && card.dataset.storyTargetId === id) card.setAttribute('style', style);
@@ -3638,6 +3610,8 @@ export class StoryEditorController {
 
   private action(action: string, trigger?: HTMLElement): void {
     if (action === 'history-back' || action === 'history-forward') { this.browseHistory(action === 'history-back' ? -1 : 1); return; }
+    if (action === 'toggle-prototype') { this.togglePrototype(); return; }
+    if (action === 'reset-draft') { this.confirmResetDraft(); return; }
     if (this.writeBlocked && !['info', 'new', 'save'].includes(action)) return;
     if (action === 'save-to-runtime') { this.saveToRuntime(); return; }
     if (action === 'restore-source') { this.confirmRestoreSource(); return; }
@@ -3671,6 +3645,106 @@ export class StoryEditorController {
       if (added) { this.state.inspectorView = 'node'; this.revealNodeId = added.id; }
     } else if (action === 'delete-draft') this.confirmDelete();
   }
+
+  private get draftWithPrototype(): StoryDraft | undefined {
+    const state = this.state;
+    const draft = suspendedStoryDraft(state) ?? currentAuthoringDraft(state);
+    return draft && (draft.dirty || draft.persisted) && draft.sourceId && this.registry.stories.has(draft.sourceId) ? draft : undefined;
+  }
+
+  private prototypePackSource(draft: StoryDraft): StoryPackSource | undefined {
+    if (draft.packSource) return draft.packSource;
+    const id = draft.sourceId ?? draft.document.id;
+    const owner = this.ctrl.game.registry.storyDirectoryContentOwner(id, 'story');
+    const record = owner && this.packQuery.getRunningStoryPackId?.(owner);
+    return record ? this.packSource(record) : undefined;
+  }
+
+  private reopenPrototypeTarget(target: StoryEditorTarget, storyId: string, prototypeRegistry?: typeof this.registry): void {
+    const state = this.state;
+    const currentRegistry = state.sourceRegistry;
+    if (prototypeRegistry) state.sourceRegistry = prototypeRegistry;
+    try {
+      const next = target.kind === 'entry' && this.hasTarget(target) ? target : { kind: 'story' as const, id: storyId };
+      if (this.hasTarget(next)) this.selectBrowseTarget(next);
+    } finally { state.sourceRegistry = currentRegistry; }
+    this.requestRefresh();
+  }
+
+  private togglePrototype(): void {
+    const state = this.state;
+    const draft = suspendedStoryDraft(state) ?? this.draftWithPrototype;
+    const target = state.target;
+    if (!draft?.sourceId || !target || !this.save(false, false)) return;
+    const suspend = !state.suspendedDraftId;
+    state.error = null;
+    state.target = null;
+    state.suspendedDraftId = suspend ? draft.draftId : undefined;
+    state.prototypeDocument = undefined;
+    this.syncSource(true);
+    if (suspend && !this.registry.stories.has(draft.sourceId)) {
+      state.suspendedDraftId = undefined;
+      this.syncSource(true);
+      this.reopenPrototypeTarget(target, draft.document.id);
+      state.error = '当前来源无法读取原型，草稿仍保留。';
+      return;
+    }
+    if (!suspend && !state.drafts.includes(draft)) {
+      state.sourceSelection = `draft:${draft.draftId}`;
+      this.syncSource(true);
+    }
+    this.reopenPrototypeTarget(target, suspend ? draft.sourceId : draft.document.id);
+  }
+
+  private confirmResetDraft(): void {
+    const draft = this.draftWithPrototype;
+    const target = this.state.target;
+    if (!draft?.sourceId || !target || this.state.storageBlocked) return;
+    this.ctrl.modal.open({ title: '从原型重置草稿', body: '<p>丢弃这份本地草稿及其关联 Entry 修改，重新读取原型吗？</p>',
+      footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="reset-story-draft">重置草稿</button>',
+      onAction: action => {
+        if (action !== 'reset-story-draft' || this.draftWithPrototype !== draft) return;
+        const state = this.state;
+        const prototypeSource = this.prototypePackSource(draft);
+        const prototypeRegistry = prototypeSource ? this.readScopedSource(prototypeSource).sourceRegistry : this.registry;
+        if (!prototypeRegistry.stories.has(draft.sourceId!)) {
+          state.error = '当前来源无法读取原型，草稿仍保留。';
+          this.ctrl.modal.close();
+          this.requestRefresh();
+          return;
+        }
+        const sourceSelection = state.sourceSelection?.startsWith('draft:')
+          ? (draft.packSource && this.packSource(draft.packSource.packRecordId) ? `pack:${draft.packSource.packRecordId}` : undefined)
+          : state.sourceSelection;
+        const candidate = { ...state, sourceSelection, target: null, suspendedDraftId: undefined, prototypeDocument: undefined,
+          drafts: state.drafts.filter(item => item !== draft), parkedDrafts: state.parkedDrafts?.filter(item => item !== draft) };
+        if (this.persist(candidate, true)) {
+          Object.assign(state, candidate);
+          state.targetPackId = undefined;
+          delete state.composers[draft.draftId];
+          this.syncSource(true);
+          for (const record of this.browseInstances.snapshot().instances) {
+            if (record.providerKey !== storyWorkType || record.id === this.browseInstances.activeId) continue;
+            const { document, snapshot } = (record as StoryBrowseInstance).state;
+            if (document?.draftId !== draft.draftId) continue;
+            const source = snapshot.sourceSelection?.startsWith('draft:') ? sourceSelection : snapshot.sourceSelection;
+            const owner = this.registry.storyDirectoryContentOwner(document.target.id, document.target.kind);
+            const packId = source?.startsWith('pack:') ? source.slice(5) : owner && this.packQuery.getRunningStoryPackId?.(owner);
+            snapshot.sourceSelection = source;
+            snapshot.suspendedDraftId = undefined;
+            document.draftId = undefined;
+            document.packId = packId;
+            if (document.target.kind === 'story') document.target = { kind: 'story', id: draft.sourceId! };
+            this.browseInstances.update(record.id, storyBrowseIdentity(document.target, source ?? '', packId));
+          }
+          this.reopenPrototypeTarget(target, draft.sourceId!, prototypeRegistry);
+          state.notice = '草稿已从原型重置。';
+        } else state.error = candidate.error;
+        this.ctrl.modal.close();
+        this.requestRefresh();
+      } });
+  }
+
   private confirmDelete(): void {
     const draft = currentDraft(this.state);
     if (!draft || !draft.persisted && !draft.dirty) return;

@@ -6,7 +6,7 @@ import type { PackCatalogReadModel } from '../../arona-clicker/contracts/runtime
 import { currentAuthoringDraft, storyEntries, storyPreviewEntries, type StoryDraft, type StoryEditorState } from './model';
 import { valueAt, renderStructuredValue } from './structured-value';
 import { structuredKey } from './authoring-model';
-import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryDef } from '../../data-services/contracts/story-entry';
 import { parseCharacterStoryDirectoryId } from '../../data-services/contracts/story-directory';
 import { storyCatalogLabel } from './catalog-dialog';
 import { isTrueConditionRoot } from './condition-tree-model';
@@ -254,7 +254,7 @@ export function renderStoryAuthoringEntryRelations(ctx: UIContext, state: StoryE
   const rows = tables.map(([table,label,kind,action]) => `<div class="story-editor-list-heading"><h3>${label}</h3><button type="button" class="mini-action" data-authoring-add="${action}" data-editor-key="authoring-add:${kind}"${(state.storageBlocked || Boolean(state.readOnlyReason)) ? ' disabled' : ''}>新增${label}</button></div>${(related?.[table] ?? []).filter(row=>row.activation.kind===kind).map(row =>
     renderStoryEditorTarget(ctx, 'entry', row.id, row.openingTitle || draft.document.name, true, {
       relation: { key: `entry:${table}:${row.id}`, detail: entryDirectorySummary(ctx, row, draft.targetPackId), showType: false },
-      gradient: entries.get(row.id)?.cardGradient,
+      gradient: entries.get(row.id)?.cardGradient, entryType: storyEntryType(row),
     })).join('')}`).join('');
   return `<section class="story-editor-authoring" data-editor-key="story-authoring-relations:${e(draft.draftId)}"><h3>关联 Entry</h3><p class="story-editor-hint">创建 Entry，或选择现有 Entry 继续编辑。</p>${rows}</section>`;
 }

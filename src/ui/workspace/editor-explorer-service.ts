@@ -1,10 +1,13 @@
+import type { EditorResourceOpenRequest } from './editor-resource-request';
 import type { EditorExplorerType } from './editor-workbench';
-import { setEditorDirectoryExpanded } from './editor-directory';
+import { editorDirectoryClick, setEditorDirectoryExpanded } from './editor-directory';
 
 export type EditorExplorerExpansionLayer = 'normal' | 'search';
 
 export interface EditorExplorerStateSnapshot {
   readonly queries: Readonly<Record<string, string>>;
+  readonly filters: Readonly<Record<string, string>>;
+  readonly filterPanels: Readonly<Record<string, boolean>>;
   readonly expandedPlacementKeys: readonly string[];
   readonly searchExpandedPlacementKeys: readonly string[];
   readonly expandedOverrides: Readonly<Record<string, boolean>>;
@@ -12,24 +15,33 @@ export interface EditorExplorerStateSnapshot {
   readonly selectedPlacementKey?: string;
   readonly scrollTopByHost: Readonly<Record<string, number>>;
   readonly focusRequest?: string;
-  readonly reveal?: { readonly resourceKey: string; readonly placementKey?: string };
+  readonly reveal?: { readonly resourceKey: string; readonly placementKey?: string; readonly sourceKey?: string };
 }
 
 interface MutableExplorerState {
   queries: Map<string, string>;
+  filters: Map<string, string>;
+  filterPanels: Map<string, boolean>;
   expanded: Map<string, boolean>;
   searchExpanded: Map<string, boolean>;
   selectedPlacementKey?: string;
   scrollTopByHost: Map<string, number>;
   focusRequest?: string;
-  reveal?: { resourceKey: string; placementKey?: string };
+  reveal?: EditorExplorerStateSnapshot['reveal'];
+}
+
+function findPlacementControl(root: HTMLElement, placementKey: string): HTMLElement | undefined {
+  for (const control of root.querySelectorAll<HTMLElement>('[data-editor-placement-select][data-editor-placement-key]')) {
+    if (control.dataset.editorPlacementKey === placementKey) return control;
+  }
+  return undefined;
 }
 
 function createState(): MutableExplorerState {
-  return { queries: new Map(), expanded: new Map(), searchExpanded: new Map(), scrollTopByHost: new Map() };
+  return { queries: new Map(), filters: new Map(), filterPanels: new Map(), expanded: new Map(), searchExpanded: new Map(), scrollTopByHost: new Map() };
 }
 
-/** Owns only generic navigation state; Provider identities and filtering rules stay outside. */
+/** Owns common navigation and search state. Providers describe entities and available filters. */
 export class EditorExplorerService {
   private readonly states = new Map<EditorExplorerType, MutableExplorerState>();
 
@@ -43,6 +55,8 @@ export class EditorExplorerService {
     const state = this.state(type);
     return {
       queries: Object.fromEntries(state.queries),
+      filters: Object.fromEntries(state.filters),
+      filterPanels: Object.fromEntries(state.filterPanels),
       expandedPlacementKeys: [...state.expanded].filter(([, open]) => open).map(([key]) => key),
       searchExpandedPlacementKeys: [...state.searchExpanded].filter(([, open]) => open).map(([key]) => key),
       expandedOverrides: Object.fromEntries(state.expanded),
@@ -56,6 +70,22 @@ export class EditorExplorerService {
 
   query(type: EditorExplorerType, channel: string): string { return this.state(type).queries.get(channel) ?? ''; }
   setQuery(type: EditorExplorerType, channel: string, value: string): void { this.state(type).queries.set(channel, value); }
+  filter(type: EditorExplorerType, key: string): string { return this.state(type).filters.get(key) ?? ''; }
+  setFilter(type: EditorExplorerType, key: string, value: string): void {
+    const filters = this.state(type).filters;
+    if (value) filters.set(key, value);
+    else filters.delete(key);
+    this.clearSearchExpansions(type);
+    this.clearReveal(type);
+  }
+  setFilterPanel(type: EditorExplorerType, pane: string, open: boolean): void { this.state(type).filterPanels.set(pane, open); }
+  clearFilters(type: EditorExplorerType, keys: readonly string[], channels: readonly string[]): void {
+    const state = this.state(type);
+    keys.forEach(key => state.filters.delete(key));
+    channels.forEach(channel => state.queries.delete(channel));
+    this.clearSearchExpansions(type);
+    this.clearReveal(type);
+  }
 
   isExpanded(type: EditorExplorerType, placementKey: string, layer: EditorExplorerExpansionLayer = 'normal'): boolean {
     const state = this.state(type);
@@ -84,25 +114,27 @@ export class EditorExplorerService {
   }
 
   selectPlacement(type: EditorExplorerType, placementKey?: string): void { this.state(type).selectedPlacementKey = placementKey; }
-  selectPlacementInColumn(root: HTMLElement, type: EditorExplorerType, placementKey?: string): void {
+  selectPlacementInColumn(root: HTMLElement, type: EditorExplorerType, placementKey?: string, control?: HTMLElement | null): void {
     this.selectPlacement(type, placementKey);
-    root.querySelectorAll<HTMLElement>('[data-editor-placement-select][data-editor-placement-key]').forEach(row => {
-      row.setAttribute('aria-pressed', String(row.dataset.editorPlacementKey === placementKey));
-    });
+    const previous = root.querySelector<HTMLElement>('[data-editor-placement-select][aria-pressed="true"]');
+    if (previous?.dataset.editorPlacementKey === placementKey) return;
+    previous?.setAttribute('aria-pressed', 'false');
+    if (placementKey !== undefined) {
+      (control ?? findPlacementControl(root, placementKey))?.setAttribute('aria-pressed', 'true');
+    }
   }
   revealPlacement(root: HTMLElement, type: EditorExplorerType, placementKey: string,
     layer: EditorExplorerExpansionLayer = 'normal'): boolean {
-    const row = [...root.querySelectorAll<HTMLElement>('[data-editor-placement-select][data-editor-placement-key]')]
-      .find(candidate => candidate.dataset.editorPlacementKey === placementKey);
-    if (!row) return false;
+    const row = findPlacementControl(root, placementKey);
+    if (!row || row.closest('[data-editor-explorer-pane][hidden]')) return false;
     const expansionLayer = this.state(type).reveal ? 'search' : layer;
-    this.selectPlacementInColumn(root, type, placementKey);
+    this.selectPlacementInColumn(root, type, placementKey, row);
     let list = row.closest<HTMLUListElement>('ul');
     while (list && root.contains(list)) {
       const parent = list.parentElement?.closest<HTMLElement>('li');
       if (!parent) break;
       if (list.hidden) {
-        const toggle = parent.querySelector<HTMLElement>(':scope > .editor-directory-heading > [data-editor-expand], :scope > [data-editor-expand]');
+        const toggle = parent.querySelector<HTMLElement>(':scope > .editor-directory-heading > [data-editor-expand]');
         if (toggle) {
           const key = toggle.dataset.editorPlacementKey;
           if (key) this.setExpanded(type, key, true, expansionLayer);
@@ -132,8 +164,15 @@ export class EditorExplorerService {
     state.focusRequest = undefined;
     return request;
   }
-  reveal(type: EditorExplorerType, resourceKey: string, placementKey?: string): void {
-    this.state(type).reveal = { resourceKey, placementKey };
+  reveal(type: EditorExplorerType, resourceKey: string, placementKey?: string, sourceKey?: string): void {
+    this.state(type).reveal = { resourceKey, placementKey, ...(sourceKey !== undefined ? { sourceKey } : {}) };
+  }
+  restore(type: EditorExplorerType, snapshot: EditorExplorerStateSnapshot): void {
+    this.states.set(type, { queries: new Map(Object.entries(snapshot.queries)),
+      filters: new Map(Object.entries(snapshot.filters)), filterPanels: new Map(Object.entries(snapshot.filterPanels)),
+      expanded: new Map(Object.entries(snapshot.expandedOverrides)), searchExpanded: new Map(Object.entries(snapshot.searchExpandedOverrides)),
+      selectedPlacementKey: snapshot.selectedPlacementKey, scrollTopByHost: new Map(Object.entries(snapshot.scrollTopByHost)),
+      focusRequest: snapshot.focusRequest, reveal: snapshot.reveal });
   }
   clearReveal(type: EditorExplorerType): void { this.state(type).reveal = undefined; }
   clearTransientState(type?: EditorExplorerType): void {
@@ -146,29 +185,35 @@ export class EditorExplorerService {
   }
 
   bindColumn(root: HTMLElement, type: EditorExplorerType, options: {
-    onExpand?: (toggle: HTMLElement, open: boolean) => void;
+    resolve: Parameters<typeof editorDirectoryClick>[2];
+    open: (request: EditorResourceOpenRequest) => boolean;
+    onTreeChange?: () => void;
     onQuery?: (channel: string, value: string, field: HTMLInputElement) => void;
-  } = {}): () => void {
+  }): () => void {
     const abort = new AbortController();
     root.addEventListener('click', event => {
-      const element = event.target instanceof Element ? event.target : null;
-      const toggle = element?.closest<HTMLElement>('[data-editor-expand][data-editor-placement-key]');
-      if (toggle && root.contains(toggle)) {
-        const placementKey = toggle.dataset.editorPlacementKey!;
-        const queryChannel = root.querySelector<HTMLInputElement>('[data-editor-explorer-query]')?.dataset.editorExplorerQuery;
-        const layer = queryChannel && this.query(type, queryChannel).trim() || this.state(type).reveal ? 'search' : 'normal';
-        const open = toggle.getAttribute('aria-expanded') !== 'true';
-        this.setExpanded(type, placementKey, open, layer);
-        this.selectPlacementInColumn(root, type, placementKey);
-        setEditorDirectoryExpanded(toggle, open);
-        options.onExpand?.(toggle, open);
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        return;
-      }
-      const row = element?.closest<HTMLElement>('[data-editor-placement-select][data-editor-placement-key]');
-      if (!row || !root.contains(row)) return;
-      this.selectPlacementInColumn(root, type, row.dataset.editorPlacementKey);
+      let refresh = false;
+      editorDirectoryClick(root, event, options.resolve, {
+        expand: (placementKey, toggle, open) => {
+          const pane = toggle.closest('[data-editor-explorer-pane]') ?? root;
+          const channel = pane.querySelector<HTMLInputElement>('[data-editor-explorer-query]')?.dataset.editorExplorerQuery;
+          const searching = pane.hasAttribute('data-editor-filter-active') || Boolean(channel && this.query(type, channel).trim());
+          this.setExpanded(type, placementKey, open, searching ? 'search' : 'normal');
+          if (!searching && this.state(type).reveal) this.setExpanded(type, placementKey, open, 'search');
+          setEditorDirectoryExpanded(toggle, open);
+          refresh ||= toggle.hasAttribute('data-editor-expand-deferred');
+        },
+        select: (placementKey, control) => this.selectPlacementInColumn(root, type, placementKey, control),
+        open: (request, control) => {
+          if (!control) return options.open(request);
+          const previous = this.state(type).selectedPlacementKey;
+          this.selectPlacementInColumn(root, type, request.placementKey, control);
+          if (options.open(request)) return true;
+          this.selectPlacementInColumn(root, type, previous);
+          return false;
+        },
+      });
+      if (refresh) options.onTreeChange?.();
     }, { signal: abort.signal });
     root.addEventListener('input', event => {
       const field = event.target;

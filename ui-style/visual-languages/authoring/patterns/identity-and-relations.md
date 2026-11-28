@@ -22,7 +22,7 @@ Story 关系页的「剧情包」默认折叠，汇总直接起始及经 Story �
 
 ## Story／StoryEntry 身份卡与渐变编辑
 
-Story 与 StoryEntry 分别用书本和场记板 SVG。剧情流、调用关系和关联入口复用 `story-editor/target-view.ts`，以方正兰亭圆标题、DM Mono ID 和右上角白色镂空图标识别内容。流内卡片随文字排版，右栏可补充类型与关系，缺失目标显示灰色禁用卡。左栏目录和内容概览复用图标与标题字体，保留单行排列。Story 的「概述」和 StoryEntry 的「基本信息」可编辑自身卡片的渐变，弹窗与已挂载的同目标卡片同步预览，确认后写入草稿 `cardGradient`。恢复自动配色会移除该字段。自动色按类型与 ID 分配。`storyCardStyle()` 选择渐变上的可读前景。两端难以使用同一前景时，补充对比遮罩。共享图标、标题、ID 与前景样式由 `src/ui/components/story/story-identity.ts`、`src/ui/css/editor-shared.css` 提供。`src/ui/story-editor/card-gradient-dialog.ts` 使用两个并排色值控件预览端点。
+Story 与 StoryEntry 分别用已有书本和场记板 SVG，Active 和 Passive Entry 的板角分别附有 A 与 P。Init、Area、Spot 分别用蓝色地球、绿色山峰与暖橙色小屋。图形由 `components/shared/editor-entity-icon.ts` 提供，工作区目录、实例 Logo 和身份卡共用；卡片图标以渐变选出的可读前景为主要颜色，再混入类型色。剧情流、调用关系和关联入口复用 `story-editor/target-view.ts`，以方正兰亭圆标题、DM Mono ID 和右上角图标识别内容。流内卡片随文字排版，右栏可补充类型与关系，缺失目标显示灰色禁用卡。左栏目录和内容概览复用图标与标题字体，保留单行排列。Story 的「概述」和 StoryEntry 的「基本信息」可编辑自身卡片的渐变，弹窗与已挂载的同目标卡片同步预览，确认后写入草稿 `cardGradient`。恢复自动配色会移除该字段。自动色按类型与 ID 分配。`storyCardStyle()` 选择渐变上的可读前景。两端难以使用同一前景时，补充对比遮罩。卡片内容与样式由 `components/story/story-identity.ts` 和 `css/story-nav.css` 提供。`story-editor/card-gradient-dialog.ts` 使用两个并排色值控件预览端点。
 
 ## 起始场景与移动卡片
 

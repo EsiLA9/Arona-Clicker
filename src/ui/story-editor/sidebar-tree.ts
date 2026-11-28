@@ -1,20 +1,19 @@
-import { renderEditorExplorerTree } from '../workspace/editor-directory';
+import type { EditorExplorerTreeDescription } from '../workspace/editor-explorer-column';
 import { buildStoryDirectory, legacyStoryHierarchy, type StoryDirectoryCatalog, type StoryDirectoryNode } from '../../arona-clicker/content/story/story-directory';
-import type { StoryEntryDef } from '../../data-services/contracts/story-entry';
+import { storyEntryType, type StoryEntryDef } from '../../data-services/contracts/story-entry';
 import type { UIContext } from '../runtime/context';
 import { editorLayout } from '../workspace/editor-workspace';
 import { storyEntries, storyList, type StoryEditorTarget } from './model';
-import { storyExplorerSourceValue, type StoryExplorerProjection, type StoryExplorerState } from './pack-source';
+import { storyExplorerSourceValue, type StoryExplorerProjection, type StoryDirectoryMode } from './pack-source';
 import { directoryStatus, hierarchyDesignCounts, hierarchyDesignKey, mergeDirectoryDesigns } from './directory-status';
 import { storyBrowseIdentity } from './workspace-session';
 import type { EditorExplorerStateSnapshot } from '../workspace/editor-explorer-service';
 import { storyDirectoryBrowseProviderKey, storyDirectoryResourceKey, storyDirectoryResourceRefId } from './directory-instance';
-import { editorExplorerChildState, type EditorExplorerNode, type EditorExplorerNodeAction } from '../workspace/editor-explorer-nodes';
+import { chooseEditorExplorerPosition, indexEditorExplorer, type EditorExplorerNode } from '../workspace/editor-explorer-nodes';
 import type { EditorResourceRef } from '../workspace/editor-resource-request';
-import { projectEditorExplorerTree } from '../workspace/editor-directory';
-import type { ProjectedEditorExplorerNode } from '../workspace/editor-directory';
 
 const other = '';
+const directoryKinds = ['stories', 'entries'];
 
 export function storyExplorerResourceIdentity(target: StoryEditorTarget, source: string, runningPackId?: string): string {
   return storyBrowseIdentity(target, source, runningPackId).resourceKey;
@@ -22,15 +21,6 @@ export function storyExplorerResourceIdentity(target: StoryEditorTarget, source:
 
 export function storyExplorerPlacementIdentity(parentPlacement: string, target: StoryEditorTarget): string {
   return JSON.stringify([parentPlacement, target.kind, target.id]);
-}
-
-export function directoryManagementAttrs(e: UIContext['escapeHtml'], initId: string, node: Pick<StoryDirectoryNode, 'id' | 'modName'>,
-  sourceKey = ''): string {
-  const resource = { sourceKey, initId, logicalDirectoryKey: node.id };
-  const ref = storyDirectoryResourceRefId(resource);
-  return `data-editor-directory="folder" data-directory-init-id="${e(initId)}" data-directory-folder-id="${e(node.id)}"${node.modName ? ` data-directory-owner="${e(node.modName)}" data-editor-resource-owner="${e(node.modName)}"` : ''}`
-    + ` data-editor-resource-provider="${storyDirectoryBrowseProviderKey}" data-editor-resource-kind="${ref.kind}" data-editor-resource-id="${e(ref.id)}"`
-    + ` data-editor-resource-key="${e(storyDirectoryResourceKey(resource))}" data-editor-resource-source="${e(sourceKey)}"`;
 }
 
 export function editorDirectoryContentOwner(ctx: UIContext, projection: StoryExplorerProjection): StoryDirectoryCatalog['storyDirectoryContentOwner'] {
@@ -70,9 +60,8 @@ export function sidebarInitIds(ctx: UIContext, projection: StoryExplorerProjecti
   ])].filter(Boolean);
 }
 
-export function sidebarSearch(state: StoryExplorerState, explorer: EditorExplorerStateSnapshot): string {
-  const channel = state.auxiliaryTool === 'senders' ? 'senders' : state.directoryMode === 'entries' ? 'entries' : 'stories';
-  return explorer.queries[channel] ?? '';
+export function storyDirectoryMode(value: string | undefined): StoryDirectoryMode {
+  return value === 'entries' || value === 'stories' ? value : 'all';
 }
 
 export type StoryExplorerNodeDomain =
@@ -85,14 +74,14 @@ export interface StoryExplorerNodeProjection {
   readonly sourceKey: string;
   readonly scope: string;
   readonly sourceMod?: string;
-  readonly roots: readonly EditorExplorerNode[];
+  readonly positions: readonly EditorExplorerNode[];
   readonly preferredEntryInit: ReadonlyMap<string, string>;
   readonly domainByPlacement: ReadonlyMap<string, StoryExplorerNodeDomain>;
 }
 
 /** Build the full source tree before query matching or presentation filtering. */
 export function buildStoryExplorerNodes(ctx: UIContext, projection: StoryExplorerProjection,
-  initIds: readonly string[], appliedDirectories: StoryDirectoryCatalog['storyDirectories'], directoryMode: StoryExplorerState['directoryMode'] = 'all'): StoryExplorerNodeProjection {
+  initIds: readonly string[], appliedDirectories: StoryDirectoryCatalog['storyDirectories'], directoryMode: StoryDirectoryMode = 'all'): StoryExplorerNodeProjection {
   const registry = ctx.game.registry;
   const sourceKey = storyExplorerSourceValue(projection.source);
   const scope = projection.source.kind === 'runtime' ? projection.runtimeScope : sourceKey;
@@ -115,15 +104,16 @@ export function buildStoryExplorerNodes(ctx: UIContext, projection: StoryExplore
   };
   const { trees, preferred } = buildEditorStoryDirectories(catalog, initIds, ctx.game.state.activeInit);
   const designCounts = hierarchyDesignCounts(mergeDirectoryDesigns(registry.storyDirectories, appliedDirectories, projection.sourceMod));
+  const positions: EditorExplorerNode[] = [];
   const domainByPlacement = new Map<string, StoryExplorerNodeDomain>();
   const storyNode = (item: ReturnType<typeof storyList>[number], initId: string, parentPlacement: string): EditorExplorerNode => {
     const target = { kind: 'story' as const, id: item.storyId };
     const placementKey = storyExplorerPlacementIdentity(parentPlacement, target);
     const draft = item.draft;
     domainByPlacement.set(placementKey, { kind: 'story', item, initId });
-    return { placementKey, sourceKey, resource: { providerKey: 'story', resourceKey: resourceIdentity(target), kind: 'story', id: target.id },
-      label: item.name || '未命名 Story', searchableText: [item.name, target.id], children: [], childState: { kind: 'empty' },
-      presentation: { kind: 'story', icon: 'book', auxiliaryLabel: draft?.dirty || draft?.persisted ? '草稿' : undefined,
+    return { placementKey, parentKey: parentPlacement, sourceKey, resource: { providerKey: 'story', resourceKey: resourceIdentity(target), kind: 'story', id: target.id },
+      label: item.name || '未命名 Story', searchableText: [item.name, target.id], filterValues: { kind: 'stories', init: initId || 'other' },
+      presentation: { kind: 'story', auxiliaryLabel: draft?.dirty || draft?.persisted ? '草稿' : undefined,
         tooltip: `${item.name} · ${target.id}` } };
   };
   const entryNode = (entry: StoryEntryDef, initId: string, parentPlacement: string): EditorExplorerNode => {
@@ -133,13 +123,13 @@ export function buildStoryExplorerNodes(ctx: UIContext, projection: StoryExplore
     domainByPlacement.set(placementKey, { kind: 'entry', entry, initId });
     const activation = entry.activation.kind === 'active' ? '主动接取'
       : entry.activation.kind === 'random' ? '随机抽取' : '好感／角色阶段';
-    return { placementKey, sourceKey, resource: { providerKey: 'story', resourceKey: resourceIdentity(target), kind: 'entry', id: target.id },
-      label, searchableText: [label, target.id], children: [], childState: { kind: 'empty' },
-      presentation: { kind: 'entry', icon: 'document', auxiliaryLabel: '入口', tooltip: `${label} · ${target.id} · ${activation}` } };
+    return { placementKey, parentKey: parentPlacement, sourceKey, resource: { providerKey: 'story', resourceKey: resourceIdentity(target), kind: 'entry', id: target.id },
+      label, searchableText: [label, target.id], filterValues: { kind: 'entries', init: initId || 'other' },
+      presentation: { kind: 'entry', entryType: storyEntryType(entry), auxiliaryLabel: '入口', tooltip: `${label} · ${target.id} · ${activation}` } };
   };
-  const directoryNode = (node: StoryDirectoryNode, initId: string): EditorExplorerNode => {
+  const directoryNode = (node: StoryDirectoryNode, initId: string, parentKey: string): void => {
     const placementKey = JSON.stringify([scope, initId, node.id]);
-    const children = node.children.map(child => directoryNode(child, initId));
+    node.children.forEach(child => directoryNode(child, initId, placementKey));
     const childStories = node.stories.flatMap(({ id }) => {
       const item = items.find(candidate => candidate.storyId === id);
       return item ? [storyNode(item, initId, placementKey)] : [];
@@ -156,50 +146,42 @@ export function buildStoryExplorerNodes(ctx: UIContext, projection: StoryExplore
       const row = entryNode(entry, initId, placementKey);
       ((directoryMode !== 'entries' ? storyGroups.get(entry.storyId) : undefined) ?? trailingEntries).push(row);
     }
-    children.push(...(directoryMode === 'entries' ? [] : [...storyGroups.values()].flat()), ...trailingEntries);
+    if (directoryMode === 'entries') positions.push(...trailingEntries, ...childStories);
+    else positions.push(...[...storyGroups.values()].flat(), ...trailingEntries);
     const ref = storyDirectoryResourceRefId({ sourceKey, initId, logicalDirectoryKey: node.id });
     const resource: EditorResourceRef = { providerKey: storyDirectoryBrowseProviderKey,
       resourceKey: storyDirectoryResourceKey({ sourceKey, initId, logicalDirectoryKey: node.id }),
       kind: ref.kind, id: ref.id, ownerModName: node.modName };
-    const actions: readonly EditorExplorerNodeAction[] = [{ id: 'manage', label: '管理', icon: 'gear', resource, sourceKey,
-      attributes: { 'data-editor-directory': 'folder', 'data-directory-init-id': initId, 'data-directory-folder-id': node.id,
-        ...(node.modName ? { 'data-directory-owner': node.modName } : {}) } }];
     const details = directoryStatus(node, node.source === 'Path'
       ? designCounts.get(hierarchyDesignKey(initId, node.hierarchyString)) : undefined);
     domainByPlacement.set(placementKey, { kind: 'directory', initId, node, details });
-    return { placementKey, resource, sourceKey, label: node.title, searchableText: [node.title, node.id], children,
-      childState: editorExplorerChildState(children.length), presentation: { kind: 'directory',
-        markers: node.id === '@characters' ? ['deferred-dom'] : [],
-        auxiliaryLabel: details.short, auxiliaryTone: details.short,
-        tooltip: `${node.title} · ${details.origin} · 手动资料 ${details.designs} 份 · Story ${details.stories} / Entry ${details.entries}` },
-      actions };
+    positions.push({ placementKey, parentKey, folder: { mount: node.id === '@characters' ? 'on-expand' : undefined, toggleIconType: 'hierarchy' },
+      filterValues: { init: initId || 'other', kind: directoryKinds },
+      resource, resourceActionLabel: '管理目录 · ' + node.title, sourceKey, label: node.title, searchableText: [node.title, node.id],
+      presentation: { kind: 'directory', auxiliaryLabel: details.short, auxiliaryTone: details.short,
+        tooltip: `${node.title} · ${details.origin} · 手动资料 ${details.designs} 份 · Story ${details.stories} / Entry ${details.entries}` } });
   };
-  const roots = [...trees].map(([initId, tree]) => {
+  for (const [initId, tree] of trees) {
     const placementKey = JSON.stringify([scope, initId, null]);
     const title = initId ? registry.inits.get(initId)?.name || initId : '其他';
-    const children = tree.roots.map(node => directoryNode(node, initId));
     const ref = storyDirectoryResourceRefId({ sourceKey, initId, logicalDirectoryKey: '' });
-    const resource: EditorResourceRef = { providerKey: storyDirectoryBrowseProviderKey,
+    const resource: EditorResourceRef | undefined = initId ? { providerKey: storyDirectoryBrowseProviderKey,
       resourceKey: storyDirectoryResourceKey({ sourceKey, initId, logicalDirectoryKey: '' }),
-      kind: ref.kind, id: ref.id };
+      kind: ref.kind, id: ref.id } : undefined;
     domainByPlacement.set(placementKey, { kind: 'init', initId });
-    return { placementKey, resource, sourceKey, label: title, searchableText: [title, initId], children,
-      childState: editorExplorerChildState(children.length), presentation: { kind: initId ? 'init' : 'group' },
-      actions: [{ id: 'manage', label: '管理', icon: 'gear', resource, sourceKey,
-        attributes: { 'data-editor-directory': 'folder', 'data-directory-init-id': initId, 'data-directory-folder-id': '' } }] } satisfies EditorExplorerNode;
-  });
-  return { sourceKey, scope, sourceMod: projection.sourceMod, roots, preferredEntryInit: preferred, domainByPlacement };
+    positions.push({ placementKey, folder: { toggleIconType: initId ? 'init' : undefined },
+      filterValues: { init: initId || 'other', kind: directoryKinds }, resource, resourceActionLabel: '管理目录 · ' + title, sourceKey,
+      label: title, searchableText: [title, initId], presentation: { kind: initId ? 'init' : 'group' } });
+    tree.roots.forEach(node => directoryNode(node, initId, placementKey));
+  }
+  return { sourceKey, scope, sourceMod: projection.sourceMod, positions, preferredEntryInit: preferred, domainByPlacement };
 }
 
-export function renderSidebarTree(ctx: UIContext, explorerState: StoryExplorerState, projection: StoryExplorerProjection,
+export function describeStoryExplorerTree(ctx: UIContext, directoryMode: StoryDirectoryMode, projection: StoryExplorerProjection,
   initIds: readonly string[], initFilter: string,
   appliedDirectories: StoryDirectoryCatalog['storyDirectories'], explorer: EditorExplorerStateSnapshot,
-  activeResourceKey?: string): string {
-  const nodes = buildStoryExplorerNodes(ctx, projection, initIds, appliedDirectories, explorerState.directoryMode);
-  const query = sidebarSearch(explorerState, explorer);
-  const allNodes: EditorExplorerNode[] = [];
-  const visit = (node: EditorExplorerNode): void => { allNodes.push(node); node.children.forEach(visit); };
-  nodes.roots.forEach(visit);
+  activeResourceKey?: string): EditorExplorerTreeDescription {
+  const nodes = buildStoryExplorerNodes(ctx, projection, initIds, appliedDirectories, directoryMode);
   const domain = (node: EditorExplorerNode) => nodes.domainByPlacement.get(node.placementKey);
   const initSelected = (initId: string): boolean => !initFilter || initFilter === (initId || 'other');
   const sourceVisible = (node: EditorExplorerNode): boolean => {
@@ -219,33 +201,24 @@ export function renderSidebarTree(ctx: UIContext, explorerState: StoryExplorerSt
     return row.entry.availableInits.length ? row.entry.availableInits.includes(row.initId)
       : Boolean(row.entry.directoryPlacements?.some(place => place.initId === row.initId));
   };
-  const domainVisible = (node: EditorExplorerNode): boolean => {
-    const row = domain(node);
-    if (row?.kind === 'init') return initSelected(row.initId);
-    if (!sourceVisible(node)) return false;
-    if (row?.kind === 'story') return explorerState.directoryMode !== 'entries' && initSelected(row.initId);
-    if (row?.kind === 'entry') return explorerState.directoryMode !== 'stories' && initSelected(row.initId) && entryVisibleAt(node);
-    return true;
-  };
   const reveal = explorer.reveal;
   const revealPlacementKey = (() => {
     if (!reveal) return undefined;
-    if (reveal.placementKey) return reveal.placementKey;
-    const candidates = allNodes.filter(node => node.resource?.resourceKey === reveal.resourceKey
-      && (domain(node)?.kind === 'story' || domain(node)?.kind === 'entry'));
+    const candidates = indexEditorExplorer(nodes.positions).candidates(reveal.resourceKey, reveal.sourceKey).filter(sourceVisible);
     const entry = candidates.map(domain).find((row): row is Extract<StoryExplorerNodeDomain, { kind: 'entry' }> => row?.kind === 'entry');
     const preferredInit = entry
       ? [initFilter === 'other' ? other : initFilter, ctx.game.state.activeInit, nodes.preferredEntryInit.get(entry.entry.id),
         ...entry.entry.availableInits, ...(entry.entry.directoryPlacements ?? []).map(place => place.initId)]
-        .find((initId): initId is string => Boolean(initId && candidates.some(node => domain(node)?.kind === 'entry'
-          && domain(node)?.kind === 'entry' && domain(node)!.initId === initId)))
+        .find((initId): initId is string => initId !== undefined && candidates.some(node => domain(node)?.kind === 'entry' && domain(node)!.initId === initId))
       : ctx.game.state.activeInit;
-    return candidates.find(node => domain(node)?.kind === 'entry' && domain(node)?.kind === 'entry'
-      ? domain(node)!.initId === preferredInit : domain(node)?.kind === 'story' && domain(node)?.initId === preferredInit)?.placementKey
-      ?? candidates[0]?.placementKey;
+    const preferred = candidates.find(node => domain(node)?.initId === preferredInit);
+    const selected = candidates.find(node => node.placementKey === explorer.selectedPlacementKey
+      && (!initFilter || initSelected(domain(node)?.initId ?? other)));
+    return chooseEditorExplorerPosition(candidates,
+      reveal.placementKey ?? selected?.placementKey ?? preferred?.placementKey)?.placementKey;
   })();
-  const tree = projectEditorExplorerTree(nodes.roots, {
-    query, domainVisible, revealPlacementKey,
+  return { positions: nodes.positions, options: {
+    domainVisible: node => sourceVisible(node) && entryVisibleAt(node), revealPlacementKey,
     expandedOverrides: explorer.expandedOverrides,
     searchExpandedOverrides: explorer.searchExpandedOverrides,
     selectedPlacementKey: explorer.selectedPlacementKey,
@@ -254,7 +227,5 @@ export function renderSidebarTree(ctx: UIContext, explorerState: StoryExplorerSt
       const row = domain(node);
       return row?.kind === 'init' && (row.initId === ctx.game.state.activeInit || initFilter === row.initId);
     },
-  });
-  return renderEditorExplorerTree(ctx, tree, tree.emptyReason === 'no-items'
-    ? '当前目录没有可浏览的 Story 或 Entry。' : '没有匹配的 Story 或 Entry。');
+  }, emptyMessage: '当前目录没有可浏览的 Story 或 Entry。', noMatchMessage: '没有匹配的 Story 或 Entry。' };
 }

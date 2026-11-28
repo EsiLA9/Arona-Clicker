@@ -27,6 +27,9 @@ export interface ContentCatalogQueryPort extends StoryDirectoryCatalog {
   readonly areas: ReadonlyMap<string, AreaDef>;
   readonly areaMaps: ReadonlyMap<string, AreaMapDef>;
   readonly spots: ReadonlyMap<string, SpotDef>;
+  initOwnerOf?(id: string): string | undefined;
+  areaOwnerOf?(id: string): string | undefined;
+  spotOwnerOf?(id: string): string | undefined;
   readonly enhancements: ReadonlyMap<string, EnhancementDef>;
   readonly funcletDefs: ReadonlyMap<string,FuncletDef>;
   readonly stories: ReadonlyMap<string, StoryDef>;
