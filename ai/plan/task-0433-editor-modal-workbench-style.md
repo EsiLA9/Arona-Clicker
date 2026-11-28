@@ -1,6 +1,6 @@
 # Task 0433 · 编辑器模态窗统一工作台外观
 
-状态：待处理  
+状态：待审核
 建议执行者：Luna
 
 ## 目标
@@ -28,4 +28,6 @@
 
 ## 当前进展
 
-已核对现有外壳、调用入口和主题投影，已写施工方案。实现和验收待执行。下一步从 `renderModalShell` 的编辑器外观选项与共用样式开始，以删除草稿和条件树验证紧凑及分栏场景。
+已实现 `ModalOptions.appearance: 'editor'` 共用外观，并接入 Story／Entry 编辑窗、相关直接 `modal.open` 入口、活跃编辑态包选择、Runtime 子窗与删除确认。同步更新了共享控件和 Authoring Workbench 视觉约定。未进行浏览器验收（按用户要求）。
+
+指定的四个定向测试分别通过：modal 7/7、Story authoring 36/36、Story workspace 55/55、Runtime payment 3/3。Story workspace 使用默认 4GB Node 堆时会 OOM；单独用例定位和堆样本见 [[ai/plan/task-0433-test-memory-investigation]]。`npm run check:docs` 与 `git diff --check` 通过。等待审核是否需要进一步进行 heap snapshot 归因。

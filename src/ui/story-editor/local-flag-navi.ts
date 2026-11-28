@@ -32,7 +32,7 @@ export function openLocalFlagNavi(modal: ModalManager, ctx: UIContext, catalog: 
       return `<button type="button" class="mini-action" data-modal-action="flag-navi-source:${source}" title="${e(use.path)}">查看来源：${e(use.source.id)}${use.nodeId?` / ${e(use.nodeId)}`:''}</button>`;
     }).join('')}</div></section>`;
   }).join('');
-  modal.open({title:'局部标记 Navi',panelClass:'story-editor-flag-navi',width:640,
+  modal.open({appearance:'editor',title:'局部标记 Navi',panelClass:'story-editor-flag-navi',width:640,
     body:`<label>搜索局部标记<input type="search" data-flag-navi-query placeholder="标记名、Story / Entry ID 或节点 ID" autocomplete="off"></label><p class="story-editor-hint">选择标记填回原字段；查看来源会进入对应文档。仍可关闭后自由输入名称。</p><div data-flag-navi-list>${body}</div><p class="story-editor-empty" data-flag-navi-empty${rows.length?' hidden':''}>没有匹配的局部标记。</p>`,
     footer:'<button type="button" class="mini-action modal-close">取消</button>',onClose:options.close,
     onAction:action=>{

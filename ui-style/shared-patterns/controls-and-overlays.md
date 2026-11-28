@@ -41,3 +41,7 @@ MapEntry、Area Map、Shop 的确定固定动作放到正文之外。`actions` �
 ## 普通弹窗的表单规格
 
 ModalManager 的普通弹窗沿用 panel / panel-light / ink-on-* 主题角色：标题 18px、正文与表单 14px、辅助说明及内容区小操作 13px。共享外壳提供 24px 内容留白、42px 表单高度、40px 底部按钮、可换行操作区和焦点反馈。原生表单元素保留语义，以背景、边框、圆角与继承字体消除浏览器默认外观差异。危险操作保留危险变体，checkbox / radio / range 不套文本框尺寸。主题编辑器与 Runtime Datapack 专用表单继续自主管理布局。样式入口为 `src/ui/css/modal.css`。
+
+## 编辑器弹窗变体
+
+工作台里的 Story／Entry 编辑弹窗通过 `ModalOptions.appearance: 'editor'` 显式启用编辑器外观；普通游戏弹窗继续使用上方普通规格。变体在既有遮罩、面板、标题、正文和底部节点上增加共享 `editor-modal-*` class，不改变 DOM 分区或 ModalManager 生命周期。边框圆角 5px，遮罩和阴影减轻；标题背景／文字取 panel-light 角色，正文取 panel 角色，焦点和选中使用主题强调色，内容横向留白 14px、底部留白 8px。短确认窗自然随内容高度收缩；大型目录、条件树和引用选择通过业务 class 设置工作区高度及滚动区，底部动作留在正文滚动外。Runtime 子编辑窗沿用同一组样式钩子和主题角色映射，同时保留 `runtime-subdialog-*` 的尺寸特例、内部滚动与父子栈行为。编辑器删除确认不得套用会撑满视口的 `runtime-datapack-modal`。源码：`src/ui/interaction/modal.ts`、`src/ui/runtime-editor/subdialog.ts`、`src/ui/css/modal.css`、`src/ui/css/runtime-editor.css`。

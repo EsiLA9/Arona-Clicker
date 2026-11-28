@@ -38,6 +38,23 @@
    color: inherit;
 }
 
+.modal-panel.editor-modal-panel {
+   --re-ink: var(--ink-on-panel);
+   --re-muted: var(--muted-on-panel);
+   --re-line: var(--line);
+   --re-panel: var(--panel);
+   --re-field: var(--panel-light);
+   --re-accent: var(--cyan);
+   --re-danger: var(--danger, #b43b48);
+}
+
+.modal-panel.editor-modal-panel .runtime-editor-form {
+   flex: 0 1 auto;
+   overflow: visible;
+   padding-right: 0;
+   scrollbar-gutter: auto;
+}
+
 /* body 级编辑器工作区：脱离 Toast 与 #app，跨路由保留编辑上下文。 */
 .runtime-editor-panel {
    --re-ink: #1e2a38;
@@ -1638,41 +1655,25 @@
 }
 
 .runtime-subdialog-panel {
-   --re-ink: #1e2a38;
-   --re-muted: #64748b;
-   --re-line: rgba(61, 124, 200, .22);
-   --re-panel: #ffffff;
-   --re-field: #ffffff;
-   --re-accent: #2f80ed;
-   --re-danger: #d9534f;
-
-   display: flex;
-   flex-direction: column;
+   --re-ink: var(--ink-on-panel);
+   --re-muted: var(--muted-on-panel);
+   --re-line: var(--line);
+   --re-panel: var(--panel);
+   --re-field: var(--panel-light);
+   --re-accent: var(--cyan);
+   --re-danger: var(--danger, #b43b48);
    width: min(720px, 100%);
-   max-height: min(86vh, 760px);
-   background: var(--re-panel);
-   color: var(--re-ink);
-   border: 1px solid var(--re-line);
-   border-radius: 12px;
-   box-shadow: 0 24px 60px rgba(15, 30, 48, .35);
+   max-height: min(82vh, 760px);
 }
 
 .runtime-subdialog-head {
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   gap: 12px;
-   padding: 12px 16px;
    border-bottom: 1px solid var(--re-line);
 }
 
 .runtime-subdialog-body {
-   flex: 1 1 auto;
    min-height: 0;
    overflow-y: auto;
-   padding: 16px;
-   font-size: 12px;
-   line-height: 1.7;
+   font-size: 14px;
 }
 
 .runtime-subdialog-body .user-theme-field {
@@ -1690,10 +1691,6 @@
 }
 
 .runtime-subdialog-foot {
-   display: flex;
-   justify-content: flex-end;
-   gap: 8px;
-   padding: 12px 16px;
    border-top: 1px solid var(--re-line);
 }
 .runtime-story-reference-field {

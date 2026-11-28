@@ -12,6 +12,10 @@ Story／StoryEntry 与 World 共用 Advanced Workbench 外壳。工作类型 SVG
 
 Story、StoryEntry 与世界使用 `editor-workspace-frame.ts` 的面板、标题与轨道。视图由全局 `EditorLayoutService` 偏好决定，并按当前可用栏位计算有效呈现；切换工作类型和活动实例沿用同一布局。三栏右侧可显示便捷信息预留栏；折叠保留已挂载栏位与滚动宿主，专注时侧栏轨道为零。分隔线只在可见侧栏的栏缝显示。共享目录使用 `.editor-directory-tree`、`.editor-directory-row`、`.editor-directory-chevron` 等公共 class；hover 不改变行尺寸，选中与 focus-visible 分别由 `aria-pressed` 和轮廓表达。共享样式在 `src/ui/css/editor-directory.css`，World 不依赖 Story 专属样式。
 
+## 编辑器模态工作区
+
+Story／Entry 编辑确认窗、表单和分栏工具窗通过 `ModalOptions.appearance: 'editor'` 复用 `modal.css` 的编辑器外观钩子。外框采用 5px 圆角和轻阴影；标题使用 `panel-light`，单行约 36px，长标题可换行，关闭按钮固定宽度；标题和底部动作不随正文滚动。正文为 `panel`，水平留白 14px，表单与操作组使用 8px 间距。短确认和表单窗按内容收高；目录、条件树等工作窗由业务 class 设定工作高度，并保留其内部独立滚动区。直接使用 `modal.open` 的 Story 编辑窗、条件引用选择和活跃编辑态包选择也必须显式选择此变体。普通游戏弹窗与可拖动主题编辑窗不使用此变体。源码：`src/ui/interaction/modal.ts`、`src/ui/css/modal.css`、`src/ui/story-editor/editor-dialog.ts`。
+
 ## 会话主题与共享布局偏好
 
 编辑器会话从外部采样有效主题，工作类型切换沿用已提交主题，真正退出交还给目的页面。高级编辑器布局由公共 `editorLayout` 跨工作类型共享。Ribbon 密度不是按工作类型隔离。颜色缺项沿用 `theme-tree.ts` 的浅色角色。主题解析或投影失败时切到浅色纯色画布，移除旧背景及表现宿主图层。入口见 `editor-workspace.ts`、`editor-workspace-appearance.ts` 与 `controller-theme.ts`。

@@ -36,14 +36,14 @@ export function openSubDialog(options: SubDialogOptions): HTMLElement {
   const host = document.createElement('div');
   host.className = 'runtime-subdialog';
   host.innerHTML = `
-    <div class="runtime-subdialog-overlay" data-runtime-subdialog-overlay>
-      <section class="runtime-subdialog-panel" role="dialog" aria-modal="true">
-        <header class="runtime-subdialog-head">
+    <div class="runtime-subdialog-overlay editor-modal-overlay" data-runtime-subdialog-overlay>
+      <section class="runtime-subdialog-panel editor-modal-panel" role="dialog" aria-modal="true">
+        <header class="runtime-subdialog-head editor-modal-head">
           <strong>${escapeHtml(options.title)}</strong>
-          <button type="button" class="icon-button" data-runtime-subdialog-close aria-label="关闭" title="关闭">×</button>
+          <button type="button" class="icon-button editor-modal-close" data-runtime-subdialog-close aria-label="关闭" title="关闭">×</button>
         </header>
-        <div class="runtime-subdialog-body">${options.body}</div>
-        ${options.footer ? `<footer class="runtime-subdialog-foot">${options.footer}</footer>` : ''}
+        <div class="runtime-subdialog-body editor-modal-body">${options.body}</div>
+        ${options.footer ? `<footer class="runtime-subdialog-foot editor-modal-foot">${options.footer}</footer>` : ''}
       </section>
     </div>`;
   frames.push({ host, closeHandler: options.onClose });

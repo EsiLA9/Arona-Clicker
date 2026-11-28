@@ -953,11 +953,11 @@ function openRuntimeSpotDeleteConfirm(ctrl: UIController, runtimeSpotId?: string
   if (!spot) return;
   const runtimeLoaded = Boolean(runtimeMod?.spots.some(item => item.idName === spot.idName));
   ctrl.modal.open({
+    appearance: 'editor',
     title: '删除临时 Spot',
     body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(spot.name || spot.idName)}」。${runtimeLoaded ? '该 Spot 已经应用到 Runtime。' : '该 Spot 尚未应用到 Runtime。'}</p><p class="service-summary">保留：以后重新创建同 ID Spot 时恢复原状态。清理：同时移除当前状态与各 Init 快照中的对应记录。</p></div>`,
-    footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="toolbar-button" data-runtime-delete-clean>删除并清理 PlayerData</button><button type="button" class="primary-button" data-runtime-delete-preserve>删除但保留 PlayerData</button>',
+    footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="toolbar-button mini-action--danger" data-runtime-delete-clean>删除并清理 PlayerData</button><button type="button" class="toolbar-button mini-action--danger" data-runtime-delete-preserve>删除但保留 PlayerData</button>',
     width: 560,
-    panelClass: 'runtime-datapack-modal',
     dismissable: false,
     onClose: clearSubDialogs,
   });
@@ -1436,11 +1436,11 @@ function openRuntimeDefinitionDeleteConfirm(ctrl: UIController, kind: RuntimeEdi
   const applied = runtimeEditorAppliedDefinitions(editor, kind).some(item => item.idName === idName);
   const impact = kind === 'inits' ? renderRuntimeInitDeletionImpact(ctrl, idName) : '';
   ctrl.modal.open({
+    appearance: 'editor',
     title: `删除临时 ${label}`,
     body: `<div class="runtime-editor-form"><p>即将删除「${escapeHtml(name || idName)}」。</p><p class="service-summary">${applied ? `该 ${label} 已应用到 Runtime；确认后会从 Draft 移除，点击“应用到运行时”才会真正移除。` : `该 ${label} 尚未应用到 Runtime，只会从当前 Draft 移除。`}</p>${impact}${policy?.unsupportedFieldHint ? `<p class="runtime-editor-hint">${escapeHtml(policy.unsupportedFieldHint)}</p>` : ''}</div>`,
-    footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="primary-button danger" data-runtime-definition-delete-confirm>确认删除</button>',
+    footer: '<button type="button" class="modal-close toolbar-button">取消</button><button type="button" class="primary-button primary-button--danger" data-runtime-definition-delete-confirm>确认删除</button>',
     width: 560,
-    panelClass: 'runtime-datapack-modal',
     dismissable: false,
     onClose: clearSubDialogs,
   });

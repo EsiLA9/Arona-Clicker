@@ -218,6 +218,58 @@
 .modal-foot > button:hover:not(:disabled) { filter: brightness(.96); }
 .modal-foot > button:disabled { opacity: .5; cursor: not-allowed; }
 
+/* Shared editor dialog skin. Opt-in so game dialogs and draggable theme windows stay unchanged. */
+.editor-modal-overlay {
+   background: rgb(15 30 48 / 24%);
+   backdrop-filter: blur(1px);
+}
+
+.editor-modal-panel {
+   max-height: 82vh;
+   border-radius: 5px;
+   box-shadow: 0 12px 32px rgb(15 30 48 / 20%);
+}
+
+.editor-modal-head {
+   min-height: 36px;
+   gap: 8px;
+   padding: 5px 14px;
+   background: var(--panel-light);
+   color: var(--ink-on-panel-light);
+}
+
+.editor-modal-head > :first-child {
+   min-width: 0;
+   margin: 0;
+   color: inherit;
+   font-size: 14px;
+   font-weight: 700;
+   line-height: 1.45;
+   overflow-wrap: anywhere;
+}
+
+.editor-modal-close {
+   flex: 0 0 26px;
+   width: 26px;
+   height: 26px;
+   border-radius: 4px;
+   color: var(--muted-on-panel-light);
+}
+
+.editor-modal-close:hover { background: color-mix(in srgb, var(--cyan) 14%, transparent); }
+
+.editor-modal-body {
+   flex: 1 1 auto;
+   padding: 12px 14px;
+   color: var(--ink-on-panel);
+   line-height: 1.6;
+}
+
+.editor-modal-foot {
+   gap: 8px;
+   padding: 8px 14px;
+}
+
 .shop-modal { display: grid; gap: 14px; }
 .shop-topbar { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .shop-topbar h2, .shop-topbar p, .shop-section h3, .shop-entry h3, .shop-sidebar h3 { margin: 0; }

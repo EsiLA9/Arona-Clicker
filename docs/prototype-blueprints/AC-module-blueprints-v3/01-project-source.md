@@ -4,15 +4,19 @@
 
 本地审计 A01、A02、A05、A06：`src/data-services/datapack/source.ts` 的 PackSource 只有 list 与路径/字节读取；`pack-parser.ts:parsePack` 从根 datapack.json 读清单，遍历其他 JSON 与图片，`fragment-parser.ts:mergeFragments` 拼接列表、对单例和 extras 执行后写覆盖。结果是合并后的 Datapack 与图片 data URL，原记录属于哪个文件不再是数据模型的一部分。独立编辑器 `EditorModel` 只持有表与行；`ui/io.ts` 导出单一 content.json 和 manifest，不能可靠保留原布局、未知字段和资产。Base TS 到分片目录和 Runtime bundle 有两条独立路径。已安装包 `StoredPack` 也不等于可写工作目录。
 
-根本改造：从“把包读成一个对象”改为“保有整个作者项目的文件、内容与声明位置，再根据目的生成 Datapack”。合并产物是派生结果，不能再作为所有作者操作的唯一底稿。
+根本改造是让读取结果保有文件、内容与声明位置，同时继续提供现有 Datapack 合并结果。作者可以按自己的目录组织 JSON，运行侧沿用现有 Datapack 结构与发行读法。
 
 ## 2. 建设需求和目标边界
 
-支持单 JSON、旧包目录、ZIP、任意多级目录、若干格式的文本与资源。提供按表/实体全拆、选择式合一/全包合一、快速层级化、原文件回写、导入导出。目录不是运行归属；任何文件移动都不应变更 ID、Story 目录、Area 关系或行为。作者文件可以未完成；只读的依赖或 ZIP 不假装可写。包构建由 M03 负责，本服务只提供原始与固定读取输入，以及布局转换、保存。
+首批交付依次是多文件读入与来源、按表/实体拆分及选合/全合、快速层级化、独立 Datapack 编辑器与 CLI 接入。支持单 JSON、旧包目录及 ZIP，目录可任意嵌套，同一文件可混合多种表。资源沿用包内相对路径。转换先输出新目录或 ZIP。移动文件不改变 ID、Story 目录、Area 关系或运行行为。M02–M04 可以消费首批成果，基本拆合和层级化无需等待这三个模块。
+
+原文件编辑保存、固定构建输入、生产迁移随后按消费者推进。M03 负责构建，M04 负责草稿。Base 保留 TS 原始构建和测试。路径验证可只用代表性 Base 片段的导出副本，或由测试包完成。Base 历史差异和权威源选择独立裁定。
 
 ## 3. 目标数据结构
 
-以下是 M01–M14 的共同作者数据合同。`packageRef` 是一次项目选择中具体包记录的标识，不是 modName。安装记录采用实际 record ID；本地目录或 ZIP 使用该项目打开时分配的标识。`EntityKey` 按表的逻辑键；同包重复仍保留多个声明，通过位置区别。缺键的坏记录仍保留。
+共同合同分期实现。首批读入保留规范相对路径、表、原始值、JSON Pointer 或声明位置、实际读入顺序、原始文件字节以及合并投影和诊断。兼容迁移后的值与原始来源分别保存。同包重复声明以位置区分，缺键记录依然可读。首批复用分片解析的表规则，M02 后续补齐按表取逻辑键及引用。
+
+下列是共享合同的候选形状。摘要、固定 revision、依赖选择按实际消费加入。`packageRef` 是本次选择中具体包记录的标识。安装包使用实际 record ID，本地目录或 ZIP 使用本次打开分配的标识。
 
 ```ts
 type EntityKey = { table: string; key: string };
@@ -30,7 +34,7 @@ interface Diagnostic {
   at?: SourcePoint; related: { at: SourcePoint; message: string }[];
 }
 interface SourceFile {
-  packageRef: string; path: string; digest: string;
+  packageRef: string; path: string; digest?: string;
   role: 'manifest'|'definition'|'asset'|'author-config'|'other';
   format?: { id: string; version: string }; writable: boolean;
 }
@@ -41,36 +45,39 @@ interface DefinitionRecord {
   ordinal: number; // 同包同表的原始次序
 }
 interface PackageInput {
-  packageRef: string; modName: string; version: string; digest: string;
-  dependencies: string[]; mode: 'project'|'dependency';
+  packageRef: string; modName?: string; version?: string; digest?: string;
+  dependencies?: string[]; mode: 'project'|'dependency';
 }
 interface ProjectRead {
-  project: string; revision: string; packages: PackageInput[];
+  project: string; revision?: string; packages: PackageInput[];
   files: SourceFile[]; definitions: DefinitionRecord[];
+  datapack?: Datapack; // 合法且完整时提供原有合并投影
   incomplete: { packageRef: string; path?: string; reason: string }[];
   diagnostics: Diagnostic[];
 }
 ```
 
-`ProjectRead` 不把文件字节序列化进每次查询；与该 revision 对应的读取器必须能提供相同字节，包括资产。无法保证时重查摘要并拒绝旧请求。revision 覆盖清单、文件内容、读取顺序、依赖选择与草稿版本。JSON Pointer 按 RFC 6901 编码；实体字段 `/theme/colorGroupId` 与文档路径 `/spots/3/theme/colorGroupId` 分开。文本文件可仅给范围。默认生成字段定位到来源声明，不伪造精确范围。行列展示一基，CRLF 单次换行；内部偏移统一 UTF-16。M02 负责从真实表键构造 Owner；M01 读入阶段可调用它提供的纯取键函数，禁止依赖 Registry 或运行状态。
+`ProjectRead` 通过读取器访问原始字节。M03 或试播需要固定输入时，读取器按 revision 提供一致的文件与资产字节，无法保证则拒绝旧请求。版本可覆盖清单、读取顺序、依赖选择及草稿。JSON Pointer 按 RFC 6901 编码，区分实体字段 `/theme/colorGroupId` 与文档位置 `/spots/3/theme/colorGroupId`。文本接入后按语言精度提供范围，展示行列从一开始，CRLF 计一次换行，内部偏移用 UTF-16。M02 提供领域逻辑键，读取不依赖 Registry 或运行状态。
 
 ### 3.1 项目目录、包与作者配置
 
-建议以现有 `datapack.json` 保留发行身份，在作者项目旁设一份明确的作者配置（候选名称 `project.author.json`，不进入旧包 parser）。配置声明纳入的文件/目录规则、格式、文件角色、作者表次序和依赖记录选择。旧项目无配置时按当前 PackSource 枚举规则导入一次，再固化明确次序。不要规定所有作者必须用同一种层级布局；允许 `world/`、`characters/`、`chapters/` 或完全自定义。配置与 README、实验输出不被扫描成第二份 Datapack。支持未来 DSL 文件，但首轮可仅声明临时格式。首轮无需为每个文件设置永久 GUID；包记录、规范路径、实体键及摘要足够识别大部分操作，移动时凭唯一 Owner 对应，发生歧义必须要求选择。
+首批沿用根 `datapack.json` 和现有 JSON 分片。单 JSON 继续直接导入。目录可用 `world/`、`characters/`、`chapters/` 或作者自定义。混合表可以共用一个文件。说明、配置和资源按角色保留。CLI 与 UI 可直接传本次分组规则和手工映射。以后需要持久化规则、登记文本格式或选择依赖时，再评估可选作者配置（候选 `project.author.json`），并隔离旧解析器不应读取的内容。
 
 ```
 project/
   datapack.json               # 当前真实发行清单
-  project.author.json          # 候选作者配置，不发行
+
   world/areas.json
-  characters/shiroko/invite.story    # 扩展名仅示意
+  characters/shiroko/invite.json
   stories/entries.json
   assets/...
 ```
 
-作者配置应能表达每个表的逻辑次序，而不是简单文件排序。建议先采用 `orderByTable: Record<table, {key?,path,documentPointer}[]>`，唯一键优先匹配；无可靠键保持原表整体。清单中缺行、重复行、已移除行必须报告，外部新增可明确追加或指定位置。导入旧文件时记录实际读取顺序；不要用字母排序重新定义游戏语义。依赖选择可先记录实际来源/摘要，是否引入正式 lock 文件留待多包构建实验验证。
+导入记录每表实际次序。先验证现有枚举规则下，目标路径及分片顺序能否表达原序。如果目录交错造成变序，且回读证明确实影响行为或数据保真，才为受影响表试验局部顺序信息，以目标文件和片内位置定位。试验覆盖缺项、重复项和外部新增。旧读取器兼容产物可合回有序 JSON。首批不建设全局排序清单、依赖锁和永久身份。
 
-### 3.2 分片与保存计划
+### 3.2 布局计划与后续保存计划
+
+首批拆分、合并及分组共用布局计划，记录源声明、目标路径、保留文件、资产、诊断和移动原因，给 UI/CLI 预览并由目录或 ZIP writer 输出新副本。下列文件级写入结构用于后续原文件编辑。
 
 ```ts
 interface FileChange {
@@ -91,7 +98,7 @@ interface SaveResult {
 }
 ```
 
-读、规划、提交分开。`readProject(selection)` 返回 ProjectRead；`planSplit(read, mode, target)`、`planMerge(read, selection, target)`、`planGroup(read, grouping, target)` 只生成计划；`planPatch(read, patches)` 将 M04 的实体字段或文本改动转为实际文件修改；`applyFilePlan(plan)` 通过宿主权限、真实路径、摘要验证执行；`readAt(revision,file)` 供构建固定输入。无权写本地时宿主只提供下载或导出计划。浏览器文件权限与 PackManager 持久包接口分开。
+`readProject(selection)` 为读取入口。`planSplit`、`planMerge`、`planGroup` 只生成布局计划，确认后由共同 writer 输出副本。后续 `planPatch` 接 M04 改动，`applyFilePlan` 验证权限、真实路径及摘要，`readAt` 按 M03 需求提供固定输入。浏览器文件权限与 PackManager 安装接口分别处理。
 
 ## 4. 具体的转换规则
 
@@ -115,9 +122,9 @@ interface SaveResult {
 
 ## 6. 建设阶段与旧职责退出
 
-1. M01-A：在 `data-services/datapack` 旁建立项目读取和文件角色识别；复用 PackSource 适配目录、ZIP、单 JSON，增加逐文件读取、保留位置、原始字节、未知项。第一批真实输入为 Base 分片、bundle 和 addition-test 目录/两个 ZIP。旧 parsePack 暂留作为旧发行读取及对照。
-2. M01-B：新增分片规划、排序清单、拆合和分组；从 `base-datapack-export.mjs:exportBaseDatapackFolder` 迁出布局转换职责，独立编辑器 `ui/io.ts` 和 M14 调用共同入口。先导出新目录，回读比较全部字段、次序、资产。
-3. M01-C：添加可写宿主、文件修改计划及冲突处理，接 M04 真实字段保存；先单文件，再选合、多文件移动和恢复。不能写的 ZIP 入口导出副本。用同一文件两实体改动检验无覆盖。
-4. M01-D：M03 统一构建成功后，旧独立工具自行合并/导出的重复路径退出；Base 旧作者 TS 路径仅作转换和对照，正式迁移待负责人裁定。运行期包读取、安装记录和玩家存档不由本模块接管。
+1. M01-A 对应 [Task 0435](../../../ai/plan/task-0435-datapack-multifile-source.md)。复用 `PackSource`、`parseFragment`、`mergeFragments` 读入目录、ZIP 和单 JSON，保留原位及未知项，继续提供旧严格加载结果。用 Base 分片、bundle、addition-test 目录和两个 ZIP 各自对照。
+2. M01-B 对应 [Task 0436](../../../ai/plan/task-0436-datapack-layout-transform.md) 和 [Task 0437](../../../ai/plan/task-0437-datapack-layout-tools.md)。共用布局计划先交付拆合，再提供类型、Init、角色、系列及自定义分组和手工预览。独立工具与 CLI 真实接入并输出新副本。Base 当前调用可继续使用原脚本。
+3. M01-C 对应 [Task 0438](../../../ai/plan/task-0438-datapack-source-save.md)。接真实可写宿主和 M04 字段保存，先验证单文件两个实体，再扩到外部冲突、多文件及恢复。只读入口仍可导出副本。
+4. M01-D 对应 [Task 0439](../../../ai/plan/task-0439-datapack-pipeline-convergence.md)。独立工具、CLI 和实际编辑器消费者逐步接共同输出，退出已被替代的重复组装。保留 Base TS 原始构建与测试，必要时为样本提供相对路径或资产适配。正式 Base 权威源、运行切换和历史差异由负责人另行裁定。
 
-验收：拆→分组→选合→全合能还原同一数据；A/B/C 交错顺序、同值 order、随机固定输入与真实运行列表一致；重复 scanner 双位置、坏文件、未知键、空目录、大小写碰撞、资产缺失、外部改动与中途失败都可追踪。使用 `tests/data/datapack/{pack-source,pack-parser,fragment-parser,archive-writer,base-datapack-folder-export}.test.ts` 和 `tools/datapack-editor/ui/io.test.ts` 作旧行为对照，新增真实转换和保存测试。
+验收分两期。首批用真实包完成读入、拆合、分组、手调、输出及回读，对照字段、运行意义的表序和资产，验证重复声明、坏文件、未知键、空目录、大小写碰撞和资产缺失。后续验证原地保存、外部变化、中途失败恢复与生产等价。以 `tests/data/datapack/` 中 PackSource、解析、归档、Base 导出测试及 `tools/datapack-editor/ui/io.test.ts` 作旧行为对照。

@@ -6,7 +6,13 @@
 
 | Task | 状态 | 下一步 |
 | --- | --- | --- |
-| [[ai/plan/task-0433-editor-modal-workbench-style]] | 待处理 | 增加编辑器弹窗外观，以草稿确认和条件树校准密度 |
+| [[ai/plan/task-0439-datapack-pipeline-convergence]] | 待处理 | 后续管线。原文件保存及适用的 M03 成果就绪后迁移生产消费者 |
+| [[ai/plan/task-0438-datapack-source-save]] | 待处理 | 后续作者工具。首批交付及 M04 草稿就绪后验证同文件两实体写回 |
+| [[ai/plan/task-0437-datapack-layout-tools]] | 待处理 | 首批交付 3/3。独立编辑器与 CLI 实际接入预览和副本输出 |
+| [[ai/plan/task-0436-datapack-layout-transform]] | 待处理 | 首批交付 2/3。复用共同计划先交付拆合，再接快速层级化 |
+| [[ai/plan/task-0435-datapack-multifile-source]] | 待处理 | 首批交付 1/3。固定实物输入，沿现有解析补多文件来源 |
+| [[ai/plan/task-0434-workspace-scrollbar-framework]] | 待处理 | 定义公共悬浮滚动条 controller 与列内容更新通知，再接入 Area/Directory |
+| [[ai/plan/task-0433-editor-modal-workbench-style]] | 待审核 | 确认是否继续对 Story workspace 默认堆 OOM 做 heap snapshot 归因 |
 | [[ai/plan/task-0432-editor-entity-relations]] | 待处理 | 按现有引用规则核对首批关系字段，编制读取、定位与编辑覆盖矩阵 |
 | [[ai/plan/task-0429-prototype-architecture-blueprints]] | 待验收 | 评审作者服务与各原型的构造设计。R1/R2/R5 已有施工草案，R8 玩法可单独确认 |
 

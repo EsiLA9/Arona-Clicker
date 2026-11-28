@@ -23,6 +23,8 @@ export interface ModalOptions {
   width?: number;
   /** 仅用于需要专用布局的弹窗面板。 */
   panelClass?: string;
+  /** 编辑器工作台外观；普通游戏弹窗保持默认样式。 */
+  appearance?: 'editor';
   /** 是否可关闭（Esc + 遮罩点击）。默认 true。 */
   dismissable?: boolean;
   onClose?: () => void;
@@ -45,17 +47,22 @@ export function renderModalShell(opts: ModalOptions): string {
   const title = opts.title ? escapeHtml(opts.title) : '';
   const dismissable = opts.dismissable ?? true;
   const panelClass = opts.panelClass ? ` ${opts.panelClass}` : '';
+  const editorClass = opts.appearance === 'editor' ? ' editor-modal-panel' : '';
+  const editorOverlayClass = opts.appearance === 'editor' ? ' editor-modal-overlay' : '';
+  const editorHeadClass = opts.appearance === 'editor' ? ' editor-modal-head' : '';
+  const editorBodyClass = opts.appearance === 'editor' ? ' editor-modal-body' : '';
+  const editorFootClass = opts.appearance === 'editor' ? ' editor-modal-foot' : '';
   const overlayClass = opts.panelClass === 'user-theme-modal' ? ' modal-overlay-user-theme' : '';
   const headClass = opts.panelClass === 'user-theme-modal' ? ' modal-head-user-theme' : '';
   return `
-    <div class="modal-overlay${overlayClass}" ${dismissable ? 'data-modal-overlay' : ''}>
-      <section class="modal-panel${panelClass}" role="dialog" aria-modal="true"${title ? ` aria-label="${title}"` : ''}${width}>
-        <header class="modal-head${headClass}" ${opts.panelClass === 'user-theme-modal' ? 'data-user-theme-drag' : ''}>
+    <div class="modal-overlay${overlayClass}${editorOverlayClass}" ${dismissable ? 'data-modal-overlay' : ''}>
+      <section class="modal-panel${editorClass}${panelClass}" role="dialog" aria-modal="true"${title ? ` aria-label="${title}"` : ''}${width}>
+        <header class="modal-head${headClass}${editorHeadClass}" ${opts.panelClass === 'user-theme-modal' ? 'data-user-theme-drag' : ''}>
           <span class="eyebrow">${title}</span>
-          <button class="modal-close icon-button" aria-label="关闭" title="关闭">×</button>
+          <button class="modal-close icon-button${opts.appearance === 'editor' ? ' editor-modal-close' : ''}" aria-label="关闭" title="关闭">×</button>
         </header>
-        <div class="modal-body">${opts.body}</div>
-        ${opts.footer ? `<footer class="modal-foot">${opts.footer}</footer>` : ''}
+        <div class="modal-body${editorBodyClass}">${opts.body}</div>
+        ${opts.footer ? `<footer class="modal-foot${editorFootClass}">${opts.footer}</footer>` : ''}
       </section>
     </div>`;
 }

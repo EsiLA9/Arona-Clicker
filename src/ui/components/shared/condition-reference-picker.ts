@@ -92,6 +92,7 @@ export function openStoryReferencePicker(
     otherLabel: '其他', cancelLabel: '取消', navigate: options.navigate,
   });
   const panel = modal.open({
+    appearance: 'editor',
     title: `选择${label}`,
     panelClass: 'story-editor-dialog story-condition-dialog story-editor-reference-navi',
     body: picker.render(),

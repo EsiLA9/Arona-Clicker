@@ -20,6 +20,7 @@ export function openActiveEditingPackPicker(modal: ModalManager, options: {
   const choices = (catalog.getPackCatalog?.().entries ?? []).filter(pack => pack.editingMode === 'editing'
     && isActiveEditingPack(catalog, pack.packRecordId ?? pack.id, pack.modName) && (options.accept?.(pack) ?? true));
   const panel = modal.open({
+    appearance: 'editor',
     title: '选择当前活跃的编辑态数据包',
     width: 480,
     body: `<div class="active-editing-pack-options">${choices.length

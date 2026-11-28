@@ -6,6 +6,7 @@ type EditorDialogOptions = Omit<ModalOptions, 'title' | 'width' | 'dismissable'>
 export function openStoryEditorDialog(modal: ModalManager, options: EditorDialogOptions, trigger?: HTMLElement): HTMLElement {
   const panel = modal.open({
     ...options,
+    appearance: 'editor',
     panelClass: ['story-editor-dialog', options.panelClass].filter(Boolean).join(' '),
     dismissable: false,
     onClose: () => {

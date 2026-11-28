@@ -2380,7 +2380,7 @@ export class StoryEditorController {
     const draftId = currentDraft(this.state)?.draftId;
     if (!draftId) return;
     const ctx = createUIContext(this.editorGame);
-    this.ctrl.modal.open({ title: '更改节点 ID', width: 440,
+    this.ctrl.modal.open({ appearance: 'editor', title: '更改节点 ID', width: 440,
       body: `<p>建议使用便于辨认的手写 ID。ID 会定位已保存的播放游标；改名后旧游标将从 StoryEntry 重新开始。发布内容后尽量不要再改。</p><label class="story-editor-property">节点 ID<input data-story-generated-node-id value="${ctx.escapeHtml(initialValue)}" autocomplete="off"></label><p class="story-editor-error" data-story-generated-node-id-error hidden></p>`,
       footer: '<button type="button" class="modal-close">保留当前 ID</button><button type="button" class="primary-button" data-modal-action="rename-story-node-id">更改 ID</button>',
       onAction: action => {
@@ -2481,7 +2481,7 @@ export class StoryEditorController {
     const oldId = button.dataset.storyOptionId;
     if (!draft || !nodeId || !Number.isInteger(optionIndex) || !oldId) return;
     const ctx = createUIContext(this.editorGame);
-    this.ctrl.modal.open({ title: '更改选项 ID', width: 440,
+    this.ctrl.modal.open({ appearance: 'editor', title: '更改选项 ID', width: 440,
       body: `<p>建议使用便于辨认的手写 ID。保存内容后若旧游标无法匹配，会从 StoryEntry 重新开始；发布后尽量不要改。</p><label class="story-editor-property">选项 ID<input data-story-option-id-input value="${ctx.escapeHtml(oldId)}" autocomplete="off"></label><p class="story-editor-error" data-story-option-id-error hidden></p>`,
       footer: '<button type="button" class="modal-close">取消</button><button type="button" class="primary-button" data-modal-action="rename-story-option-id">更改 ID</button>',
       onAction: action => {
@@ -2707,7 +2707,7 @@ export class StoryEditorController {
     const e=createUIContext(this.editorGame).escapeHtml;
     const previous=entry ? JSON.stringify(entry.activation) : undefined;
     const describe=(value:EntryActivation):string=>value.kind==='active'?`主动接取；${value.fallback?.kind==='fixed-area'?`接取地区 ${value.fallback.areaId}`:value.fallback?'当前地区兜底':'不兜底投放'}`:value.kind==='random'?`随机抽取；基础权重 ${value.weight}；${value.repeatable?'可重复触发':'单次触发'}；冷却 ${value.cooldownFrames ?? 0} 帧`:`角色阶段；${value.when.kind==='level'?`好感等级 ${value.when.level}`:`前置故事 ${value.when.storyId}`}；冷却 ${value.cooldownFrames ?? 0} 帧`;
-    this.ctrl.modal.open({title:entry?'更改激活配置':'新建好感／角色阶段入口',width:560,
+    this.ctrl.modal.open({appearance:'editor',title:entry?'更改激活配置':'新建好感／角色阶段入口',width:560,
       body:`${entry?`<p>确认替换当前激活配置？</p><p>当前：${e(describe(entry.activation))}</p><p>替换为：${e(describe(next))}</p>${next.kind==='active'?'<p>当前被动播放限制和完结后的对话暂停配置也将移除。</p>':''}`:''}${next.kind==='affection'?`<label>归属角色<select data-entry-activation-owner><option value="">选择角色</option>${[...this.registry.characterVariants.values()].map(role=>`<option value="${e(role.id)}"${entry?.owner===role.id?' selected':''}>${e(role.displayName)} · ${e(role.id)}</option>`).join('')}</select></label>`:''}<p class="story-editor-error" data-entry-activation-error hidden></p>`,
       footer:'<button type="button" class="modal-close">取消</button><button type="button" class="mini-action" data-modal-action="confirm-entry-activation">确认</button>',
       onAction:action=>{
@@ -3027,7 +3027,7 @@ export class StoryEditorController {
     if (!boundary || boundary.missing) return;
     const entry = relations.entries.get(boundary.call.to.id)!;
     const name = entry.openingTitle || entry.id;
-    this.ctrl.modal.open({ title: '获取 Entry 的 flag 信息', body: `<p>是否将“${createUIContext(this.editorGame).escapeHtml(name)}”涉及的 flag 纳入当前故事的清单？内部局部标记仍属于该 Entry，不会自动添加到回传白名单。</p>`,
+    this.ctrl.modal.open({ appearance: 'editor', title: '获取 Entry 的 flag 信息', body: `<p>是否将“${createUIContext(this.editorGame).escapeHtml(name)}”涉及的 flag 纳入当前故事的清单？内部局部标记仍属于该 Entry，不会自动添加到回传白名单。</p>`,
       footer: '<button type="button" class="mini-action" data-modal-action="flag-import-no">不获取</button><button type="button" class="mini-action" data-modal-action="flag-import-yes">获取信息</button>',
       onAction: action => {
         if (!['flag-import-no', 'flag-import-yes'].includes(action) || currentDraft(this.state) !== owner) return;
@@ -3049,7 +3049,7 @@ export class StoryEditorController {
     if (this.state.storageBlocked) return;
     const packs=storyEditingMods(this.ctrl.game), e=createUIContext(this.editorGame).escapeHtml;
     const preferred=currentAuthoringDraft(this.state)?.targetPackId ?? this.state.targetPackId;
-    this.ctrl.modal.open({title:'选择新 Story 所属 Mod',panelClass:'story-editor-identity',width:520,
+    this.ctrl.modal.open({appearance:'editor',title:'选择新 Story 所属 Mod',panelClass:'story-editor-identity',width:520,
       body:`<label class="story-editor-property">编辑态 Mod<select data-story-new-mod><option value="">选择编辑态 Mod</option>${packs.map(pack=>`<option value="${e(pack.packRecordId ?? pack.id)}"${(pack.packRecordId ?? pack.id)===preferred?' selected':''}>${e(pack.name)} · ${e(pack.modName)} · ${e(pack.version)}</option>`).join('')}</select></label>${packs.length?'':'<p>暂无已载入的编辑态 Mod，请在数据包管理中创建并应用编辑副本。</p>'}<p class="story-editor-error" data-story-identity-error hidden></p>`,
       footer:`<button type="button" class="modal-close">取消</button><button type="button" class="mini-action" data-modal-action="create-story-in-mod"${packs.length?'':' disabled'}>确认并新建</button>`,
       onAction:action=>{
@@ -3700,7 +3700,7 @@ export class StoryEditorController {
     const draft = this.draftWithPrototype;
     const target = this.state.target;
     if (!draft?.sourceId || !target || this.state.storageBlocked) return;
-    this.ctrl.modal.open({ title: '从原型重置草稿', body: '<p>丢弃这份本地草稿及其关联 Entry 修改，重新读取原型吗？</p>',
+    this.ctrl.modal.open({ appearance: 'editor', title: '从原型重置草稿', body: '<p>丢弃这份本地草稿及其关联 Entry 修改，重新读取原型吗？</p>',
       footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="reset-story-draft">重置草稿</button>',
       onAction: action => {
         if (action !== 'reset-story-draft' || this.draftWithPrototype !== draft) return;
@@ -3748,7 +3748,7 @@ export class StoryEditorController {
   private confirmDelete(): void {
     const draft = currentDraft(this.state);
     if (!draft || !draft.persisted && !draft.dirty) return;
-    this.ctrl.modal.open({ title: '删除草稿', body: '<p>删除这份本地草稿？已注册的来源 Story 会保留。</p>',
+    this.ctrl.modal.open({ appearance: 'editor', title: '删除草稿', body: '<p>删除这份本地草稿？已注册的来源 Story 会保留。</p>',
       footer: '<button class="modal-close">取消</button><button class="mini-action mini-action--danger" data-modal-action="delete-story-draft">删除草稿</button>',
       onAction: action => {
         if (action !== 'delete-story-draft' || this.writeBlocked || currentDraft(this.state) !== draft) return;
@@ -3770,7 +3770,7 @@ export class StoryEditorController {
     if (!draft || this.writeBlocked) return;
     const storyId = draft.document.id;
     const escapedName = storyId.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    this.ctrl.modal.open({ title: '还原来源版本', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
+    this.ctrl.modal.open({ appearance: 'editor', title: '还原来源版本', body: `<p>丢弃“${escapedName}”的本地草稿，并将当前运行中的 Story 还原到本次加载的数据包版本吗？没有来源版本的新建 Story 会从当前 Registry 移除。其他草稿和玩家存档不受影响。</p>`,
       footer: '<button type="button" class="modal-close">取消</button><button type="button" class="mini-action mini-action--danger" data-modal-action="restore-story-source">还原来源版本</button>',
       onAction: action => {
         if (action !== 'restore-story-source' || this.writeBlocked || currentDraft(this.state) !== draft) return;
