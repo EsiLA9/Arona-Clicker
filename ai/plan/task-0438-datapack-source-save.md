@@ -2,7 +2,7 @@
 
 状态：待处理
 
-对应 [M01 原地保存与失败边界](../../docs/prototype-blueprints/AC-module-blueprints-v3/01-project-source.md) 和 D2。属后续作者工具建设。依赖首批 [[ai/plan/task-0437-datapack-layout-tools]] 及 M04 的 D1 草稿核心。已有 M02 来源定位与 M03 诊断可接入，完整检查和生产构建不作为单文件保存的门槛。
+对应 [M01 原地保存与失败边界](../../docs/prototype-blueprints/AC-module-blueprints-v3/01-project-source.md) 和 D2。属后续作者工具建设。首批文件服务 0435–0437 已验收，保存随 M04 的 D1 草稿核心推进。M02 来源定位与 M03 诊断可接入，完整检查和生产构建不作为单文件保存的门槛。
 
 ## 当前依据与施工
 

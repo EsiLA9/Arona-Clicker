@@ -1,8 +1,9 @@
 import { jsonArchiveEntry, validateArchivePlan, type ArchivePlan, type ArchiveEntry } from '../archive/archive-writer';
 import { DATAPACK_SINGLETON_FIELDS, isListField } from './fragment-parser';
 import {
-  normalizeProjectPath, PROJECT_LAYOUT_PATH, projectEntityKey, projectRecord,
-  type DefinitionRecord, type ProjectDiagnostic, type ProjectLayout, type ProjectRead,
+  hasProjectFragmentFields, normalizeProjectPath, orderKeyCounts, PROJECT_LAYOUT_PATH,
+  projectEntityKey, projectOrderFingerprint, projectRecord,
+  type DefinitionRecord, type ProjectDiagnostic, type ProjectLayout, type ProjectOrderPosition, type ProjectRead,
 } from './project-source';
 
 export type Grouping = 'type' | 'init' | 'character' | 'series' | 'custom';
@@ -53,10 +54,9 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
   const full = request.kind === 'merge' && request.files === undefined && request.occurrences === undefined;
   const target = request.kind === 'merge' ? request.target ?? 'content.json' : 'content/metadata.json';
   const taken = new Map<string, string>();
-  const positions = new Map<string, { path: string; index: number; key?: string; ordinal: number }[]>();
+  const positions = new Map<string, (ProjectOrderPosition & { row: DefinitionRecord })[]>();
   const sourceRows = new Map<string, DefinitionRecord[]>();
   const lookup = new Map<string, DefinitionRecord | undefined>();
-  const residual = new Map<string, Record<string, unknown>>();
   const unchanged = new Map<string, Record<string, unknown>>();
   const metadataOrigins = new Map<string, string>();
   for (const row of read.definitions) {
@@ -107,13 +107,15 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
     const doc = define(path);
     const records = (doc[row.table] ??= []) as unknown[];
     const index = records.push(row.value) - 1;
-    const key = projectEntityKey(row.value);
-    if (!positions.has(row.table)) positions.set(row.table, []);
-    positions.get(row.table)!.push({ path, index, ordinal: row.ordinal, ...(key === undefined ? {} : { key }) });
+    notePosition(row, path, index);
     plan.placements.push({
       occurrenceId: row.occurrenceId, table: row.table, ordinal: row.ordinal,
       source: row.source, path, documentPointer: `/${row.table}/${index}`, reason,
     });
+  }
+  function notePosition(row: DefinitionRecord, path: string, index: number): void {
+    if (!positions.has(row.table)) positions.set(row.table, []);
+    positions.get(row.table)!.push({ path, index, row, key: projectEntityKey(row.value) });
   }
   try {
     if (request.kind === 'merge' && !full && !selectedFiles.size && !selectedRows.size) throw new Error('请选择需要合一的文件或实体。');
@@ -142,15 +144,15 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
       const rows = sourceRows.get(file.path) ?? [];
       const remainingPath = !read.manifest && file.path === 'datapack.json' ? 'content/source-metadata.json' : file.path;
       const fileSelected = full || selectedFiles.has(file.path);
-      if (request.kind === 'merge' && !fileSelected && !rows.some(row => selectedRows.has(row.occurrenceId))) {
+      if (request.kind === 'merge' && !fileSelected && target !== remainingPath
+        && !rows.some(row => selectedRows.has(row.occurrenceId))) {
         entries.push({ path: file.path, content: file.bytes! });
         plan.retained.push(file.path);
         unchanged.set(file.path, raw);
         for (const row of rows) {
           const pointer = row.source.documentPointer!;
           const index = Number(pointer.slice(pointer.lastIndexOf('/') + 1));
-          if (!positions.has(row.table)) positions.set(row.table, []);
-          positions.get(row.table)!.push({ path: file.path, index, ordinal: row.ordinal, key: projectEntityKey(row.value) });
+          notePosition(row, file.path, index);
         }
         continue;
       }
@@ -158,17 +160,11 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
         if (isListField(field) && Array.isArray(value) && value.length) continue;
         if (request.kind === 'merge' && fileSelected) metadata(target, field, value, file.path);
         else if (request.kind !== 'merge' && ['name', 'version', 'modName'].includes(field)) metadata(target, field, value, file.path);
-        else {
-          if (!residual.has(remainingPath)) residual.set(remainingPath, Object.create(null) as Record<string, unknown>);
-          residual.get(remainingPath)![field] = value;
-        }
+        else metadata(remainingPath, field, value, file.path);
       }
       for (const row of rows) {
         if (request.kind === 'merge') {
           const selected = fileSelected || selectedRows.has(row.occurrenceId);
-          if (!selected && target === remainingPath) {
-            problem(file.path, '目标路径仍包含未选声明。请选择新路径。');
-          }
           rowsToPlace.push({ row, path: selected ? target : remainingPath, reason: selected ? '合一' : '保留未选声明' });
         } else {
           const assigned = request.kind === 'split'
@@ -181,18 +177,8 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
         }
       }
     }
-    for (const [path, fields] of residual) {
-      if (documents.has(path) && request.kind === 'merge') problem(path, '目标路径仍包含未移动的文件内容。请选择新路径。');
-      for (const [key, value] of Object.entries(fields)) metadata(path, key, value, path);
-    }
     rowsToPlace.sort((left, right) => left.row.ordinal - right.row.ordinal);
-    for (const item of rowsToPlace) {
-      const original = item.row.source.path;
-      if (residual.has(item.path) && (request.kind === 'merge' ? item.reason === '合一' : original !== item.path)) {
-        problem(item.path, '目标路径有保留内容。请选择新路径。');
-      }
-      place(item.row, item.path, item.reason);
-    }
+    for (const item of rowsToPlace) place(item.row, item.path, item.reason);
     for (const [path, doc] of documents) {
       if (!/\.json$/i.test(path)) problem(path, '定义文件必须使用 .json。');
       entries.push(jsonArchiveEntry(path, doc));
@@ -224,16 +210,20 @@ export function planProjectLayout(read: ProjectRead, request: LayoutRequest): La
     if (!read.manifest) layout.standalone = true;
     for (const [table, tablePositions] of positions) {
       const physical = [...tablePositions].sort((a, b) => a.path.localeCompare(b.path, 'en') || a.index - b.index);
-      if (!physical.some((position, index) => position.ordinal !== index) || canReorder(table, physical)) continue;
+      if (!physical.some((position, index) => position.row.ordinal !== index) || canReorder(table, physical)) continue;
+      const counts = orderKeyCounts(tablePositions.map(position => position.key));
       (layout.order ??= Object.create(null))[table] = tablePositions
-        .sort((a, b) => a.ordinal - b.ordinal)
-        .map(({ path, index, key }) => key === undefined ? { path, index } : { path, index, key });
+        .sort((a, b) => a.row.ordinal - b.row.ordinal)
+        .map(({ path, index, key, row }) => key !== undefined && counts.get(key) === 1
+          ? { path, index, key }
+          : { path, index, key, fingerprint: projectOrderFingerprint(row.value) });
     }
+    const extensionFragments = [...unchanged, ...documents]
+      .filter(([, doc]) => !hasProjectFragmentFields(doc)).map(([path]) => path);
+    if (extensionFragments.length) layout.definitionFiles = extensionFragments;
     const retainedAuthorJson = read.files.some(file => file.role === 'other' && /\.json$/i.test(file.path)
-      && !plan.omitted.includes(file.path))
-      || [...documents.values()].some(doc => !Object.keys(doc).some(field => isListField(field)
-        || (DATAPACK_SINGLETON_FIELDS as readonly string[]).includes(field) || ['name', 'version', 'extras'].includes(field)));
-    plan.requiresLayoutReader = Boolean(layout.order || layout.standalone || retainedAuthorJson);
+      && !plan.omitted.includes(file.path));
+    plan.requiresLayoutReader = Boolean(layout.order || layout.standalone || layout.definitionFiles || retainedAuthorJson);
     if (plan.requiresLayoutReader) entries.push(jsonArchiveEntry(PROJECT_LAYOUT_PATH, layout));
     if (!plan.diagnostics.length) plan.archive = { entries: validateArchivePlan({ entries }) };
   } catch (error) { problem('.', error instanceof Error ? error.message : String(error)); }

@@ -2,7 +2,7 @@
 
 状态：待处理
 
-对应 [M01-D](../../docs/prototype-blueprints/AC-module-blueprints-v3/01-project-source.md)、C4 与 K1 的文件服务接线部分。首批 [[ai/plan/task-0437-datapack-layout-tools]] 完成后即可推进读入与导出迁移。正式构建接线等待对应 M03 产物及运行验证。只有消费原文件保存的接线需要 [[ai/plan/task-0438-datapack-source-save]]。正式数据源切换另外裁定。
+对应 [M01-D](../../docs/prototype-blueprints/AC-module-blueprints-v3/01-project-source.md)、C4 与 K1 的文件服务接线部分。首批文件服务 0435–0437 已验收，读入与导出迁移可按实际消费者独立推进。正式构建接线等待对应 M03 产物及运行验证。只有消费原文件保存的接线需要 [[ai/plan/task-0438-datapack-source-save]]。正式数据源切换另外裁定。
 
 ## 当前依据与施工
 

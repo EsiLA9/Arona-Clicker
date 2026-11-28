@@ -11,6 +11,7 @@ import { renderStoryNavigation } from './story-navigation';
 import { renderChatContent, renderLogContent } from './chat-content';
 import { renderInventoryEffectsContent } from './inventory-effects';
 import { createChatColumn, createContactsColumn, createCharacterColumn } from './content-columns';
+import { bindGameColumnScrollbars, renderGameColumnScroll } from './column-scroll';
 
 export { renderAreaNavigationContent, renderAreaNavItem, renderStoryNavigation };
 export type { AreaNavigationState } from './area-navigation';
@@ -65,8 +66,9 @@ export function createAreaNavigationColumn(ctx: UIContext, state: AreaNavigation
     ...gamePanelAppearance('left', options),
     actions: options.actions,
     header: options.heading ?? renderPanelActionsRegion(ctx, 'left', active),
+    bind: bindGameColumnScrollbars,
     semanticRefresh: nextCtx => createAreaNavigationColumn(nextCtx, refreshState, refreshOptions),
-    content: `<div class="panel-body ui-cluster ui-cluster--left-area">${renderAreaNavigationContent(ctx, state, options.allowAreaMapEntry)}</div>`,
+    content: renderGameColumnScroll('panel-body ui-cluster ui-cluster--left-area', renderAreaNavigationContent(ctx, state, options.allowAreaMapEntry)),
   };
 }
 
@@ -80,8 +82,9 @@ export function createFacilitiesColumn(ctx: UIContext, options: SemanticColumnOp
     ...gamePanelAppearance('right', options),
     actions: options.actions,
     header: options.heading,
+    bind: bindGameColumnScrollbars,
     semanticRefresh: nextCtx => createFacilitiesColumn(nextCtx, refreshOptions),
-    content: `${options.showResources ? renderResourceStrip(ctx) : ''}<div class="panel-body ui-cluster ui-cluster--right-spot">${renderProductionNodes(ctx)}</div>`,
+    content: `${options.showResources ? renderResourceStrip(ctx) : ''}${renderGameColumnScroll('panel-body ui-cluster ui-cluster--right-spot', renderProductionNodes(ctx))}`,
   };
 }
 
@@ -94,8 +97,9 @@ export function createEnhancementsColumn(ctx: UIContext, options: SemanticColumn
     ...gamePanelAppearance('right', options),
     actions: options.actions,
     header: options.heading,
+    bind: bindGameColumnScrollbars,
     semanticRefresh: nextCtx => createEnhancementsColumn(nextCtx, refreshOptions),
-    content: `${options.showResources ? renderResourceStrip(ctx) : ''}<div class="panel-body ui-cluster ui-cluster--right-enh">${renderEnhancements(ctx)}</div>`,
+    content: `${options.showResources ? renderResourceStrip(ctx) : ''}${renderGameColumnScroll('panel-body ui-cluster ui-cluster--right-enh', renderEnhancements(ctx))}`,
   };
 }
 
@@ -107,7 +111,8 @@ export function createInventoryEffectsColumn(ctx: UIContext, options: SemanticCo
     ...gamePanelAppearance('right', options),
     actions: options.actions,
     header: options.heading,
-    content: `<div class="panel-body ui-cluster ui-cluster--right-other" data-scroll-owner="content-region">${renderInventoryEffectsContent(ctx)}</div>`,
+    bind: bindGameColumnScrollbars,
+    content: renderGameColumnScroll('panel-body ui-cluster ui-cluster--right-other', renderInventoryEffectsContent(ctx)),
   };
 }
 
@@ -119,7 +124,8 @@ export function createLogColumn(ctx: UIContext, options: SemanticColumnOptions =
     ...gamePanelAppearance('center', options),
     actions: options.actions,
     header: options.heading,
-    content: `<div class="panel-body ui-cluster ui-cluster--center-log" data-scroll-owner="content-region">${renderLogContent(ctx)}</div>`,
+    bind: bindGameColumnScrollbars,
+    content: renderGameColumnScroll('panel-body ui-cluster ui-cluster--center-log', renderLogContent(ctx)),
   };
 }
 

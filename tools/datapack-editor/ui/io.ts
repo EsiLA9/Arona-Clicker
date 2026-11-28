@@ -13,8 +13,23 @@ import type { DatapackData } from '../validate/index';
 export interface DatapackFileImport {
   datapack: DatapackData;
   manifest?: PackManifest;
-  project?: ProjectRead;
-  sourceName?: string;
+  project: Extract<ProjectRead, { status: 'complete' }>;
+  sourceName: string;
+}
+
+export async function readFormImport(files: readonly File[], directory = false): Promise<DatapackFileImport> {
+  const project = await readEditorProject(files, directory);
+  if (project.status === 'incomplete') {
+    throw new Error(project.diagnostics.map(item => `${item.path}：${item.message}`).join('\n'));
+  }
+  const file = files[0];
+  const standalone = !directory && project.files.length === 1 ? project.files[0].raw : undefined;
+  return {
+    datapack: { ...standalone, ...project.datapack },
+    manifest: project.manifest,
+    project,
+    sourceName: directory ? file.webkitRelativePath.split('/')[0] : file.name,
+  };
 }
 
 export async function readEditorProject(files: readonly File[], directory = false): Promise<ProjectRead> {
@@ -109,38 +124,34 @@ export async function copyDatapack(data: DatapackData): Promise<void> {
   await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
 }
 
-export function fileInputImport(): Promise<DatapackFileImport | null> {
+export function fileInputImport(directory = false): Promise<DatapackFileImport | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.zip,application/json,application/zip,application/x-zip-compressed';
-    input.oncancel = () => resolve(null);
+    input.hidden = true;
+    if (directory) input.setAttribute('webkitdirectory', '');
+    else input.accept = '.json,.zip,application/json,application/zip,application/x-zip-compressed';
+    const finish = (result: DatapackFileImport | null) => { input.remove(); resolve(result); };
+    input.oncancel = () => finish(null);
     input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return resolve(null);
+      const files = [...input.files ?? []];
+      if (!files.length) return finish(null);
       try {
-        if (/\.zip$/i.test(file.name) || /zip/i.test(file.type)) {
-          const project = await readEditorProject([file]);
-          if (project.status === 'incomplete') throw new Error(project.diagnostics.map(item => `${item.path}：${item.message}`).join('\n'));
-          resolve({ datapack: project.datapack as unknown as DatapackData, manifest: project.manifest, project, sourceName: file.name });
-          return;
-        }
-        const text = await file.text();
-        const datapack = JSON.parse(text) as DatapackData;
-        resolve({ datapack, project: await readEditorProject([file]), sourceName: file.name });
+        finish(await readFormImport(files, directory));
       } catch (e) {
         alert(`导入失败：${(e as Error).message}`);
-        resolve(null);
+        finish(null);
       }
     };
+    document.body.append(input);
     input.click();
   });
 }
 
-export async function pasteImport(): Promise<DatapackData | null> {
+export async function pasteImport(): Promise<DatapackFileImport | null> {
   try {
     const text = await navigator.clipboard.readText();
-    return JSON.parse(text) as DatapackData;
+    return await readFormImport([new File([text], '剪贴板.json', { type: 'application/json' })]);
   } catch (e) {
     alert(`剪贴板导入失败：${(e as Error).message}`);
     return null;

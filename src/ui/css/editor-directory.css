@@ -6,6 +6,8 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  margin-inline: calc(-1 * var(--panel-content-padding, 14px));
+  margin-block-end: calc(-1 * var(--panel-content-padding, 14px));
 }
 .editor-directory-scroll > .overlay-scrollbar { min-height: 0; flex: 1 1 auto; }
 
@@ -14,6 +16,11 @@
 .editor-explorer-search { display: grid; flex: none; gap: 4px; font-size: 12px; }
 .editor-explorer-search input { width: 100%; min-width: 0; }
 .editor-directory-scroll-body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.editor-directory-scroll .overlay-scrollbar__content {
+  box-sizing: border-box;
+  padding-inline: var(--panel-content-padding, 14px);
+  padding-block-end: var(--panel-content-padding, 14px);
+}
 .editor-directory-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-directory-name--strong { font-weight: 600; }
 .editor-directory-note { margin-inline-start: auto; color: var(--muted-on-panel); font-size: 10px; font-weight: 400; white-space: nowrap; }

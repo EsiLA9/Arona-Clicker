@@ -15,6 +15,7 @@
 }
 .overlay-scrollbar__viewport::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .overlay-scrollbar__content { min-width: 0; width: 100%; }
+.game-column-scroll__content { flex: 0 0 auto; }
 
 .overlay-scrollbar__track {
   position: absolute;
@@ -28,8 +29,8 @@
 .overlay-scrollbar__thumb {
   position: absolute;
   inset-block-start: 0;
-  inset-inline-end: 3px;
-  width: 5px;
+  inset-inline-end: 0;
+  width: 7.5px;
   min-height: 24px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ink-on-panel) 38%, transparent);

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parsePackFromZipBuffer } from '../../../src/data-services/datapack/pack-parser';
+import { jsonArchiveEntry, writeZipArchive } from '../../../src/data-services/archive/archive-writer';
 import { EditorModel } from '../model/editor-model';
-import { createDatapackPackage } from './io';
+import { createDatapackPackage, readEditorProject, readFormImport } from './io';
 
 const manifest = {
   modName: 'scene-authoring',
@@ -27,6 +28,38 @@ const operationData = {
 };
 
 describe('Datapack Editor package I/O', () => {
+  it('uses the same complete-input gate for JSON, ZIP and directory form imports', async () => {
+    const json = new File([JSON.stringify(operationData)], 'content.json');
+    const asDirectory = (name: string, value: unknown) => {
+      const file = new File([JSON.stringify(value)], name.split('/').pop()!);
+      Object.defineProperty(file, 'webkitRelativePath', { value: `pack/${name}` });
+      return file;
+    };
+    const manifestFile = asDirectory('datapack.json', manifest);
+    const nestedFile = asDirectory('world/nested/content.json', operationData);
+    const zipBytes = await createDatapackPackage(operationData, manifest);
+    const zip = new File([new Uint8Array(zipBytes)], 'pack.zip');
+    for (const imported of await Promise.all([
+      readFormImport([json]), readFormImport([zip]), readFormImport([manifestFile, nestedFile], true),
+    ])) {
+      expect(imported.project.status).toBe('complete');
+      expect(imported.datapack.operationLocations).toEqual(operationData.operationLocations);
+    }
+    expect((await readFormImport([manifestFile, nestedFile], true)).sourceName).toBe('pack');
+
+    const brokenFile = asDirectory('world/bad.json', { spots: null });
+    const brokenZipBytes = await writeZipArchive({ entries: [
+      jsonArchiveEntry('datapack.json', manifest), jsonArchiveEntry('content.json', operationData),
+      jsonArchiveEntry('world/bad.json', { spots: null }),
+    ] });
+    await expect(readFormImport([brokenFile])).rejects.toThrow('bad.json');
+    await expect(readFormImport([new File([new Uint8Array(brokenZipBytes)], 'bad.zip')])).rejects.toThrow('world/bad.json');
+    await expect(readFormImport([manifestFile, nestedFile, brokenFile], true)).rejects.toThrow('world/bad.json');
+    const partial = await readEditorProject([manifestFile, nestedFile, brokenFile], true);
+    expect(partial).toMatchObject({ status: 'incomplete' });
+    expect(partial.definitions.some(row => row.table === 'operationLocations')).toBe(true);
+  });
+
   it('exports and re-imports all Operation tables and package metadata through PackParser', async () => {
     const firstBytes = await createDatapackPackage(operationData, manifest);
     const firstParsed = await parsePackFromZipBuffer(firstBytes);

@@ -122,6 +122,87 @@ describe('Datapack 作者文件来源与布局', () => {
     expect(conflict.archive).toBeUndefined();
   });
 
+  test('把声明加入已有定义分片，保留其中的残余字段和未选声明', async () => {
+    const extension = { custom: [1, { keep: true }] };
+    const original = await readProject(new FolderPackSource([
+      json('datapack.json', manifest),
+      json('target.json', { name: manifest.name, version: manifest.version, extension, spots: [{ id: 'original' }] }),
+      json('incoming.json', { spots: [{ id: 'incoming' }] }),
+      json('settings.json', { layoutPreference: true }),
+    ]));
+    const incoming = original.definitions.find(row => row.source.path === 'incoming.json')!;
+    for (const request of [
+      { kind: 'group', by: 'custom', rules: [{ key: 'incoming', path: 'target.json' }] },
+      { kind: 'merge', occurrences: [incoming.occurrenceId], target: 'target.json' },
+    ] satisfies LayoutRequest[]) {
+      const reread = await readArchive(archive(original, request));
+      expect(reread).toMatchObject({ status: 'complete' });
+      expect(reread.files.find(file => file.path === 'target.json')).toMatchObject({ role: 'definition', raw: { extension } });
+      expect(reread.definitions.some(row => row.source.path === 'target.json' && row.value
+        && (row.value as { id: string }).id === 'incoming')).toBe(true);
+      if (request.kind === 'merge') expect(reread.files.find(file => file.path === 'target.json')?.raw?.spots)
+        .toEqual([{ id: 'original' }, { id: 'incoming' }]);
+    }
+    const conflict = planProjectLayout(original, { kind: 'merge', occurrences: [incoming.occurrenceId], target: 'settings.json' });
+    expect(conflict.archive).toBeUndefined();
+    expect(conflict.diagnostics.some(item => item.path === 'settings.json' && item.message.includes('冲突'))).toBe(true);
+  });
+
+  test('分片的未知扩展字段随全合和兼容发行保留，独立配置仍按附属文件处理', async () => {
+    const extension = { custom: [1, { keep: true }] };
+    const original = await readProject(new FolderPackSource([
+      json('datapack.json', manifest),
+      json('metadata.json', { name: manifest.name, version: manifest.version }),
+      json('definitions.json', { extension, spots: [{ id: 'spot', extension }] }),
+      json('settings.json', { other: true }),
+    ]));
+    const split = await readArchive(archive(original, { kind: 'split', by: 'entity' }));
+    expect(split.files.find(file => file.path === 'definitions.json')).toMatchObject({ role: 'definition', raw: { extension } });
+    expect(split.files.find(file => file.path === 'settings.json')).toMatchObject({ role: 'other' });
+    const full = await readArchive(archive(split, { kind: 'merge' }));
+    expect(full.files.find(file => file.path === 'content.json')?.raw).toMatchObject({ extension, spots: [{ extension }] });
+    expect(full.files.some(file => file.path === 'settings.json')).toBe(true);
+    const compatible = planProjectLayout(full, { kind: 'merge', compatible: true });
+    expect(compatible.omitted).toEqual(['settings.json']);
+    expect(compatible.requiresLayoutReader).toBe(false);
+    const source = await openZipPackSource(await writeZipArchive(compatible.archive!));
+    expect((await readProject(source)).files.find(file => file.path === 'content.json')?.raw).toMatchObject({ extension });
+    expect((await parsePack(source)).datapack.spots[0]).toMatchObject({ id: 'spot', extension });
+  });
+
+  test('交错顺序校验重复键和缺键，拒绝手改后的歧义位置', async () => {
+    const records = [{ id: 'same', name: 'First' }, { id: 'unique', name: 'Middle' }, { id: 'same', name: 'Last' }, { name: 'No ID' }];
+    const original = await readProject(new FolderPackSource([
+      json('datapack.json', manifest),
+      json('content.json', { name: manifest.name, version: manifest.version, spots: records }),
+    ]));
+    const moved = archive(original, {
+      kind: 'group', by: 'custom', rules: [{ key: 'same', path: 'a.json' }, { key: 'unique', path: 'm.json' }],
+      overrides: { [original.definitions[3].occurrenceId]: 'z.json' },
+    });
+    const layoutText = moved.entries.find(file => file.path === PROJECT_LAYOUT_PATH)!.content;
+    expect(typeof layoutText).toBe('string');
+    const positions = JSON.parse(String(layoutText)).order.spots;
+    expect(positions.map((position: { fingerprint?: string }) => Boolean(position.fingerprint))).toEqual([true, false, true, true]);
+    expect(await readArchive(moved)).toMatchObject({ status: 'complete', datapack: { spots: records } });
+    const edit = (path: string, content: string) => readArchive({
+      entries: moved.entries.map(file => file.path === path ? { path, content } : file),
+    });
+    const swapped = await edit('a.json', JSON.stringify({ spots: [records[2], records[0]] }));
+    const replacingMissing = await edit('z.json', JSON.stringify({ spots: [{ name: 'Replacement' }] }));
+    for (const invalid of [swapped, replacingMissing]) {
+      expect(invalid).toMatchObject({ status: 'incomplete' });
+      expect(invalid.diagnostics[0].message).toContain('无法确认原声明');
+    }
+    expect(await edit('a.json', '{ "spots": [{ "name": "First", "id": "same" }, {"name":"Last", "id":"same"}] }'))
+      .toMatchObject({ status: 'complete' });
+    expect(await edit('m.json', '{"spots":[{"id":"unique","name":"Edited"}]}')).toMatchObject({ status: 'complete' });
+    expect(await edit('m.json', '{"spots":[{"id":"renamed","name":"Edited"}]}'))
+      .toMatchObject({ status: 'incomplete', diagnostics: [{ path: PROJECT_LAYOUT_PATH, message: expect.stringContaining('m.json#/spots/0') }] });
+    delete positions[3].fingerprint;
+    expect(await edit(PROJECT_LAYOUT_PATH, JSON.stringify({ order: { spots: positions } }))).toMatchObject({ status: 'incomplete' });
+  });
+
   test('缺失本地 Pic 资产只能浏览和定位，培养曲线可按键重组', async () => {
     const missing = await readProject(new SingleFilePackSource(json('content.json', {
       pics: [{ id: 'pic', src: 'zip:assets/absent.png' }],

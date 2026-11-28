@@ -88,10 +88,8 @@ export function createOverlayScrollbar(initial: OverlayScrollbarBinding): Overla
       binding.root.setAttribute('data-overlay-scrollbar-visible', '');
       return;
     }
-    const rect = binding.track.getBoundingClientRect();
-    const hitWidth = Math.min(rect.width, 12);
-    const inside = event.clientX >= rect.right - hitWidth && event.clientX <= rect.right
-      && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    const target = event.target;
+    const inside = target instanceof Node && binding.root.contains(target);
     binding.root.toggleAttribute('data-overlay-scrollbar-visible', inside);
   };
 
@@ -116,6 +114,20 @@ export function createOverlayScrollbar(initial: OverlayScrollbarBinding): Overla
   };
   const onScroll = (event: Event): void => {
     if (event.target === binding.viewport) refresh();
+  };
+  const onWheel = (event: WheelEvent): void => {
+    const target = event.target;
+    const size = geometry();
+    if (!binding.track.contains(target instanceof Node ? target : null) || !size) return;
+    const multiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? 16
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? binding.viewport.clientHeight : 1;
+    const previousScrollTop = binding.viewport.scrollTop;
+    const nextScrollTop = Math.max(0, Math.min(size.range, previousScrollTop + event.deltaY * multiplier));
+    if (nextScrollTop === previousScrollTop) return;
+    binding.viewport.scrollTop = nextScrollTop;
+    if (event.cancelable) event.preventDefault();
+    refresh();
   };
   const onPointerDown = (event: PointerEvent): void => {
     const size = geometry();
@@ -143,8 +155,10 @@ export function createOverlayScrollbar(initial: OverlayScrollbarBinding): Overla
     listeners = new AbortController();
     const options = { signal: listeners.signal };
     binding.root.addEventListener('scroll', onScroll, { ...options, capture: true });
-    // Capture pointer movement over the viewport so the hidden hit strip never intercepts content.
+    // Hover detection spans the scroll region; the track itself remains pointer-transparent.
     binding.root.addEventListener('pointermove', onPointerMove, { ...options, capture: true });
+    // The visible thumb is a sibling of the native viewport; forward wheel input to its scroll owner.
+    binding.root.addEventListener('wheel', onWheel, { ...options, capture: true, passive: false });
     binding.root.addEventListener('pointerleave', () => {
       if (!drag) binding.root.removeAttribute('data-overlay-scrollbar-visible');
     }, options);

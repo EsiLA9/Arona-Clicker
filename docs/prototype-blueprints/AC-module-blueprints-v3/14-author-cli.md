@@ -44,6 +44,6 @@ interface CommandResponse<T> {
 
 ## 5. 制作路线及文档维护
 
-M14-A：先接 M01 首批布局工具，与独立 UI 共用读入、拆合、分组、预览和副本输出。实际入口采用 [Task 0437](../../../ai/plan/task-0437-datapack-layout-tools.md) 登记的 CLI。M02/M03 后续将 schema/find/refs/check 接至同一命令体系。M14-B：接构建、批量修改计划和保存回执。M14-C：接 M07 文本、M08 试播和实际能力帮助。M14-D：接 M13 批导和 Agent 作者快速上手。旧脚本可按真实调用保留薄包装，业务规则使用共享服务。
+M14-A：M01 的文件组织 CLI 已通过 [独立工具与 CLI 现行入口](../../docs-830/07-tooling/datapack-editor-and-schema.md) 交付。下一步由 [Task 0440](../../../ai/plan/task-0440-datapack-definition-catalog.md) 和 [Task 0441](../../../ai/plan/task-0441-datapack-reference-index.md) 在现有命令接 find 和 refs。Schema 字段查询及 M03 检查按消费者接入。M14-B 接构建、批量修改计划和保存回执。M14-C 接 M07 文本、M08 试播和实际能力帮助。M14-D 接 M13 批导和 Agent 作者快速上手。旧脚本可保留薄包装，业务规则使用共享服务。
 
 验收：新 Agent 仅靠真实帮助和命令完成一次创建/修改、诊断修复、构建和运行；坏输入退出码与位置可读，旧报告不冒充新版本，权限/冲突不覆盖数据，构建失败保留旧包，试播不写正式存档。至少一条实际 CLI 与真实 UI 对照；不可执行的候选命令不能标为已交付。工程测试仍使用原 `npm test` 等工具。

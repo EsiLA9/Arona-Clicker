@@ -10,7 +10,7 @@ import { PROJECT_LAYOUT_PATH } from './source';
 
 export { PROJECT_LAYOUT_PATH } from './source';
 const MANIFEST_PATH = 'datapack.json';
-const metadataKeys = ['name', 'version', 'modName', 'extras', ...DATAPACK_SINGLETON_FIELDS];
+const fragmentFields = ['name', 'version', 'extras', ...DATAPACK_SINGLETON_FIELDS];
 
 export interface SourcePoint {
   packageRef?: string;
@@ -40,7 +40,15 @@ export interface DefinitionRecord {
 
 export interface ProjectLayout {
   standalone?: true;
-  order?: Record<string, { path: string; index: number; key?: string }[]>;
+  definitionFiles?: string[];
+  order?: Record<string, ProjectOrderPosition[]>;
+}
+
+export interface ProjectOrderPosition {
+  path: string;
+  index: number;
+  key?: string;
+  fingerprint?: string;
 }
 
 interface ProjectReadBase {
@@ -67,6 +75,29 @@ export function projectEntityKey(value: unknown): string | undefined {
   const record = projectRecord(value);
   const key = record?.id ?? record?.resourceId;
   return typeof key === 'string' && key ? key : undefined;
+}
+
+export function hasProjectFragmentFields(raw: Record<string, unknown>): boolean {
+  return Object.keys(raw).some(field => isListField(field) || fragmentFields.includes(field));
+}
+
+export function orderKeyCounts(positions: Iterable<string | undefined>): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const key of positions) if (key !== undefined) counts.set(key, (counts.get(key) ?? 0) + 1);
+  return counts;
+}
+
+/** Detect edits to ambiguous rows within a layout copy, without assigning them an identity. */
+export function projectOrderFingerprint(value: unknown): string {
+  const canonical = JSON.stringify(value, (_key, nested: unknown) => {
+    const record = projectRecord(nested);
+    return record ? Object.fromEntries(Object.keys(record).sort().map(key => [key, record[key]])) : nested;
+  });
+  let hash = 0xcbf29ce484222325n;
+  for (let i = 0; i < canonical.length; i++) {
+    hash = BigInt.asUintN(64, (hash ^ BigInt(canonical.charCodeAt(i))) * 0x100000001b3n);
+  }
+  return hash.toString(16).padStart(16, '0');
 }
 
 export function normalizeProjectPath(path: string): string {
@@ -112,6 +143,8 @@ export async function readProject(source: PackSource): Promise<ProjectRead> {
       if (role === 'layout') {
         const info = projectRecord(decoded);
         if (!info || (info.standalone !== undefined && info.standalone !== true)
+          || (info.definitionFiles !== undefined && (!Array.isArray(info.definitionFiles)
+            || info.definitionFiles.some(path => typeof path !== 'string')))
           || (info.order !== undefined && !projectRecord(info.order))) throw new Error('布局附属文件格式无效。');
         layout = info as ProjectLayout;
         continue;
@@ -123,8 +156,7 @@ export async function readProject(source: PackSource): Promise<ProjectRead> {
       const raw = projectRecord(decoded);
       if (!raw) throw new Error('Datapack 分片必须是 JSON 对象。');
       file.raw = raw;
-      const keys = Object.keys(raw);
-      if (source.kind !== 'file' && !keys.some(key => isListField(key) || metadataKeys.includes(key))) {
+      if (source.kind !== 'file' && !hasProjectFragmentFields(raw)) {
         file.role = 'other';
         continue;
       }
@@ -146,6 +178,20 @@ export async function readProject(source: PackSource): Promise<ProjectRead> {
       fragments.set(entry.path, parseFragmentValue(entry.path, structuredClone(raw)));
       if (typeof raw.modName === 'string') standaloneModName ??= raw.modName;
     } catch (error) { report(entry.path, error); }
+  }
+  if (layout?.definitionFiles) {
+    const byPath = new Map(result.files.map(file => [file.path, file]));
+    const declared = new Set<string>();
+    for (const path of layout.definitionFiles) {
+      const file = byPath.get(path);
+      if (declared.has(path) || !file?.raw || (file.role !== 'other' && file.role !== 'definition')) {
+        report(PROJECT_LAYOUT_PATH, `定义分片记录重复或失效：${path}。`);
+        continue;
+      }
+      declared.add(path);
+      file.role = 'definition';
+      if (!result.manifest && typeof file.raw.modName === 'string') standaloneModName ??= file.raw.modName;
+    }
   }
   if (!result.manifest && source.kind !== 'file' && !layout?.standalone && !seen.has(MANIFEST_PATH)) {
     report(MANIFEST_PATH, '缺少根目录包清单。');
@@ -179,22 +225,36 @@ function applyProjectOrder(
   if (!layout?.order) return;
   const projection = datapack as unknown as Record<string, unknown>;
   const byLocation = new Map(definitions.map(row => [row.occurrenceId, row]));
+  const validated: { table: string; rows: DefinitionRecord[]; values: unknown[] }[] = [];
   for (const [table, positions] of Object.entries(layout.order)) {
+    const declarations = definitions.filter(row => row.table === table);
     if (!isListField(table) || !Array.isArray(positions)
-      || positions.length !== definitions.filter(row => row.table === table).length) {
+      || positions.length !== declarations.length) {
       throw new Error(`顺序记录没有覆盖 ${table} 的全部声明。`);
     }
+    const counts = orderKeyCounts(declarations.map(row => projectEntityKey(row.value)));
     const used = new Set<string>();
-    projection[table] = positions.map((position, ordinal) => {
+    const rows: DefinitionRecord[] = [];
+    const values = positions.map(position => {
       const location = JSON.stringify([position?.path, `/${table}/${position?.index}`]);
       const row = byLocation.get(location);
-      if (!row || !Number.isInteger(position.index) || used.has(location)
-        || (position.key !== undefined && projectEntityKey(row.value) !== position.key)) {
+      if (!row || !Number.isInteger(position.index) || used.has(location)) {
         throw new Error(`顺序记录中的 ${table} 来源失效或重复。`);
       }
+      const key = projectEntityKey(row.value);
+      const needsFingerprint = key === undefined || counts.get(key) !== 1;
+      if (position.key !== key || (needsFingerprint && position.fingerprint === undefined)
+        || (position.fingerprint !== undefined && projectOrderFingerprint(row.value) !== position.fingerprint)) {
+        throw new Error(`顺序记录失效：${position.path}#/${table}/${position.index} 无法确认原声明。请从原始输入重新导出布局。`);
+      }
       used.add(location);
-      row.ordinal = ordinal;
+      rows.push(row);
       return fragments.get(position.path)!.lists[table]![position.index];
     });
+    validated.push({ table, rows, values });
+  }
+  for (const { table, rows, values } of validated) {
+    rows.forEach((row, ordinal) => { row.ordinal = ordinal; });
+    projection[table] = values;
   }
 }

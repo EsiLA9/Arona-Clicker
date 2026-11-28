@@ -112,7 +112,7 @@ interface SaveResult {
 | 全包合一 | 生成全部有序定义的单 JSON；资产独立；旧清单保持身份 | 不把图片/音频当作定义文本，不重复编译 DSL 与生成 JSON |
 | 快速层级化 | 按表、明确 Init 归属、角色显式映射、Story 系列或手工路径分组；多归属进入共享/待分组 | 不凭正文名字猜角色，不改变游戏目录或触发条件 |
 
-例：原 `passiveStories=[A,B,C]`，A/C 放在一个文件、B 放另一文件。作者副本可按局部顺序回读为 A/B/C，有序合一后的兼容产物得到同样结果。按表核对实际消费者，证明无序的表可自由调整。全拆、分组、选合、全合可用每次输出继续执行。详细规则和反例见 [Task 0436](../../../ai/plan/task-0436-datapack-layout-transform.md)。
+例：原 `passiveStories=[A,B,C]`，A/C 放在一个文件、B 放另一文件。作者副本可按局部顺序回读，有序合一后的兼容产物得到同样结果。全拆、分组、选合、全合可用每次输出继续执行。现行规则见 [包 I/O 与定义来源层](../../docs-830/02-data-and-state/package-io-and-source-layers.md)。
 
 同包重复 ID、单例重复、extras 键冲突和未知顶层字段在源中保留并定位。旧导入可提供旧合并结果对照，但不能无提示折叠冲突。未知字段原样保存；无法无损合一时阻止该转换，允许保留未处理的原文件。已知对象内的未识别字段随对象完整复制。作者布局中 DSL 与 JSON 可同时存在但同一实体只有一个作者声明；反向转换并取代源须独立确认并保证完整。发行默认生成旧 Runtime 可读取的单 JSON + 资产，由 M03 决定发行形式。
 
@@ -124,8 +124,8 @@ interface SaveResult {
 
 ## 6. 建设阶段与旧职责退出
 
-1. M01-A 对应 [Task 0435](../../../ai/plan/task-0435-datapack-multifile-source.md)。复用 `PackSource`、`parseFragment`、`mergeFragments` 读入目录、ZIP 和单 JSON，保留原位及未知项，继续提供旧严格加载结果。用 Base 分片、bundle、addition-test 目录和两个 ZIP 各自对照。
-2. M01-B 对应 [Task 0436](../../../ai/plan/task-0436-datapack-layout-transform.md) 和 [Task 0437](../../../ai/plan/task-0437-datapack-layout-tools.md)。共用布局计划先交付拆合，再提供类型、Init、角色、系列及自定义分组和手工预览。独立工具与 CLI 真实接入并输出新副本。Base 当前调用可继续使用原脚本。
+1. M01-A（Task 0435）已验收归档。`project-source.ts:readProject` 复用 PackSource 和分片解析，保留原位、未完成范围与未知项。严格运行加载仍可用。
+2. M01-B（Tasks 0436–0437）已验收归档。`project-layout.ts:planProjectLayout` 提供拆合、五种分组与手工预览。独立工具和 CLI 已接入副本输出，使用方式见 [独立 Datapack Editor 与 Schema](../../docs-830/07-tooling/datapack-editor-and-schema.md)。
 3. M01-C 对应 [Task 0438](../../../ai/plan/task-0438-datapack-source-save.md)。接真实可写宿主和 M04 字段保存，先验证单文件两个实体，再扩到外部冲突、多文件及恢复。只读入口仍可导出副本。
 4. M01-D 对应 [Task 0439](../../../ai/plan/task-0439-datapack-pipeline-convergence.md)。首批完成后可迁移 Base 实际导出、独立工具与 CLI，退出重复分片和资产组装。正式构建随 M03，只有实际写回的接线依赖 M01-C。保留 Base TS 原始构建与测试。正式 Base 权威源、运行切换和历史差异另行裁定。
 

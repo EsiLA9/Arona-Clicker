@@ -10,6 +10,7 @@ import type { EditorPackageMetadata } from '../model/editor-model';
 import { TABLES } from '../schema/datapack.schema.ts';
 import type { TableKey } from '../schema/types';
 import { copyDatapack, downloadDatapack, downloadDatapackPackage, loadDefaultDatapack, pasteImport, fileInputImport } from './io';
+import type { DatapackFileImport } from './io';
 import { renderList, type Selection } from './components/list-view';
 import { renderDetail } from './components/detail-view';
 import { NaviService } from './navi';
@@ -102,17 +103,9 @@ function renderToolbar(): void {
   actions.appendChild(toolBtn('⟳ 重做', () => model.redo(), !model.canRedo()));
   actions.appendChild(toolBtn('校验', () => renderErrors(model.validate())));
   actions.appendChild(toolBtn('加载默认数据', () => { fileLayout.setSource(undefined); model.loadDatapack(loadDefaultDatapack()); }));
-  actions.appendChild(toolBtn('导入文件', async () => {
-    const imported = await fileInputImport();
-    if (imported) {
-      fileLayout.setSource(imported.project, imported.sourceName);
-      model.loadDatapack(imported.datapack, imported.manifest);
-    }
-  }));
-  actions.appendChild(toolBtn('粘贴导入', async () => {
-    const d = await pasteImport();
-    if (d) { fileLayout.setSource(undefined); model.loadDatapack(d); }
-  }));
+  actions.appendChild(toolBtn('导入文件', async () => importIntoForm(await fileInputImport())));
+  actions.appendChild(toolBtn('导入目录', async () => importIntoForm(await fileInputImport(true))));
+  actions.appendChild(toolBtn('粘贴导入', async () => importIntoForm(await pasteImport())));
   actions.appendChild(toolBtn('复制当前表', () => void copyTableJson()));
   actions.appendChild(toolBtn('复制全量', () => void copyDatapack(model.toDatapack())));
   actions.appendChild(toolBtn('下载', () => downloadDatapack(model.toDatapack())));
@@ -123,6 +116,12 @@ function renderToolbar(): void {
   actions.appendChild(renderPackageMetadataEditor());
 
   toolbarEl.append(title, actions);
+}
+
+function importIntoForm(imported: DatapackFileImport | null): void {
+  if (!imported) return;
+  fileLayout.setSource(imported.project, imported.sourceName);
+  model.loadDatapack(imported.datapack, imported.manifest);
 }
 
 function renderPackageMetadataEditor(): HTMLElement {

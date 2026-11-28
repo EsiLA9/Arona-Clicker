@@ -57,7 +57,7 @@
 
 ## 5. 数据合同唯一出处
 
-M01 定义 SourcePoint、EntityKey、Owner、DefinitionRecord、ProjectRead 和文件写入请求；M02 定义字段、目录、引用；M03 定义 Diagnostic 的规则归属（基础类型在 M01）、检查/构建/应用结果；M04 定义 Draft 与 Edit；M07 定义 TextWork/Output；M08 定义 PreviewInput/Trace。各消费方引用这些类型，不另起名称不同但含义相同的协议。M09–M12 的玩家事实归各自领域所有，M12 的持久交付记录不是通用事件总账。
+M01 当前定义 SourcePoint、DefinitionRecord、ProjectRead 和读入诊断，后续扩展源文件写入。M02 在现有声明上定义领域逻辑键、目录、字段与引用。M03 定义检查、构建及应用，复用来源定位。M04 定义 Draft 与 Edit，M07 定义 TextWork/Output，M08 定义 PreviewInput/Trace。M09–M12 的玩家事实归各自领域，M12 的持久交付记录服务该领域的可靠投放。
 
 ## 6. 资料与变更控制
 

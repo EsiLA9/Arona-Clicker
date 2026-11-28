@@ -17,7 +17,7 @@ Engine / Datapack TypeScript 契约
 
 ## 导入与导出
 
-`io.ts` 支持加载默认分片、导入 JSON / ZIP、复制 JSON、下载 JSON / ZIP。ZIP 导入复用 Data Services 的项目读入，现有表单 ZIP 导出写出 `datapack.json` manifest 和内容 fragment。导入的数据进入独立 `EditorModel`，编辑器不会直接修改已运行游戏的 Registry 或玩家状态。
+`io.ts` 支持加载默认分片、导入 JSON / ZIP / 目录、复制 JSON、下载 JSON / ZIP。文件和目录复用 Data Services 的项目读取，只有完整的结果进入独立 `EditorModel`。表单 ZIP 导出写出 `datapack.json` manifest 和内容 fragment。编辑器不会直接修改已运行游戏的 Registry 或玩家状态。
 
 「文件组织」是独立编辑器侧栏入口。左侧查看按文件定位的声明，右侧预览拆合或分组后的目标树。可以打开目录、ZIP 或 JSON，按表／实体拆分，选合或全合，按类型、Init、角色、Story 系列或自定义规则分组。路径调整按文件或声明指定。确认导出新 ZIP，可再次打开继续转换。源数据是本次导入的文件内容，表单内改动另行保留。坏文件可定位，完整转换需要成功读入。
 
